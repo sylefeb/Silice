@@ -197,10 +197,16 @@ private:
     /// \brief VIO bound to module/algorithms inouts (vio name => inout)
     std::unordered_map<std::string, std::string > m_VIOToBlueprintInOutsBound;
 
+    // forward definition of combinational blocks
+    class t_combinational_block;
+
     /// \brief all variables
     std::vector< t_var_nfo >              m_Vars;
     /// \brief all var names, map contains index in m_Vars
     std::unordered_map<std::string, int > m_VarNames;
+    /// \brief all temporaries initialized with expressions
+    /// their types are dermined upon instantations by determineTemporaries
+    std::unordered_map<siliceParser::Expression_0Context *, std::pair<std::string, const t_combinational_block *> > m_Temporaries;
 
     /// \brief all memories
     std::vector< t_mem_nfo >              m_Memories;
@@ -221,9 +227,6 @@ private:
       e_BindingDir    dir;
       Utils::t_source_loc srcloc;
     } t_binding_nfo;
-
-    // forward definition of combinational blocks
-    class t_combinational_block;
 
     /// \brief information about a forward jump
     typedef struct {
@@ -279,7 +282,7 @@ private:
     /// a group identifier
     /// expression is always the source expression (even if a group)
     typedef struct s_call_param  {
-      antlr4::tree::ParseTree  *expression = nullptr;
+      siliceParser::Expression_0Context *expression = nullptr;
       std::variant<
         std::monostate,                     // empty
         std::string,                        // identifier
@@ -671,12 +674,16 @@ private:
     std::string gatherBitfieldValue(siliceParser::InitBitfieldContext* ival);
     /// \brief gather a value
     std::string gatherValue(siliceParser::ValueContext* ival);
-    /// \brief insert a variable in the data-structures (lower level than addVar, use to insert any var), return the index in m_Vars of the inserted var
+    /// \brief insert a variable in the data-structures (lower level than addVar, no renaming)
     void insertVar(const t_var_nfo &_var, t_combinational_block *_current);
     /// \brief add a variable from its definition (_var may be modified with an updated name)
     void addVar(t_var_nfo& _var, t_combinational_block *_current, const Utils::t_source_loc& srcloc);
     /// \brief check if an identifier is available
     bool isIdentifierAvailable(std::string name) const;
+    /// \brief returns the name of a temporary from the expression and its context
+    std::string temporaryName(siliceParser::Expression_0Context *expr, const t_combinational_block *_current, int __id) const;
+    /// \brief create a temporary for an expression
+    void makeTemporary(siliceParser::Expression_0Context *expr, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather type nfo
     void gatherTypeNfo(siliceParser::TypeContext *type,t_type_nfo &_nfo, const t_combinational_block *_current, std::string& _is_group);
     /// \brief gather wire declaration
@@ -816,8 +823,8 @@ private:
     void parseCallParams(siliceParser::CallParamListContext *params, const Algorithm *alg, bool input_else_output, const t_combinational_block_context *bctx, std::vector<t_call_param> &_matches) const;
     /// \brief parse call parameters for a subroutine
     void parseCallParams(siliceParser::CallParamListContext *params, const t_subroutine_nfo *sub, bool input_else_output, const t_combinational_block_context *bctx, std::vector<t_call_param> &_matches) const;
-    /// \brief extract the ordered list of identifiers
-    void getIdentifiers(siliceParser::IdOrIoAccessListContext* idents, std::vector<std::string>& _vec_params, t_combinational_block* _current);
+    /// \brief extract the ordered list of identifiers, creating temporaries if needed
+    void getIdentifiers(siliceParser::CallParamListContext *params, std::vector<std::string>& _vec_params, t_combinational_block* _current, t_gather_context* _context);
     /// \brief parsing, first discovery pass
     t_combinational_block *gather(antlr4::tree::ParseTree *tree, t_combinational_block *_current, t_gather_context *_context);
     /// \brief resolves forward references for jumps for a given fsm
@@ -939,6 +946,8 @@ private:
       std::unordered_set<std::string> &_global_in_read,
       std::unordered_set<std::string> &_global_out_written
     );
+    /// \brief determine the type of temporaries from their expressions
+    void determineTemporaries(const t_instantiation_context& ictx);
     /// \brief analyze variables access and classifies variables
     void determineUsage();
     /// \brief determines the list of bound VIO

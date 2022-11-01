@@ -1,9 +1,9 @@
-circuitry test_circuit() // expected to trigger an error, cannot be empty
+circuitry test_circuit() // empty circuit
 {
 
 }
 
-algorithm main(output uint8 led)
+algorithm main(output uint8 leds)
 {
-
+  () = test_circuit();
 }

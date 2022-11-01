@@ -1,11 +1,12 @@
 circuitry test_circuit(input a,output b)
 {
-  b = a; 
+  b = a + 2;
 }
 
-algorithm main(output uint8 led)
+algorithm main(output uint8 leds)
 {
   uint8 a = 0;
   uint8 c = 3;
-  (led) = test_circuit(c);
+  (leds) = test_circuit(c);
+	__display("%d",leds);
 }

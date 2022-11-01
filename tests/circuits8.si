@@ -1,0 +1,12 @@
+
+circuitry test_circuit(input a,output b)
+{
+  b = a + 1;
+}
+
+algorithm main(output uint8 leds)
+{
+  uint8 v(100);
+  (leds) = test_circuit(1+5+v);
+  __display("%d",leds);
+}

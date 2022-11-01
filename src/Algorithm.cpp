@@ -506,15 +506,19 @@ std::string Algorithm::gatherValue(siliceParser::ValueContext* ival)
 
 void Algorithm::insertVar(const t_var_nfo &_var, t_combinational_block *_current)
 {
+  // in subroutine?
   t_subroutine_nfo *sub = nullptr;
   if (_current) {
     sub = _current->context.subroutine;
   }
+  // add to vars
   m_Vars    .emplace_back(_var);
   m_VarNames.insert(std::make_pair(_var.name, (int)m_Vars.size() - 1));
+  // add to subroutine vars
   if (sub != nullptr) {
     sub->varnames.insert(std::make_pair(_var.name, (int)m_Vars.size() - 1));
   }
+  // initialized?
   if (!_var.do_not_initialize && !_var.init_at_startup) {
     // add to block initialization set
     _current->initialized_vars.insert(make_pair(_var.name, (int)m_Vars.size() - 1));
@@ -528,6 +532,7 @@ void Algorithm::insertVar(const t_var_nfo &_var, t_combinational_block *_current
 
 void Algorithm::addVar(t_var_nfo& _var, t_combinational_block *_current, const Utils::t_source_loc& srcloc)
 {
+  // in subroutine?
   t_subroutine_nfo *sub = nullptr;
   if (_current) {
     sub = _current->context.subroutine;
@@ -2523,43 +2528,34 @@ void Algorithm::findNonCombinationalLeaves(const t_combinational_block *head, st
 // -------------------------------------------------
 
 void Algorithm::getIdentifiers(
-  siliceParser::IdOrIoAccessListContext*  idents,
+  siliceParser::CallParamListContext    *params,
   vector<string>&                        _vec_params,
-  t_combinational_block*                 _current)
+  t_combinational_block*                 _current,
+  t_gather_context*                      _context)
 {
-  // go through indentifier list
-  while (idents != nullptr) {
+  // get as parameter list
+  std::vector<t_call_param> parsed_params;
+  getCallParams(params, parsed_params, &_current->context);
+  // go through list
+  for (const auto& prm : parsed_params) {
     std::string var;
-    if (idents->idOrIoAccess() != nullptr) {
-      if (idents->idOrIoAccess()->IDENTIFIER() != nullptr) {
-        var = idents->idOrIoAccess()->IDENTIFIER()->getText();
+    if (std::holds_alternative<std::string>(prm.what)) { // given param is an identifier, no temporary needed
+      var = std::get<std::string>(prm.what);
+    } else if (std::holds_alternative<siliceParser::AccessContext*>(prm.what)) {
+      var = determineAccessedVar(std::get<siliceParser::AccessContext*>(prm.what), &_current->context);
+    } else if (std::holds_alternative<const t_group_definition *>(prm.what)) {
+      std::string identifier;
+      if (isIdentifier(prm.expression, identifier)) {
+        var = identifier;
       } else {
-        var = determineAccessedVar(idents->idOrIoAccess()->ioAccess(), &_current->context);
+        sl_assert(false);
       }
-    } else if (idents->constValue() != nullptr) {
-      if (idents->constValue()->CONSTANT() == nullptr) {
-        reportError(sourceloc(idents, idents->getSourceInterval()), "constants in circuitry instantiations have to be sized (e.g. 8h00)");
-      }
-      // get the constant
-      std::string cst = gatherConstValue(idents->constValue());
-      t_type_nfo cnfo;
-      constantTypeInfo(idents->constValue()->getText(), cnfo);
-      // create a dummy var
-      static int count = 0;
-      t_var_nfo vnfo;
-      vnfo.type_nfo = cnfo;
-      vnfo.do_not_initialize = false;
-      vnfo.init_at_startup = true;
-      vnfo.init_values.push_back(cst);
-      vnfo.name = "circ_" + std::to_string(count++);
-      addVar(vnfo, _current, sourceloc(idents, idents->getSourceInterval()));
-      // use this var
-      var = vnfo.name;
     } else {
-      break;
+      // general case of an expression, go through a temporary
+      makeTemporary(prm.expression, _current, _context);
+      var = temporaryName(prm.expression, _current, _context->__id);
     }
     _vec_params.push_back(var);
-    idents = idents->idOrIoAccessList();
   }
 }
 
@@ -2597,8 +2593,8 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
   }
   // -> get identifiers
   vector<string> ins_idents, outs_idents;
-  getIdentifiers(ci->ins, ins_idents, _current);
-  getIdentifiers(ci->outs, outs_idents, _current);
+  getIdentifiers(ci->ins, ins_idents, _current, _context);
+  getIdentifiers(ci->outs, outs_idents, _current, _context);
   // -> checks
   if (ins.size() != ins_idents.size()) {
     reportError(sourceloc(ci->IDENTIFIER()), "Incorrect number of inputs in circuitry instanciation (circuitry '%s')", name.c_str());
@@ -2735,6 +2731,36 @@ Algorithm::t_combinational_block *Algorithm::gatherRepeatBlock(siliceParser::Rep
 
 // -------------------------------------------------
 
+std::string Algorithm::temporaryName(siliceParser::Expression_0Context *expr, const t_combinational_block *_current, int __id) const
+{
+  return "temp_" + std::to_string(expr->getStart()->getLine())
+    + "_" + std::to_string(expr->getStart()->getCharPositionInLine())
+    + (__id >= 0 ? "_" + std::to_string(__id) : "");
+}
+
+// -------------------------------------------------
+
+void Algorithm::makeTemporary(siliceParser::Expression_0Context *expr, t_combinational_block *_current, t_gather_context *_context)
+{
+  // allocate a variable to hold the expression result (this will become a temporary)
+  t_var_nfo var;
+  var.name = temporaryName(expr, _current, _context->__id);
+  // we cannot yet determine the type of the var, this will be done in determineTemporaries
+  // var.type_nfo
+  var.table_size = 0;
+  var.init_values.push_back("0");
+  var.init_at_startup  = false;
+  var.do_not_initialize = true;
+  insertVar(var, _current);
+  // insert in temporaries
+  int idx = m_VarNames.at(var.name);
+  m_Temporaries.insert(std::make_pair(expr,std::make_pair(var.name,_current)));
+  // insert a custom assignment instruction for this temporary
+  _current->instructions.push_back(t_instr_nfo(expr,_current,_context->__id));
+}
+
+// -------------------------------------------------
+
 void Algorithm::gatherAlwaysAssigned(siliceParser::AlwaysAssignedListContext* alws, t_combinational_block *always)
 {
   while (alws) {
@@ -2747,7 +2773,7 @@ void Algorithm::gatherAlwaysAssigned(siliceParser::AlwaysAssignedListContext* al
       }
       // check for double flip-flop
       if (alw->ALWSASSIGNDBL() != nullptr) {
-        // insert temporary variable
+        // insert variable
         t_var_nfo var;
         var.name = "delayed_" + std::to_string(alw->getStart()->getLine()) + "_" + std::to_string(alw->getStart()->getCharPositionInLine());
         t_type_nfo typenfo = determineAccessTypeAndWidth(nullptr, alw->access(), alw->IDENTIFIER());
@@ -4601,6 +4627,24 @@ void Algorithm::determineVIOAccess(
         recurse = false;
       }
     } {
+      auto expr = dynamic_cast<siliceParser::Expression_0Context *>(node);
+      if (expr) {
+        // try to retrieve temporary var if it exists for this expression
+        auto T = m_Temporaries.find(expr);
+        if (T == m_Temporaries.end()) {
+          // no: nothing to do
+        } else {
+          string var = T->second.first;
+          // tag it as written
+          var = translateVIOName(var, bctx);
+          if (vios.find(var) != vios.end()) {
+            _written.insert(var);
+          }
+        }
+        // recurse
+        recurse = true;
+      }
+    } {
       auto sync = dynamic_cast<siliceParser::SyncExecContext*>(node);
       if (sync) {
         // calling a subroutine?
@@ -5726,6 +5770,19 @@ void Algorithm::resolveInOuts()
 
 // -------------------------------------------------
 
+void Algorithm::determineTemporaries(const t_instantiation_context& ictx)
+{
+  ExpressionLinter linter(this, ictx);
+  for (const auto& tmp : m_Temporaries) {
+    // retrieve the var
+    int idx = m_VarNames.at(tmp.second.first);
+    // lint and get the type
+    linter.typeNfo(tmp.first,&tmp.second.second->context,m_Vars.at(idx).type_nfo);
+  }
+}
+
+// -------------------------------------------------
+
 void Algorithm::optimize(const t_instantiation_context& ictx)
 {
   if (!m_Optimized) {
@@ -5757,6 +5814,8 @@ void Algorithm::optimize(const t_instantiation_context& ictx)
     determineBlueprintBoundVIO(ictx);
     // analyze instances inputs
     analyzeInstancedBlueprintInputs();
+    // determine type of temporaries
+    determineTemporaries(ictx);
     // check var access permissions
     checkPermissions();
     // analyze variables access
@@ -7274,34 +7333,52 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
     } {
       auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext *>(a.instr);
       if (alw) {
-          // check if this always assignment is on a wire var, if yes, skip it
-          bool skip = false;
-          // -> determine assigned var
-          string var;
-          if (alw->IDENTIFIER() != nullptr) {
-            var = translateVIOName(alw->IDENTIFIER()->getText(), &block->context);
+        // check if this always assignment is on a wire var, if yes, skip it
+        bool skip = false;
+        // -> determine assigned var
+        string var;
+        if (alw->IDENTIFIER() != nullptr) {
+          var = translateVIOName(alw->IDENTIFIER()->getText(), &block->context);
+        } else {
+          var = determineAccessedVar(alw->access(), &block->context);
+        }
+        if (m_VarNames.count(var) > 0) {
+          skip = (m_Vars.at(m_VarNames.at(var)).usage == e_Wire);
+        }
+        if (!skip) {
+          if (alw->ALWSASSIGNDBL() != nullptr) {
+            std::ostringstream ostr;
+            writeAssignement(prefix, ostr, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), &block->context, ictx, FF_Q, _dependencies, _ff_usage);
+            // modify assignement to insert temporary var
+            std::size_t pos = ostr.str().find('=');
+            std::string lvalue = ostr.str().substr(0, pos - 1);
+            std::string rvalue = ostr.str().substr(pos + 1);
+            std::string tmpvar = "_delayed_" + std::to_string(alw->getStart()->getLine()) + "_" + std::to_string(alw->getStart()->getCharPositionInLine());
+            out << lvalue << " = " << FF_D << tmpvar << ';' << nxl;
+            out << FF_D << tmpvar << " = " << rvalue; // rvalue includes the line end ";\n"
           } else {
-            var = determineAccessedVar(alw->access(), &block->context);
+            writeAssignement(prefix, out, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), &block->context, ictx, FF_Q, _dependencies, _ff_usage);
           }
-          if (m_VarNames.count(var) > 0) {
-            skip = (m_Vars.at(m_VarNames.at(var)).usage == e_Wire);
-          }
-          if (!skip) {
-            if (alw->ALWSASSIGNDBL() != nullptr) {
-              std::ostringstream ostr;
-              writeAssignement(prefix, ostr, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), &block->context, ictx, FF_Q, _dependencies, _ff_usage);
-              // modify assignement to insert temporary var
-              std::size_t pos = ostr.str().find('=');
-              std::string lvalue = ostr.str().substr(0, pos - 1);
-              std::string rvalue = ostr.str().substr(pos + 1);
-              std::string tmpvar = "_delayed_" + std::to_string(alw->getStart()->getLine()) + "_" + std::to_string(alw->getStart()->getCharPositionInLine());
-              out << lvalue << " = " << FF_D << tmpvar << ';' << nxl;
-              out << FF_D << tmpvar << " = " << rvalue; // rvalue includes the line end ";\n"
-            } else {
-              writeAssignement(prefix, out, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), &block->context, ictx, FF_Q, _dependencies, _ff_usage);
-            }
-          }
+        }
       }
+    } {
+        auto expr = dynamic_cast<siliceParser::Expression_0Context *>(a.instr);
+        if (expr) {
+          // retrieve temporary var
+          string var = temporaryName(expr, block, a.__id);
+          // check it exists
+          if (m_VarNames.count(var) == 0) {
+            reportError(sourceloc(expr), "internal error, temporary for expression not found");
+          }
+          // check var type is defined
+          if (m_Vars.at(m_VarNames.at(var)).type_nfo.width == 0) {
+            reportError(sourceloc(expr), "internal error, temporary type for expression not determined");
+          }
+          // assign expression to temporary
+          out << rewriteIdentifier(prefix, var, "", &block->context, ictx, sourceloc(expr), FF_D, false, _dependencies, _ff_usage);
+          out << " = " + rewriteExpression(prefix, expr, a.__id, &block->context, ictx, FF_Q, true, _dependencies, _ff_usage);
+          out << ';' << nxl;
+        }
     } {
       auto assert = dynamic_cast<siliceParser::Assert_Context *>(a.instr);
       if (assert) {
