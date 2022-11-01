@@ -2206,7 +2206,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
   t_pipeline_nfo         *nfo = new t_pipeline_nfo();
   m_Pipelines.push_back(nfo);
   // name of the pipeline
-  nfo->name = "__pip_" + std::to_string(pip->getStart()->getLine()) + std::to_string(m_Pipelines.size());
+  nfo->name = "__pip_" + std::to_string(pip->getStart()->getLine()) + "_" + std::to_string(m_Pipelines.size());
   // add a block for after pipeline
   t_combinational_block *after = addBlock(generateBlockName(), _current);
   // go through the pipeline

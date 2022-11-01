@@ -1,0 +1,35 @@
+
+circuitry circ(input z,input b,output c)
+{
+  c = 1;
+->
+  c = c + 1;
+->
+  c = c + 1;
+}
+
+unit main(output uint8 leds)
+{
+  algorithm {
+
+    uint8 a(0);
+
+		a = 1;
+++:
+
+    (a) = circ(a,a+1 /* FIXME TODO temporary introduces an instruction that breaks the 'nothing after pipeline' test */);
+    (a) = circ(a,a+1);
+
+//   { -> a = 1; -> a = a + 1; }
+//   { -> a = 2; -> a = a + 1; }
+
+// produces an error (comb cycle)  TODO: is this really normal
+//   { -> a = a + 1; -> a = a + 1; }
+//   { -> a = a + 1; -> a = a + 1; }
+
+++:
+
+    a = 5;
+
+	}
+}
