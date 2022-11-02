@@ -1,6 +1,6 @@
 circuitry test_circuit(input a,output b)
 {
-  __display("a=%d",a);
+  __display("input=%d",a);
   b = a;
 }
 
@@ -8,7 +8,7 @@ algorithm main(output uint8 leds)
 {
   uint4 tbl1[3] = {15,14,13};
   uint4 tbl2[3] = {12,11,10};
-  (tbl2[2]) = test_circuit(tbl1[0]);
-  // ^^^^ not possible, expected to trigger an error
-	__display("%d",tbl2[2]);
+  uint4 a(100);
+  (a) = test_circuit(tbl1[0]); //// TODO FIXME: name collision?
+	__display("%d",a);
 }

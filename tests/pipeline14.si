@@ -3,21 +3,22 @@ unit main(output uint8 leds)
   uint32 cycle(0);
 
   always {
+  // algorithm { // Would produce an error due to [1]
 
     { // we make a pipeline inside this block
 
       uint8 v(0);
-       
+
       v = cycle;
       __display("[cycle %d] ==== in:%d",cycle,v);
-      
-      -> 
-            
+
+      ->
+
        __display("[cycle %d] ==== result:%d",cycle,v);
-    
+
     }
 
-    cycle = cycle + 1;
+    cycle = cycle + 1; // [1] in algorithms pipelines have to be followed by new state
     if (cycle == 40) { __finish(); }
 
   }

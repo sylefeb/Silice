@@ -8,12 +8,11 @@ algorithm main(output uint8 leds)
   uint64 o  = 0;
 
   a = 0;
-  while (i < 8 + 3) { // the while will stop too early
+  while (i < 8 + 3) {
 
-        // NOTE: always assign trickling for stage 0?
-    // NOTE: write to trickling and set value at the end (last stage)?
     {
       pi = i;
+      i = i + 1;
       a  = a + 1;
     } -> {
       b  = a + 10;
@@ -23,8 +22,6 @@ algorithm main(output uint8 leds)
       __display("[%d] = %d",pi,b);
       o[pi*8,8] = b;
     }
-
-    i = i + 1;
 
   }
 

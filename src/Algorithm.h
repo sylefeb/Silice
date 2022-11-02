@@ -340,6 +340,10 @@ private:
       std::string                               name;
       std::unordered_map<std::string, v2i>      trickling_vios; // v2i: [0] stage at which to start [1] stage at which to stop
       std::vector<struct s_pipeline_stage_nfo*> stages;
+      // track read/written vios
+      std::unordered_map<std::string, std::vector<int> > read_at, written_at;
+      std::unordered_set<std::string> written_outputs;
+      std::unordered_set<std::string> written_special;
     } t_pipeline_nfo;
 
     /// \brief info about a pipeline stage
@@ -347,6 +351,7 @@ private:
       t_pipeline_nfo *pipeline;
       t_fsm_nfo      *fsm;
       int             stage_id;
+      siliceParser::InstructionListContext         *node;
       std::unordered_set<std::string>               read;
       std::unordered_set<std::string>               written_backward;
       std::unordered_set<std::string>               written_forward;
@@ -775,6 +780,8 @@ private:
     int gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_combinational_block *_current, t_gather_context *_context, e_DeclType allowed);
     /// \brief gather a subroutine
     t_combinational_block *gatherSubroutine(siliceParser::SubroutineContext* sub, t_combinational_block *_current, t_gather_context *_context);
+    /// \brief concatenate a pipeline to an existing one
+    t_combinational_block *concatenatePipeline(siliceParser::PipelineContext* pip, t_combinational_block *_current, t_gather_context *_context, t_pipeline_nfo *nfo);
     /// \brief gather a pipeline
     t_combinational_block *gatherPipeline(siliceParser::PipelineContext* pip, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather a jump
@@ -917,6 +924,12 @@ private:
     std::string determineAccessedVar(siliceParser::PartSelectContext* access, const t_combinational_block_context* bctx) const;
     std::string determineAccessedVar(siliceParser::BitfieldAccessContext* access, const t_combinational_block_context* bctx) const;
     std::string determineAccessedVar(siliceParser::TableAccessContext* access, const t_combinational_block_context* bctx) const;
+    /// \brief determine if the access is partial (bitselect or table)
+    bool        isPartialAccess(siliceParser::AccessContext* access, const t_combinational_block_context* bctx) const;
+    bool        isPartialAccess(siliceParser::IoAccessContext* access, const t_combinational_block_context* bctx) const;
+    bool        isPartialAccess(siliceParser::PartSelectContext* access, const t_combinational_block_context* bctx) const;
+    bool        isPartialAccess(siliceParser::BitfieldAccessContext* access, const t_combinational_block_context* bctx) const;
+    bool        isPartialAccess(siliceParser::TableAccessContext* access, const t_combinational_block_context* bctx) const;
     /// \brief determine which VIO are accessed by an instruction (from its tree)
     void determineVIOAccess(
       antlr4::tree::ParseTree*                    node,
