@@ -210,7 +210,7 @@ private:
     /// \brief expression catchers are variables that get assigned when an
     ///        expression is reached; these are used for temporaries and initializers
     ///        NOTE: there can be only one catcher for a same expression
-    std::unordered_map<siliceParser::Expression_0Context *, std::string > m_ExpressionCatchers;
+    std::map<std::pair<siliceParser::Expression_0Context *,const t_combinational_block *>, std::string > m_ExpressionCatchers;
     /// \brief all temporaries initialized with expressions
     /// their types are dermined upon instantations by determineTemporaries
     std::unordered_map<siliceParser::Expression_0Context *, std::pair<std::string, const t_combinational_block *> > m_Temporaries;
@@ -523,7 +523,7 @@ private:
       bool                                 no_skip = false;      // true the state cannot be skipped, even if empty
       int                                  state_id = -1;        // state id, when assigned, -1 otherwise
       int                                  parent_state_id = -1; // parent state id (closest state before)
-      std::vector<t_instr_nfo>             declexprs;            // list of declaration expressions within block (typically bound exprs, aka wires)
+      std::vector<t_instr_nfo>             decltrackers;            // list of declaration expressions within block (typically bound exprs, aka wires)
       std::vector<t_instr_nfo>             instructions;         // list of instructions within block
       t_end_action                        *end_action = nullptr; // end action to perform
       t_combinational_block_context        context;              // block context: subroutine, parent, etc.
@@ -896,9 +896,9 @@ private:
   private:
 
     /// \brief update and check variable dependencies for sets of written and read vios
-    void updateAndCheckDependencies(t_vio_dependencies& _depds, const Utils::t_source_loc& sloc, const std::unordered_set<std::string>& read,const std::unordered_set<std::string>& written, const t_combinational_block_context* bctx) const;
+    void updateAndCheckDependencies(t_vio_dependencies& _depds, const Utils::t_source_loc& sloc, const std::unordered_set<std::string>& read,const std::unordered_set<std::string>& written, const t_combinational_block* block) const;
     /// \brief update and check variable dependencies for an instruction
-    void updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::tree::ParseTree* instr, const t_combinational_block_context* bctx) const;
+    void updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::tree::ParseTree* instr, const t_combinational_block* block) const;
     ///  \brief compute closure on dependencies
     void dependencyClosure(t_vio_dependencies& _depds) const;
     /// \brief merge variable dependencies
@@ -921,7 +921,7 @@ private:
     void determineVIOAccess(
       antlr4::tree::ParseTree*                    node,
       const std::unordered_map<std::string, int>& vios,
-      const t_combinational_block_context        *bctx,
+      const t_combinational_block                *block,
       std::unordered_set<std::string>& _read, std::unordered_set<std::string>& _written) const;
     /// \brief determine variables written outside of pipeline
     void determinePipelineSpecificAssignments(
@@ -942,7 +942,7 @@ private:
     /// \brief determines variable access for an instruction
     void determineAccess(
       antlr4::tree::ParseTree             *instr,
-      const t_combinational_block_context *context,
+      const t_combinational_block         *block,
       std::unordered_set<std::string> &_already_written,
       std::unordered_set<std::string> &_in_vars_read,
       std::unordered_set<std::string> &_out_vars_written);

@@ -1,26 +1,25 @@
 
 circuitry circ(input z,output c)
 {
-  sameas(c) t(0);
-	// sameas(c) t = z + 100; //// FIXME: comb cycle??
+	sameas(c) t = z + 1000;
 
-  t = z + 100;
 ->
-  t = t + 1;
+  t = t + 10;
 ->
-  c = t + 1;
+  c = t + 100;
 }
 
 unit main(output uint8 leds)
 {
   algorithm {
 
-    uint8 a(0);
+    uint16 a(0);
+    uint16 o(0);
 
 		a = 1;
 
-    (leds) = circ(a);
-    (leds) = circ(a+100);
+    (o) = circ(a);
+    (o) = circ(a+10000);
 
 //   { -> a = 1; -> a = a + 1; }
 //   { -> a = 2; -> a = a + 1; }
@@ -36,7 +35,7 @@ unit main(output uint8 leds)
 ++:
 ++:
 
-__display("%d",leds);
+__display("%d",o);
 
 	}
 }

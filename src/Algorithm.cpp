@@ -583,9 +583,9 @@ void Algorithm::gatherDeclarationWire(siliceParser::DeclarationWireContext* wire
   // add var
   addVar(nfo, _current, sourceloc(wire, wire->alwaysAssigned()->IDENTIFIER()->getSourceInterval()));
   // insert wire assignment
-  _current->declexprs  .push_back(t_instr_nfo(wire->alwaysAssigned(), _current, -1));
-  m_WireAssignmentNames.insert( make_pair(nfo.name, (int)m_WireAssignments.size()) );
-  m_WireAssignments    .push_back( make_pair(nfo.name, t_instr_nfo(wire->alwaysAssigned(), _current, -1)) );
+  _current->decltrackers.push_back(t_instr_nfo(wire->alwaysAssigned(), _current, -1));
+  m_WireAssignmentNames .insert( make_pair(nfo.name, (int)m_WireAssignments.size()) );
+  m_WireAssignments     .push_back( make_pair(nfo.name, t_instr_nfo(wire->alwaysAssigned(), _current, -1)) );
 }
 
 // -------------------------------------------------
@@ -690,7 +690,7 @@ void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, 
       if (disallow_expr_init) {
         reportError(sourceloc(decl), "variables can only use expression initializers in an algorithm body.");
       } else {
-        m_ExpressionCatchers.insert(std::make_pair(init_expr, var.name));
+        m_ExpressionCatchers.insert(std::make_pair(std::make_pair(init_expr, _current), var.name));
         // insert a custom assignment instruction for this catcher
         _current->instructions.push_back(t_instr_nfo(init_expr, _current, _context->__id));
       }
@@ -2683,21 +2683,36 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
     cblock->context.vio_rewrites[outs[o]] = v;
   }
   // gather code
-  t_combinational_block* cblock_decl = gather(C->second->block()->declarationList(), cblock, _context);
-  t_combinational_block* cblock_after = gather(C->second->block()->instructionSequence(), cblock_decl, _context);
-  // create temporaries where they belong (same block if none were added, otherwise first added)
+  t_combinational_block* decl = gather(C->second->block()->declarationList(), cblock, _context);
+  t_combinational_block* circ = gather(C->second->block()->instructionSequence(), decl, _context);
+  // find block whete to move expression initializers
+  // (this is needed for pipelines, ensuring the initializers are in the first stage)
   t_combinational_block* tempo_dest = cblock;
   std::vector<t_combinational_block*> start;
-  cblock_decl->getChildren(start);
+  decl->getChildren(start);
   if (start.size() == 1) { // covers pipeline case, which is what matters here
     tempo_dest = start.front();
   }
+  // transfer all expression initializers
+  if (tempo_dest != cblock) {
+    for (auto instr : decl->instructions) { // in a declaration only instructions should be expression initializers
+      auto expr = dynamic_cast<siliceParser::Expression_0Context*>(instr.instr);
+      sl_assert(expr != nullptr);
+      tempo_dest->instructions.insert(tempo_dest->instructions.begin(), instr);
+      // also update the expression catcher
+      auto var = m_ExpressionCatchers.at(std::make_pair(expr, cblock));
+      m_ExpressionCatchers.erase(std::make_pair(expr, cblock));
+      m_ExpressionCatchers.insert(std::make_pair(std::make_pair(expr, tempo_dest), var));
+    }
+    decl->instructions.clear();
+  }
+  // create temporaries where they belong (same block if none were added, otherwise first added)
   for (auto tmp : temporaries_to_create) {
     addTemporary(tmp.first, tmp.second, tempo_dest, _context);
   }
   // create a new block to continue with same context as _current
   t_combinational_block* after = addBlock(generateBlockName(), _current, nullptr, sourceloc(ci));
-  cblock_after->next(after);
+  circ->next(after);
   return after;
 }
 
@@ -2811,7 +2826,7 @@ std::string Algorithm::temporaryName(siliceParser::Expression_0Context *expr, co
 
 // -------------------------------------------------
 
-void Algorithm::addTemporary(std::string vname, siliceParser::Expression_0Context *expr, t_combinational_block *_current, t_gather_context *_context)
+void Algorithm::addTemporary(std::string vname, siliceParser::Expression_0Context *expr, t_combinational_block *block, t_gather_context *_context)
 {
   // allocate a variable to hold the expression result (this will become a temporary)
   t_var_nfo var;
@@ -2822,14 +2837,14 @@ void Algorithm::addTemporary(std::string vname, siliceParser::Expression_0Contex
   var.init_values.push_back("0");
   var.init_at_startup  = false;
   var.do_not_initialize = true;
-  insertVar(var, _current);
+  insertVar(var, block);
+  m_VarNames.at(var.name);
   // insert as an expression catcher
-  int idx = m_VarNames.at(var.name);
-  m_ExpressionCatchers.insert(std::make_pair(expr,var.name));
+  m_ExpressionCatchers.insert(std::make_pair(std::make_pair(expr, block),var.name));
   // insert as a temporary (type will be determined by determineTemporaries)
-  m_Temporaries.insert(std::make_pair(expr, std::make_pair(var.name, _current)));
+  m_Temporaries.insert(std::make_pair(expr, std::make_pair(var.name, block)));
   // insert a custom assignment instruction for this temporary
-  _current->instructions.insert(_current->instructions.begin(), t_instr_nfo(expr,_current,_context->__id));
+  block->instructions.insert(block->instructions.begin(), t_instr_nfo(expr, block,_context->__id));
 }
 
 // -------------------------------------------------
@@ -2876,9 +2891,9 @@ void Algorithm::checkPermissions(antlr4::tree::ParseTree *node, t_combinational_
   // gather info for checks
   std::unordered_set<std::string> all;
   std::unordered_set<std::string> read, written;
-  determineVIOAccess(node, m_VarNames   , &_current->context, read, written);
-  determineVIOAccess(node, m_OutputNames, &_current->context, read, written);
-  determineVIOAccess(node, m_InputNames , &_current->context, read, written);
+  determineVIOAccess(node, m_VarNames   , _current, read, written);
+  determineVIOAccess(node, m_OutputNames, _current, read, written);
+  determineVIOAccess(node, m_InputNames , _current, read, written);
   for (auto R : read)    { all.insert(R); }
   for (auto W : written) { all.insert(W); }
   // in subroutine
@@ -4135,7 +4150,7 @@ void Algorithm::dependencyClosure(t_vio_dependencies& _depds) const
 
 // -------------------------------------------------
 
-void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::tree::ParseTree* instr, const t_combinational_block_context *bctx) const
+void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::tree::ParseTree* instr, const t_combinational_block *block) const
 {
   if (instr == nullptr) {
     return;
@@ -4143,16 +4158,16 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
   // determine VIOs accesses for instruction
   std::unordered_set<std::string> read;
   std::unordered_set<std::string> written;
-  determineVIOAccess(instr, m_VarNames, bctx, read, written);
-  determineVIOAccess(instr, m_InputNames, bctx, read, written);
-  determineVIOAccess(instr, m_OutputNames, bctx, read, written);
+  determineVIOAccess(instr, m_VarNames, block, read, written);
+  determineVIOAccess(instr, m_InputNames, block, read, written);
+  determineVIOAccess(instr, m_OutputNames, block, read, written);
   // update and check
-  updateAndCheckDependencies(_depds, sourceloc(dynamic_cast<antlr4::ParserRuleContext *>(instr)), read, written, bctx);
+  updateAndCheckDependencies(_depds, sourceloc(dynamic_cast<antlr4::ParserRuleContext *>(instr)), read, written, block);
 }
 
 // -------------------------------------------------
 
-void Algorithm::updateAndCheckDependencies(t_vio_dependencies & _depds, const t_source_loc& sloc, const std::unordered_set<std::string> & read, const std::unordered_set<std::string> & written, const t_combinational_block_context * bctx) const
+void Algorithm::updateAndCheckDependencies(t_vio_dependencies & _depds, const t_source_loc& sloc, const std::unordered_set<std::string> & read, const std::unordered_set<std::string> & written, const t_combinational_block * block) const
 {
   // record which vars were written before
   std::unordered_set<std::string> written_before;
@@ -4200,7 +4215,7 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies & _depds, const t_
       if (written_before.count(w) > 0) {
         // yes: this would produce a combinational cycle, error!
         string msg = "variable assignement leads to a combinational cycle (variable: '%s')\n\n";
-        if (bctx == &m_AlwaysPost.context) { // checks whether in always_after
+        if (block == &m_AlwaysPost) { // checks whether in always_after
           msg += "Variables written in always_after can only be initialized at powerup.\nExample: 'uint8 v(0);' in place of 'uint8 v=0;'";
         } else {
           msg += "Consider inserting a sequential split with '++:'";
@@ -4638,9 +4653,10 @@ std::string Algorithm::determineAccessedVar(siliceParser::AccessContext* access,
 void Algorithm::determineVIOAccess(
   antlr4::tree::ParseTree*                    node,
   const std::unordered_map<std::string, int>& vios,
-  const t_combinational_block_context        *bctx,
+  const t_combinational_block                *block,
   std::unordered_set<std::string>& _read, std::unordered_set<std::string>& _written) const
 {
+  const t_combinational_block_context *bctx = &block->context;
   if (node->children.empty()) {
     // read accesses are children
     auto term = dynamic_cast<antlr4::tree::TerminalNode*>(node);
@@ -4685,13 +4701,13 @@ void Algorithm::determineVIOAccess(
           }
         }
         // recurse on rhs expression
-        determineVIOAccess(assign->expression_0(), vios, bctx, _read, _written);
+        determineVIOAccess(assign->expression_0(), vios, block, _read, _written);
         // recurse on lhs expression, if any
         if (assign->access() != nullptr) {
           if (assign->access()->tableAccess() != nullptr) {
-            determineVIOAccess(assign->access()->tableAccess()->expression_0(), vios, bctx, _read, _written);
+            determineVIOAccess(assign->access()->tableAccess()->expression_0(), vios, block, _read, _written);
           } else if (assign->access()->partSelect() != nullptr) {
-            determineVIOAccess(assign->access()->partSelect()->expression_0(), vios, bctx, _read, _written);
+            determineVIOAccess(assign->access()->partSelect()->expression_0(), vios, block, _read, _written);
             /// NOTE: possible tag as a partial write, since this is a part select
           }
         }
@@ -4722,13 +4738,13 @@ void Algorithm::determineVIOAccess(
           }
         }
         // recurse on rhs expression
-        determineVIOAccess(alw->expression_0(), vios, bctx, _read, _written);
+        determineVIOAccess(alw->expression_0(), vios, block, _read, _written);
         // recurse on lhs expression, if any
         if (alw->access() != nullptr) {
           if (alw->access()->tableAccess() != nullptr) {
-            determineVIOAccess(alw->access()->tableAccess()->expression_0(), vios, bctx, _read, _written);
+            determineVIOAccess(alw->access()->tableAccess()->expression_0(), vios, block, _read, _written);
           } else if (alw->access()->partSelect() != nullptr) {
-            determineVIOAccess(alw->access()->partSelect()->expression_0(), vios, bctx, _read, _written);
+            determineVIOAccess(alw->access()->partSelect()->expression_0(), vios, block, _read, _written);
           }
         }
         recurse = false;
@@ -4737,7 +4753,7 @@ void Algorithm::determineVIOAccess(
       auto expr = dynamic_cast<siliceParser::Expression_0Context *>(node);
       if (expr) {
         // try to retrieve expression catcher var if it exists for this expression
-        auto C = m_ExpressionCatchers.find(expr);
+        auto C = m_ExpressionCatchers.find(std::make_pair(expr, block));
         if (C == m_ExpressionCatchers.end()) {
           // no: nothing to do
         } else {
@@ -4833,7 +4849,7 @@ void Algorithm::determineVIOAccess(
         }
         // detect reads on parameters
         for (auto c : node->children) {
-          determineVIOAccess(c, vios, bctx, _read, _written);
+          determineVIOAccess(c, vios, block, _read, _written);
         }
       }
     } {
@@ -4871,9 +4887,9 @@ void Algorithm::determineVIOAccess(
           // recurse on lhs expression, if any
           if (access != nullptr) {
             if (access->tableAccess() != nullptr) {
-              determineVIOAccess(access->tableAccess()->expression_0(), vios, bctx, _read, _written);
+              determineVIOAccess(access->tableAccess()->expression_0(), vios, block, _read, _written);
             } else if (access->partSelect() != nullptr) {
-              determineVIOAccess(access->partSelect()->expression_0(), vios, bctx, _read, _written);
+              determineVIOAccess(access->partSelect()->expression_0(), vios, block, _read, _written);
             }
           }
         }
@@ -4931,7 +4947,7 @@ void Algorithm::determineVIOAccess(
     // recurse
     if (recurse) {
       for (auto c : node->children) {
-        determineVIOAccess(c, vios, bctx, _read, _written);
+        determineVIOAccess(c, vios, block, _read, _written);
       }
     }
   }
@@ -4982,7 +4998,7 @@ void Algorithm::determinePipelineSpecificAssignments(
 
 void Algorithm::determineAccess(
   antlr4::tree::ParseTree             *instr,
-  const t_combinational_block_context *context,
+  const t_combinational_block         *block,
   std::unordered_set<std::string>&   _already_written,
   std::unordered_set<std::string>&   _in_vars_read,
   std::unordered_set<std::string>&   _out_vars_written
@@ -4990,8 +5006,8 @@ void Algorithm::determineAccess(
 {
   std::unordered_set<std::string> read;
   std::unordered_set<std::string> written;
-  determineVIOAccess(instr, m_VarNames, context, read, written);
-  determineVIOAccess(instr, m_OutputNames, context, read, written);
+  determineVIOAccess(instr, m_VarNames, block, read, written);
+  determineVIOAccess(instr, m_OutputNames, block, read, written);
   // record which are read from outside
   for (auto r : read) {
     // if read and not written before in block
@@ -5048,10 +5064,10 @@ void Algorithm::determineBlockVIOAccess(
   std::vector<t_instr_nfo> instrs;
   getAllBlockInstructions(block, instrs);
   // gather declarations
-  instrs.insert(instrs.begin(), block->declexprs.begin(), block->declexprs.end() );
+  instrs.insert(instrs.begin(), block->decltrackers.begin(), block->decltrackers.end() );
   // determine access
   for (const auto& i : instrs) {
-    determineVIOAccess(i.instr, vios, &block->context, _read, _written);
+    determineVIOAccess(i.instr, vios, block, _read, _written);
   }
 }
 
@@ -5064,7 +5080,7 @@ void Algorithm::determineAccess(t_combinational_block *block)
   std::vector<t_instr_nfo>        instrs;
   getAllBlockInstructions(block,instrs);
   for (const auto& i : instrs) {
-    determineAccess(i.instr, &block->context, already_written, block->in_vars_read, block->out_vars_written);
+    determineAccess(i.instr, block, already_written, block->in_vars_read, block->out_vars_written);
   }
 }
 
@@ -5143,7 +5159,7 @@ void Algorithm::determineAccessForWires(
       processed.insert(w);
       // add access based on wire expression
       std::unordered_set<std::string> _,in_read;
-      determineAccess(all_wires.at(w).instr, &all_wires.at(w).block->context, _, in_read, _global_out_written);
+      determineAccess(all_wires.at(w).instr, all_wires.at(w).block, _, in_read, _global_out_written);
       // foreach read vio
       for (auto v : in_read) {
         // insert in global set
@@ -6698,7 +6714,7 @@ void Algorithm::writeWireAssignements(
       _dependencies, _ff_usage);
     // update dependencies
     t_vio_dependencies no_dependencies = _dependencies;
-    updateAndCheckDependencies(_dependencies, a.second.instr, &a.second.block->context);
+    updateAndCheckDependencies(_dependencies, a.second.instr, a.second.block);
     // update usage of dependencies to q if q is used
     if (!d_else_q) {
       for (const auto &dep : _dependencies.dependencies.at(var)) {
@@ -7472,7 +7488,7 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
         auto expr = dynamic_cast<siliceParser::Expression_0Context *>(a.instr);
         if (expr) {
           // try to retrieve expression catcher var if it exists for this expression
-          auto C = m_ExpressionCatchers.find(expr);
+          auto C = m_ExpressionCatchers.find(std::make_pair(expr,block));
           if (C == m_ExpressionCatchers.end()) {
             // not found
             reportError(sourceloc(expr), "internal error, variable for expression catcher not found (1)");
@@ -7653,7 +7669,7 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
       }
     }
     // update dependencies
-    updateAndCheckDependencies(_dependencies, a.instr, &block->context);
+    updateAndCheckDependencies(_dependencies, a.instr, block);
   }
 }
 
