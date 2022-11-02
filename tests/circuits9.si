@@ -1,11 +1,14 @@
 
-circuitry circ(input z,input b,output c)
+circuitry circ(input z,output c)
 {
-  c = 1;
+  sameas(c) t(0);
+	// sameas(c) t = z + 100; //// FIXME: comb cycle??
+
+  t = z + 100;
 ->
-  c = c + 1;
+  t = t + 1;
 ->
-  c = c + 1;
+  c = t + 1;
 }
 
 unit main(output uint8 leds)
@@ -15,21 +18,25 @@ unit main(output uint8 leds)
     uint8 a(0);
 
 		a = 1;
-++:
 
-    (a) = circ(a,a+1 /* FIXME TODO temporary introduces an instruction that breaks the 'nothing after pipeline' test */);
-    (a) = circ(a,a+1);
+    (leds) = circ(a);
+    (leds) = circ(a+100);
 
 //   { -> a = 1; -> a = a + 1; }
 //   { -> a = 2; -> a = a + 1; }
 
-// produces an error (comb cycle)  TODO: is this really normal
+// produces an error (comb cycle)  is this really normal?
+// => yes, both pipeline run concurrently and a is globally written at stage 1
+//    so these writes are in fact done one after the other (in the order of pipelines)
 //   { -> a = a + 1; -> a = a + 1; }
 //   { -> a = a + 1; -> a = a + 1; }
+//        ^^^^^^^^^
 
 ++:
+++:
+++:
 
-    a = 5;
+__display("%d",leds);
 
 	}
 }

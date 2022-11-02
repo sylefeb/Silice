@@ -359,7 +359,7 @@ private:
     /// \brief vector of all pipelines
     std::vector< t_pipeline_nfo* > m_Pipelines;
     /// \brief mapping between vio names and pipeline stages
-    std::unordered_map< std::string, t_pipeline_stage_nfo* > m_vio2PipelineStage;
+    std::unordered_map< std::string, t_pipeline_stage_nfo* > m_Vio2PipelineStage;
 
     /// \brief struct describing the first and last block of a pipeline stage
     typedef struct {
@@ -490,7 +490,7 @@ private:
       t_combinational_block        *next;
       t_combinational_block        *after;
       end_action_pipeline_next(t_combinational_block *next_, t_combinational_block *after_) : next(next_), after(after_) { }
-      void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(next); _ch.push_back(after); }
+      void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(next); if (after != next) { _ch.push_back(after); } }
       std::string name() const override { return "end_action_pipeline_next";}
     };
 
@@ -692,8 +692,8 @@ private:
     std::string delayedName(siliceParser::AlwaysAssignedContext* alw) const;
     /// \brief returns the name of a temporary from the expression and its context
     std::string temporaryName(siliceParser::Expression_0Context *expr, const t_combinational_block *_current, int __id) const;
-    /// \brief create a temporary for an expression
-    void makeTemporary(siliceParser::Expression_0Context *expr, t_combinational_block *_current, t_gather_context *_context);
+    /// \brief add a temporary for an expression to the block
+    void addTemporary(std::string vname, siliceParser::Expression_0Context *expr, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather type nfo
     void gatherTypeNfo(siliceParser::TypeContext *type,t_type_nfo &_nfo, const t_combinational_block *_current, std::string& _is_group);
     /// \brief gather wire declaration
@@ -836,7 +836,7 @@ private:
     /// \brief parse call parameters for a subroutine
     void parseCallParams(siliceParser::CallParamListContext *params, const t_subroutine_nfo *sub, bool input_else_output, const t_combinational_block_context *bctx, std::vector<t_call_param> &_matches) const;
     /// \brief extract the ordered list of identifiers, creating temporaries if needed
-    void getIdentifiers(siliceParser::CallParamListContext *params, std::vector<std::string>& _vec_params, t_combinational_block* _current, t_gather_context* _context);
+    void getIdentifiers(siliceParser::CallParamListContext *params, std::vector<std::string>& _vec_params, t_combinational_block* _current, t_gather_context* _context, std::vector<std::pair<std::string,siliceParser::Expression_0Context*> >& _tempos_needed);
     /// \brief parsing, first discovery pass
     t_combinational_block *gather(antlr4::tree::ParseTree *tree, t_combinational_block *_current, t_gather_context *_context);
     /// \brief resolves forward references for jumps for a given fsm

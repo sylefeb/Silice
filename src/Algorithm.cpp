@@ -2379,8 +2379,8 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
       // -> add variable
       t_var_nfo var;
       var.name       = tricklingVIOName(tv,nfo,s);
-      sl_assert(m_vio2PipelineStage.count(var.name) == 0);
-      m_vio2PipelineStage.insert(std::make_pair(var.name, nfo->stages[s]));
+      sl_assert(m_Vio2PipelineStage.count(var.name) == 0);
+      m_Vio2PipelineStage.insert(std::make_pair(var.name, nfo->stages[s]));
       if (!pipeline_prev_name.empty()) {
         nfo->stages[s]->vio_prev_name.insert(std::make_pair(var.name, pipeline_prev_name));
       }
@@ -2583,7 +2583,8 @@ void Algorithm::getIdentifiers(
   siliceParser::CallParamListContext    *params,
   vector<string>&                        _vec_params,
   t_combinational_block*                 _current,
-  t_gather_context*                      _context)
+  t_gather_context*                      _context,
+  std::vector<std::pair<std::string, siliceParser::Expression_0Context*> >& _tempos_needed)
 {
   // get as parameter list
   std::vector<t_call_param> parsed_params;
@@ -2604,8 +2605,10 @@ void Algorithm::getIdentifiers(
       }
     } else {
       // general case of an expression, go through a temporary
-      makeTemporary(prm.expression, _current, _context);
+      // creation is postponed so that these are inserted at the
+      // correct location in the circuitry
       var = temporaryName(prm.expression, _current, _context->__id);
+      _tempos_needed.push_back(std::make_pair(var,prm.expression));
     }
     _vec_params.push_back(var);
   }
@@ -2643,16 +2646,20 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
       reportError(sourceloc(C->second->IDENTIFIER()), "internal error (gatherCircuitryInst)");
     }
   }
-  // -> get identifiers
+  // get in/out identifiers (may introduce temporaries)
   vector<string> ins_idents, outs_idents;
-  getIdentifiers(ci->ins, ins_idents, _current, _context);
-  getIdentifiers(ci->outs, outs_idents, _current, _context);
+  std::vector<std::pair<std::string, siliceParser::Expression_0Context*> > temporaries_to_create,_;
+  getIdentifiers(ci->ins, ins_idents, _current, _context, temporaries_to_create);
+  getIdentifiers(ci->outs, outs_idents, _current, _context, _);
   // -> checks
   if (ins.size() != ins_idents.size()) {
     reportError(sourceloc(ci->IDENTIFIER()), "Incorrect number of inputs in circuitry instanciation (circuitry '%s')", name.c_str());
   }
   if (outs.size() != outs_idents.size()) {
     reportError(sourceloc(ci->IDENTIFIER()), "Incorrect number of outputs in circuitry instanciation (circuitry '%s')", name.c_str());
+  }
+  if (!_.empty()) {
+    reportError(sourceloc(ci->IDENTIFIER()), "Circuitry outputs cannot be expressions in circuitry instanciation (circuitry '%s')", name.c_str());
   }
   // -> rewrite rules
   ForIndex(i, ins.size()) {
@@ -2676,7 +2683,18 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
     cblock->context.vio_rewrites[outs[o]] = v;
   }
   // gather code
-  t_combinational_block* cblock_after = gather(C->second->block(), cblock, _context);
+  t_combinational_block* cblock_decl = gather(C->second->block()->declarationList(), cblock, _context);
+  t_combinational_block* cblock_after = gather(C->second->block()->instructionSequence(), cblock_decl, _context);
+  // create temporaries where they belong (same block if none were added, otherwise first added)
+  t_combinational_block* tempo_dest = cblock;
+  std::vector<t_combinational_block*> start;
+  cblock_decl->getChildren(start);
+  if (start.size() == 1) { // covers pipeline case, which is what matters here
+    tempo_dest = start.front();
+  }
+  for (auto tmp : temporaries_to_create) {
+    addTemporary(tmp.first, tmp.second, tempo_dest, _context);
+  }
   // create a new block to continue with same context as _current
   t_combinational_block* after = addBlock(generateBlockName(), _current, nullptr, sourceloc(ci));
   cblock_after->next(after);
@@ -2793,11 +2811,11 @@ std::string Algorithm::temporaryName(siliceParser::Expression_0Context *expr, co
 
 // -------------------------------------------------
 
-void Algorithm::makeTemporary(siliceParser::Expression_0Context *expr, t_combinational_block *_current, t_gather_context *_context)
+void Algorithm::addTemporary(std::string vname, siliceParser::Expression_0Context *expr, t_combinational_block *_current, t_gather_context *_context)
 {
   // allocate a variable to hold the expression result (this will become a temporary)
   t_var_nfo var;
-  var.name = temporaryName(expr, _current, _context->__id);
+  var.name = vname; // name is given as input since the temporary may be inserted in a different block than the one it is named after
   // we cannot yet determine the type of the var, this will be done in determineTemporaries
   // var.type_nfo
   var.table_size = 0;
@@ -2811,7 +2829,7 @@ void Algorithm::makeTemporary(siliceParser::Expression_0Context *expr, t_combina
   // insert as a temporary (type will be determined by determineTemporaries)
   m_Temporaries.insert(std::make_pair(expr, std::make_pair(var.name, _current)));
   // insert a custom assignment instruction for this temporary
-  _current->instructions.push_back(t_instr_nfo(expr,_current,_context->__id));
+  _current->instructions.insert(_current->instructions.begin(), t_instr_nfo(expr,_current,_context->__id));
 }
 
 // -------------------------------------------------
@@ -6886,8 +6904,8 @@ void Algorithm::writeVarFlipFlopUpdate(std::string prefix, std::string reset, st
     init_cond = reset;
   }
   std::string d_var = FF_D + prefix + v.name;
-  auto P = m_vio2PipelineStage.find(v.name);
-  if (P != m_vio2PipelineStage.end()) { // in pipeline?
+  auto P = m_Vio2PipelineStage.find(v.name);
+  if (P != m_Vio2PipelineStage.end()) { // in pipeline?
     auto V = P->second->vio_prev_name.find(v.name);
     if (V != P->second->vio_prev_name.end()) {
       auto prev_name = V->second;
