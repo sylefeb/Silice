@@ -362,7 +362,7 @@ bool Algorithm::isGroupVIO(std::string var) const
 template<class T_Block>
 Algorithm::t_combinational_block *Algorithm::addBlock(
   std::string                          name,
-  const t_combinational_block         *parent,
+  t_combinational_block               *parent,
   const t_combinational_block_context *bctx,
   const t_source_loc& srcloc)
 {
@@ -536,26 +536,21 @@ void Algorithm::insertVar(const t_var_nfo &_var, t_combinational_block *_current
 
 void Algorithm::addVar(t_var_nfo& _var, t_combinational_block *_current, const Utils::t_source_loc& srcloc)
 {
-  // in subroutine?
+  // block renaming
+  std::string base_name = _var.name;
+  _var.name = blockVIOName(base_name, _current);
+  _current->context.vio_rewrites[base_name] = _var.name; // rewrite rule
+  // track subroutine declarations
   t_subroutine_nfo *sub = nullptr;
   if (_current) {
     sub = _current->context.subroutine;
+    if (sub != nullptr) {
+      sub->vars.push_back(_var.name);
+      sub->allowed_reads.insert(_var.name);
+      sub->allowed_writes.insert(_var.name);
+    }
   }
-  // subroutine renaming?
-  if (sub != nullptr) {
-    std::string base_name = _var.name;
-    _var.name = subroutineVIOName(base_name, sub);
-    _var.name = blockVIOName(_var.name, _current);
-    sub->vios.insert(std::make_pair(base_name, _var.name));
-    sub->vars.push_back(base_name);
-    sub->allowed_reads .insert(_var.name);
-    sub->allowed_writes.insert(_var.name);
-  } else {
-    // block renaming
-    std::string base_name = _var.name;
-    _var.name = blockVIOName(base_name,_current);
-    _current->context.vio_rewrites[base_name] = _var.name;
-  }
+  // source origin
   _var.srcloc = srcloc;
   // check for duplicates
   if (!isIdentifierAvailable(_var.name)) {
@@ -1323,18 +1318,18 @@ std::string Algorithm::translateVIOName(
   const t_combinational_block_context *bctx) const
 {
   if (bctx != nullptr) {
-     // first block rewrite rules
+    // subroutine rewrite rules (for input / outputs)
+    if (bctx->subroutine != nullptr) {
+      const auto& Vsub = bctx->subroutine->io2var.find(vio);
+      if (Vsub != bctx->subroutine->io2var.end()) {
+        vio = Vsub->second;
+      }
+    }
+    // block rewrite rules
     if (!bctx->vio_rewrites.empty()) {
       const auto& Vrew = bctx->vio_rewrites.find(vio);
       if (Vrew != bctx->vio_rewrites.end()) {
         vio = Vrew->second;
-      }
-    }
-    // then subroutine
-    if (bctx->subroutine != nullptr) {
-      const auto& Vsub = bctx->subroutine->vios.find(vio);
-      if (Vsub != bctx->subroutine->vios.end()) {
-        vio = Vsub->second;
       }
     }
     // then pipeline stage
@@ -1767,9 +1762,6 @@ Algorithm::t_combinational_block *Algorithm::gatherBlock(siliceParser::BlockCont
 {
   t_combinational_block *newblock = addBlock(generateBlockName(), _current, nullptr, sourceloc(block));
   _current->next(newblock);
-  // gather declarations in new block
-  int allowed = dVAR | dTABLE;
-  gatherDeclarationList(block->declarationList(), newblock, _context, (e_DeclType)allowed);
   // gather instructions in new block
   t_combinational_block *after     = gather(block->instructionSequence(), newblock, _context);
   // produce next block
@@ -2133,7 +2125,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
       // insert var
       insertVar(var, _current);
       // record in subroutine
-      nfo->vios.insert(std::make_pair(ioname, var.name));
+      nfo->io2var.insert(std::make_pair(ioname, var.name));
       // add to allowed read/write list
       if (P->input() != nullptr) {
         nfo->allowed_reads.insert(var.name);
@@ -2154,13 +2146,6 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
   m_Subroutines.insert(std::make_pair(nfo->name, nfo));
   // keep going with current
   return _current;
-}
-
-// -------------------------------------------------
-
-std::string Algorithm::subroutineVIOName(std::string vio, const t_subroutine_nfo *sub)
-{
-  return "v_" + sub->name + "_" + vio;
 }
 
 // -------------------------------------------------
@@ -2220,12 +2205,13 @@ Algorithm::t_combinational_block *Algorithm::concatenatePipeline(siliceParser::P
     snfo->fsm = fsm;
     snfo->stage_id = (int)nfo->stages.size();
     snfo->node = b;
-    // add stage
-    nfo->stages.push_back(snfo);
     // blocks
     t_combinational_block_context ctx = {
-      fsm, _current->context.subroutine, snfo, _current->context.parent_scope, _current->context.vio_rewrites };
-    // first stage block
+      fsm, _current->context.subroutine, snfo, _current->context.parent_scope, 
+      nfo->stages.empty() ? _current->context.vio_rewrites : nfo->stages.back()->fsm->lastBlock->context.vio_rewrites };
+    // add stage
+    nfo->stages.push_back(snfo);
+    // gather stage blocks (may recurse and concatenate other pipelines parts)
     t_combinational_block *stage_start = addBlock("__stage_" + generateBlockName(), _current, &ctx, sourceloc(b));
     fsm->firstBlock = stage_start;
     fsm->parentBlock = _current;
@@ -2263,6 +2249,8 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     m_Pipelines.push_back(nfo);
     // name of the pipeline
     nfo->name = "__pip_" + std::to_string(pip->getStart()->getLine()) + "_" + std::to_string(m_Pipelines.size());
+    // parent scope
+    nfo->parent_scope = _current->context.parent_scope;
     // start concatenating (may call gatherPipeline recursively)
     auto last = concatenatePipeline(pip, _current, _context, nfo);
     // now for each stage fsm
@@ -2708,17 +2696,16 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
     cblock->context.vio_rewrites[outs[o]] = v;
   }
   // gather code
-  t_combinational_block* decl = gather(C->second->block()->declarationList(), cblock, _context);
-  t_combinational_block* circ = gather(C->second->block()->instructionSequence(), decl, _context);
+  t_combinational_block* circ = gather(C->second->block()->instructionSequence(), cblock, _context);
   // find block whete to move expression initializers
   // (this is needed for pipelines, ensuring the initializers are in the first stage)
   t_combinational_block* tempo_dest = cblock;
-  if (decl->pipeline_next()) { // pipeline, move initializers
-    tempo_dest = decl->pipeline_next()->next;
+  if (cblock->pipeline_next()) { // pipeline, move initializers
+    tempo_dest = cblock->pipeline_next()->next;
   }
   // transfer all expression initializers
   if (tempo_dest != cblock) {
-    for (auto instr : decl->instructions) { // in a declaration only instructions should be expression initializers
+    for (auto instr : cblock->instructions) { // in a declaration only instructions should be expression initializers
       auto expr = dynamic_cast<siliceParser::Expression_0Context*>(instr.instr);
       sl_assert(expr != nullptr);
       tempo_dest->instructions.insert(tempo_dest->instructions.begin(), instr);
@@ -2727,7 +2714,7 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
       m_ExpressionCatchers.erase(std::make_pair(expr, cblock));
       m_ExpressionCatchers.insert(std::make_pair(std::make_pair(expr, tempo_dest), var));
     }
-    decl->instructions.clear();
+    cblock->instructions.clear();
   }
   // create temporaries where they belong (same block if none were added, otherwise first added)
   for (auto tmp : temporaries_to_create) {
@@ -4853,7 +4840,7 @@ void Algorithm::determineVIOAccess(
         if (S != m_Subroutines.end()) {
           // inputs
           for (const auto& i : S->second->inputs) {
-            string var = S->second->vios.at(i);
+            string var = S->second->io2var.at(i);
             if (vios.find(var) != vios.end()) {
               _written.insert(var);
             } else {
@@ -4976,7 +4963,7 @@ void Algorithm::determineVIOAccess(
         if (S != m_Subroutines.end()) {
           // track reads of subroutine outputs
           for (const auto& o : S->second->outputs) {
-            _read.insert(S->second->vios.at(o));
+            _read.insert(S->second->io2var.at(o));
           }
         }
         recurse = false;
@@ -5721,10 +5708,10 @@ void Algorithm::checkPermissions()
       auto S = m_Subroutines.find(called);
       if (S != m_Subroutines.end()) {
         for (auto ins : S->second->inputs) {
-          sub.second->allowed_writes.insert(S->second->vios.at(ins));
+          sub.second->allowed_writes.insert(S->second->io2var.at(ins));
         }
         for (auto outs : S->second->outputs) {
-          sub.second->allowed_reads.insert(S->second->vios.at(outs));
+          sub.second->allowed_reads.insert(S->second->io2var.at(outs));
         }
       } else {
         auto I = m_InstancedBlueprints.find(called);
@@ -5843,7 +5830,7 @@ void Algorithm::checkExpressions(const t_instantiation_context &ictx,antlr4::tre
           // lint each
           int p = 0;
           for (const auto& ins : S->second->inputs) {
-            const auto& info = m_Vars[m_VarNames.at(S->second->vios.at(ins))];
+            const auto& info = m_Vars[m_VarNames.at(S->second->io2var.at(ins))];
             ExpressionLinter linter(this,ictx);
             linter.lintInputParameter(ins, info.type_nfo, matches[p++], &_current->context);
           }
@@ -5882,7 +5869,7 @@ void Algorithm::checkExpressions(const t_instantiation_context &ictx,antlr4::tre
           int p = 0;
           for (const auto& outs : S->second->outputs) {
             ExpressionLinter linter(this,ictx);
-            const auto& info = m_Vars[m_VarNames.at(S->second->vios.at(outs))];
+            const auto& info = m_Vars[m_VarNames.at(S->second->io2var.at(outs))];
             linter.lintReadback(outs, matches[p++], info.type_nfo, &_current->context);
           }
         }
@@ -6405,7 +6392,7 @@ void Algorithm::writeSubroutineCall(antlr4::tree::ParseTree *node, std::string p
   // set inputs
   int p = 0;
   for (const auto& ins : called->inputs) {
-    out << rewriteIdentifier(prefix, called->vios.at(ins), "", bctx, ictx, sourceloc(plist), FF_D, false, dependencies, _ff_usage);
+    out << rewriteIdentifier(prefix, called->io2var.at(ins), "", bctx, ictx, sourceloc(plist), FF_D, false, dependencies, _ff_usage);
     if (std::holds_alternative<std::string>(matches[p].what)) {
       out << " = " << rewriteIdentifier(prefix, std::get<std::string>(matches[p].what), "", bctx, ictx, sourceloc(plist), FF_Q, true, dependencies, _ff_usage);
     } else {
@@ -6441,8 +6428,8 @@ void Algorithm::writeSubroutineReadback(antlr4::tree::ParseTree *node, std::stri
         "call to subroutine '%s' invalid receiving expression for output '%s'",
         called->name.c_str(), outs.c_str());
     }
-    updateFFUsage(e_Q, true, _ff_usage.ff_usage[called->vios.at(outs)]);
-    out << " = " << FF_Q << prefix << called->vios.at(outs) << ';' << nxl;
+    updateFFUsage(e_Q, true, _ff_usage.ff_usage[called->io2var.at(outs)]);
+    out << " = " << FF_Q << prefix << called->io2var.at(outs) << ';' << nxl;
     ++p;
   }
 }

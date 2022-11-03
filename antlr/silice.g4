@@ -379,7 +379,7 @@ assumestable        : ASSUMESTABLE '(' expression_0 ')';
 stableinput         : STABLEINPUT '(' idOrIoAccess ')';
 cover               : COVER '(' expression_0 ')';
 
-block               : '{' declarationList instructionSequence '}';
+block               : '{' instructionSequence '}';
 ifThen              : 'if' '(' expression_0 ')' if_block=block ;
 ifThenElse          : 'if' '(' expression_0 ')' if_block=block 'else' else_block=block ;
 switchCase          : (SWITCH | ONEHOT) '(' expression_0 ')' '{' caseBlock * '}' ;

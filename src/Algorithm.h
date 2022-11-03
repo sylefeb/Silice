@@ -315,7 +315,7 @@ private:
       std::unordered_set<std::string>                 allowed_reads;
       std::unordered_set<std::string>                 allowed_writes;
       std::unordered_set<std::string>                 allowed_calls;
-      std::unordered_map<std::string, std::string>    vios;     // [subroutine space => translated var name in host]
+      std::unordered_map<std::string, std::string>    io2var;   // [subroutine space => translated var name in host]
       std::vector<std::string>                        inputs;   // ordered list of input names (subroutine space)
       std::vector<std::string>                        outputs;  // ordered list of output names (subroutine space)
       std::vector<std::string>                        vars;     // ordered list of internal var names (subroutine space)
@@ -340,6 +340,7 @@ private:
       std::string                               name;
       std::unordered_map<std::string, v2i>      trickling_vios; // v2i: [0] stage at which to start [1] stage at which to stop
       std::vector<struct s_pipeline_stage_nfo*> stages;
+      t_combinational_block *parent_scope = nullptr; // parent block in scope
       // track read/written vios
       std::unordered_map<std::string, std::vector<int> > read_at, written_at;
       std::unordered_set<std::string> written_outputs;
@@ -511,7 +512,7 @@ private:
       t_fsm_nfo                   *fsm            = nullptr; // FSM the block belongs to (never null, top blocks belong to m_RootFSM)
       t_subroutine_nfo            *subroutine     = nullptr; // if block belongs to a subroutine
       t_pipeline_stage_nfo        *pipeline_stage = nullptr; // if block belongs to a pipeline
-      const t_combinational_block *parent_scope   = nullptr; // parent block in scope
+      t_combinational_block       *parent_scope   = nullptr; // parent block in scope
       std::unordered_map<std::string, std::string> vio_rewrites; // if the block contains vio rewrites
     } t_combinational_block_context;
 
@@ -672,7 +673,7 @@ private:
     std::string resolveWidthOf(std::string vio, const t_instantiation_context &ictx, const Utils::t_source_loc& srcloc) const override;
     /// \brief adds a combinational block to the list of blocks, performs book keeping
     template<class T_Block = t_combinational_block>
-    t_combinational_block *addBlock(std::string name, const t_combinational_block *parent, const t_combinational_block_context *bctx = nullptr, const Utils::t_source_loc& srcloc = Utils::nowhere);
+    t_combinational_block *addBlock(std::string name, t_combinational_block *parent, const t_combinational_block_context *bctx = nullptr, const Utils::t_source_loc& srcloc = Utils::nowhere);
     /// \brief resets the block name generator
     void resetBlockName();
     /// \brief generate the next block name
@@ -738,8 +739,6 @@ private:
     void gatherStableCheck(siliceParser::AssumestableContext *chk, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather stableinput checks
     void gatherStableinputCheck(siliceParser::StableinputContext *ctx, t_combinational_block *_current, t_gather_context *_context);
-    /// \brief expands the name of a subroutine vio
-    std::string subroutineVIOName(std::string vio, const t_subroutine_nfo *sub);
     /// \brief expands the name of a block vio
     std::string blockVIOName(std::string vio, const t_combinational_block *host);
     /// \brief returns the name of a trickling vio for a stage of a piepline
