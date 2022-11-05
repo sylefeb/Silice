@@ -7307,12 +7307,16 @@ void Algorithm::writeCombinationalAlwaysPre(
   //       so I now filter these assignments which would normally have no effect
   for (const auto &v : m_Vars) {
     if (v.usage != e_Temporary) continue;
+    std::string init_value = "0";
+    if (!v.init_values.empty()) {
+      init_value = v.init_values.front();
+    }
     if (_ff_usage.ff_usage.count(v.name) != 0) {
       if (_ff_usage.ff_usage[v.name] != e_D) {
-        out << FF_TMP << prefix << v.name << " = 0;" << nxl;
+        out << FF_TMP << prefix << v.name << " = " << init_value << ";" << nxl;
       }
     } else {
-      out << FF_TMP << prefix << v.name << " = 0;" << nxl;
+      out << FF_TMP << prefix << v.name << " = " << init_value << ";" << nxl;
     }
   }
   for (const auto &v : m_Outputs) {
