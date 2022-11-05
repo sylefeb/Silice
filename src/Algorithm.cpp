@@ -372,13 +372,15 @@ Algorithm::t_combinational_block *Algorithm::addBlock(
   m_Blocks.back()->id                   = next_id;
   m_Blocks.back()->srcloc               = srcloc;
   m_Blocks.back()->end_action           = nullptr;
-  m_Blocks.back()->context.parent_scope = parent;
   if (bctx) {
+    sl_assert(parent == nullptr);
+    m_Blocks.back()->context.parent_scope   = bctx->parent_scope;
     m_Blocks.back()->context.fsm            = bctx->fsm;
     m_Blocks.back()->context.subroutine     = bctx->subroutine;
     m_Blocks.back()->context.pipeline_stage = bctx->pipeline_stage;
     m_Blocks.back()->context.vio_rewrites   = bctx->vio_rewrites;
   } else if (parent) {
+    m_Blocks.back()->context.parent_scope   = parent;
     m_Blocks.back()->context.fsm            = parent->context.fsm;
     m_Blocks.back()->context.subroutine     = parent->context.subroutine;
     m_Blocks.back()->context.pipeline_stage = parent->context.pipeline_stage;
@@ -2205,14 +2207,16 @@ Algorithm::t_combinational_block *Algorithm::concatenatePipeline(siliceParser::P
     snfo->fsm = fsm;
     snfo->stage_id = (int)nfo->stages.size();
     snfo->node = b;
-    // blocks
+    // block context
     t_combinational_block_context ctx = {
-      fsm, _current->context.subroutine, snfo, _current->context.parent_scope, 
-      nfo->stages.empty() ? _current->context.vio_rewrites : nfo->stages.back()->fsm->lastBlock->context.vio_rewrites };
+      fsm, _current->context.subroutine, snfo,
+      nfo->stages.empty() ? _current->context.parent_scope : nfo->stages.back()->fsm->lastBlock,
+      nfo->stages.empty() ? _current->context.vio_rewrites : nfo->stages.back()->fsm->lastBlock->context.vio_rewrites
+    };
     // add stage
     nfo->stages.push_back(snfo);
     // gather stage blocks (may recurse and concatenate other pipelines parts)
-    t_combinational_block *stage_start = addBlock("__stage_" + generateBlockName(), _current, &ctx, sourceloc(b));
+    t_combinational_block *stage_start = addBlock("__stage_" + generateBlockName(), nullptr, &ctx, sourceloc(b));
     fsm->firstBlock = stage_start;
     fsm->parentBlock = _current;
     // gather the rest (note: stages may be recursively added in this call)
@@ -2387,7 +2391,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
         var.init_values.resize(var.table_size > 0 ? var.table_size : 1, "0");
         var.access = e_InternalFlipFlop;
         var.do_not_initialize = true;
-        insertVar(var, _current);
+        insertVar(var, _current->context.parent_scope);
       }
     }
     // add a block for after pipeline
@@ -2722,8 +2726,9 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
   }
   // create a new block to continue after cleaning rewrite rules out of the context
   t_combinational_block_context ctx = {
-        circ->context.fsm, circ->context.subroutine, circ->context.pipeline_stage, circ->context.parent_scope, _current->context.vio_rewrites };
-  t_combinational_block* after = addBlock(generateBlockName(), circ, &ctx, sourceloc(ci));
+        circ->context.fsm, circ->context.subroutine, circ->context.pipeline_stage,
+        circ, _current->context.vio_rewrites };
+  t_combinational_block* after = addBlock(generateBlockName(), nullptr, &ctx, sourceloc(ci));
   // after is new next
   circ->next(after);
   return after;
