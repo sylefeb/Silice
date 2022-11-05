@@ -1,4 +1,4 @@
-unit mirror(input auto i,output uint$widthof('i')$ o)
+unit mirror(input auto i,output sameas(i) o)
 {
   always {
 $$for n=0,widthof('i')-1 do

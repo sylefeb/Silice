@@ -6,8 +6,6 @@ algorithm main(output uint8 leds)
 
     v = 3;
 
-    e = 1;
-
     {
       uint4 e = 10;
       v = e + 1;
@@ -18,8 +16,7 @@ algorithm main(output uint8 leds)
   uint8 a = 0;
 
   a = 2;
-  b = 3;
-
+  
   {
     uint8 c = 1;
     uint8 b = 1;
@@ -27,6 +24,7 @@ algorithm main(output uint8 leds)
     a = b + 1;
   }
 
+  uint8 b = 1;
   (b) <- foo <- ();
 
 }

@@ -9,9 +9,10 @@ algorithm main(output uint8 leds)
   b = a+1;
 
   if (data == 0) {
-    a = 1;
     if (data == 5) {
-      a = a*2+1;
+      a = 5;
+    } else {
+      a = 1;
     }
     if (b == 0) {
       a = 3;

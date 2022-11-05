@@ -14,7 +14,7 @@ algorithm test(
   i_g    it,
   output uint8 v
 ) {
-  sameas(it.value) tmp1;
+  sameas(it.value) tmp1(0);
   tmp1        = widthof(it.value) + 3;
   v           = tmp1;
 }

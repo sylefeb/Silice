@@ -8,3 +8,5 @@ $$ for i=0,3 do
 $$end
 
 }
+
+unit main(output uint8 leds) {}

@@ -329,8 +329,8 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
     auto input  = dynamic_cast<siliceParser::InputContext *>   (io->input());
     auto output = dynamic_cast<siliceParser::OutputContext *>  (io->output());
     auto inout  = dynamic_cast<siliceParser::InoutContext *>   (io->inout());
-    io_select   = io_select + "uint1 ior_" + std::to_string(idx) + " <:: prev_mem_addr[" + std::to_string(idx) + ",1]; ";
-    io_select   = io_select + "uint1 iow_" + std::to_string(idx) + " <:  memio.addr[" + std::to_string(idx) + ",1]; ";
+    io_select   = io_select + "uint1 ior_" + std::to_string(idx) + " = prev_mem_addr[" + std::to_string(idx) + ",1]; ";
+    io_select   = io_select + "uint1 iow_" + std::to_string(idx) + " = memio.addr[" + std::to_string(idx) + ",1]; ";
     string v, init;
     t_type_nfo type_nfo;
     if (input) {

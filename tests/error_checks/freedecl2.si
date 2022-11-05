@@ -25,7 +25,6 @@ algorithm main(output uint8 leds)
   uint8 a = 0;
 
   a = 2;
-  b = 3;
 
   {
     uint8 c = 1;

@@ -4,6 +4,7 @@ tests=$(find -maxdepth 1 -name '*.si' -printf '%f\n' | sed 's/\.si$//1' | sort -
 
 task() {
   mkcmd="make $1 ARGS=\"--no_build\"";
+  # mkcmd="make $1";
   cmd_out=`eval $mkcmd 2>&1`
   has_err=$(echo $cmd_out | grep -i "error");
   if [ -z "$has_err" ];

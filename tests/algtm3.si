@@ -31,9 +31,6 @@ algorithm main(output uint8 leds)
 
     __display("[cycle %d] (main) calling",cycle);
     g.b = cycle;
- ++: // this is required due to a limitation: Silice pessimistically considers
-    // all group members to be read and written, hence producing a false
-    // positive on a cyclic dependency
     (g) <- alg_inst <- (g);
     g.b = g.a + 1;
     __display("[cycle %d] (main) done, a = %d",cycle,g.a);

@@ -52,11 +52,6 @@ else
 echo "VERILATOR_ROOT already defined, using its value"
 fi
 
-if [[ ! -z "${NO_BUILD}" ]]; then
-  echo "Skipping build."
-  exit
-fi
-
 # check Verilator support for -Wno-TIMESCALEMOD
 set +e
 RET=$((verilator -Wno-TIMESCALEMOD) 2>&1)
@@ -74,6 +69,11 @@ rm -rf $BUILD_DIR/obj_dir
 cd $BUILD_DIR
 
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
+
+if [[ ! -z "${NO_BUILD}" ]]; then
+  echo "Skipping build."
+  exit
+fi
 
 LIBSL_DIR=$SILICE_DIR/../src/libs/LibSL-small/src/LibSL/
 VERILATOR_LIB_DIR=$SILICE_DIR/../frameworks/verilator/

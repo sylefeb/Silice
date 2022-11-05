@@ -10,7 +10,7 @@ unit main(output uint8 leds)
             a = counter;
             __display("[0] a = %d",a);
         } -> {
-            sameas(a) t <: a;
+            sameas(a) t <: a; // error, not allowed here
             __display("[1] t = %d",t);
         } -> {
             __display("[2] a = %d",a);

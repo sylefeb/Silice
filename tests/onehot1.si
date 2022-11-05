@@ -3,12 +3,12 @@ algorithm main(
   output uint8 leds
 ) <onehot>
 {
-  led = 0;
+  leds = 0;
 ++:
-  led = 1;
+  leds = 1;
 ++:
-  led = 2;
+  leds = 2;
 ++:
-  led = 3;
+  leds = 3;
 
 }

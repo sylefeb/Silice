@@ -2904,6 +2904,10 @@ void Algorithm::gatherAlwaysAssigned(siliceParser::AlwaysAssignedListContext* al
 
 void Algorithm::checkPermissions(antlr4::tree::ParseTree *node, t_combinational_block *_current)
 {
+  const std::string notes =
+    "(Note : give permission using keywords reads/writes/readwrites/calls in parameter list\n"
+    "        e.g. 'subroutine test(reads a,calls alg) { ... }').\n";
+
   // gather info for checks
   std::unordered_set<std::string> all;
   std::unordered_set<std::string> read, written;
@@ -2917,12 +2921,16 @@ void Algorithm::checkPermissions(antlr4::tree::ParseTree *node, t_combinational_
   if (_current->context.subroutine != nullptr) {
     for (auto R : read) {
       if (_current->context.subroutine->allowed_reads.count(R) == 0) {
-        reportError(sourceloc(node), "variable '%s' is read by subroutine '%s' without explicit permission", R.c_str(), _current->context.subroutine->name.c_str());
+        std::string msg = "variable '%s' is read by subroutine '%s' without explicit permission\n\n";
+        msg += notes;
+        reportError(sourceloc(node), msg.c_str(), R.c_str(), _current->context.subroutine->name.c_str());
       }
     }
     for (auto W : written) {
       if (_current->context.subroutine->allowed_writes.count(W) == 0) {
-        reportError(sourceloc(node), "variable '%s' is written by subroutine '%s' without explicit permission", W.c_str(), _current->context.subroutine->name.c_str());
+        std::string msg = "variable '%s' is written by subroutine '%s' without explicit permission\n\n";
+        msg += notes;
+        reportError(sourceloc(node), msg.c_str(), W.c_str(), _current->context.subroutine->name.c_str());
       }
     }
   }
@@ -4332,7 +4340,6 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies & _depds, const t_
       }
     }
   }
-
 }
 
 // -------------------------------------------------
@@ -4893,8 +4900,20 @@ void Algorithm::determineVIOAccess(
             }
           }
         }
-        // recurse
-        recurse = true;
+				// do not blindly recurse otherwise the child 'join' is reached
+        // NOTE: This is because the full instruction is "() <- called <- ()" so the left part (the join)
+        //       would be incorrectly considered and produce false dependencies.
+        //       The join is properly taken into account in the block that performs it (wait loop).
+				recurse = false;
+				// detect reads on parameters
+				for (auto c : node->children) {
+					if (dynamic_cast<siliceParser::JoinExecContext*>(c) != nullptr) {
+						// skip join, taken into account in return block
+						continue;
+
+					}
+					determineVIOAccess(c, vios, block, _read, _written);
+				}
       }
     } {
       auto async = dynamic_cast<siliceParser::AsyncExecContext*>(node);
@@ -6017,7 +6036,7 @@ void Algorithm::optimize(const t_instantiation_context& ictx)
     // determine type of temporaries
     determineTemporaries(ictx);
     // check var access permissions
-    checkPermissions();
+//    checkPermissions();
     // analyze variables access
     determineUsage();
   }

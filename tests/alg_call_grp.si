@@ -18,6 +18,5 @@ algorithm main(output uint8 leds)
   test t;
 
   foo.value = 13;
-++:
   (foo,leds) <- t <- (foo);
 }

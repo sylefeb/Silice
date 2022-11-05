@@ -1,6 +1,6 @@
 algorithm main(output uint8 leds)
 {
-  sameas(leds) a;
-  
+  sameas(leds) a(0);
+
   leds = a + widthof(leds);
 }
