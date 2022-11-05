@@ -1,8 +1,8 @@
-algorithm main(output uint8 led)
+algorithm main(output uint8 leds)
 {
   uint8 a = 0;
   uint8 b = 0;
-  
+
   while (1) {
     a = 1;
     if (b == 0) {
@@ -22,7 +22,7 @@ algorithm main(output uint8 led)
       a = 3;
       b = 5;
     } else {
-      b = 5;    
+      b = 5;
     }
   }
 

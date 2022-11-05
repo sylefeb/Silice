@@ -1,7 +1,8 @@
-algorithm main(output int8 v)
+algorithm main(output uint8 leds)
 {
+  int8 v(0);
   bram uint8 table[4] = {10,11,12,13};
-  
+
   table.wenable = 0;
   table.addr = 0;
   table.wdata = 133;

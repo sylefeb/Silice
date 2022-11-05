@@ -1,0 +1,20 @@
+unit mirror(input auto i,output uint$widthof('i')$ o)
+{
+  always {
+$$for n=0,widthof('i')-1 do
+    o[$n$,1] = i[$widthof('i')-1-n$,1];
+$$end
+  }
+}
+
+unit main(output uint8 leds)
+{
+  uint6  a(6b111000);
+  uint11 b(11b11101000011);
+  mirror m1(i <: a); // generates a unit for width 6
+  mirror m2(i <: b); // generates a unit for width 11
+  algorithm {
+    __display("m1: %b",m1.o);
+    __display("m2: %b",m2.o);
+  }
+}

@@ -4184,6 +4184,12 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
 
 void Algorithm::updateAndCheckDependencies(t_vio_dependencies & _depds, const t_source_loc& sloc, const std::unordered_set<std::string> & read, const std::unordered_set<std::string> & written, const t_combinational_block * block) const
 {
+  const std::string notes =
+   "(Note : combinational loops may be wrongly detected through output! when going through Verilog modules;\n"
+   "        use output(!) to disable the combinational loop check).\n"
+   "(Note : combinational loops may be wrongly detected when passing entire groups as parameters, Silice\n"
+   "        currently assumes all group members are read or written, see issue 237).\n";
+
   // record which vars were written before
   std::unordered_set<std::string> written_before;
   for (const auto &d : _depds.dependencies) {
@@ -4233,8 +4239,9 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies & _depds, const t_
         if (block == &m_AlwaysPost) { // checks whether in always_after
           msg += "Variables written in always_after can only be initialized at powerup.\nExample: 'uint8 v(0);' in place of 'uint8 v=0;'";
         } else {
-          msg += "Consider inserting a sequential split with '++:'";
+          msg += "Consider inserting a sequential split with '++:'\n\n";
         }
+        msg += notes;
         reportError(sloc,msg.c_str(), w.c_str());
       }
       // check if any one of the combinational outputs the var depends on, depends on this same var (cycle!)
@@ -4251,6 +4258,7 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies & _depds, const t_
                   if (F->second.count(w)) {
                     // yes: this would produce a combinational cycle, error!
                     string msg = "variable assignement leads to a combinational cycle through instantiated unit (variable: '%s')\n\n";
+                    msg += notes;
                     reportError(sloc, msg.c_str(), w.c_str());
                   }
                 }
@@ -4268,6 +4276,7 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies & _depds, const t_
               if (bp.second.blueprint->output(bnd.left).combinational
                 && !bp.second.blueprint->output(bnd.left).combinational_nocheck) {
                 string msg = "variable assignement leads to a combinational cycle through instantiated unit (variable: '%s')\n\n";
+                msg += notes;
                 reportError(sloc, msg.c_str(), w.c_str());
               }
             }

@@ -4,7 +4,7 @@ algorithm test(input uint8 i,output uint8 o)
   o = i;
 }
 
-algorithm main()
+algorithm main(output uint8 leds)
 {
   uint8 a = 0;
   uint8 b = 0;
@@ -15,16 +15,16 @@ algorithm main()
 
   subroutine sub(reads d,readwrites c) {
     uint2 ivar = 1;
-	ivar = ivar + c;
-	c = d + ivar;
+	  c = d + ivar;
     return;
   }
 
-  b := 3;    // this means b will always be _d_b in rvalues
+//  b := 3;  // this means b will always be _d_b in rvalues
              //  and we cannot write b = b + 1 anymore
-			 // comment to resolve [3]
+			       // comment to resolve [3]
 
 // ++: // uncomment to resolve [1]
+
   b = a + 1;
   c = b + 2;
   a = c; /// [1] should trigger an error (init of a before, b depends on a)
@@ -36,7 +36,9 @@ algorithm main()
   if (a == 2) {
     __display("a == 2");
   }
-// ++: // uncomment to resolve [2]
+
+++: // uncomment to resolve [2]
+
   d = d + 1; /// [2] should trigger an error
   () <- sub <- ();
 ++:

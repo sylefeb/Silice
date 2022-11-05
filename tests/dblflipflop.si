@@ -1,5 +1,6 @@
-algorithm main(input int8 a,output int8 c)
+algorithm main(output uint8 leds)
 {
+  int8 a(0); int8 c(0);
   int8 b = 0;
   b ::= a;
   c = b;

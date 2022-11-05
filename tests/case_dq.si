@@ -1,14 +1,8 @@
-algorithm main(output uint8 outp,input uint8 inp)
+algorithm main(output uint8 leds)
 {
-
+  uint8 outp(0); uint8 inp(0);
   uint8 a = uninitialized;
-/*
-  if (inp[0,1]) {
-    a = 3;
-  } else {
 
-  }
-*/  
   switch (inp)
   {
     case 0: {
@@ -23,5 +17,5 @@ algorithm main(output uint8 outp,input uint8 inp)
   }
 
   outp = a;
-  
+
 }

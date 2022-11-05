@@ -1,22 +1,22 @@
 // Dual-port bram test
 
-algorithm main(output uint8 led)
+algorithm main(output uint8 leds)
 {
   dualport_bram uint8 mem[8] = {111,111,111,111,111,111,111,111};
-  
+
   uint9 n    = 0;
   uint9 tmp1 = 0;
   uint8 tmp2 = 0;
 
   mem.wenable0 = 1;
   mem.wenable1 = 0;
-  
+
   while (n < 10) { // we do two more iterations due to latencies
     // write at n
     if (n < 8) {
       mem.wdata0 = n;
       mem.addr0  = n;
-    }    
+    }
     if (n > 0) {
       // read n-1
       mem.addr1  = n-1;
@@ -29,5 +29,5 @@ algorithm main(output uint8 led)
     }
     n = n + 1;
   }
-  
+
 }

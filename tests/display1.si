@@ -1,4 +1,4 @@
-algorithm main(output int8 led)
+algorithm main(output int8 leds)
 {
 
   uint8 a = 1;

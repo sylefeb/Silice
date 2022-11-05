@@ -1,15 +1,15 @@
-algorithm main(output uint8 led)
+algorithm main(output uint8 leds)
 {
   uint1 a = 0;
-   
-  led = 1;
+
+  leds = 1;
 ++:
   if (a) {
-  led = 2;
+  leds = 2;
   } else {
-  led = 3;
+  leds = 3;
   }
-++:  
-  led = 4;
-  
+++:
+  leds = 4;
+
 }

@@ -1,4 +1,4 @@
-algorithm main(
+algorithm foo(
   input  int1 cclk,
   input  int1 spi_ss,
   input  int1 spi_sck,
@@ -8,7 +8,7 @@ algorithm main(
   output int1 spi_miso,
   output int1 avr_rx,
   output int4 spi_channel,
-  output int8 led 
+  output int8 led
 )
 {
 int8 myled   = 0;
@@ -26,3 +26,5 @@ start:
 goto start;
 
 }
+
+algorithm main(output uint8 leds) {}

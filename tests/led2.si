@@ -1,9 +1,9 @@
-algorithm main(output int8 led)
+algorithm main(output int8 leds)
 {
 int22 data  = 0;
 int8  myled = 0;
 
-led  := myled;
+leds := myled;
 
 data  = 1;
 myled = 0;

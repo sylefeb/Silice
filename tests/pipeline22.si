@@ -1,0 +1,36 @@
+circuitry test(input a,output b)
+{
+  uint8 z(0);
+  z = a;
+->
+  b = z;
+}
+
+unit main(output uint8 leds)
+{
+  uint32 cycle(0);
+  
+  algorithm {
+  
+    uint8 v = cycle;
+    
+    __display("[cycle %d] ==== in:%d",cycle,v);
+
+  ->
+    
+    uint8 q1(0);
+    
+  ->
+    
+    (q1) = test(v);
+    
+  ->
+  ->
+     __display("[cycle %d] ==== result:%d",cycle,v);
+
+  }
+
+  always_after {
+    cycle = cycle + 1;
+  }
+}

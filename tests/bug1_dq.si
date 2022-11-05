@@ -1,24 +1,25 @@
-algorithm main(output uint8 outp,input uint8 inp)
+algorithm main(output uint8 leds)
 {
+  uint8 outp(0); uint8 inp(0);
 
   uint1 active = 0;
-  
+
   active = 1;
 ++:
   if (inp > 1) {
     if (inp < 5) {
-    
+
     } else {
       active = 0;
-    }  
+    }
   } else {
     if (inp < 5) {
-    
+
     } else {
       active = 0;
-    }  
+    }
   }
-  
+
   outp = active; // active should be DQ
-  
+
 }

@@ -12,5 +12,9 @@ unit main(output uint8 leds)
   always {
     // a = 10;
     a[0,4] = 10; // fine, was triggering false positive
+
+    uint8 iter(0);
+    if (iter == 255) { __finish(); }
+    iter=iter+1;
   }
 }

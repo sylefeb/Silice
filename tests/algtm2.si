@@ -25,7 +25,6 @@ algorithm main(output uint8 leds)
   while (cycle < 15) {
 
     __display("[cycle %d] (main) calling",cycle);
-    // alg_inst.i = cycle;
     (a) <- alg_inst <- (cycle);
     __display("[cycle %d] (main) done, a = %d, alg_inst.v = %d",cycle,a,alg_inst.v);
   }

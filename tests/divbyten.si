@@ -1,5 +1,5 @@
 
-algorithm main()
+algorithm main(output uint8 leds)
 {
 
   uint16 val        = 231;

@@ -7,7 +7,7 @@ interface memory_port {
 
 algorithm test(
   memory_port access
-) <autorun> {  
+) <autorun> {
 
 ++: // let main start (loop entry)
 
@@ -41,10 +41,10 @@ algorithm test(
   }
 }
 
-algorithm main()
+algorithm main(output uint8 leds)
 {
   bram uint8 table[4] = {10,11,12,13};
-  
+
   test tst(
     access <:> table
   );
@@ -53,5 +53,5 @@ algorithm main()
   while (n < 32) {
     n = n + 1;
   }
- 
+
 }

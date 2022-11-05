@@ -1,5 +1,7 @@
 $$if YOSYS then
-$$error('YOSYS defined on command line')
+$$print('YOSYS defined on command line')
 $$else
-$$error('yosys NOT defined on command line')
+$$print('yosys NOT defined on command line')
 $$end
+
+unit main(output uint8 leds) { always { __finish(); } }

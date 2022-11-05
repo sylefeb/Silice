@@ -1,0 +1,13 @@
+unit main(output uint8 leds)
+{
+
+   always {
+    __display("would run forever %d",leds);
+    leds = leds + 1;
+    if (leds == 255) {
+      __display("stoping with __finish");
+      __finish();
+    }
+  }
+
+}

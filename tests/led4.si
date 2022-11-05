@@ -11,7 +11,7 @@ loop:
   if (w != 0) { goto loop; }
 }
 
-algorithm main(output int8 led)
+algorithm foo(output int8 leds)
 {
   orab  o;
   wait  w;
@@ -19,9 +19,9 @@ algorithm main(output int8 led)
   int8 a = 1;
   int8 b = 128;
   int8 myled = 0;
-  
-  led := myled;
-  
+
+  leds := myled;
+
 loop:
   () <- w <- ();
   (myled) <- o <- (a,b);
@@ -33,3 +33,5 @@ loop:
   if (b == 0) { b = 128; }
   goto loop;
 }
+
+algorithm main(output int8 leds) {}

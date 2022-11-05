@@ -1,0 +1,19 @@
+unit main(output uint8 leds)
+{
+  algorithm {
+    uint16 cycle=0;
+		
+    while (cycle < 4) {
+      {      // stage 0 
+
+      } -> { // stage 1
+
+++:
+
+      } -> { // stage 2
+
+      }
+      cycle = cycle + 1;
+    }
+  }
+}
