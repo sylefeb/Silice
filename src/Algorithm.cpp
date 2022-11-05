@@ -2210,7 +2210,7 @@ Algorithm::t_combinational_block *Algorithm::concatenatePipeline(siliceParser::P
     // block context
     t_combinational_block_context ctx = {
       fsm, _current->context.subroutine, snfo,
-      nfo->stages.empty() ? _current->context.parent_scope : nfo->stages.back()->fsm->lastBlock,
+      nfo->stages.empty() ? _current                       : nfo->stages.back()->fsm->lastBlock,
       nfo->stages.empty() ? _current->context.vio_rewrites : nfo->stages.back()->fsm->lastBlock->context.vio_rewrites
     };
     // add stage
@@ -2253,8 +2253,6 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     m_Pipelines.push_back(nfo);
     // name of the pipeline
     nfo->name = "__pip_" + std::to_string(pip->getStart()->getLine()) + "_" + std::to_string(m_Pipelines.size());
-    // parent scope
-    nfo->parent_scope = _current->context.parent_scope;
     // start concatenating (may call gatherPipeline recursively)
     auto last = concatenatePipeline(pip, _current, _context, nfo);
     // now for each stage fsm
@@ -2391,7 +2389,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
         var.init_values.resize(var.table_size > 0 ? var.table_size : 1, "0");
         var.access = e_InternalFlipFlop;
         var.do_not_initialize = true;
-        insertVar(var, _current->context.parent_scope);
+        insertVar(var, _current->context.parent_scope != nullptr ? _current->context.parent_scope : _current);
       }
     }
     // add a block for after pipeline
@@ -3526,7 +3524,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
   if (algbody) {
     // gather declarations
     for (auto d : algbody->declaration()) {
-      int allowed = dWIRE | dVARNOEXPR | dTABLE | dMEMORY | dGROUP | dINSTANCE;
+      int allowed = dWIRE | dVAR | dTABLE | dMEMORY | dGROUP | dINSTANCE;
       gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), _current, _context, (e_DeclType)allowed);
     }
     // add global subroutines now (reparse them as if defined in this algorithm)
@@ -3670,7 +3668,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
     _current->next(newblock);
     // gather declarations
     for (auto d : algcontent->declaration()) {
-      int allowed = dWIRE | dVARNOEXPR | dTABLE | dMEMORY | dGROUP | dINSTANCE;
+      int allowed = dWIRE | dVAR | dTABLE | dMEMORY | dGROUP | dINSTANCE;
       gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), newblock, _context, (e_DeclType)allowed);
     }
     // gather local subroutines
