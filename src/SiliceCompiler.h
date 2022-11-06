@@ -76,15 +76,15 @@ namespace Silice {
     /// \brief finds a file by checking throughout paths known to be used by the source code
     std::string findFile(std::string fname) const;
     /// \brief gathers all body constructs from the source code file
-    void gatherBody(antlr4::tree::ParseTree* tree);
+    void gatherBody(antlr4::tree::ParseTree* tree, const Blueprint::t_instantiation_context& ictx);
     /// \brief prepare the hardware fraemwork before compilation
     void prepareFramework(std::string fframework, std::string& _lpp, std::string& _verilog);
-    /// \brief gather a unit body from the parsed tree
-    void gatherUnitBody(AutoPtr<Algorithm> unit,antlr4::tree::ParseTree* tree);
 
     /// \brief body parsing context
     AutoPtr<ParsingContext> m_BodyContext;
 
+    /// \brief gather a unit body from the parsed tree
+    void gatherUnitBody(AutoPtr<Algorithm> unit,antlr4::tree::ParseTree* tree, const Blueprint::t_instantiation_context& ictx);
     /// \brief writes the design body in the output stream
     void writeBody(std::ostream& _out, const Blueprint::t_instantiation_context& ictx);
     /// \brief writes the formal tests in the output stream
@@ -133,10 +133,15 @@ namespace Silice {
     /// \brief parses a unit body (call after parseUnitIOs);
     void          parseUnitBody(t_parsed_unit& _parsed, const Blueprint::t_instantiation_context& ictx);
 
+    /// \brief parses a specific circuitry ios
+    t_parsed_circuitry parseCircuitryIOs(std::string to_parse);
+    /// \brief parses a circuitry body (call after parseCircuitryIOs);
+    void               parseCircuitryBody(t_parsed_circuitry& _parsed,const Blueprint::t_instantiation_context& ictx);
+
     /// \brief returns the static blueprint for 'unit', otherwise null
     AutoPtr<Blueprint> isStaticBlueprint(std::string bpname);
 
-    
+
     /// \brief returns all unit names
     void getUnitNames(std::unordered_set<std::string>& _units);
 

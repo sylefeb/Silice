@@ -523,3 +523,7 @@ root                : topList EOF ;
 rootInOutList       : inOutList EOF ;
 
 rootUnit            : (unit | algorithm) EOF ;
+
+rootIoList          : ioList EOF ;
+
+rootCircuitry       : circuitry EOF ;

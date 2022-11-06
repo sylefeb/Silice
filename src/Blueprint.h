@@ -97,6 +97,7 @@ namespace Silice
 
     /// \brief information about instantiation
     typedef struct {
+      SiliceCompiler                              *compiler = nullptr;
       std::string                                  instance_name;
       std::string                                  local_instance_name;
       std::unordered_map<std::string, std::string> autos;
@@ -108,7 +109,7 @@ namespace Silice
     /// \brief sets as a top module in the output stream
     virtual void setAsTopMost() { }
     /// \brief writes the blueprint as a Verilog module
-    virtual void writeAsModule(SiliceCompiler *compiler, std::ostream& out, const t_instantiation_context& ictx, bool first_pass) = 0;
+    virtual void writeAsModule(std::ostream& out, const t_instantiation_context& ictx, bool first_pass) = 0;
     /// \brief returns true if the blueprint requires a reset
     virtual bool requiresReset() const = 0;
     /// \brief returns true if the blueprint requires a clock

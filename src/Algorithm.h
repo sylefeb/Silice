@@ -284,6 +284,9 @@ private:
     std::unordered_map< std::string, t_instanced_nfo > m_InstancedBlueprints;
     std::vector< std::string >                         m_InstancedBlueprintsInDeclOrder;
 
+    /// \brief instanced circuitries
+    std::vector< t_parsed_circuitry > m_InstancedCircuitries;
+
     /// \brief info about a call parameter
     ///
     /// a group identifier
@@ -595,8 +598,9 @@ private:
     /// \brief context while gathering code
     typedef struct
     {
-      int                    __id;
-      t_combinational_block *break_to;
+      int                                       __id;
+      t_combinational_block                    *break_to;
+      const Blueprint::t_instantiation_context *ictx;
     } t_gather_context;
 
     /// \brief information about a past check ('#was_at(lbl, cycle_count)')
@@ -728,8 +732,10 @@ private:
       bool& _autobind) const;
     /// \brief gather group declaration
     void gatherDeclarationGroup(siliceParser::DeclarationInstanceContext* grp, t_combinational_block *_current);
+    /// \brief instantiates a blueprint given the instantiation context
+    void Algorithm::instantiateBlueprint(t_instanced_nfo& _nfo, const t_instantiation_context& ictx);
     /// \brief gather blueprint instance declaration
-    void gatherDeclarationInstance(siliceParser::DeclarationInstanceContext* alg, t_combinational_block* _current);
+    void gatherDeclarationInstance(siliceParser::DeclarationInstanceContext* alg, t_combinational_block* _current, t_gather_context *_context);
     /// \brief gather past checks
     void gatherPastCheck(siliceParser::Was_atContext *chk, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather stable checks
@@ -1024,7 +1030,7 @@ private:
     /// \brief gather inputs and outputs from the parsed tree
     void gatherIOs(siliceParser::InOutListContext* inout);
     /// \brief gather the body from the parsed tree
-    void gatherBody(antlr4::tree::ParseTree *body);
+    void gatherBody(antlr4::tree::ParseTree *body, const Blueprint::t_instantiation_context& ictx);
 
     /// \brief destructor
     virtual ~Algorithm();
@@ -1169,10 +1175,10 @@ private:
     void addToInstantiationContext(const Algorithm *alg,std::string var, const t_var_nfo& bnfo, const t_instantiation_context& ictx, t_instantiation_context& _local_ictx) const;
     /// \brief makes an instantiation context for a blueprint
     void makeBlueprintInstantiationContext(const t_instanced_nfo& nfo, const t_instantiation_context& ictx, t_instantiation_context& _local_ictx) const;
-    /// \brief instanciate instanciated blueprints
-    void instantiateBlueprints(SiliceCompiler *compiler, std::ostream& out, const t_instantiation_context& ictx, bool first_pass);
+    /// \brief write instanciated blueprints
+    void writeInstanciatedBlueprints(std::ostream& out, const t_instantiation_context& ictx, bool first_pass);
     /// \brief writes the algorithm as a Verilog module, calls the version above twice in a two pass optimization process
-    void writeAsModule(SiliceCompiler *compiler, std::ostream &out, const t_instantiation_context& ictx, t_vio_ff_usage &_ff_usage, bool do_lint) const;
+    void writeAsModule(std::ostream &out, const t_instantiation_context& ictx, t_vio_ff_usage &_ff_usage, bool do_lint) const;
     /// \brief outputs a report on the VIOs in the algorithm
     void outputVIOReport(const t_instantiation_context &ictx) const;
 
@@ -1203,7 +1209,7 @@ private:
     /// \brief sets as a top module in the output stream
     void setAsTopMost() override;
     /// \brief writes the algorithm as a Verilog module, recurses through instanced blueprints
-    void writeAsModule(SiliceCompiler *compiler, std::ostream& out, const t_instantiation_context& ictx, bool first_pass);
+    void writeAsModule(std::ostream& out, const t_instantiation_context& ictx, bool first_pass);
     /// \brief inputs
     const std::vector<t_inout_nfo>& inputs()         const override { return m_Inputs; }
     /// \brief outputs

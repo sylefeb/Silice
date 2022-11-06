@@ -592,10 +592,10 @@ void Algorithm::gatherDeclarationWire(siliceParser::DeclarationWireContext* wire
 // -------------------------------------------------
 
 void Algorithm::gatherVarNfo(
-  siliceParser::DeclarationVarContext *decl, 
-  t_var_nfo&                          _nfo, 
-  bool                                 default_no_init, 
-  const t_combinational_block        *_current, 
+  siliceParser::DeclarationVarContext *decl,
+  t_var_nfo&                          _nfo,
+  bool                                 default_no_init,
+  const t_combinational_block        *_current,
   std::string&                        _is_group,
   siliceParser::Expression_0Context*& _expr)
 {
@@ -658,7 +658,7 @@ void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, 
   gatherVarNfo(decl, var, false, _current, is_group, init_expr);
   // check if var is a group
   if (!is_group.empty()) {
-    if ( decl->declarationVarInitSet() != nullptr || decl->declarationVarInitCstr() != nullptr 
+    if ( decl->declarationVarInitSet() != nullptr || decl->declarationVarInitCstr() != nullptr
       || decl->declarationVarInitExpr() != nullptr || decl->ATTRIBS() != nullptr) {
       reportError(sourceloc(decl), "variable is declared as 'sameas' a group or interface, it cannot have initializers.");
     }
@@ -1247,7 +1247,59 @@ void Algorithm::gatherTypeNfo(siliceParser::TypeContext *type, t_type_nfo &_nfo,
 
 // -------------------------------------------------
 
-void Algorithm::gatherDeclarationInstance(siliceParser::DeclarationInstanceContext* alg, t_combinational_block *_current)
+void Algorithm::instantiateBlueprint(t_instanced_nfo& _nfo, const t_instantiation_context& ictx)
+{
+  // generate or find blueprint
+  sl_assert(_nfo.blueprint.isNull());
+  sl_assert(ictx.compiler != nullptr);
+  // check whether blueprint is static
+  auto gbp = ictx.compiler->isStaticBlueprint(_nfo.blueprint_name);
+  if (!gbp.isNull()) {
+    // this is a static blueprint, no instantiation needed
+    _nfo.blueprint = gbp;
+  } else {
+    cerr << "instantiating unit '" << _nfo.blueprint_name << "' as '" << _nfo.instance_name << "'\n";
+    // parse the unit ios
+    try {
+      auto cbp = ictx.compiler->parseUnitIOs(_nfo.blueprint_name);
+      _nfo.parsed_unit = cbp;
+      _nfo.blueprint = cbp.unit;
+    } catch (Fatal&) {
+      reportError(_nfo.srcloc, "could not instantiate unit '%s'", _nfo.blueprint_name.c_str());
+    }
+  }
+  // create vars for instanced blueprint inputs/outputs
+  createInstancedBlueprintInputOutputVars(_nfo);
+  // resolve any automatic directional bindings
+  resolveInstancedBlueprintBindingDirections(_nfo);
+  // perform autobind
+  if (_nfo.autobind) {
+    autobindInstancedBlueprint(_nfo);
+  }
+  // finish the unit if non static
+  if (!_nfo.parsed_unit.unit.isNull()) {
+    // instantiation context
+    t_instantiation_context local_ictx = ictx;
+    for (auto spc : _nfo.specializations.autos) {
+      local_ictx.autos[spc.first] = spc.second; // makes sure new specializations overwrite any existing ones
+    }
+    for (auto spc : _nfo.specializations.params) {
+      local_ictx.params[spc.first] = spc.second;
+    }
+    // update the instantiation context now that we have the unit ios
+    makeBlueprintInstantiationContext(_nfo, local_ictx, local_ictx);
+    // record the specializations
+    _nfo.specializations = local_ictx;
+    // resolve instanced blueprint inputs/outputs var types
+    resolveInstancedBlueprintInputOutputVarTypes(_nfo, local_ictx);
+    // parse the unit body
+    ictx.compiler->parseUnitBody(_nfo.parsed_unit, local_ictx);
+  }
+}
+
+// -------------------------------------------------
+
+void Algorithm::gatherDeclarationInstance(siliceParser::DeclarationInstanceContext* alg, t_combinational_block *_current, t_gather_context *_context)
 {
   t_subroutine_nfo *sub = nullptr;
   if (_current) {
@@ -1309,6 +1361,9 @@ void Algorithm::gatherDeclarationInstance(siliceParser::DeclarationInstanceConte
   }
   nfo.autobind = false;
   getBindings(alg->bpBindingList(), nfo.bindings, nfo.autobind);
+  // instantiate blueprint
+  instantiateBlueprint(nfo, *_context->ictx);
+  // record instance
   m_InstancedBlueprints[nfo.instance_name] = nfo;
   m_InstancedBlueprintsInDeclOrder.push_back(nfo.instance_name);
 }
@@ -1855,7 +1910,7 @@ void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_comb
     }
   } else if (declwire) {
     if (!(allowed & dWIRE)) {
-      reportError(sourceloc(declwire), 
+      reportError(sourceloc(declwire),
         "expression trackers may only be declared in the unit body, or in the algorithm preamble\n"
         "<new> declarations with initializers are allowed, e.g. uint8 b = a + 8d16;\n"
       );
@@ -1890,7 +1945,7 @@ void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_comb
     if (m_KnownGroups.find(name) != m_KnownGroups.end()) {
       gatherDeclarationGroup(instance, _current);
     } else {
-      gatherDeclarationInstance(instance, _current);
+      gatherDeclarationInstance(instance, _current, _context);
     }
   }
 }
@@ -2247,9 +2302,9 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
 {
   // are we already within a parent pipeline?
   if (_current->context.pipeline_stage == nullptr) {
-    
+
     // no: create a new pipeline
-    auto nfo = new t_pipeline_nfo(); 
+    auto nfo = new t_pipeline_nfo();
     m_Pipelines.push_back(nfo);
     // name of the pipeline
     nfo->name = "__pip_" + std::to_string(pip->getStart()->getLine()) + "_" + std::to_string(m_Pipelines.size());
@@ -2607,7 +2662,7 @@ void Algorithm::getIdentifiers(
     std::string var;
     if (std::holds_alternative<std::string>(prm.what)) { // given param is an identifier, no temporary needed
       var = std::get<std::string>(prm.what);
-    } else if (std::holds_alternative<siliceParser::AccessContext*>(prm.what) 
+    } else if (std::holds_alternative<siliceParser::AccessContext*>(prm.what)
             && !isPartialAccess(std::get<siliceParser::AccessContext*>(prm.what), &_current->context)) {
       var = determineAccessedVar(std::get<siliceParser::AccessContext*>(prm.what), &_current->context);
     } else if (std::holds_alternative<const t_group_definition *>(prm.what)) {
@@ -2630,13 +2685,25 @@ void Algorithm::getIdentifiers(
 
 // -------------------------------------------------
 
-Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::CircuitryInstContext* ci, t_combinational_block* _current, t_gather_context* _context)
+Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(
+  siliceParser::CircuitryInstContext* ci, t_combinational_block* _current, t_gather_context* _context)
 {
-  // find circuitry in known circuitries
+  siliceParser::IoListContext    *ioList = nullptr;
+  siliceParser::CircuitryContext *circuitry = nullptr;
+  // find circuitry in known (static) circuitries
   std::string name = ci->IDENTIFIER()->getText();
-  auto C = m_KnownCircuitries.find(name);
-  if (C == m_KnownCircuitries.end()) {
-    reportError(sourceloc(ci->IDENTIFIER()), "circuitry not yet declared");
+  {
+    auto C = m_KnownCircuitries.find(name);
+    if (C == m_KnownCircuitries.end()) {
+      // reportError(sourceloc(ci->IDENTIFIER()), "circuitry not yet declared");
+      // attempt dynamic instantiation
+      auto result = _context->ictx->compiler->parseCircuitryIOs(name);
+      m_InstancedCircuitries.push_back(result);
+      ioList = result.ioList;
+    } else {
+      ioList = C->second->ioList();
+      circuitry = C->second;
+    }
   }
   // instantiate in a new block
   t_combinational_block* cblock = addBlock(generateBlockName() + "_" + name, _current, nullptr, sourceloc(ci));
@@ -2645,19 +2712,19 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
   // -> gather ins outs
   vector< string > ins;
   vector< string > outs;
-  for (auto io : C->second->ioList()->io()) {
+  for (auto io : ioList->io()) {
     if (io->is_input != nullptr) {
       ins.push_back(io->IDENTIFIER()->getText());
     } else if (io->is_output != nullptr) {
       if (io->combinational != nullptr) {
-        reportError(sourceloc(C->second->IDENTIFIER()),"a circuitry output is immediate by default");
+        reportError(sourceloc(ioList),"a circuitry output is immediate by default");
       }
       outs.push_back(io->IDENTIFIER()->getText());
     } else if (io->is_inout != nullptr) {
       ins .push_back(io->IDENTIFIER()->getText());
       outs.push_back(io->IDENTIFIER()->getText());
     } else {
-      reportError(sourceloc(C->second->IDENTIFIER()), "internal error (gatherCircuitryInst)");
+      reportError(sourceloc(ioList), "internal error (gatherCircuitryInst)");
     }
   }
   // get in/out identifiers (may introduce temporaries)
@@ -2697,30 +2764,57 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(siliceParser::C
     // -> add rule
     cblock->context.vio_rewrites[outs[o]] = v;
   }
+  // create temporaries
+  for (auto tmp : temporaries_to_create) {
+    addTemporary(tmp.first, tmp.second, cblock, _context);
+  }
+  // if dynamic instantiation, parse the circuitry body
+  if (circuitry == nullptr) {
+    // make a local instantiation context
+    t_instantiation_context local_ictx = *_context->ictx;
+    // linter to determine expression widths if needed
+    ExpressionLinter lint(this, *_context->ictx);
+    // produce info about inputs and outputs
+    for (auto i : ins) {
+      bool ok  = false;
+      auto def = getVIODefinition(cblock->context.vio_rewrites.at(i), ok);
+      sl_assert(ok);
+      addToInstantiationContext(this, i, def, *_context->ictx, local_ictx);
+    }
+    for (auto o : outs) {
+      bool ok = false;
+      auto def = getVIODefinition(cblock->context.vio_rewrites.at(o), ok);
+      sl_assert(ok);
+      addToInstantiationContext(this, o, def, *_context->ictx, local_ictx);
+    }
+    // parse
+    _context->ictx->compiler->parseCircuitryBody(m_InstancedCircuitries.back(), local_ictx);
+    circuitry = m_InstancedCircuitries.back().circuitry;
+  }
   // gather code
-  t_combinational_block* circ = gather(C->second->block()->instructionSequence(), cblock, _context);
+  t_combinational_block* circ = gather(circuitry->block()->instructionSequence(), cblock, _context);
   // find block whete to move expression initializers
   // (this is needed for pipelines, ensuring the initializers are in the first stage)
   t_combinational_block* tempo_dest = cblock;
   if (cblock->pipeline_next()) { // pipeline, move initializers
     tempo_dest = cblock->pipeline_next()->next;
   }
-  // transfer all expression initializers
+  // transfer all expression initializers and temporaries
   if (tempo_dest != cblock) {
     for (auto instr : cblock->instructions) { // in a declaration only instructions should be expression initializers
       auto expr = dynamic_cast<siliceParser::Expression_0Context*>(instr.instr);
       sl_assert(expr != nullptr);
       tempo_dest->instructions.insert(tempo_dest->instructions.begin(), instr);
-      // also update the expression catcher
+      // update the expression catcher
       auto var = m_ExpressionCatchers.at(std::make_pair(expr, cblock));
       m_ExpressionCatchers.erase(std::make_pair(expr, cblock));
       m_ExpressionCatchers.insert(std::make_pair(std::make_pair(expr, tempo_dest), var));
+      // update the temporary (if applicable)
+      if (m_Temporaries.count(expr)) {
+        m_Temporaries.at(expr).second = tempo_dest;
+      }
     }
     cblock->instructions.clear();
-  }
-  // create temporaries where they belong (same block if none were added, otherwise first added)
-  for (auto tmp : temporaries_to_create) {
-    addTemporary(tmp.first, tmp.second, tempo_dest, _context);
   }
   // create a new block to continue after cleaning rewrite rules out of the context
   t_combinational_block_context ctx = {
@@ -3692,7 +3786,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
     _current = nextblock;
     // recurse on instruction list
     recurse  = false;
-  } else if (decl)         { 
+  } else if (decl)         {
     int allowed = dVAR | dTABLE;
     gatherDeclaration(decl, _current, _context, (e_DeclType)allowed);
     recurse = false;
@@ -3817,7 +3911,7 @@ void Algorithm::generateStates(t_fsm_nfo *fsm)
       }
       if (visited.find(c) == visited.end()) {
         // track parent state id
-        if (c->context.fsm == fsm) { 
+        if (c->context.fsm == fsm) {
           sl_assert(fsm->lastBlock != nullptr);
           c->parent_state_id = cur.parent_state_id;
           sl_assert(c->parent_state_id > -1);
@@ -4560,7 +4654,7 @@ void Algorithm::verifyMemberBitfield(std::string member, siliceParser::BitfieldC
   for (auto v : field->varList()->var()) {
     if (v->declarationVar()->IDENTIFIER()->getText() == member) {
       // verify there is no initializer
-      if ( v->declarationVar()->declarationVarInitSet() != nullptr 
+      if ( v->declarationVar()->declarationVarInitSet() != nullptr
         || v->declarationVar()->declarationVarInitCstr() != nullptr
         || v->declarationVar()->declarationVarInitExpr() != nullptr) {
         reportError(sourceloc(v),
@@ -4880,8 +4974,8 @@ void Algorithm::determineVIOAccess(
         if (B != m_InstancedBlueprints.end()) {
           // if params are empty we skip, otherwise we mark the inputs as written
           auto plist = sync->callParamList();
-          if (!plist->expression_0().empty() && !B->second.blueprint.isNull()) {
-            // inputs                            ^^^^^^^^^ this happens when determineVIOAccess is called during gather  TODO FIXME
+          if (!plist->expression_0().empty()) {
+            sl_assert(!B->second.blueprint.isNull());
             for (const auto& i : B->second.blueprint->inputs()) {
               string var = B->second.instance_prefix + "_" + i.name;
               if (vios.find(var) != vios.end()) {
@@ -4924,7 +5018,7 @@ void Algorithm::determineVIOAccess(
           // if params are empty we skip, otherwise we mark the input as written
           auto plist = async->callParamList();
           if (!plist->expression_0().empty() && !B->second.blueprint.isNull()) {
-            // inputs                            ^^^^^^^^^ this happens when determineVIOAccess is called during gather  TODO FIXME
+            sl_assert(!B->second.blueprint.isNull());
             for (const auto& i : B->second.blueprint->inputs()) {
               string var = B->second.instance_prefix + "_" + i.name;
               if (vios.find(var) != vios.end()) {
@@ -5644,7 +5738,7 @@ void Algorithm::init(
 
 // -------------------------------------------------
 
-void Algorithm::gatherBody(antlr4::tree::ParseTree *body)
+void Algorithm::gatherBody(antlr4::tree::ParseTree *body, const Blueprint::t_instantiation_context& ictx)
 {
   // gather elements from source code
   t_combinational_block *main = addBlock("_top", nullptr);
@@ -5653,8 +5747,9 @@ void Algorithm::gatherBody(antlr4::tree::ParseTree *body)
 
   // context
   t_gather_context context;
-  context.__id = -1;
+  context.__id     = -1;
   context.break_to = nullptr;
+  context.ictx     = &ictx;
 
   // gather content
   gather(body, main, &context);
@@ -6954,10 +7049,10 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
   // root state machine index
   if (!hasNoFSM()) {
     if (!m_RootFSM.oneHot) {
-      out << "reg  [" << stateWidth(&m_RootFSM) - 1 << ":0] " FF_D << prefix << fsmIndex(&m_RootFSM) 
+      out << "reg  [" << stateWidth(&m_RootFSM) - 1 << ":0] " FF_D << prefix << fsmIndex(&m_RootFSM)
                                                        << "," FF_Q << prefix << fsmIndex(&m_RootFSM) << ";" << nxl;
     } else {
-      out << "reg  [" << maxState(&m_RootFSM) - 1 << ":0] " FF_D << prefix << fsmIndex(&m_RootFSM) 
+      out << "reg  [" << maxState(&m_RootFSM) - 1 << ":0] " FF_D << prefix << fsmIndex(&m_RootFSM)
                                                      << "," FF_Q << prefix << fsmIndex(&m_RootFSM) << ";" << nxl;
     }
     // autorun
@@ -6984,7 +7079,7 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
     // per-subroutine caller id backup (subroutine making nested calls)
     for (auto sub : m_Subroutines) {
       if (sub.second->contains_calls) {
-        out << "reg  [" << (width(m_SubroutineCallerNextId) - 1) << ":0] " FF_D << prefix << sub.second->name << "_" << ALG_CALLER 
+        out << "reg  [" << (width(m_SubroutineCallerNextId) - 1) << ":0] " FF_D << prefix << sub.second->name << "_" << ALG_CALLER
                                                                     << "," FF_Q << prefix << sub.second->name << "_" << ALG_CALLER << ';' << nxl;
       }
     }
@@ -7027,7 +7122,7 @@ void Algorithm::writeVarFlipFlopUpdate(std::string prefix, std::string reset, st
       d_var          = (pv.usage == e_Temporary) ? (FF_TMP + prefix + prev_name) : (FF_D + prefix + prev_name);
       auto fsm       = P->second->fsm;
       if (!fsmIsEmpty(fsm)) {
-        d_var        = std::string("(") + FF_D + prefix + fsmIndex(fsm) + " == " + std::to_string(toFSMState(fsm,entryState(fsm))) 
+        d_var        = std::string("(") + FF_D + prefix + fsmIndex(fsm) + " == " + std::to_string(toFSMState(fsm,entryState(fsm)))
                      + " ? " + d_var + " : " + FF_D + prefix + v.name + ')';
       }
     }
@@ -7572,7 +7667,7 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
           if (alw->ALWSASSIGNDBL() != nullptr) {
             std::ostringstream ostr;
             writeAssignement(prefix, ostr, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), &block->context, ictx, FF_Q, _dependencies, _ff_usage);
-            // modify assignement to insert temporary var 
+            // modify assignement to insert temporary var
             std::size_t pos = ostr.str().find('=');
             std::string lvalue = ostr.str().substr(0, pos - 1);
             std::string rvalue = ostr.str().substr(pos + 1);
@@ -8045,7 +8140,7 @@ void Algorithm::writeStatelessBlockGraph(
           reportError(prev->srcloc, "in an algorithm, a pipeline has to be followed by a new cycle.\n"
                                     "     please check meaning and split with ++: as appropriate");
         }
-      }      
+      }
     } else {
       // no action
       if (fsm) {
@@ -8414,11 +8509,12 @@ void Algorithm::setAsTopMost()
 
 // -------------------------------------------------
 
-void Algorithm::writeAsModule(SiliceCompiler *compiler, std::ostream &out, const t_instantiation_context &ictx, bool first_pass)
+void Algorithm::writeAsModule(std::ostream &out, const t_instantiation_context &ictx, bool first_pass)
 {
-  // instantiate all blueprints
-  instantiateBlueprints(compiler, out, ictx, first_pass);
+  // write blueprints
+  writeInstanciatedBlueprints(out, ictx, first_pass);
 
+  // write modules
   if (first_pass) {
 
     /// first pass
@@ -8455,7 +8551,7 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, std::ostream &out, const
     {
       t_vio_ff_usage ff_usage;
       std::ofstream null;
-      writeAsModule(compiler, null, ictx, ff_usage, first_pass);
+      writeAsModule(null, ictx, ff_usage, first_pass);
 
       // update usage based on first pass
       for (const auto &v : ff_usage.ff_usage) {
@@ -8514,7 +8610,7 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, std::ostream &out, const
     m_ReportingEnabled = false;
 
     t_vio_ff_usage ff_usage;
-    writeAsModule(compiler, out, ictx, ff_usage, first_pass);
+    writeAsModule(out, ictx, ff_usage, first_pass);
 
     // output VIO report (if enabled)
     if (!m_ReportBaseName.empty()) {
@@ -8657,76 +8753,21 @@ void Algorithm::makeBlueprintInstantiationContext(const t_instanced_nfo& nfo, co
 
 // -------------------------------------------------
 
-void Algorithm::instantiateBlueprints(SiliceCompiler *compiler, ostream& out, const t_instantiation_context& ictx,bool first_pass)
+void Algorithm::writeInstanciatedBlueprints(ostream& out, const t_instantiation_context& ictx,bool first_pass)
 {
   // write instantiated blueprints
   for (auto &iaiordr : m_InstancedBlueprintsInDeclOrder) {
     auto &nfo = m_InstancedBlueprints.at(iaiordr);
     if (first_pass) { /// first pass
-      // generate or find blueprint
-      sl_assert(nfo.blueprint.isNull());
-      // check whether blueprint is static
-      auto gbp = compiler->isStaticBlueprint(nfo.blueprint_name);
-      if (!gbp.isNull()) {
-        // this is a static blueprint, no instantiation needed
-        nfo.blueprint = gbp;
-      } else {
-        cerr << "instantiating unit '" << nfo.blueprint_name << "' as '" << nfo.instance_name << "'\n";
-        // parse the unit ios
-        try {
-          auto cbp = compiler->parseUnitIOs(nfo.blueprint_name);
-          nfo.parsed_unit = cbp;
-          nfo.blueprint   = cbp.unit;
-        } catch (Fatal&) {
-          reportError(nfo.srcloc, "could not instantiate unit '%s'", nfo.blueprint_name.c_str());
-        }
-      }
-      // create vars for instanced blueprint inputs/outputs
-      createInstancedBlueprintInputOutputVars(nfo);
-      // resolve any automatic directional bindings
-      resolveInstancedBlueprintBindingDirections(nfo);
-      // perform autobind
-      if (nfo.autobind) {
-        autobindInstancedBlueprint(nfo);
-      }
-      // finish the unit if non static
       if (!nfo.parsed_unit.unit.isNull()) {
-        // instantiation context
-        t_instantiation_context local_ictx = ictx;
-        for (auto spc : nfo.specializations.autos) {
-          local_ictx.autos[spc.first] = spc.second; // makes sure new specializations overwrite any existing ones
-        }
-        for (auto spc : nfo.specializations.params) {
-          local_ictx.params[spc.first] = spc.second;
-        }
-        // update the instantiation context now that we have the unit ios
-        makeBlueprintInstantiationContext(nfo, local_ictx, local_ictx);
-        // record the specializations
-        nfo.specializations = local_ictx;
-        // resolve instanced blueprint inputs/outputs var types
-        resolveInstancedBlueprintInputOutputVarTypes(nfo, local_ictx);
-        // parse the unit body
-        compiler->parseUnitBody(nfo.parsed_unit, local_ictx);
         // write the unit, first pass
-        compiler->writeUnit(nfo.parsed_unit, local_ictx, out, first_pass);
+        ictx.compiler->writeUnit(nfo.parsed_unit, nfo.specializations, out, first_pass);
       }
     } else { /// second pass
       sl_assert(!nfo.blueprint.isNull());
       if (!nfo.parsed_unit.unit.isNull()) { // second pass on non-static
-        // instantiation context
-        t_instantiation_context local_ictx = ictx;
-        for (auto spc : nfo.specializations.autos) {
-          local_ictx.autos[spc.first] = spc.second; // makes sure new specializations overwrite any existing ones
-        }
-        for (auto spc : nfo.specializations.params) {
-          local_ictx.params[spc.first] = spc.second;
-        }
-        // create local context
-        makeBlueprintInstantiationContext(nfo, local_ictx, local_ictx);
-        // record the specializations
-        nfo.specializations = local_ictx;
         // write as module
-        nfo.blueprint->writeAsModule(compiler, out, nfo.specializations, first_pass);
+        nfo.blueprint->writeAsModule(out, nfo.specializations, first_pass);
       }
     }
   }
@@ -8734,7 +8775,7 @@ void Algorithm::instantiateBlueprints(SiliceCompiler *compiler, ostream& out, co
 
 // -------------------------------------------------
 
-void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_instantiation_context& ictx, t_vio_ff_usage& _ff_usage, bool first_pass) const
+void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx, t_vio_ff_usage& _ff_usage, bool first_pass) const
 {
   out << nxl;
 
@@ -8904,7 +8945,7 @@ void Algorithm::writeAsModule(SiliceCompiler *compiler, ostream& out, const t_in
   for (const auto& ibiordr : m_InstancedBlueprintsInDeclOrder) {
     const auto &nfo = m_InstancedBlueprints.at(ibiordr);
     // module name
-    if (compiler->isStaticBlueprint(nfo.blueprint_name).isNull()) {
+    if (ictx.compiler->isStaticBlueprint(nfo.blueprint_name).isNull()) {
       out << nfo.blueprint->moduleName(nfo.blueprint_name, ictx.instance_name + '_' + nfo.instance_name) << ' ';
     } else {
       out << nfo.blueprint->moduleName(nfo.blueprint_name, "") << ' ';
