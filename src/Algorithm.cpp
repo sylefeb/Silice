@@ -2772,8 +2772,6 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(
   if (circuitry == nullptr) {
     // make a local instantiation context
     t_instantiation_context local_ictx = *_context->ictx;
-    // linter to determine expression widths if needed
-    ExpressionLinter lint(this, *_context->ictx);
     // produce info about inputs and outputs
     for (auto i : ins) {
       bool ok  = false;
@@ -2786,6 +2784,11 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(
       auto def = getVIODefinition(cblock->context.vio_rewrites.at(o), ok);
       sl_assert(ok);
       addToInstantiationContext(this, o, def, *_context->ictx, local_ictx);
+    }
+    // get any instantiation parameter
+    for (auto sp : ci->sparam()) {
+      std::string p = sp->IDENTIFIER()->getText();
+      local_ictx.params[p] = sp->NUMBER()->getText();
     }
     // parse
     _context->ictx->compiler->parseCircuitryBody(m_InstancedCircuitries.back(), local_ictx);
@@ -6092,6 +6095,10 @@ void Algorithm::determineTemporaries(const t_instantiation_context& ictx)
     int idx = m_VarNames.at(tmp.second.first);
     // lint and get the type
     linter.typeNfo(tmp.first,&tmp.second.second->context,m_Vars.at(idx).type_nfo);
+    // check it was properly determined
+    if (m_Vars.at(idx).type_nfo.width <= 0) {
+      reportError(sourceloc(tmp.first), "error: cannot determine expression width, please use sized constants.");
+    }
   }
 }
 

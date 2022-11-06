@@ -1,0 +1,17 @@
+circuitry circ(input a,output b)
+{
+  $$print('N = ' .. N)
+  b = $N$ + a;
+}
+
+unit main(output uint8 leds)
+{
+  uint8  m(123);
+  uint8  n(0);
+  algorithm {
+    (n) = circ<N=50>(m);
+    __display("return = %d",n);
+    (n) = circ<N=100>(m);
+    __display("return = %d",n);
+  }
+}

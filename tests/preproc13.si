@@ -1,0 +1,19 @@
+circuitry circ2(input a,output b)
+{
+  b = a;
+}
+
+circuitry circ1(input a,output b)
+{
+  (b) = circ2(a+100);
+}
+
+unit main(output uint8 leds)
+{
+  uint8  m(5);
+  uint8  n(0);
+  algorithm {
+    (n) = circ1(8d10);
+    __display("return = %d",n);
+  }
+}

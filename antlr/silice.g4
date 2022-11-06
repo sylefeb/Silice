@@ -360,7 +360,7 @@ syncExec            : joinExec LARROW '(' callParamList ')' ;
 
 /* -- Circuitry instantiation -- */
 
-circuitryInst       : '(' outs=callParamList ')' '='  IDENTIFIER '(' ins=callParamList ')';
+circuitryInst       : '(' outs=callParamList ')' '='  IDENTIFIER ('<' sparam+ '>')? '(' ins=callParamList ')';
 
 /* -- Control flow -- */
 
