@@ -2695,11 +2695,14 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(
   {
     auto C = m_KnownCircuitries.find(name);
     if (C == m_KnownCircuitries.end()) {
-      // reportError(sourceloc(ci->IDENTIFIER()), "circuitry not yet declared");
       // attempt dynamic instantiation
-      auto result = _context->ictx->compiler->parseCircuitryIOs(name);
-      m_InstancedCircuitries.push_back(result);
-      ioList = result.ioList;
+      try {
+        auto result = _context->ictx->compiler->parseCircuitryIOs(name);
+        m_InstancedCircuitries.push_back(result);
+        ioList = result.ioList;
+      } catch (Fatal&) {
+        reportError(sourceloc(ci), "could not instantiate circuitry '%s'", name.c_str());
+      }
     } else {
       ioList = C->second->ioList();
       circuitry = C->second;
@@ -2777,14 +2780,16 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(
     for (auto i : ins) {
       bool ok  = false;
       auto def = getVIODefinition(cblock->context.vio_rewrites.at(i), ok);
-      sl_assert(ok);
-      addToInstantiationContext(this, i, def, *_context->ictx, local_ictx);
+      if (ok) {
+        addToInstantiationContext(this, i, def, *_context->ictx, local_ictx);
+      }
     }
     for (auto o : outs) {
       bool ok = false;
       auto def = getVIODefinition(cblock->context.vio_rewrites.at(o), ok);
-      sl_assert(ok);
-      addToInstantiationContext(this, o, def, *_context->ictx, local_ictx);
+      if (ok) {
+        addToInstantiationContext(this, o, def, *_context->ictx, local_ictx);
+      }
     }
     // get any instantiation parameter
     for (auto sp : ci->sparam()) {
