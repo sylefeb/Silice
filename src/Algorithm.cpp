@@ -2743,7 +2743,7 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(
     reportError(sourceloc(_.front().second), "Circuitry outputs cannot be expressions in circuitry instanciation (circuitry '%s')", name.c_str());
   }
   // -> rewrite rules
-  auto prev_rules = cblock->context.vio_rewrites;
+  auto prev_rules = _current->context.vio_rewrites;
   ForIndex(i, ins.size()) {
     // -> closure on pre-existing rewrite rule
     std::string v = ins_idents[i];
@@ -2764,9 +2764,10 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(
     // -> add rule
     cblock->context.vio_rewrites[outs[o]] = v;
   }
-  // create temporaries
+  // create temporaries in parent
   for (auto tmp : temporaries_to_create) {
-    addTemporary(tmp.first, tmp.second, cblock, _context);
+    addTemporary(tmp.first, tmp.second, _current, _context);
+    //                                  ^^^^^^^^ in parent as rewrite rules should not apply
   }
   // if dynamic instantiation, parse the circuitry body
   if (circuitry == nullptr) {
@@ -2796,7 +2797,8 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(
   }
   // gather code
   t_combinational_block* circ = gather(circuitry->block()->instructionSequence(), cblock, _context);
-  // find block whete to move expression initializers
+#if 0
+  // find block where to move expression initializers
   // (this is needed for pipelines, ensuring the initializers are in the first stage)
   t_combinational_block* tempo_dest = cblock;
   if (cblock->pipeline_next()) { // pipeline, move initializers
@@ -2819,6 +2821,7 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(
     }
     cblock->instructions.clear();
   }
+#endif
   // create a new block to continue after cleaning rewrite rules out of the context
   t_combinational_block_context ctx = {
         circ->context.fsm, circ->context.subroutine, circ->context.pipeline_stage,
@@ -7606,8 +7609,15 @@ bool Algorithm::blockIsEmpty(const t_combinational_block *block) const
   if (!block->initialized_vars.empty()) {
     return false;
   }
-  if (!block->instructions.empty()) {
-    return false;
+  if (block->instructions.empty()) {
+    return true;
+  } else {
+    // expression catchers are ok, anything else is not
+    for (auto i : block->instructions) {
+      if (dynamic_cast<siliceParser::Expression_0Context*>(i.instr) == nullptr) {
+        return false;
+      }
+    }
   }
   return true;
 }

@@ -18,8 +18,8 @@ $$ else
    uint$clog2(w_in)-1$ half_count = uninitialized;
    uint$w_h$           lhs        = in[$w_h$,$w_h$];
    uint$w_h$           rhs        = in[    0,$w_h$];
-   uint$w_h$           select     = left_empty ? rhs : lhs;
    uint1               left_empty = ~|lhs;
+   uint$w_h$           select     = left_empty ? rhs : lhs;
    (half_count) = $name$_$w_h$(select);
    out          = {left_empty,half_count};
 $$ end
