@@ -211,9 +211,6 @@ private:
     ///        expression is reached; these are used for temporaries and initializers
     ///        NOTE: there can be only one catcher for a same expression
     std::map<std::pair<siliceParser::Expression_0Context *,const t_combinational_block *>, std::string > m_ExpressionCatchers;
-    /// \brief all temporaries initialized with expressions
-    /// their types are dermined upon instantations by determineTemporaries
-    std::unordered_map<siliceParser::Expression_0Context *, std::pair<std::string, const t_combinational_block *> > m_Temporaries;
 
     /// \brief all memories
     std::vector< t_mem_nfo >              m_Memories;

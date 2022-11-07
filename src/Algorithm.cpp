@@ -2802,31 +2802,6 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(
   }
   // gather code
   t_combinational_block* circ = gather(circuitry->block()->instructionSequence(), cblock, _context);
-#if 0
-  // find block where to move expression initializers
-  // (this is needed for pipelines, ensuring the initializers are in the first stage)
-  t_combinational_block* tempo_dest = cblock;
-  if (cblock->pipeline_next()) { // pipeline, move initializers
-    tempo_dest = cblock->pipeline_next()->next;
-  }
-  // transfer all expression initializers and temporaries
-  if (tempo_dest != cblock) {
-    for (auto instr : cblock->instructions) { // in a declaration only instructions should be expression initializers
-      auto expr = dynamic_cast<siliceParser::Expression_0Context*>(instr.instr);
-      sl_assert(expr != nullptr);
-      tempo_dest->instructions.insert(tempo_dest->instructions.begin(), instr);
-      // update the expression catcher
-      auto var = m_ExpressionCatchers.at(std::make_pair(expr, cblock));
-      m_ExpressionCatchers.erase(std::make_pair(expr, cblock));
-      m_ExpressionCatchers.insert(std::make_pair(std::make_pair(expr, tempo_dest), var));
-      // update the temporary (if applicable)
-      if (m_Temporaries.count(expr)) {
-        m_Temporaries.at(expr).second = tempo_dest;
-      }
-    }
-    cblock->instructions.clear();
-  }
-#endif
   // create a new block to continue after cleaning rewrite rules out of the context
   t_combinational_block_context ctx = {
         circ->context.fsm, circ->context.subroutine, circ->context.pipeline_stage,
@@ -2941,7 +2916,7 @@ std::string Algorithm::temporaryName(siliceParser::Expression_0Context *expr, co
 {
   return "temp_" + std::to_string(expr->getStart()->getLine())
     + "_" + std::to_string(expr->getStart()->getCharPositionInLine())
-    + "_" + std::to_string(m_Temporaries.size())
+    + "_" + std::to_string(m_ExpressionCatchers.size())
     + (__id >= 0 ? "_" + std::to_string(__id) : "");
 }
 
@@ -2952,18 +2927,23 @@ void Algorithm::addTemporary(std::string vname, siliceParser::Expression_0Contex
   // allocate a variable to hold the expression result (this will become a temporary)
   t_var_nfo var;
   var.name = vname; // name is given as input since the temporary may be inserted in a different block than the one it is named after
-  // we cannot yet determine the type of the var, this will be done in determineTemporaries
-  // var.type_nfo
   var.table_size = 0;
   var.init_values.push_back("0");
   var.init_at_startup  = false;
   var.do_not_initialize = true;
+  // determine type from expression
+  ExpressionLinter linter(this, *_context->ictx);
+  // lint and get the type
+  linter.typeNfo(expr, &block->context, var.type_nfo);
+  // check it was properly determined
+  if (var.type_nfo.width <= 0) {
+    reportError(sourceloc(expr), "error: cannot determine expression width, please use sized constants.");
+  }
+  // insert var
   insertVar(var, block);
   m_VarNames.at(var.name);
   // insert as an expression catcher
   m_ExpressionCatchers.insert(std::make_pair(std::make_pair(expr, block),var.name));
-  // insert as a temporary (type will be determined by determineTemporaries)
-  m_Temporaries.insert(std::make_pair(expr, std::make_pair(var.name, block)));
   // insert a custom assignment instruction for this temporary
   block->instructions.insert(block->instructions.begin(), t_instr_nfo(expr, block,_context->__id));
 }
@@ -6095,23 +6075,6 @@ void Algorithm::resolveInOuts()
 
 // -------------------------------------------------
 
-void Algorithm::determineTemporaries(const t_instantiation_context& ictx)
-{
-  ExpressionLinter linter(this, ictx);
-  for (const auto& tmp : m_Temporaries) {
-    // retrieve the var
-    int idx = m_VarNames.at(tmp.second.first);
-    // lint and get the type
-    linter.typeNfo(tmp.first,&tmp.second.second->context,m_Vars.at(idx).type_nfo);
-    // check it was properly determined
-    if (m_Vars.at(idx).type_nfo.width <= 0) {
-      reportError(sourceloc(tmp.first), "error: cannot determine expression width, please use sized constants.");
-    }
-  }
-}
-
-// -------------------------------------------------
-
 void Algorithm::optimize(const t_instantiation_context& ictx)
 {
   if (!m_Optimized) {
@@ -6143,10 +6106,8 @@ void Algorithm::optimize(const t_instantiation_context& ictx)
     determineBlueprintBoundVIO(ictx);
     // analyze instances inputs
     analyzeInstancedBlueprintInputs();
-    // determine type of temporaries
-    determineTemporaries(ictx);
     // check var access permissions
-//    checkPermissions();
+    checkPermissions();
     // analyze variables access
     determineUsage();
   }
