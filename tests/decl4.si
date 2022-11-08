@@ -1,0 +1,17 @@
+algorithm main(output uint8 leds)
+{
+
+  uint8 a = 8;
+  uint8 v = 0;
+  __display("[1] %d",a);
+  
+->
+  
+  /*uint8*/ v = a + 10;
+  __display("[2] %d",v);
+
+->
+
+  __display("[3] %d",v);
+
+}

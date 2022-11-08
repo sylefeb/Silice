@@ -8136,7 +8136,12 @@ void Algorithm::writeStatelessBlockGraph(
         return;
       }
       auto prev = current;
-      current   = writeStatelessPipeline(prefix, w, ictx, current, _q, _dependencies, _ff_usage, _post_dependencies, _lines);
+      {
+        std::ostringstream _;
+        t_writer_context wpip(w.pipes,_,w.wires);
+        sl_assert(_.str().empty());
+        current = writeStatelessPipeline(prefix, wpip, ictx, current, _q, _dependencies, _ff_usage, _post_dependencies, _lines);
+      }
       // if not in an always block, check that blocks between here and next states are empty
       if (current->context.fsm != nullptr) {
         if (!emptyUntilNextStates(current)) {
