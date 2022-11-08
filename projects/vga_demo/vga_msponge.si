@@ -1,0 +1,368 @@
+// SL 2022-10-14
+//
+// MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+
+// Implements a pipeline ray-marching a fractal while racing the beam.
+// The marching algorithm is the classical "Fast voxel traversal"
+// by Amanatides and Woo 1987 (a dda traversal, ala Wolfenstein3D)
+// http://www.cse.yorku.ca/~amana/research/grid.pdf
+//
+// The fractal is a Menger sponge https://en.wikipedia.org/wiki/Menger_sponge
+// with three levels. It is produced by looking up a 64 bits constant defining
+// which of the 4x4x4 (=64) voxels are solid.
+
+$$if ECPIX5 then
+$$  N_steps       = 128
+$$  delay         = 45751
+$$  VGA_1024_768  = 1
+$$elseif DE10NANO then
+$$  N_steps       = 190
+$$  delay         = 93065
+$$  VGA_1920_1080 = 1
+$$else
+$$  N_steps       = 64
+$$  delay         = 93191
+$$  VGA_1920_1080 = 1
+$$end
+
+$include('vga_demo_main.si')
+
+// ----------------------------------------------------------------------------
+$$if ECPIX5 then
+// ----------------------------------------------------------------------------
+
+circuitry mul_14_18 (output result,input a,input b) { result = a*b; }
+circuitry mul_8_8   (output result,input a,input b) { result = a*b; }
+circuitry imul_24_24(output result,input a,input b) { result = a*b; }
+
+// ----------------------------------------------------------------------------
+$$else
+// ----------------------------------------------------------------------------
+
+circuitry mul_14_18(output result,input a,input b)
+{
+  uint16 ahbl(0); uint16 albh(0); uint16 albl(0); uint16 ahbh(0);
+  ahbl   = a[7,7] * b[0,9];  albh   = a[0,7] * b[9,9];
+  albl   = a[0,7] * b[0,9];  ahbh   = a[7,7] * b[9,9];
+ ->
+  result = {ahbh,16b0}+{ahbl,7b0}+{albh,9b0}+{16b0,albl};
+ ->
+}
+
+circuitry mul_8_8(output result,input a,input b)
+{
+  uint8 albh(0); uint8 ahbl(0); uint8 albl(0); uint8 ahbh(0);
+  ahbl   = a[4,4] * b[0,4];  albh   = a[0,4] * b[4,4];
+  albl   = a[0,4] * b[0,4];  ahbh   = a[4,4] * b[4,4];
+ ->
+  result = { {ahbh,4b0} + ahbl+albh+albl[4,4] , albl[0,4] };
+ ->
+}
+
+circuitry mul_12_12(output result,input a,input b)
+{
+  uint12 albh(0); uint12 ahbl(0); uint12 albl(0); uint12 ahbh(0);
+  ahbl   = a[6,6] * b[0,6];  albh   = a[0,6] * b[6,6];
+  albl   = a[0,6] * b[0,6];  ahbh   = a[6,6] * b[6,6];
+ ->
+  result = { {ahbh,6b0} + ahbl+albh+albl[6,6] , albl[0,6] };
+ ->
+}
+
+circuitry imul_24_24(output result,input a,input b)
+{
+  uint11 albh(0);  uint11 ahbl(0);  uint23 albl(0);  uint23 aa(0);
+  //  ^^ result is clamped at 24, so we can clamp albh ahbl
+  uint23 bb(0);    uint1  na(0);    uint1  nb(0);    uint23 m(0);
+  na = a < 0; nb = b < 0; aa = na ? -a : a; bb = nb ? -b : b;
+ ->
+  uint12 ah = {1b0,aa[12,11]};  uint12 al = aa[0,12];
+  uint12 bh = {1b0,bb[12,11]};  uint12 bl = bb[0,12];
+(ahbl) = mul_12_12(ah,bl); (albh) = mul_12_12(al,bh); (albl) = mul_12_12(al,bl);
+  m = {ahbl+albh+albl[12,11],albl[0,12]};
+ ->
+  result = (na ^ nb) ? -m : m;
+ ->
+}
+
+$$end
+
+// ----------------------------------------------------------------------------
+// display unit
+// ----------------------------------------------------------------------------
+
+unit frame_display(
+  input   uint11 pix_x,       input   uint11 pix_y,
+  input   uint1  pix_active,  input   uint1  pix_vblank,
+  input   uint1  vga_hs,      input   uint1  vga_vs,
+  output! uint$color_depth$ pix_r,
+  output! uint$color_depth$ pix_g,
+  output! uint$color_depth$ pix_b
+) {
+
+  int24   frame(200);
+
+  dualport_bram int24 cos[512] = {
+$$for i=0,511 do
+    $math.floor(1024.0 * math.cos(2*math.pi*i/512))$,
+$$end
+  };
+  dualport_bram int24 sin[512] = {
+$$for i=0,511 do
+    $math.floor(1024.0 * math.sin(2*math.pi*i/512))$,
+$$end
+  };
+  // we need access to inv from 3 stages: we create one dual and one simple bram
+  dualport_bram uint18 invA[2048] = { // dual
+    131071,131071,131071,
+$$for i=3,2047 do
+    $262144//i$,
+$$end
+  };
+  bram          uint18 invB[2048] = { // simple
+    131071,131071,131071,
+$$for i=3,2047 do
+    $262144//i$,
+$$end
+  };
+
+  uint64 tile <:: { // do you see the fractal shape? it's in there!
+         1b1,1b1,1b1,1b1,
+         1b1,1b0,1b0,1b1,
+         1b1,1b0,1b0,1b1,
+         1b1,1b1,1b1,1b1,
+
+         1b1,1b0,1b0,1b1,
+         1b0,1b0,1b0,1b0,
+         1b0,1b0,1b0,1b0,
+         1b1,1b0,1b0,1b1,
+
+         1b1,1b0,1b0,1b1,
+         1b0,1b0,1b0,1b0,
+         1b0,1b0,1b0,1b0,
+         1b1,1b0,1b0,1b1,
+
+         1b1,1b1,1b1,1b1,
+         1b1,1b0,1b0,1b1,
+         1b1,1b0,1b0,1b1,
+         1b1,1b1,1b1,1b1
+  };
+
+  // 4x4 matrix for dithering down to 4bpp
+  // https://en.wikipedia.org/wiki/Ordered_dithering
+  uint4 bayer_4x4[16] = {
+     0,  8,  2, 10,
+    12,  4, 14,  6,
+     3, 11,  1,  9,
+    15,  7, 13,  5
+  };
+
+  pix_r := 0; pix_g := 0; pix_b := 0;
+
+  algorithm <autorun> {
+
+    while (1) {
+
+      // a 'voxel' is 1<<12 (constant, so tracker can be here)
+      // lvl 0 is 1<<14 (4x4x4), lvl 1 is 1<<16 (4x4x4), lvl 2 is 1<<18 (4x4x4)
+      uint14 vxsz = 1<<12;
+
+      // ===== Here we synch the pipeline with the vertical sync.
+      //       The pipeline starts during vblank so latency is hidden and
+      //       the first pixel is ready exactly at the right moment.
+      while (~vga_vs) {}
+      while ( vga_vs) {}
+      // wait the 'perfect' delay (obtained in simulation, see marker [1] below)
+      // (adjust delay if number of steps is changed)
+      uint17 wait = 0; while (wait != $delay$) { wait = wait + 1; }
+
+      // ----- show time! -----
+      // this loop feeds the pipeline
+      uint12 x = -1; uint12 y = -1;
+      while ( ! (x == $H_END-1$ && y == $V_RES-1$) ) {
+
+        // ----- pipeline starts here -----
+
+        int24 view_x = ((__signed(x) - __signed(24d$H_RES>>1$)));
+        int24 view_y = ((__signed(y) - __signed(24d$V_RES>>1$)));
+        int24 view_z = 384;
+        // lookup cosine/sine for rotations
+        cos.addr0 = frame>>1;              sin.addr0 = frame>>1;
+        cos.addr1 = (frame+(frame<<1))>>3; sin.addr1 = (frame+(frame<<3))>>4;
+
+        // per-pixel state vars updated through the pipeline
+        uint1 inside = 0; uint8 dist = 239; uint8 clr = 0;
+
+        y = x == $H_END-1$ ? (y + 1) : y;
+        x = x == $H_END-1$ ? 0 : (x + 1);
+
+    ->
+
+        int24 cs0 = cos.rdata0;   int24 ss0 = sin.rdata0;
+        int24 cs1 = cos.rdata1;   int24 ss1 = sin.rdata1;
+        int24 rot_x(0);           int24 rot_y(0);
+
+    (rot_x) = imul_24_24(view_x,cs1);
+    (rot_y) = imul_24_24(view_x,ss1);
+
+        int24 ycs(0); int24 yss(0);
+
+    (yss) = imul_24_24(view_y,ss1);
+    (ycs) = imul_24_24(view_y,cs1);
+
+        view_x  = rot_x - yss;
+        view_y  = rot_y + ycs;
+
+    ->
+
+        view_x = view_x >>> 10;
+        view_y = view_y >>> 10;
+
+    ->
+
+        // compute the ray direction (through rotations)
+        int24 xcs(0);
+    (xcs) = imul_24_24(view_x,cs0);
+        int24 xss(0);
+    (xss) = imul_24_24(view_x,ss0);
+        int24 zcs(0);
+    (zcs) = imul_24_24(view_z,cs0);
+        int24 zss(0);
+    (zss) = imul_24_24(view_z,ss0);
+
+        int24 r_x_delta = (xcs - zss);
+        int24 r_z_delta = (xss + zcs);
+
+    ->
+
+        // ray dir is (r_x_delta, view_y, r_z_delta)
+        int16 rd_x = r_x_delta>>>10;
+        int16 rd_y = view_y;
+        int16 rd_z = r_z_delta>>>10;
+        // initialize voxel traversal
+        // -> steps
+        int2 s_x = rd_x<0?-1:1; int2 s_y = rd_y<0?-1:1; int2 s_z = rd_z<0?-1:1;
+        // -> lookup inverses (1/x)
+        invA.addr0 = rd_x<0 ? -rd_x : rd_x; invA.addr1 = rd_y<0 ? -rd_y : rd_y;
+        invB.addr  = rd_z<0 ? -rd_z : rd_z;
+        // -> position
+        int24 p_x  = (68<<11);
+        int24 p_y  = (12<<11);
+        int24 p_z  = (frame<<9);
+        // -> start voxel
+        int12 v_x = p_x >> 12; int12 v_y = p_y >> 12; int12 v_z = p_z >> 12;
+        // distance to border
+        uint14 brd_x = (p_x - (v_x<<12));
+        uint14 brd_y = (p_y - (v_y<<12));
+        uint14 brd_z = (p_z - (v_z<<12));
+
+    ->
+
+        brd_x = rd_x < 0 ? (brd_x) : (vxsz - brd_x);
+        brd_y = rd_y < 0 ? (brd_y) : (vxsz - brd_y);
+        brd_z = rd_z < 0 ? (brd_z) : (vxsz - brd_z);
+
+    ->
+
+        // inv dot products
+        uint18 inv_x = invA.rdata0;
+        uint18 inv_y = invA.rdata1;
+        uint18 inv_z = invB.rdata;
+
+        // -> tmax
+
+      uint32 tm_x_(0);  uint32 tm_y_(0);  uint32 tm_z_(0);
+
+    (tm_x_) = mul_14_18(brd_x, inv_x);
+    (tm_y_) = mul_14_18(brd_y, inv_y);
+    (tm_z_) = mul_14_18(brd_z, inv_z);
+
+        uint20 tm_x = tm_x_>>12;
+        uint20 tm_y = tm_y_>>12;
+        uint20 tm_z = tm_z_>>12;
+
+        // -> delta
+
+      uint32 dt_x_(0);  uint32 dt_y_(0);  uint32 dt_z_(0);
+
+    (dt_x_) = mul_14_18(vxsz, inv_x);
+    (dt_y_) = mul_14_18(vxsz, inv_y);
+    (dt_z_) = mul_14_18(vxsz, inv_z);
+
+        uint20 dt_x = (dt_x_>>12)-1; // keep at 20 bits
+        uint20 dt_y = (dt_y_>>12)-1;
+        uint20 dt_z = (dt_z_>>12)-1;
+
+    // ----- now we generate the marching stages -----
+
+$$for i=0,N_steps-1 do
+
+    ->
+
+        uint6 tex   = (v_x) ^ (v_y) ^ (v_z);
+        uint6 vnum0 = {v_z[0,2],v_y[0,2],v_x[0,2]};
+        uint6 vnum1 = {v_z[2,2],v_y[2,2],v_x[2,2]};
+        uint6 vnum2 = {v_z[4,2],v_y[4,2],v_x[4,2]};
+        if (~inside & tile[vnum0,1] & tile[vnum1,1] & tile[vnum2,1]) {
+          clr = tex;  dist = $(i * 239) // N_steps$;  inside = 1;
+        }
+        // select smallest
+        int21 cmp_yx = tm_y - tm_x;
+        int21 cmp_zx = tm_z - tm_x;
+        int21 cmp_zy = tm_z - tm_y;
+        uint1 x_sel  = ~cmp_yx[20,1] && ~cmp_zx[20,1]; // uses sign bit for
+        uint1 y_sel  =  cmp_yx[20,1] && ~cmp_zy[20,1]; // comparisons, < and >=
+        uint1 z_sel  =  cmp_zx[20,1] &&  cmp_zy[20,1];
+        if (x_sel) { // tm_x smallest
+          v_x  = v_x  + s_x;  tm_x = tm_x + dt_x;
+        }
+        if (y_sel) { // tm_y smallest
+          v_y  = v_y  + s_y;  tm_y = tm_y + dt_y;
+        }
+        if (z_sel) { // tm_z smallest
+          v_z  = v_z  + s_z;  tm_z = tm_z + dt_z;
+        }
+
+$$end
+    ->
+        // compute color from hit
+        uint8  fog   = dist;
+        uint8  light = 239 - fog;
+        uint16 shade(0);
+    (shade) = mul_8_8(light,clr);
+        uint8  clr_r = (shade[7,8]) + fog;
+        uint8  clr_g = (shade[7,8]) + fog;
+        uint8  clr_b = (shade[8,8]) + fog;
+
+    ->
+$$if SIMULATION then
+        // to verify/adjust pixel synch [1]
+        if (pix_y == 0) {
+          __display("x = %d  pix_x = %d (diff: %d)",x,pix_x,__signed(x-pix_x));
+          __display("y = %d  pix_y = %d (diff: %d)",y,pix_y,__signed(y-pix_y));
+        }
+$$end
+        if (x < $H_RES$) { // do not produce color out of bound, screen may
+                           // otherwise produce weird color artifacts
+$$if DE10NANO then
+          pix_r = clr_r>>2; pix_g = clr_g>>2; pix_b = clr_b>>2;
+          //           ^^^ framework uses 6 bits per component for RGB
+$$else
+          uint4 dth_r = bayer_4x4[ { y[0,2] , x[0,2] } ] < clr_r[0,4] ? (clr_r[4,4]+1) : clr_r[4,4];
+          uint4 dth_g = bayer_4x4[ { x[0,2] , y[0,2] } ] < clr_g[0,4] ? (clr_g[4,4]+1) : clr_g[4,4];
+          uint4 dth_b = bayer_4x4[ { y[0,2] , x[0,2] } ] < clr_b[0,4] ? (clr_b[4,4]+1) : clr_b[4,4];
+          pix_r       = {dth_r,2b0}; pix_g = {dth_g,2b0}; pix_b = {dth_b,2b0};
+$$end
+        }
+
+        // ----- pipeline ends here -----
+
+      } // while x,y
+
+      frame = (frame - 1);
+
+    } // while (1)
+
+  }
+}
