@@ -7645,6 +7645,7 @@ void Algorithm::writeBlock(std::string prefix,t_writer_context &w, const t_insta
           if (alw->ALWSASSIGNDBL() != nullptr) {
             std::ostringstream ostr,_;
             t_writer_context wtmp(ostr, _);
+            sl_assert(_.str().empty());
             writeAssignement(prefix, wtmp, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), &block->context, ictx, FF_Q, _dependencies, _ff_usage);
             // modify assignement to insert temporary var
             std::size_t pos    = ostr.str().find('=');
