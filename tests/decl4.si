@@ -1,17 +1,21 @@
 algorithm main(output uint8 leds)
 {
+  uint8 n(0);
 
-  uint8 a = 8;
-  uint8 v = 0;
-  __display("[1] %d",a);
-  
-->
-  
-  /*uint8*/ v = a + 10;
-  __display("[2] %d",v);
+  while (n != 3) {
+
+    __display("[1] %d",n); ///////// FIXME goes one step too far
+    n = n + 1;
 
 ->
 
-  __display("[3] %d",v);
+    uint8 v = n + 10;
+    __display("[2] %d",v);
+
+->
+
+    __display("[3] %d",v);
+
+  }
 
 }

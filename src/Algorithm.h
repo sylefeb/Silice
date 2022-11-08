@@ -952,7 +952,7 @@ private:
     /// \brief determine which VIO are accessed by a block
     void determineBlockVIOAccess(t_combinational_block *block,
       const std::unordered_map<std::string, int>& vios,
-      std::unordered_set<std::string>& _read, std::unordered_set<std::string>& _written) const;
+      std::unordered_set<std::string>& _read, std::unordered_set<std::string>& _written, std::unordered_set<std::string>& _declared) const;
     /// \brief determines variable access for an instruction
     void determineAccess(
       antlr4::tree::ParseTree             *instr,

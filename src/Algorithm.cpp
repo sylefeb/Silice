@@ -2317,10 +2317,12 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
       fsmGetBlocks(snfo->fsm, blocks);
       // check VIO access
       // gather read/written for block
-      std::unordered_set<std::string> read, written;
+      std::unordered_set<std::string> read, written, declared;
       for (auto fsmb : blocks) {
-        determineBlockVIOAccess(fsmb, m_VarNames, read, written);
+        determineBlockVIOAccess(fsmb, m_VarNames, read, written, declared);
       }
+      // merge declared with written
+      written.insert(declared.begin(), declared.end());
       // check written vars (will start trickling) are not written outside of pipeline before
       for (auto w : written) {
         if (nfo->written_special.count(w) != 0) {
@@ -2328,10 +2330,11 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
         }
       }
       // check no output is written from two stages
-      std::unordered_set<std::string> o_read, o_written;
+      std::unordered_set<std::string> o_read, o_written, o_declared;
       for (auto fsmb : blocks) {
-        determineBlockVIOAccess(fsmb, m_OutputNames, o_read, o_written);
+        determineBlockVIOAccess(fsmb, m_OutputNames, o_read, o_written, o_declared);
       }
+      sl_assert(o_declared.empty()); // outputs are not declared
       for (auto ow : o_written) {
         if (nfo->written_outputs.count(ow) > 0) {
           reportError(sourceloc(snfo->node), "output '%s' is written from two different pipeline stages", ow.c_str());
@@ -5252,7 +5255,9 @@ void Algorithm::getAllBlockInstructions(t_combinational_block *block, std::vecto
 void Algorithm::determineBlockVIOAccess(
   t_combinational_block                       *block,
   const std::unordered_map<std::string, int>&  vios,
-  std::unordered_set<std::string>& _read, std::unordered_set<std::string>& _written) const
+  std::unordered_set<std::string>&            _read,
+  std::unordered_set<std::string>&            _written,
+  std::unordered_set<std::string>&            _declared) const
 {
   // gather instructions
   std::vector<t_instr_nfo> instrs;
@@ -5262,6 +5267,17 @@ void Algorithm::determineBlockVIOAccess(
   // determine access
   for (const auto& i : instrs) {
     determineVIOAccess(i.instr, vios, block, _read, _written);
+    // check for declared vars and temporaries
+    auto expr = dynamic_cast<siliceParser::Expression_0Context*>(i.instr);
+    if (expr) {
+      auto C = m_ExpressionCatchers.find(std::make_pair(expr, block));
+      if (C != m_ExpressionCatchers.end()) {
+        std::string var = C->second;
+        if (vios.count(var) > 0) {
+          _declared.insert(var);
+        }
+      }
+    }
   }
 }
 
@@ -5409,6 +5425,14 @@ void Algorithm::determineAccess(
         m_AlwaysPost.in_vars_read.insert(v);
         // set global access
         m_Vars[m_VarNames[v]].access = (e_Access)(m_Vars[m_VarNames[v]].access | e_ReadOnly);
+      }
+    }
+  }
+  // determine variable access due to trickling
+  for (auto pip : m_Pipelines) {
+    for (auto tv : pip->trickling_vios) {
+      if (m_VarNames.count(tv.first)) { // mark trickling var as read
+        m_Vars.at(m_VarNames.at(tv.first)).access = (e_Access)(m_Vars.at(m_VarNames.at(tv.first)).access | e_ReadOnly);
       }
     }
   }
