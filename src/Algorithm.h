@@ -1157,7 +1157,7 @@ private:
     /// \brief returns whether the block is empty, i.e. writeBlock will not produce code
     bool blockIsEmpty(const t_combinational_block *block) const;
     /// \brief writes a single block to the output
-    void writeBlock(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, const t_combinational_block *block, t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage, std::set<v2i>& _lines) const;
+    void writeBlock(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_combinational_block *block, t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage, std::set<v2i>& _lines) const;
     /// \brief writes variable inits
     void writeVarInits(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, const std::unordered_map<std::string, int >& varnames, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage) const;
     /// \brief writes a memory module

@@ -109,7 +109,8 @@ namespace Silice
     public:
       std::ostream& out;
       std::ostream& pipes;
-      t_writer_context(std::ostream& out_, std::ostream& pipes_) : out(out_), pipes(pipes_) { }
+      std::ostream& wires;
+      t_writer_context(std::ostream& out_, std::ostream& pipes_, std::ostream& wires_) : out(out_), pipes(pipes_), wires(wires_) { }
     };
 
     /// \brief returns the blueprint name
