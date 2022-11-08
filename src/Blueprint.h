@@ -104,6 +104,15 @@ namespace Silice
       std::unordered_map<std::string, std::string> params;
     } t_instantiation_context;
 
+    /// \brief context for the writer
+    class t_writer_context {
+    public:
+      std::ostream& out;
+      std::ostream& pipes;
+      std::ostream& wires;
+      t_writer_context(std::ostream& out_, std::ostream& pipes_, std::ostream& wires_) : out(out_), pipes(pipes_), wires(wires_) { }
+    };
+
     /// \brief returns the blueprint name
     virtual std::string name() const = 0;
     /// \brief sets as a top module in the output stream

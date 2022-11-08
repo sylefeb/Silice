@@ -4269,6 +4269,22 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, antlr4::t
   determineVIOAccess(instr, m_VarNames, block, read, written);
   determineVIOAccess(instr, m_InputNames, block, read, written);
   determineVIOAccess(instr, m_OutputNames, block, read, written);
+  // check for expression catcher
+  // NOTE: In determineVIOAccess an expression catcher is not considered as written so
+  //       that it can collapse into a const if not used elsewhere. However, it has to
+  //       be seen as written from the point of view of dependencies
+  auto expr = dynamic_cast<siliceParser::Expression_0Context *>(instr);
+  if (expr) {
+    auto C = m_ExpressionCatchers.find(std::make_pair(expr, block));
+    if (C != m_ExpressionCatchers.end()) {
+      std::string var = C->second;
+      written.insert(var);
+      // check for special case of using self in initializer expression
+      if (read.count(var)) {
+        reportError(sourceloc(instr), "variable '%s' depends on itself in initialization expression!",var.c_str());
+      }
+    }
+  }
   // update and check
   updateAndCheckDependencies(_depds, sourceloc(dynamic_cast<antlr4::ParserRuleContext *>(instr)), read, written, block);
 }
@@ -4823,7 +4839,8 @@ void Algorithm::determineVIOAccess(
   antlr4::tree::ParseTree*                    node,
   const std::unordered_map<std::string, int>& vios,
   const t_combinational_block                *block,
-  std::unordered_set<std::string>& _read, std::unordered_set<std::string>& _written) const
+  std::unordered_set<std::string>&           _read,
+  std::unordered_set<std::string>&           _written) const
 {
   const t_combinational_block_context *bctx = &block->context;
   if (node->children.empty()) {
@@ -4926,12 +4943,8 @@ void Algorithm::determineVIOAccess(
         if (C == m_ExpressionCatchers.end()) {
           // no: nothing to do
         } else {
-          string var = C->second;
-          // tag it as written
-          var = translateVIOName(var, bctx);
-          if (vios.find(var) != vios.end()) {
-            _written.insert(var);
-          }
+          // yes: nothing to do, we do not tag it as written so that it can collapse to a const
+          // NOTE: updateAndCheckDependencies has a special case so these are seen as written
         }
         // recurse
         recurse = true;
@@ -6404,7 +6417,7 @@ void Algorithm::writeAlgorithmCall(antlr4::tree::ParseTree *node, std::string pr
         "algorithm instance '%s' cannot be called with parameters as its input '%s' is bound",
           a.instance_name.c_str(), ins.name.c_str());
       }
-      // out << FF_D << a.instance_prefix << "_" << ins.name; // NOTE: we are certain a flip-flop is produced as the algorithm is bound to the 'Q' side
+      // w.out << FF_D << a.instance_prefix << "_" << ins.name; // NOTE: we are certain a flip-flop is produced as the algorithm is bound to the 'Q' side
       out << rewriteIdentifier(prefix, a.instance_prefix + "_" + ins.name, "", bctx, ictx, sourceloc(plist), FF_D, false, dependencies, _ff_usage);
       if (std::holds_alternative<std::string>(matches[p].what)) {
         out << " = " << rewriteIdentifier(prefix, std::get<std::string>(matches[p].what), "", bctx, ictx, sourceloc(plist), FF_Q, true, dependencies, _ff_usage);
@@ -6569,7 +6582,7 @@ std::tuple<t_type_nfo, int> Algorithm::writeIOAccess(
         "cannot access bound input '%s' on instance '%s'", member.c_str(), base.c_str());
       }
       out << rewriteIdentifier(prefix, A->second.instance_prefix + "_" + member, suffix, bctx, ictx, sourceloc(ioaccess), assigning ? FF_D : ff, !assigning, dependencies, _ff_usage);
-      // out << FF_D << A->second.instance_prefix << "_" << member << suffix;
+      // w.out << FF_D << A->second.instance_prefix << "_" << member << suffix;
       return A->second.blueprint->determineVIOTypeWidthAndTableSize(member, sourceloc(ioaccess));
     } else if (A->second.blueprint->isOutput(member)) {
       out << WIRE << A->second.instance_prefix << "_" << member << suffix;
@@ -6660,7 +6673,7 @@ void Algorithm::writeBitfieldAccess(
     out << rewriteIdentifier(prefix, bfaccess->idOrIoAccess()->IDENTIFIER()->getText(), suffix, bctx, ictx,
       sourceloc(bfaccess->idOrIoAccess()), assigning ? FF_D : ff, !assigning, dependencies, _ff_usage);
   }
-  // out << '[' << ow.second << "+:" << ow.first.width << ']';
+  // w.out << '[' << ow.second << "+:" << ow.first.width << ']';
   if (ow.first.base_type == Int) {
     out << ")";
   }
@@ -6687,7 +6700,7 @@ void Algorithm::writePartSelect(std::string prefix, std::ostream& out, bool assi
     out << rewriteIdentifier(prefix, partsel->IDENTIFIER()->getText(), '[' + range.first + "+:" + range.second + ']', bctx, ictx,
       sourceloc(partsel), assigning ? FF_D : ff, !assigning, dependencies, _ff_usage);
   }
-  // out << '[' << rewriteExpression(prefix, partsel->first, __id, bctx, FF_Q, true, dependencies, _ff_usage) << "+:" << gatherConstValue(partsel->num) << ']';
+  // w.out << '[' << rewriteExpression(prefix, partsel->first, __id, bctx, FF_Q, true, dependencies, _ff_usage) << "+:" << gatherConstValue(partsel->num) << ']';
   if (assigning) {
     // This is a part-select access. We assume it is partial (could be checked if const).
     // Thus the variable is likely only partially written and to be safe we tag
@@ -6774,7 +6787,7 @@ void Algorithm::writeAssignement(std::string prefix, std::ostream& out,
 // -------------------------------------------------
 
 void Algorithm::writeAssert(std::string prefix,
-                            std::ostream &out,
+                            std::ostream& out,
                             const t_instr_nfo &a,
                             siliceParser::Expression_0Context *expression_0,
                             const t_combinational_block_context *bctx,
@@ -6794,7 +6807,7 @@ void Algorithm::writeAssert(std::string prefix,
 // -------------------------------------------------
 
 void Algorithm::writeAssume(std::string prefix,
-                            std::ostream &out,
+                            std::ostream& out,
                             const t_instr_nfo &a,
                             siliceParser::Expression_0Context *expression_0,
                             const t_combinational_block_context *bctx,
@@ -6814,7 +6827,7 @@ void Algorithm::writeAssume(std::string prefix,
 // -------------------------------------------------
 
 void Algorithm::writeRestrict(std::string prefix,
-                              std::ostream &out,
+                              std::ostream& out,
                               const t_instr_nfo &a,
                               siliceParser::Expression_0Context *expression_0,
                               const t_combinational_block_context *bctx,
@@ -6834,7 +6847,7 @@ void Algorithm::writeRestrict(std::string prefix,
 // -------------------------------------------------
 
 void Algorithm::writeCover(std::string prefix,
-                           std::ostream &out,
+                           std::ostream& out,
                            const t_instr_nfo &a,
                            siliceParser::Expression_0Context *expression_0,
                            const t_combinational_block_context *bctx,
@@ -6854,7 +6867,7 @@ void Algorithm::writeCover(std::string prefix,
 // -------------------------------------------------
 
 void Algorithm::writeWireAssignements(
-  std::string prefix, std::ostream &out, const t_instantiation_context &ictx,
+  std::string prefix, std::ostream& out, const t_instantiation_context &ictx,
   t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, bool first_pass) const
 {
   for (const auto &a : m_WireAssignments) {
@@ -6898,14 +6911,14 @@ void Algorithm::writeWireAssignements(
 
 // -------------------------------------------------
 
-void Algorithm::writeVerilogDeclaration(std::ostream &out, const t_instantiation_context &ictx, std::string base, const t_var_nfo &v, std::string postfix) const
+void Algorithm::writeVerilogDeclaration(std::ostream& out, const t_instantiation_context &ictx, std::string base, const t_var_nfo &v, std::string postfix) const
 {
   out << base << " " << typeString(varType(v,ictx)) << " " << varBitRange(v,ictx) << " " << postfix << ';' << nxl;
 }
 
 // -------------------------------------------------
 
-void Algorithm::writeVerilogDeclaration(const Blueprint *bp, std::ostream &out, const t_instantiation_context &ictx, std::string base, const t_var_nfo &v, std::string postfix) const
+void Algorithm::writeVerilogDeclaration(const Blueprint *bp, std::ostream& out, const t_instantiation_context &ictx, std::string base, const t_var_nfo &v, std::string postfix) const
 {
   out << base << " " << typeString(bp->varType(v, ictx)) << " " << bp->varBitRange(v, ictx) << " " << postfix << ';' << nxl;
 }
@@ -6932,7 +6945,17 @@ void Algorithm::writeConstDeclarations(std::string prefix, std::ostream& out,con
       }
     } else if (CONFIG.keyValues().count("reg_init_zero")) {
       if (v.table_size == 0) {
-        out << "assign " << FF_CST << prefix << v.name << " = 0;" << nxl;
+        // if this is an expression catcher, do not set to 0
+        bool skip = false;
+        for (auto ec : m_ExpressionCatchers) {
+          if (ec.second == v.name) {
+            skip = true;
+            break;
+          }
+        }
+        if (!skip) {
+          out << "assign " << FF_CST << prefix << v.name << " = 0;" << nxl;
+        }
       } else {
         sl_assert(v.type_nfo.base_type != Parameterized);
         ForIndex(i, v.init_values.size()) {
@@ -7056,7 +7079,7 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
     for (auto sub : m_Subroutines) {
       if (sub.second->contains_calls) {
         out << "reg  [" << (width(m_SubroutineCallerNextId) - 1) << ":0] " FF_D << prefix << sub.second->name << "_" << ALG_CALLER
-                                                                    << "," FF_Q << prefix << sub.second->name << "_" << ALG_CALLER << ';' << nxl;
+                                                                 << "," FF_Q << prefix << sub.second->name << "_" << ALG_CALLER << ';' << nxl;
       }
     }
   }
@@ -7074,7 +7097,7 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
 
 // -------------------------------------------------
 
-void Algorithm::writeVarFlipFlopUpdate(std::string prefix, std::string reset, std::ostream &out, const t_instantiation_context &ictx, const t_var_nfo &v) const
+void Algorithm::writeVarFlipFlopUpdate(std::string prefix, std::string reset, std::ostream& out, const t_instantiation_context &ictx, const t_var_nfo &v) const
 {
   std::string init_cond = reset;
   if (reset.empty()) {
@@ -7291,7 +7314,7 @@ void Algorithm::writeVarFlipFlopCombinationalUpdate(std::string prefix, std::ost
 // -------------------------------------------------
 
 void Algorithm::writeCombinationalAlwaysPre(
-  std::string prefix,  std::ostream& out,
+  std::string prefix, t_writer_context &w,
   const                t_instantiation_context& ictx,
   t_vio_dependencies& _always_dependencies,
   t_vio_ff_usage&     _ff_usage,
@@ -7300,21 +7323,21 @@ void Algorithm::writeCombinationalAlwaysPre(
   // flip-flops
   for (const auto& v : m_Vars) {
     if (v.usage != e_FlipFlop) continue;
-    writeVarFlipFlopCombinationalUpdate(prefix, out, v);
+    writeVarFlipFlopCombinationalUpdate(prefix, w.out, v);
   }
   for (const auto& v : m_Outputs) {
     if (v.usage != e_FlipFlop) continue;
-    writeVarFlipFlopCombinationalUpdate(prefix, out, v);
+    writeVarFlipFlopCombinationalUpdate(prefix, w.out, v);
   }
   if (!hasNoFSM()) {
     // state machine index
-    out << FF_D << prefix << fsmIndex(&m_RootFSM) << " = " FF_Q << prefix << fsmIndex(&m_RootFSM) << ';' << nxl;
+    w.out << FF_D << prefix << fsmIndex(&m_RootFSM) << " = " FF_Q << prefix << fsmIndex(&m_RootFSM) << ';' << nxl;
     // caller ids for subroutines
     if (!doesNotCallSubroutines()) {
-      out << FF_D << prefix << ALG_CALLER " = " FF_Q << prefix << ALG_CALLER ";" << nxl;
+      w.out << FF_D << prefix << ALG_CALLER " = " FF_Q << prefix << ALG_CALLER ";" << nxl;
       for (auto sub : m_Subroutines) {
         if (sub.second->contains_calls) {
-          out << FF_D << prefix << sub.second->name << "_" << ALG_CALLER " = " FF_Q << prefix << sub.second->name << "_" << ALG_CALLER ";" << nxl;
+          w.out << FF_D << prefix << sub.second->name << "_" << ALG_CALLER " = " FF_Q << prefix << sub.second->name << "_" << ALG_CALLER ";" << nxl;
         }
       }
     }
@@ -7322,9 +7345,9 @@ void Algorithm::writeCombinationalAlwaysPre(
   // D=Q on fsm indices and full, reset stall
   for (auto fsm : m_PipelineFSMs) {
     if (fsmIsEmpty(fsm)) { continue; }
-    out << FF_D   << "_" << fsmIndex(fsm) << " = " << FF_Q << "_" << fsmIndex(fsm) << ';' << nxl;
-    out << FF_D   << "_" << fsmPipelineStageFull(fsm) << " = " << FF_Q << "_" << fsmPipelineStageFull(fsm) << ';' << nxl;
-    out << FF_TMP << "_" << fsmPipelineStageStall(fsm) << " = 0;" << nxl;
+    w.out << FF_D   << "_" << fsmIndex(fsm) << " = " << FF_Q << "_" << fsmIndex(fsm) << ';' << nxl;
+    w.out << FF_D   << "_" << fsmPipelineStageFull(fsm) << " = " << FF_Q << "_" << fsmPipelineStageFull(fsm) << ';' << nxl;
+    w.out << FF_TMP << "_" << fsmPipelineStageStall(fsm) << " = 0;" << nxl;
   }
   // instanced algorithms run, maintain high
   for (const auto& iaiordr : m_InstancedBlueprintsInDeclOrder) {
@@ -7332,7 +7355,7 @@ void Algorithm::writeCombinationalAlwaysPre(
     Algorithm *alg = dynamic_cast<Algorithm*>(ia.blueprint.raw());
     if (alg != nullptr) {
       if (!alg->isNotCallable()) {
-        out << ia.instance_prefix + "_" ALG_RUN " = 1;" << nxl;
+        w.out << ia.instance_prefix + "_" ALG_RUN " = 1;" << nxl;
       }
     }
   }
@@ -7359,7 +7382,7 @@ void Algorithm::writeCombinationalAlwaysPre(
           if (usage == e_FlipFlop) {
             // the output is a flip-flop, copy from the wire
             sl_assert(std::holds_alternative<std::string>(b.right));
-            out << FF_D << prefix + bindingRightIdentifier(b) + " = " + WIRE + ia.instance_prefix + "_" + b.left << ';' << nxl;
+            w.out << FF_D << prefix + bindingRightIdentifier(b) + " = " + WIRE + ia.instance_prefix + "_" + b.left << ';' << nxl;
           }
           // else, the output is replaced by the wire
         }
@@ -7368,9 +7391,10 @@ void Algorithm::writeCombinationalAlwaysPre(
   }
   // always before block
   std::queue<size_t> q;
-  std::set<v2i> lines;
-  ostringstream ostr; // write in a string as we might have to interleave temp init /before/ depending on ff_usage
-  writeStatelessBlockGraph(prefix, ostr, ictx, &m_AlwaysPre, nullptr, q, _always_dependencies, _ff_usage, _post_dependencies, lines, ostr);
+  std::set<v2i>      lines;
+  ostringstream      ostr;
+  t_writer_context   wtmp(ostr,w.pipes,w.wires);
+  writeStatelessBlockGraph(prefix, wtmp, ictx, &m_AlwaysPre, nullptr, q, _always_dependencies, _ff_usage, _post_dependencies, lines);
   clearNoLatchFFUsage(_ff_usage);
   // reset any temp variables that could result in a latch being created
   // these are temp vars that have not been touched by m_AlwaysPre or only partially so
@@ -7384,24 +7408,24 @@ void Algorithm::writeCombinationalAlwaysPre(
     }
     if (_ff_usage.ff_usage.count(v.name) != 0) {
       if (_ff_usage.ff_usage[v.name] != e_D) {
-        out << FF_TMP << prefix << v.name << " = " << init_value << ";" << nxl;
+        w.out << FF_TMP << prefix << v.name << " = " << init_value << ";" << nxl;
       }
     } else {
-      out << FF_TMP << prefix << v.name << " = " << init_value << ";" << nxl;
+      w.out << FF_TMP << prefix << v.name << " = " << init_value << ";" << nxl;
     }
   }
   for (const auto &v : m_Outputs) {
     if (v.usage != e_Temporary) continue;
     if (_ff_usage.ff_usage.count(v.name) != 0) {
       if (_ff_usage.ff_usage[v.name] != e_D) {
-        out << FF_TMP << prefix << v.name << " = 0;" << nxl;
+        w.out << FF_TMP << prefix << v.name << " = 0;" << nxl;
       }
     } else {
-      out << FF_TMP << prefix << v.name << " = 0;" << nxl;
+      w.out << FF_TMP << prefix << v.name << " = 0;" << nxl;
     }
   }
   // output always block
-  out << ostr.str();
+  w.out << ostr.str();
 }
 
 // -------------------------------------------------
@@ -7418,7 +7442,7 @@ void Algorithm::pushState(const t_fsm_nfo *fsm, const t_combinational_block* b, 
 
 void Algorithm::writeCombinationalStates(
   const t_fsm_nfo                  *fsm,
-  std::string prefix, std::ostream &out,
+  std::string prefix,t_writer_context &w,
   const t_instantiation_context&    ictx,
   const t_vio_dependencies&         always_dependencies,
   t_vio_ff_usage&                   _ff_usage,
@@ -7427,17 +7451,15 @@ void Algorithm::writeCombinationalStates(
   vector<t_vio_ff_usage> ff_usages;
   unordered_set<size_t>  produced;
   queue<size_t>          q;
-  // temporary buffer where pipelines are written
-  std::ostringstream pipes;
   // start
   q.push(fsm->firstBlock->id);
   // states
   if (!fsm->oneHot) {
-    out << "(* full_case *)" << nxl;
-    out << "case (" << FF_Q << prefix << fsmIndex(fsm) << ")" << nxl;
+    w.out << "(* full_case *)" << nxl;
+    w.out << "case (" << FF_Q << prefix << fsmIndex(fsm) << ")" << nxl;
   } else {
-    out << "(* parallel_case, full_case *)" << nxl;
-    out << "case (1'b1)" << nxl;
+    w.out << "(* parallel_case, full_case *)" << nxl;
+    w.out << "case (1'b1)" << nxl;
   }
   // go ahead!
   while (!q.empty()) {
@@ -7455,9 +7477,9 @@ void Algorithm::writeCombinationalStates(
     }
     // begin state
     if (!fsm->oneHot) {
-      out << toFSMState(fsm,b->state_id) << ": begin" << nxl;
+      w.out << toFSMState(fsm,b->state_id) << ": begin" << nxl;
     } else {
-      out << FF_Q << prefix << fsmIndex(fsm) << '[' << b->state_id << "]: begin" << nxl;
+      w.out << FF_Q << prefix << fsmIndex(fsm) << '[' << b->state_id << "]: begin" << nxl;
     }
     // track source code lines for reporting
     set<v2i> lines;
@@ -7465,23 +7487,23 @@ void Algorithm::writeCombinationalStates(
     t_vio_dependencies depds = always_dependencies;
     // write block instructions
     ff_usages.push_back(_ff_usage);
-    writeStatelessBlockGraph(prefix, out, ictx, b, nullptr, q, depds, ff_usages.back(), _post_dependencies, lines, pipes);
+    writeStatelessBlockGraph(prefix, w, ictx, b, nullptr, q, depds, ff_usages.back(), _post_dependencies, lines);
     clearNoLatchFFUsage(ff_usages.back());
 #if 0
     /// DEBUG
     for (auto ff : ff_usages.back().ff_usage) {
-      out << "// " << ff.first << " ";
+      w.out << "// " << ff.first << " ";
       if (ff.second & e_D) {
-        out << "D";
+        w.out << "D";
       }
       if (ff.second & e_Q) {
-        out << "Q";
+        w.out << "Q";
       }
-      out << nxl;
+      w.out << nxl;
     }
 #endif
     // close state
-    out << "end" << nxl;
+    w.out << "end" << nxl;
     // FSM report
     if (m_ReportingEnabled) {
       std::ofstream freport(fsmReportName(), std::ios_base::app);
@@ -7504,28 +7526,22 @@ void Algorithm::writeCombinationalStates(
   // -> termination state
   {
     if (!fsm->oneHot) {
-      out << toFSMState(fsm,terminationState(fsm)) << ": begin " << nxl;
+      w.out << toFSMState(fsm,terminationState(fsm)) << ": begin " << nxl;
     } else {
-      out << FF_Q << prefix << fsmIndex(fsm) << '[' << terminationState(fsm) << "]: begin " << nxl;
+      w.out << FF_Q << prefix << fsmIndex(fsm) << '[' << terminationState(fsm) << "]: begin " << nxl;
     }
-    out << "end" << nxl;
+    w.out << "end" << nxl;
   }
   // default: internal error, should never happen
   {
-    out << "default: begin " << nxl
+    w.out << "default: begin " << nxl
         << FF_D << prefix << fsmIndex(fsm) << " = {" << stateWidth(fsm) << "{1'bx}};" << nxl
         << "`ifdef FORMAL" << nxl
         << "assume(0);" << nxl
         << "`endif" << nxl
         << " end" << nxl;
   }
-  out << "endcase" << nxl;
-  // write pipelines
-  if (!pipes.str().empty()) {
-    out << "// ==== pipelines ====" << nxl;
-    out << pipes.str();
-    out << "// ===================" << nxl;
-  }
+  w.out << "endcase" << nxl;
 }
 
 // -------------------------------------------------
@@ -7590,18 +7606,18 @@ bool Algorithm::blockIsEmpty(const t_combinational_block *block) const
 
 // -------------------------------------------------
 
-void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instantiation_context &ictx, const t_combinational_block *block, t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage, std::set<v2i>& _lines) const
+void Algorithm::writeBlock(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_combinational_block *block, t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage, std::set<v2i>& _lines) const
 {
-  out << "// " << block->block_name;
+  w.out << "// " << block->block_name;
   if (block->context.subroutine) {
-    out << " (" << block->context.subroutine->name << ')';
+    w.out << " (" << block->context.subroutine->name << ')';
   }
-  out << nxl;
+  w.out << nxl;
   // block variable initialization
   if (!block->initialized_vars.empty() && block->block_name != "_top") {
-    out << "// var inits" << nxl;
-    writeVarInits(prefix, out, ictx, block->initialized_vars, _dependencies, _ff_usage);
-    out << "// --" << nxl;
+    w.out << "// var inits" << nxl;
+    writeVarInits(prefix, w.out, ictx, block->initialized_vars, _dependencies, _ff_usage);
+    w.out << "// --" << nxl;
   }
   for (const auto &a : block->instructions) {
     // add to lines
@@ -7629,7 +7645,7 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
           }
         }
         // write
-        writeAssignement(prefix, out, a, assign->access(), assign->IDENTIFIER(), assign->expression_0(), &block->context, ictx, FF_Q, _dependencies, _ff_usage);
+        writeAssignement(prefix, w.out, a, assign->access(), assign->IDENTIFIER(), assign->expression_0(), &block->context, ictx, FF_Q, _dependencies, _ff_usage);
       }
     } {
       auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext *>(a.instr);
@@ -7651,14 +7667,14 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
             std::ostringstream ostr;
             writeAssignement(prefix, ostr, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), &block->context, ictx, FF_Q, _dependencies, _ff_usage);
             // modify assignement to insert temporary var
-            std::size_t pos = ostr.str().find('=');
+            std::size_t pos    = ostr.str().find('=');
             std::string lvalue = ostr.str().substr(0, pos - 1);
             std::string rvalue = ostr.str().substr(pos + 1);
             std::string tmpvar = "_" + delayedName(alw);
-            out << lvalue << " = " << FF_D << tmpvar << ';' << nxl;
-            out << FF_D << tmpvar << " = " << rvalue; // rvalue includes the line end ";\n"
+            w.out << lvalue << " = " << FF_D << tmpvar << ';' << nxl;
+            w.out << FF_D << tmpvar << " = " << rvalue; // rvalue includes the line end ";\n"
           } else {
-            writeAssignement(prefix, out, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), &block->context, ictx, FF_Q, _dependencies, _ff_usage);
+            writeAssignement(prefix, w.out, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), &block->context, ictx, FF_Q, _dependencies, _ff_usage);
           }
         }
       }
@@ -7681,53 +7697,58 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
               && m_Vars.at(m_VarNames.at(var)).type_nfo.same_as.empty()) {
               reportError(sourceloc(expr), "internal error, temporary type for expression not determined");
             }
-            // assign expression to temporary
-            out << rewriteIdentifier(prefix, var, "", &block->context, ictx, sourceloc(expr), FF_D, false, _dependencies, _ff_usage);
-            out << " = " + rewriteExpression(prefix, expr, a.__id, &block->context, ictx, FF_Q, true, _dependencies, _ff_usage);
-            out << ';' << nxl;
+            // write down wire assignment
+            if (m_Vars.at(m_VarNames.at(var)).usage == e_Const) {
+              w.wires << "assign " << FF_CST << prefix << var << " = " << rewriteExpression(prefix, expr, a.__id, &block->context, ictx, FF_Q, true, _dependencies, _ff_usage) << ";\n";
+            } else if (m_Vars.at(m_VarNames.at(var)).usage != e_NotUsed) {
+              // assign expression to temporary
+              w.out << rewriteIdentifier(prefix, var, "", &block->context, ictx, sourceloc(expr), FF_D, false, _dependencies, _ff_usage);
+              w.out << " = " + rewriteExpression(prefix, expr, a.__id, &block->context, ictx, FF_Q, true, _dependencies, _ff_usage);
+              w.out << ';' << nxl;
+            }
           }
         }
     } {
       auto assert = dynamic_cast<siliceParser::Assert_Context *>(a.instr);
       if (assert) {
-        writeAssert(prefix, out, a, assert->expression_0(), &block->context, ictx, FF_Q, _dependencies, _ff_usage);
+        writeAssert(prefix, w.out, a, assert->expression_0(), &block->context, ictx, FF_Q, _dependencies, _ff_usage);
       }
     } {
       auto assume = dynamic_cast<siliceParser::AssumeContext *>(a.instr);
       if (assume) {
-        writeAssume(prefix, out, a, assume->expression_0(), &block->context, ictx, FF_Q, _dependencies, _ff_usage);
+        writeAssume(prefix, w.out, a, assume->expression_0(), &block->context, ictx, FF_Q, _dependencies, _ff_usage);
       }
     } {
       auto restrict = dynamic_cast<siliceParser::RestrictContext *>(a.instr);
       if (restrict) {
-        writeRestrict(prefix, out, a, restrict->expression_0(), &block->context, ictx, FF_Q, _dependencies, _ff_usage);
+        writeRestrict(prefix, w.out, a, restrict->expression_0(), &block->context, ictx, FF_Q, _dependencies, _ff_usage);
       }
     } {
       auto cover = dynamic_cast<siliceParser::CoverContext *>(a.instr);
       if (cover) {
-        writeCover(prefix, out, a, cover->expression_0(), &block->context, ictx, FF_Q, _dependencies, _ff_usage);
+        writeCover(prefix, w.out, a, cover->expression_0(), &block->context, ictx, FF_Q, _dependencies, _ff_usage);
       }
     } {
       auto display = dynamic_cast<siliceParser::DisplayContext *>(a.instr);
       if (display) {
         if (display->DISPLAY() != nullptr) {
-          out << "$display(";
+          w.out << "$display(";
         } else if (display->DISPLWRITE() != nullptr) {
-          out << "$write(";
+          w.out << "$write(";
         }
-        out << display->STRING()->getText();
+        w.out << display->STRING()->getText();
         if (display->callParamList() != nullptr) {
           std::vector<t_call_param> params;
           getCallParams(display->callParamList(),params, &block->context);
           for (auto p : params) {
             if (std::holds_alternative<std::string>(p.what)) {
-              out << "," << rewriteIdentifier(prefix, std::get<std::string>(p.what), "", &block->context, ictx, sourceloc(display), FF_Q, true, _dependencies, _ff_usage);
+              w.out << "," << rewriteIdentifier(prefix, std::get<std::string>(p.what), "", &block->context, ictx, sourceloc(display), FF_Q, true, _dependencies, _ff_usage);
             } else {
-              out << "," << rewriteExpression(prefix, p.expression, a.__id, &block->context, ictx, FF_Q, true, _dependencies, _ff_usage);
+              w.out << "," << rewriteExpression(prefix, p.expression, a.__id, &block->context, ictx, FF_Q, true, _dependencies, _ff_usage);
             }
           }
         }
-        out << ");" << nxl;
+        w.out << ");" << nxl;
       }
     } {
       auto inline_v = dynamic_cast<siliceParser::Inline_vContext *>(a.instr);
@@ -7745,13 +7766,13 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
         // output
         int ip = 0;
         for (auto c : chunks) {
-          out << c;
+          w.out << c;
           if (ip < params.size()) {
             auto p = params[ip];
             if (std::holds_alternative<std::string>(p.what)) {
-              out << rewriteIdentifier(prefix, std::get<std::string>(p.what), "", &block->context, ictx, sourceloc(inline_v), FF_Q, true, _dependencies, _ff_usage);
+              w.out << rewriteIdentifier(prefix, std::get<std::string>(p.what), "", &block->context, ictx, sourceloc(inline_v), FF_Q, true, _dependencies, _ff_usage);
             } else {
-              out << rewriteExpression(prefix, p.expression, a.__id, &block->context, ictx, FF_Q, true, _dependencies, _ff_usage);
+              w.out << rewriteExpression(prefix, p.expression, a.__id, &block->context, ictx, FF_Q, true, _dependencies, _ff_usage);
             }
             ++ip;
           } else if (ip > params.size()) {
@@ -7759,11 +7780,11 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
           }
         }
       }
-      out << nxl;
+      w.out << nxl;
     } {
       auto finish = dynamic_cast<siliceParser::FinishContext *>(a.instr);
       if (finish) {
-        out << "$finish();" << nxl;
+        w.out << "$finish();" << nxl;
       }
     } {
       auto stall = dynamic_cast<siliceParser::StallContext *>(a.instr);
@@ -7776,7 +7797,7 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
             reportError(sourceloc(a.instr), "stall can only be used at the very end of a pipeline stage");
           }
         }
-        out << FF_TMP << prefix << fsmPipelineStageStall(block->context.pipeline_stage->fsm) << " = 1;" << nxl;
+        w.out << FF_TMP << prefix << fsmPipelineStageStall(block->context.pipeline_stage->fsm) << " = 1;" << nxl;
       }
     } {
       auto async = dynamic_cast<siliceParser::AsyncExecContext *>(a.instr);
@@ -7796,7 +7817,7 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
               async->IDENTIFIER()->getText().c_str());
           }
         } else {
-          writeAlgorithmCall(a.instr, prefix, out, A->second, async->callParamList(), &block->context, ictx, _dependencies, _ff_usage);
+          writeAlgorithmCall(a.instr, prefix, w.out, A->second, async->callParamList(), &block->context, ictx, _dependencies, _ff_usage);
         }
       }
     } {
@@ -7812,10 +7833,10 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
               "cannot find algorithm '%s' on synchronous call",
               sync->joinExec()->IDENTIFIER()->getText().c_str());
           } else {
-            writeSubroutineCall(a.instr, prefix, out, S->second, &block->context, ictx, sync->callParamList(), _dependencies, _ff_usage);
+            writeSubroutineCall(a.instr, prefix, w.out, S->second, &block->context, ictx, sync->callParamList(), _dependencies, _ff_usage);
           }
         } else {
-          writeAlgorithmCall(a.instr, prefix, out, A->second, sync->callParamList(), &block->context, ictx, _dependencies, _ff_usage);
+          writeAlgorithmCall(a.instr, prefix, w.out, A->second, sync->callParamList(), &block->context, ictx, _dependencies, _ff_usage);
         }
       }
     } {
@@ -7831,10 +7852,10 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
               "cannot find algorithm '%s' to join with",
               join->IDENTIFIER()->getText().c_str(), (int)join->getStart()->getLine());
           } else {
-            writeSubroutineReadback(a.instr, prefix, out, S->second, &block->context, ictx, join->callParamList(), _ff_usage);
+            writeSubroutineReadback(a.instr, prefix, w.out, S->second, &block->context, ictx, join->callParamList(), _ff_usage);
           }
         } else {
-          writeAlgorithmReadback(a.instr, prefix, out, A->second, join->callParamList(), &block->context, ictx, _ff_usage);
+          writeAlgorithmReadback(a.instr, prefix, w.out, A->second, join->callParamList(), &block->context, ictx, _ff_usage);
         }
       }
     } {
@@ -7843,7 +7864,7 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
         if (hasNoFSM()) {
           reportError(sourceloc(ret), "cannot return from a stateless algorithm");
         }
-        out << FF_D << prefix << fsmIndex(block->context.fsm) << " = " << toFSMState(block->context.fsm,terminationState(block->context.fsm)) << ";" << nxl;
+        w.out << FF_D << prefix << fsmIndex(block->context.fsm) << " = " << toFSMState(block->context.fsm,terminationState(block->context.fsm)) << ";" << nxl;
       }
     }
     // update dependencies
@@ -7854,7 +7875,7 @@ void Algorithm::writeBlock(std::string prefix, std::ostream &out, const t_instan
 // -------------------------------------------------
 
 void Algorithm::writeStatelessBlockGraph(
-  std::string prefix, std::ostream&           out,
+  std::string prefix, t_writer_context &w,
   const t_instantiation_context&              ictx,
   const t_combinational_block*                block,
   const t_combinational_block*                stop_at,
@@ -7862,8 +7883,7 @@ void Algorithm::writeStatelessBlockGraph(
   t_vio_dependencies&                        _dependencies,
   t_vio_ff_usage&                            _ff_usage,
   t_vio_dependencies&                        _post_dependencies,
-  std::set<v2i>&                             _lines,
-  std::ostream&                              _pipes) const
+  std::set<v2i>&                             _lines) const
 {
   const t_fsm_nfo *fsm = block->context.fsm;
   // recursive call?
@@ -7871,7 +7891,7 @@ void Algorithm::writeStatelessBlockGraph(
     // if called on a state, index state and stop there
     if (block->is_state) {
       // yes: index the state directly
-      out << FF_D << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm,fastForward(block)->state_id) << ";" << nxl;
+      w.out << FF_D << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm,fastForward(block)->state_id) << ";" << nxl;
       pushState(fsm, block, _q);
       mergeDependenciesInto(_dependencies, _post_dependencies);
       return;
@@ -7881,21 +7901,21 @@ void Algorithm::writeStatelessBlockGraph(
   const t_combinational_block *current = block;
   while (true) {
     // write current block
-    writeBlock(prefix, out, ictx, current, _dependencies, _ff_usage, _lines);
+    writeBlock(prefix, w, ictx, current, _dependencies, _ff_usage, _lines);
     // goto next in chain
     if (current->next()) {
       if (current->next()->next->context.fsm != fsm) {
         // do not follow into a different fsm (this happens on last stage of a pipeline)
-        out << "// end of last pipeline stage" << nxl;
+        w.out << "// end of last pipeline stage" << nxl;
         if (!fsmIsEmpty(fsm)) {
           // stage full
-          out << FF_D << '_' << fsmPipelineStageFull(fsm) << " = 1;" << nxl;
+          w.out << FF_D << '_' << fsmPipelineStageFull(fsm) << " = 1;" << nxl;
           // select next index (termination or stall)
           sl_assert(current->parent_state_id == lastPipelineStageState(fsm));
           std::string end_or_stall = FF_TMP + prefix + fsmPipelineStageStall(fsm)
             + " ? " + std::to_string(toFSMState(fsm, current->parent_state_id))
             + " : " + std::to_string(toFSMState(fsm, terminationState(fsm)));
-          out << FF_D << prefix << fsmIndex(fsm) << " = " << end_or_stall << ';' << nxl;
+          w.out << FF_D << prefix << fsmIndex(fsm) << " = " << end_or_stall << ';' << nxl;
         }
         mergeDependenciesInto(_dependencies, _post_dependencies);
         return;
@@ -7903,7 +7923,7 @@ void Algorithm::writeStatelessBlockGraph(
       current = current->next()->next;
     } else if (current->if_then_else()) {
       vector<t_vio_ff_usage> usage_branches;
-      out << "if (" << rewriteExpression(prefix, current->if_then_else()->test.instr, current->if_then_else()->test.__id, &current->context, ictx, FF_Q, true, _dependencies, _ff_usage) << ") begin" << nxl;
+      w.out << "if (" << rewriteExpression(prefix, current->if_then_else()->test.instr, current->if_then_else()->test.__id, &current->context, ictx, FF_Q, true, _dependencies, _ff_usage) << ") begin" << nxl;
       // add to lines
       if (m_ReportingEnabled) {
         v2i lns = instructionLines(current->if_then_else()->test.instr, ictx);
@@ -7914,13 +7934,13 @@ void Algorithm::writeStatelessBlockGraph(
       // recurse if
       t_vio_dependencies depds_if = _dependencies;
       usage_branches.push_back(_ff_usage/*t_vio_ff_usage()*/);
-      writeStatelessBlockGraph(prefix, out, ictx, current->if_then_else()->if_next, current->if_then_else()->after, _q, depds_if, usage_branches.back(), _post_dependencies, _lines, _pipes);
-      out << "end else begin" << nxl;
+      writeStatelessBlockGraph(prefix, w, ictx, current->if_then_else()->if_next, current->if_then_else()->after, _q, depds_if, usage_branches.back(), _post_dependencies, _lines);
+      w.out << "end else begin" << nxl;
       // recurse else
       t_vio_dependencies depds_else = _dependencies;
       usage_branches.push_back(_ff_usage/*t_vio_ff_usage()*/);
-      writeStatelessBlockGraph(prefix, out, ictx, current->if_then_else()->else_next, current->if_then_else()->after, _q, depds_else, usage_branches.back(), _post_dependencies, _lines, _pipes);
-      out << "end" << nxl;
+      writeStatelessBlockGraph(prefix, w, ictx, current->if_then_else()->else_next, current->if_then_else()->after, _q, depds_else, usage_branches.back(), _post_dependencies, _lines);
+      w.out << "end" << nxl;
       // merge dependencies
       mergeDependenciesInto(depds_if, _dependencies);
       mergeDependenciesInto(depds_else, _dependencies);
@@ -7935,10 +7955,10 @@ void Algorithm::writeStatelessBlockGraph(
       }
     } else if (current->switch_case()) {
       if (current->switch_case()->onehot) {
-        out << "(* parallel_case, full_case *)" << nxl;
-        out << "  case (1'b1)" << nxl;
+        w.out << "(* parallel_case, full_case *)" << nxl;
+        w.out << "  case (1'b1)" << nxl;
       } else {
-        out << "  case (" << rewriteExpression(prefix, current->switch_case()->test.instr, current->switch_case()->test.__id, &current->context, ictx, FF_Q, true, _dependencies, _ff_usage) << ")" << nxl;
+        w.out << "  case (" << rewriteExpression(prefix, current->switch_case()->test.instr, current->switch_case()->test.__id, &current->context, ictx, FF_Q, true, _dependencies, _ff_usage) << ")" << nxl;
       }
       std::string identifier;
       if (current->switch_case()->onehot) {
@@ -7958,24 +7978,24 @@ void Algorithm::writeStatelessBlockGraph(
       bool has_default = false;
       for (auto cb : current->switch_case()->case_blocks) {
         if (current->switch_case()->onehot && cb.first != "default") {
-          out << "  "
+          w.out << "  "
             << rewriteIdentifier(prefix, identifier, "", &current->context, ictx, cb.second->srcloc, FF_Q, true, _dependencies, _ff_usage)
             << "[" << cb.first << "]: begin" << nxl;
           /// TODO: if cb.first is const, check it is below identifier bit width
         } else {
-          out << "  " << cb.first << ": begin" << nxl;
+          w.out << "  " << cb.first << ": begin" << nxl;
         }
         has_default = has_default | (cb.first == "default");
         // recurse case
         t_vio_dependencies depds_case = depds_before_case;
         usage_branches.push_back(_ff_usage/*t_vio_ff_usage()*/);
-        writeStatelessBlockGraph(prefix, out, ictx, cb.second, current->switch_case()->after, _q, depds_case, usage_branches.back(), _post_dependencies, _lines, _pipes);
+        writeStatelessBlockGraph(prefix, w, ictx, cb.second, current->switch_case()->after, _q, depds_case, usage_branches.back(), _post_dependencies, _lines);
         // merge sets of written vars
         mergeDependenciesInto(depds_case, _dependencies);
-        out << "  end" << nxl;
+        w.out << "  end" << nxl;
       }
       // end of case
-      out << "endcase" << nxl;
+      w.out << "endcase" << nxl;
       // checks
       if (current->switch_case()->onehot) {
         if (!has_default) {
@@ -8009,12 +8029,12 @@ void Algorithm::writeStatelessBlockGraph(
       }
     } else if (current->while_loop()) {
       // while
-      out << "if (" << rewriteExpression(prefix, current->while_loop()->test.instr, current->while_loop()->test.__id, &current->context, ictx, FF_Q, true, _dependencies, _ff_usage) << ") begin" << nxl;
-      writeStatelessBlockGraph(prefix, out, ictx, current->while_loop()->iteration, current->while_loop()->after, _q, _dependencies, _ff_usage, _post_dependencies, _lines, _pipes);
-      out << "end else begin" << nxl;
-      out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fsm,fastForward(current->while_loop()->after)->state_id) << ";" << nxl;
+      w.out << "if (" << rewriteExpression(prefix, current->while_loop()->test.instr, current->while_loop()->test.__id, &current->context, ictx, FF_Q, true, _dependencies, _ff_usage) << ") begin" << nxl;
+      writeStatelessBlockGraph(prefix, w, ictx, current->while_loop()->iteration, current->while_loop()->after, _q, _dependencies, _ff_usage, _post_dependencies, _lines);
+      w.out << "end else begin" << nxl;
+      w.out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fsm,fastForward(current->while_loop()->after)->state_id) << ";" << nxl;
       pushState(fsm, current->while_loop()->after, _q);
-      out << "end" << nxl;
+      w.out << "end" << nxl;
       mergeDependenciesInto(_dependencies, _post_dependencies);
       // add to lines
       if (m_ReportingEnabled) {
@@ -8031,47 +8051,47 @@ void Algorithm::writeStatelessBlockGraph(
       auto RS = m_SubroutinesCallerReturnStates.find(current->context.subroutine->name);
       if (RS != m_SubroutinesCallerReturnStates.end()) {
         if (RS->second.size() > 1) {
-          out << "case (" << FF_Q << prefix << ALG_CALLER << ") " << nxl;
+          w.out << "case (" << FF_Q << prefix << ALG_CALLER << ") " << nxl;
           for (auto caller_return : RS->second) {
-            out << width(m_SubroutineCallerNextId) << "'d" << caller_return.first << ": begin" << nxl;
-            out << "  " << FF_D << prefix << fsmIndex(fsm) << " = " << stateWidth(fsm) << "'d" << toFSMState(fsm,fastForward(caller_return.second)->state_id) << ';' << nxl;
+            w.out << width(m_SubroutineCallerNextId) << "'d" << caller_return.first << ": begin" << nxl;
+            w.out << "  " << FF_D << prefix << fsmIndex(fsm) << " = " << stateWidth(fsm) << "'d" << toFSMState(fsm,fastForward(caller_return.second)->state_id) << ';' << nxl;
             // if returning to a subroutine, restore caller id
             if (caller_return.second->context.subroutine != nullptr) {
               sl_assert(caller_return.second->context.subroutine->contains_calls);
-              out << "  " << FF_D << prefix << ALG_CALLER << " = " << FF_Q << prefix << caller_return.second->context.subroutine->name << '_' << ALG_CALLER << ';' << nxl;
+              w.out << "  " << FF_D << prefix << ALG_CALLER << " = " << FF_Q << prefix << caller_return.second->context.subroutine->name << '_' << ALG_CALLER << ';' << nxl;
             }
-            out << "end" << nxl;
+            w.out << "end" << nxl;
           }
-          out << "default: begin " << FF_D << prefix << fsmIndex(fsm) << " = " << stateWidth(fsm) << "'d" << terminationState(fsm) << "; end" << nxl;
-          out << "endcase" << nxl;
+          w.out << "default: begin " << FF_D << prefix << fsmIndex(fsm) << " = " << stateWidth(fsm) << "'d" << terminationState(fsm) << "; end" << nxl;
+          w.out << "endcase" << nxl;
         } else {
           auto caller_return = *RS->second.begin();
-          out << FF_D << prefix << fsmIndex(fsm) << " = " << stateWidth(fsm) << "'d" << toFSMState(fsm,fastForward(caller_return.second)->state_id) << ';' << nxl;
+          w.out << FF_D << prefix << fsmIndex(fsm) << " = " << stateWidth(fsm) << "'d" << toFSMState(fsm,fastForward(caller_return.second)->state_id) << ';' << nxl;
           // if returning to a subroutine, restore caller id
           if (caller_return.second->context.subroutine != nullptr) {
             sl_assert(caller_return.second->context.subroutine->contains_calls);
-            out << FF_D << prefix << ALG_CALLER << " = " << FF_Q << prefix << caller_return.second->context.subroutine->name << '_' << ALG_CALLER << ';' << nxl;
+            w.out << FF_D << prefix << ALG_CALLER << " = " << FF_Q << prefix << caller_return.second->context.subroutine->name << '_' << ALG_CALLER << ';' << nxl;
           }
         }
       } else {
         // this subroutine is never called??
-        out << FF_D << prefix << fsmIndex(fsm) << " = " << stateWidth(fsm) << "'d" << terminationState(fsm) << ';' << nxl;
+        w.out << FF_D << prefix << fsmIndex(fsm) << " = " << stateWidth(fsm) << "'d" << terminationState(fsm) << ';' << nxl;
       }
       mergeDependenciesInto(_dependencies, _post_dependencies);
       return;
     } else if (current->goto_and_return_to()) {
       // goto subroutine
-      out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fsm,fastForward(current->goto_and_return_to()->go_to)->state_id) << ";" << nxl;
+      w.out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fsm,fastForward(current->goto_and_return_to()->go_to)->state_id) << ";" << nxl;
       pushState(fsm, current->goto_and_return_to()->go_to, _q);
       // if in subroutine making nested calls, store callerid
       if (current->context.subroutine != nullptr) {
         sl_assert(current->context.subroutine->contains_calls);
-        out << FF_D << prefix << current->context.subroutine->name << '_' << ALG_CALLER << " = " << FF_Q << prefix << ALG_CALLER << ";" << nxl;
+        w.out << FF_D << prefix << current->context.subroutine->name << '_' << ALG_CALLER << " = " << FF_Q << prefix << ALG_CALLER << ";" << nxl;
       }
       // set caller id
       auto C = m_SubroutineCallerIds.find(current->goto_and_return_to());
       sl_assert(C != m_SubroutineCallerIds.end());
-      out << FF_D << prefix << ALG_CALLER << " = " << C->second << ";" << nxl;
+      w.out << FF_D << prefix << ALG_CALLER << " = " << C->second << ";" << nxl;
       pushState(fsm, current->goto_and_return_to()->return_to, _q);
       mergeDependenciesInto(_dependencies, _post_dependencies);
       return;
@@ -8084,39 +8104,39 @@ void Algorithm::writeStatelessBlockGraph(
           current->wait()->algo_instance_name.c_str());
       } else {
         // test if algorithm is done
-        out << "if (" WIRE << A->second.instance_prefix + "_" + ALG_DONE " == 1) begin" << nxl;
+        w.out << "if (" WIRE << A->second.instance_prefix + "_" + ALG_DONE " == 1) begin" << nxl;
         // yes!
         // -> goto next
-        out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fsm,fastForward(current->wait()->next)->state_id) << ";" << nxl;
+        w.out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fsm,fastForward(current->wait()->next)->state_id) << ";" << nxl;
         pushState(fsm, current->wait()->next, _q);
-        out << "end else begin" << nxl;
+        w.out << "end else begin" << nxl;
         // no!
         // -> wait
-        out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fsm,fastForward(current->wait()->waiting)->state_id) << ";" << nxl;
+        w.out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fsm,fastForward(current->wait()->waiting)->state_id) << ";" << nxl;
         pushState(fsm, current->wait()->waiting, _q);
-        out << "end" << nxl;
+        w.out << "end" << nxl;
       }
       mergeDependenciesInto(_dependencies, _post_dependencies);
       return;
     } else if (current->pipeline_next()) {
       if (current->pipeline_next()->next->context.pipeline_stage->stage_id > 0) {
         // do not follow into different stages of a same pipeline (this happens after each stage > 0 but last of a pipeline)
-        out << "// end of pipeline stage" << nxl;
+        w.out << "// end of pipeline stage" << nxl;
         if (!fsmIsEmpty(fsm)) {
           // stage full
-          out << FF_D << '_' << fsmPipelineStageFull(fsm) << " = 1;" << nxl;
+          w.out << FF_D << '_' << fsmPipelineStageFull(fsm) << " = 1;" << nxl;
           // select next index (termination or stall)
           sl_assert(current->parent_state_id == lastPipelineStageState(fsm));
           std::string end_or_stall = FF_TMP + prefix + fsmPipelineStageStall(fsm)
             + " ? " + std::to_string(toFSMState(fsm, current->parent_state_id))
             + " : " + std::to_string(toFSMState(fsm, terminationState(fsm)));
-          out << FF_D << prefix << fsmIndex(fsm) << " = " << end_or_stall << ';' << nxl;
+          w.out << FF_D << prefix << fsmIndex(fsm) << " = " << end_or_stall << ';' << nxl;
         }
         mergeDependenciesInto(_dependencies, _post_dependencies);
         return;
       }
       auto prev = current;
-      current   = writeStatelessPipeline(prefix, _pipes, ictx, current, _q, _dependencies, _ff_usage, _post_dependencies, _lines);
+      current   = writeStatelessPipeline(prefix, w, ictx, current, _q, _dependencies, _ff_usage, _post_dependencies, _lines);
       // if not in an always block, check that blocks between here and next states are empty
       if (current->context.fsm != nullptr) {
         if (!emptyUntilNextStates(current)) {
@@ -8129,7 +8149,7 @@ void Algorithm::writeStatelessBlockGraph(
       if (fsm) {
         if (! (fsm == &m_RootFSM && hasNoFSM() ) ) { // special case for root fsm
           // goto end
-          out << FF_D << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm,terminationState(fsm)) << ";" << nxl;
+          w.out << FF_D << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm,terminationState(fsm)) << ";" << nxl;
         }
       }
       mergeDependenciesInto(_dependencies, _post_dependencies);
@@ -8138,7 +8158,7 @@ void Algorithm::writeStatelessBlockGraph(
     // check whether next is a state
     if (current->is_state) {
       // yes: index and stop
-      out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fsm,fastForward(current)->state_id) << ";" << nxl;
+      w.out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fsm,fastForward(current)->state_id) << ";" << nxl;
       pushState(fsm, current, _q);
       mergeDependenciesInto(_dependencies, _post_dependencies);
       return;
@@ -8225,7 +8245,7 @@ bool Algorithm::orderPipelineStages(std::vector< t_pipeline_stage_range >& _stag
 // -------------------------------------------------
 
 const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
-  std::string prefix, std::ostream& out, const t_instantiation_context &ictx,
+  std::string prefix,t_writer_context &w, const t_instantiation_context &ictx,
   const t_combinational_block* block_before,
   std::queue<size_t>& _q,
   t_vio_dependencies& _dependencies,
@@ -8234,7 +8254,7 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
   std::set<v2i>&      _lines) const
 {
   // follow the chain
-  out << "// pipeline" << nxl;
+  w.out << "// pipeline" << nxl;
   const t_combinational_block *current   = block_before->pipeline_next()->next;
   const t_combinational_block *after     = current->context.fsm->lastBlock;
   const t_pipeline_nfo        *pip       = current->context.pipeline_stage->pipeline;
@@ -8271,7 +8291,7 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
     sl_assert(pip == st.first->context.pipeline_stage->pipeline);
     // write stage
     int stage = st.first->context.pipeline_stage->stage_id;
-    out << "// -------- stage " << stage << nxl;
+    w.out << "// -------- stage " << stage << nxl;
     t_vio_dependencies deps = depds_before_stage;
     // reset dependencies for written forward vars if the current stage occurs before
     for (auto wf : written_forward_at) {
@@ -8286,11 +8306,12 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
     // write code
     if (fsmIsEmpty(st.first->context.fsm)) {
       std::ostringstream _;
-      writeStatelessBlockGraph(prefix, out, ictx, st.first, st.last, _q, deps, _ff_usage, _post_dependencies, _lines, _ /*no pipeline nesting, should not be used*/);
+      t_writer_context wtmp(w.out,_,w.wires);
+      writeStatelessBlockGraph(prefix, wtmp, ictx, st.first, st.last, _q, deps, _ff_usage, _post_dependencies, _lines);
       sl_assert(_.str().empty());
     } else {
       t_vio_dependencies always_deps = deps;
-      writeCombinationalStates(st.first->context.fsm, prefix, out, ictx, always_deps, _ff_usage, deps);
+      writeCombinationalStates(st.first->context.fsm, prefix, w, ictx, always_deps, _ff_usage, deps);
       mergeDependenciesInto(deps, _post_dependencies);
     }
     st.first = st.last;
@@ -8307,26 +8328,26 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
       }
     }
     // trickle vars: start
-    out << "// --- trickling" << nxl;
+    w.out << "// --- trickling" << nxl;
     for (auto tv : pip->trickling_vios) {
       if (stage == tv.second[0]) {
         // capture the var in the pipeline
         auto fsm = pip->stages[stage]->fsm;
         if (!fsmIsEmpty(fsm)) { // capture trickling only on last fsm state
-          out << "if (" << FF_Q << "_" << fsmIndex(fsm) << " == " << toFSMState(fsm, lastPipelineStageState(fsm)) << "  ) begin" << nxl;
+          w.out << "if (" << FF_Q << "_" << fsmIndex(fsm) << " == " << toFSMState(fsm, lastPipelineStageState(fsm)) << "  ) begin" << nxl;
         }
         std::string tricklingdst = tricklingVIOName(tv.first, pip, stage);
-        out << rewriteIdentifier(prefix, tricklingdst, "", &st.first->context, ictx, t_source_loc(), FF_D, true, deps, _ff_usage);
-        out << " = ";
-        out << rewriteIdentifier(prefix, tv.first, "", &st.first->context, ictx, t_source_loc(), FF_D, true, deps, _ff_usage);
-        out << ';' << nxl;
+        w.out << rewriteIdentifier(prefix, tricklingdst, "", &st.first->context, ictx, t_source_loc(), FF_D, true, deps, _ff_usage);
+        w.out << " = ";
+        w.out << rewriteIdentifier(prefix, tv.first, "", &st.first->context, ictx, t_source_loc(), FF_D, true, deps, _ff_usage);
+        w.out << ';' << nxl;
         if (!fsmIsEmpty(fsm)) {
-          out << "end else begin" << nxl;
-          out << rewriteIdentifier(prefix, tricklingdst, "", &st.first->context, ictx, t_source_loc(), FF_D, true, deps, _ff_usage);
-          out << " = ";
-          out << rewriteIdentifier(prefix, tricklingdst, "", &st.first->context, ictx, t_source_loc(), FF_Q, true, deps, _ff_usage);
-          out << ';' << nxl;
-          out << "end" << nxl;
+          w.out << "end else begin" << nxl;
+          w.out << rewriteIdentifier(prefix, tricklingdst, "", &st.first->context, ictx, t_source_loc(), FF_D, true, deps, _ff_usage);
+          w.out << " = ";
+          w.out << rewriteIdentifier(prefix, tricklingdst, "", &st.first->context, ictx, t_source_loc(), FF_Q, true, deps, _ff_usage);
+          w.out << ';' << nxl;
+          w.out << "end" << nxl;
         }
       } else if (stage < tv.second[1]) {
         // mark var ff as needed (Q side) for next stages
@@ -8492,7 +8513,7 @@ void Algorithm::setAsTopMost()
 
 // -------------------------------------------------
 
-void Algorithm::writeAsModule(std::ostream &out, const t_instantiation_context &ictx, bool first_pass)
+void Algorithm::writeAsModule(std::ostream& out, const t_instantiation_context &ictx, bool first_pass)
 {
   // write blueprints
   writeInstanciatedBlueprints(out, ictx, first_pass);
@@ -8736,7 +8757,7 @@ void Algorithm::makeBlueprintInstantiationContext(const t_instanced_nfo& nfo, co
 
 // -------------------------------------------------
 
-void Algorithm::writeInstanciatedBlueprints(ostream& out, const t_instantiation_context& ictx,bool first_pass)
+void Algorithm::writeInstanciatedBlueprints(std::ostream& out, const t_instantiation_context& ictx,bool first_pass)
 {
   // write instantiated blueprints
   for (auto &iaiordr : m_InstancedBlueprintsInDeclOrder) {
@@ -8758,7 +8779,7 @@ void Algorithm::writeInstanciatedBlueprints(ostream& out, const t_instantiation_
 
 // -------------------------------------------------
 
-void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx, t_vio_ff_usage& _ff_usage, bool first_pass) const
+void Algorithm::writeAsModule(std::ostream& out, const t_instantiation_context& ictx, t_vio_ff_usage& _ff_usage, bool first_pass) const
 {
   out << nxl;
 
@@ -9234,23 +9255,54 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
   }
   out << "`endif" << nxl;
 
+  // record all wires
+  std::ostringstream out_wires;
+
   // combinational
   out << "always @* begin" << nxl;
-  // always pre block
-  writeCombinationalAlwaysPre("_", out, ictx, always_dependencies, _ff_usage, post_dependencies);
+  
+  {
+    std::ostringstream out_pipes;
+    t_writer_context  w(out, out_pipes, out_wires);
+    // always pre block
+    writeCombinationalAlwaysPre("_", w, ictx, always_dependencies, _ff_usage, post_dependencies);
+    // write pipelines
+    if (!out_pipes.str().empty()) {
+      out << "// ==== pipelines (pre) ====" << nxl;
+      out << out_pipes.str();
+      out << "// =========================" << nxl;
+    }
+  }
+
   // write root fsm
   if (!hasNoFSM()) {
+    std::ostringstream out_pipes;
+    t_writer_context  w(out, out_pipes, out_wires);
     // write all states
-    writeCombinationalStates(&m_RootFSM, "_", out, ictx, always_dependencies, _ff_usage, post_dependencies);
+    writeCombinationalStates(&m_RootFSM, "_", w, ictx, always_dependencies, _ff_usage, post_dependencies);
+    // write pipelines
+    if (!out_pipes.str().empty()) {
+      out << "// ==== pipelines ====" << nxl;
+      out << out_pipes.str();
+      out << "// ===================" << nxl;
+    }
   }
+
   // always after block
   {
     std::queue<size_t> q;
     std::set<v2i>      lines;
-    std::unordered_set<const t_pipeline_nfo *> pipes;
     t_vio_dependencies _; // unusued
-    writeStatelessBlockGraph("_", out, ictx, &m_AlwaysPost, nullptr, q, post_dependencies, _ff_usage, _, lines, out);
+    std::ostringstream out_pipes;
+    t_writer_context  w(out, out_pipes, out_wires);
+    writeStatelessBlockGraph("_", w, ictx, &m_AlwaysPost, nullptr, q, post_dependencies, _ff_usage, _, lines);
     clearNoLatchFFUsage(_ff_usage);
+    // write pipelines
+    if (!out_pipes.str().empty()) {
+      out << "// ==== pipelines (post) ====" << nxl;
+      out << out_pipes.str();
+      out << "// ==========================" << nxl;
+    }
   }
 
   // pipeline state machine triggers
@@ -9287,7 +9339,7 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
       }
     }
     if (stage_id != num_stages - 1) { // skip for last as we assume result is consumed outside
-      out   << "  && (!" << FF_D << "_" << fsmPipelineStageFull(fsm) << ") "; // self not full
+      out << "  && (!" << FF_D << "_" << fsmPipelineStageFull(fsm) << ") "; // self not full
     }
     out << "  && (!" << FF_TMP << "_" << fsmPipelineStageStall(fsm) << ") "; // self not stalled
     out << "  ) begin" << nxl;
@@ -9304,6 +9356,13 @@ void Algorithm::writeAsModule(ostream& out, const t_instantiation_context& ictx,
 
   // end of combinational part
   out << "end" << nxl;
+
+  // write wires
+  if (!out_wires.str().empty()) {
+    out << "// ==== wires ====" << nxl;
+    out << out_wires.str();
+    out << "// ===============" << nxl;
+  }
 
   combineFFUsageInto(nullptr, _ff_usage, post_ff_usage, _ff_usage);
   clearNoLatchFFUsage(_ff_usage);
