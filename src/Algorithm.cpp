@@ -8225,18 +8225,20 @@ void Algorithm::writeStatelessBlockGraph(
       }
       // write pipeline
       auto prev = current;
-      {
+      if (current->context.fsm != nullptr) {
+        // if in an algorithm, pipelines are written later
         std::ostringstream _;
         t_writer_context wpip(w.pipes,_,w.wires);
         sl_assert(_.str().empty());
         current = writeStatelessPipeline(prefix, wpip, ictx, current, _q, _dependencies, _ff_usage, _post_dependencies, _lines);
-      }
-      // if not in an always block, check that blocks between here and next states are empty
-      if (current->context.fsm != nullptr) {
+        // also check that blocks between here and next states are empty
         if (!emptyUntilNextStates(current)) {
           reportError(prev->srcloc, "in an algorithm, a pipeline has to be followed by a new cycle.\n"
                                     "     please check meaning and split with ++: as appropriate");
         }
+      } else {
+        // in an always block, write the pipeline immediately
+        current = writeStatelessPipeline(prefix, w, ictx, current, _q, _dependencies, _ff_usage, _post_dependencies, _lines);
       }
     } else {
       // no action
