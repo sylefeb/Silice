@@ -7919,7 +7919,9 @@ void Algorithm::disableStartingPipelines(std::string prefix, t_writer_context &w
   std::unordered_set<t_pipeline_nfo*> pipelines;
   findAllStartingPipelines(block, pipelines);
   for (auto pip : pipelines) {
-    w.out << FF_TMP << '_' << fsmPipelineFirstStageDisable(pip->stages.front()->fsm) << " = 1;" << nxl;
+    if (!fsmIsEmpty(pip->stages.front()->fsm)) {
+      w.out << FF_TMP << '_' << fsmPipelineFirstStageDisable(pip->stages.front()->fsm) << " = 1;" << nxl;
+    }
   }
 }
 
@@ -7950,7 +7952,7 @@ void Algorithm::writeStatelessBlockGraph(
   } else {
     // first state of pipeline first stage?
     if (block->context.pipeline_stage) {
-      if (block->context.pipeline_stage->stage_id == 0) {
+      if (block->context.pipeline_stage->stage_id == 0 && !fsmIsEmpty(fsm)) {
         // add conditional on first stage disabled (in case the pipeline is enclosed in a conditional)
         w.out << "if (~" << FF_TMP << prefix << fsmPipelineFirstStageDisable(fsm) << ") begin " << nxl;
       }
@@ -8217,7 +8219,9 @@ void Algorithm::writeStatelessBlockGraph(
       if (stop_at != nullptr) {
         // in a recursion, pipeline might have been disabled so we re-enable it
         // (otherwise we are sure it was not disabled, no need to manipulate the signal and risk adding logic)
-        w.out << FF_TMP << '_' << fsmPipelineFirstStageDisable(current->pipeline_next()->next->context.pipeline_stage->fsm) << " = 0;" << nxl;
+        if (!fsmIsEmpty(current->pipeline_next()->next->context.pipeline_stage->fsm)) {
+          w.out << FF_TMP << '_' << fsmPipelineFirstStageDisable(current->pipeline_next()->next->context.pipeline_stage->fsm) << " = 0;" << nxl;
+        }
       }
       // write pipeline
       auto prev = current;
