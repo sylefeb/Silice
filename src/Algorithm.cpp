@@ -1820,7 +1820,9 @@ Algorithm::t_combinational_block *Algorithm::gatherBlock(siliceParser::BlockCont
   t_combinational_block *newblock = addBlock(generateBlockName(), _current, nullptr, sourceloc(block));
   _current->next(newblock);
   // gather instructions in new block
+  bool prev_in_top                 = _context->in_top_algorithm_block;
   t_combinational_block *after     = gather(block->instructionSequence(), newblock, _context);
+  _context->in_top_algorithm_block = prev_in_top;
   // produce next block
   t_combinational_block *nextblock = addBlock(generateBlockName(), _current, nullptr, sourceloc(block));
   after->next(nextblock);
@@ -1898,11 +1900,13 @@ Algorithm::t_combinational_block *Algorithm::gatherWhile(siliceParser::WhileLoop
 
 void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_combinational_block *_current, t_gather_context *_context, e_DeclType allowed)
 {
-  auto declvar   = dynamic_cast<siliceParser::DeclarationVarContext*>(decl->declarationVar());
-  auto declwire  = dynamic_cast<siliceParser::DeclarationWireContext *>(decl->declarationWire());
-  auto decltbl   = dynamic_cast<siliceParser::DeclarationTableContext*>(decl->declarationTable());
-  auto instance  = dynamic_cast<siliceParser::DeclarationInstanceContext*>(decl->declarationInstance());
-  auto declmem   = dynamic_cast<siliceParser::DeclarationMemoryContext*>(decl->declarationMemory());
+  auto declvar    = dynamic_cast<siliceParser::DeclarationVarContext*>(decl->declarationVar());
+  auto declwire   = dynamic_cast<siliceParser::DeclarationWireContext *>(decl->declarationWire());
+  auto decltbl    = dynamic_cast<siliceParser::DeclarationTableContext*>(decl->declarationTable());
+  auto instance   = dynamic_cast<siliceParser::DeclarationInstanceContext*>(decl->declarationInstance());
+  auto declmem    = dynamic_cast<siliceParser::DeclarationMemoryContext*>(decl->declarationMemory());
+  auto stblinput  = dynamic_cast<siliceParser::StableinputContext*>(decl->stableinput());
+  auto subroutine = dynamic_cast<siliceParser::SubroutineContext*>(decl->subroutine());
   // check permissions
   if (declvar) {
     if (!(allowed & dVAR) && !(allowed & dVARNOEXPR)) {
@@ -1934,6 +1938,14 @@ void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_comb
         reportError(sourceloc(instance), "groups cannot be defined here");
       }
     }
+  } else if (stblinput) {
+    if (!(allowed & dSTABLEINPUT)) {
+      reportError(sourceloc(stblinput), "#stableinput cannot be used here");
+    }
+  } else if (subroutine) {
+    if (!(allowed & dSUBROUTINE)) {
+      reportError(sourceloc(subroutine), "subroutines cannot be declared here");
+    }
   }
   // gather
   if (declvar)        { gatherDeclarationVar(declvar, _current, _context, (allowed & dVARNOEXPR)); }
@@ -1947,6 +1959,10 @@ void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_comb
     } else {
       gatherDeclarationInstance(instance, _current, _context);
     }
+  } else if (stblinput) {
+    gatherStableinputCheck(stblinput, _current, _context);
+  } else if (subroutine) {
+    gatherSubroutine(subroutine, _current, _context);
   }
 }
 
@@ -2021,24 +2037,6 @@ void Algorithm::gatherStableinputCheck(siliceParser::StableinputContext *ctx, t_
   }
 }
 
-//-------------------------------------------------
-
-int Algorithm::gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_combinational_block *_current, t_gather_context *_context, e_DeclType allowed)
-{
-  if (decllist == nullptr) {
-    return 0;
-  }
-  int num = 0;
-  siliceParser::DeclarationListContext *cur_decllist = decllist;
-  while (cur_decllist->declaration() != nullptr) {
-    siliceParser::DeclarationContext* decl = cur_decllist->declaration();
-    gatherDeclaration(decl, _current, _context, allowed);
-    cur_decllist = cur_decllist->declarationList();
-    ++num;
-  }
-  return num;
-}
-
 // -------------------------------------------------
 
 bool Algorithm::isIdentifierAvailable(std::string name) const
@@ -2086,9 +2084,6 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
   t_combinational_block *subb = addBlock(SUB_ENTRY_BLOCK + nfo->name, _current, nullptr, sourceloc(sub));
   subb->context.subroutine    = nfo;
   nfo->top_block              = subb;
-  // subroutine local preamble
-  int allowed = dVAR | dTABLE | dWIRE;
-  int numdecl = gatherDeclarationList(sub->declarationList(), subb, _context, (e_DeclType)allowed);
   // cross ref between block and subroutine
   // gather inputs/outputs and access constraints
   sl_assert(sub->subroutineParamList() != nullptr);
@@ -2104,6 +2099,9 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
           nfo->allowed_reads.insert(mbr);
         }
       }
+      if (!isVIO(P->IDENTIFIER()->getText()) && G == m_VIOGroups.end()) {
+        reportError(sourceloc(P), "cannot find referenced identifier '%s'", P->IDENTIFIER()->getText().c_str());
+      }
     } else if (P->WRITE() != nullptr) {
       nfo->allowed_writes.insert(P->IDENTIFIER()->getText());
       // if group, add all members
@@ -2113,6 +2111,9 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
           string mbr = P->IDENTIFIER()->getText() + "_" + v;
           nfo->allowed_writes.insert(mbr);
         }
+      }
+      if (!isVIO(P->IDENTIFIER()->getText()) && G == m_VIOGroups.end()) {
+        reportError(sourceloc(P), "cannot find referenced identifier '%s'", P->IDENTIFIER()->getText().c_str());
       }
     } else if (P->READWRITE() != nullptr) {
       nfo->allowed_reads.insert(P->IDENTIFIER()->getText());
@@ -2125,6 +2126,9 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
           nfo->allowed_reads.insert(mbr);
           nfo->allowed_writes.insert(mbr);
         }
+      }
+      if (!isVIO(P->IDENTIFIER()->getText()) && G == m_VIOGroups.end()) {
+        reportError(sourceloc(P), "cannot find referenced identifier '%s'", P->IDENTIFIER()->getText().c_str());
       }
     } else if (P->CALLS() != nullptr) {
       // add to list, check is in checkPermissions
@@ -2961,30 +2965,24 @@ std::string Algorithm::delayedName(siliceParser::AlwaysAssignedContext* alw) con
 
 // -------------------------------------------------
 
-void Algorithm::gatherAlwaysAssigned(siliceParser::AlwaysAssignedListContext* alws, t_combinational_block *always)
+void Algorithm::gatherAlwaysAssigned(siliceParser::AlwaysAssignedContext* alw, t_combinational_block *always)
 {
-  while (alws) {
-    auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext*>(alws->alwaysAssigned());
-    if (alw) {
-      always->instructions.push_back(t_instr_nfo(alw, always, -1));
-      // check syntax
-      if (alw->LDEFINE() != nullptr || alw->LDEFINEDBL() != nullptr) {
-        reportError(sourceloc(alws), "always assignement can only use := or ::=");
-      }
-      // check for double flip-flop
-      if (alw->ALWSASSIGNDBL() != nullptr) {
-        // insert variable
-        t_var_nfo var;
-        var.name = delayedName(alw);
-        t_type_nfo typenfo = determineAccessTypeAndWidth(nullptr, alw->access(), alw->IDENTIFIER());
-        var.table_size     = 0;
-        var.type_nfo       = typenfo;
-        var.init_values.push_back("0");
-        var.do_not_initialize = true;
-        insertVar(var, always);
-      }
-    }
-    alws = alws->alwaysAssignedList();
+  always->instructions.push_back(t_instr_nfo(alw, always, -1));
+  // check syntax
+  if (alw->LDEFINE() != nullptr || alw->LDEFINEDBL() != nullptr) {
+    reportError(sourceloc(alw), "always assignement can only use := or ::=");
+  }
+  // check for double flip-flop
+  if (alw->ALWSASSIGNDBL() != nullptr) {
+    // insert variable
+    t_var_nfo var;
+    var.name = delayedName(alw);
+    t_type_nfo typenfo = determineAccessTypeAndWidth(nullptr, alw->access(), alw->IDENTIFIER());
+    var.table_size = 0;
+    var.type_nfo = typenfo;
+    var.init_values.push_back("0");
+    var.do_not_initialize = true;
+    insertVar(var, always);
   }
 }
 
@@ -3594,6 +3592,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
   auto loop         = dynamic_cast<siliceParser::WhileLoopContext*>(tree);
   auto jump         = dynamic_cast<siliceParser::JumpContext*>(tree);
   auto assign       = dynamic_cast<siliceParser::AssignmentContext*>(tree);
+  auto always       = dynamic_cast<siliceParser::AlwaysAssignedContext *>(tree);
   auto display      = dynamic_cast<siliceParser::DisplayContext *>(tree);
   auto inline_v     = dynamic_cast<siliceParser::Inline_vContext *>(tree);
   auto finish       = dynamic_cast<siliceParser::FinishContext *>(tree);
@@ -3614,88 +3613,38 @@ Algorithm::t_combinational_block *Algorithm::gather(
   auto assertstable = dynamic_cast<siliceParser::AssertstableContext *>(tree);
   auto assumestable = dynamic_cast<siliceParser::AssumestableContext *>(tree);
   auto cover        = dynamic_cast<siliceParser::CoverContext *>(tree);
+  auto alw_block    = dynamic_cast<siliceParser::AlwaysBlockContext *>(tree);
+  auto alw_before   = dynamic_cast<siliceParser::AlwaysBeforeBlockContext *>(tree);
+  auto alw_after    = dynamic_cast<siliceParser::AlwaysAfterBlockContext *>(tree);
 
   bool recurse  = true;
 
-  if (algbody) {
-    // gather declarations
-    for (auto d : algbody->declaration()) {
-      int allowed = dWIRE | dVAR | dTABLE | dMEMORY | dGROUP | dINSTANCE;
-      gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), _current, _context, (e_DeclType)allowed);
-    }
+  if (algbody) { // uses legacy snytax
+    m_UsesLegacySnytax = true;
     // add global subroutines now (reparse them as if defined in this algorithm)
     for (const auto &s : m_KnownSubroutines) {
       gatherSubroutine(s.second, _current, _context);
     }
-    // gather local subroutines
-    for (auto s : algbody->subroutine()) {
-      gatherSubroutine(dynamic_cast<siliceParser::SubroutineContext *>(s), _current, _context);
-    }
-    // gather stableinput checks
-    for (auto s : algbody->stableinput()) {
-      gatherStableinputCheck(s, _current, _context);
-    }
     // gather always assigned
-    gatherAlwaysAssigned(algbody->alwaysPre, &m_AlwaysPre);
-    m_AlwaysPre.srcloc = sourceloc(algbody->alwaysPre);
     m_AlwaysPre.context.parent_scope = _current;
-    // gather always block if defined
-    if (algbody->alwaysBlock() != nullptr
-      && algbody->alwaysBeforeBlock() != nullptr) {
-      reportError(sourceloc(algbody->alwaysBlock()->ALWAYS()),
-        "Use either an always_before or an always block, not both. They are synonym in this context.");
-    }
-    if (algbody->alwaysBlock() != nullptr) {
-      gather(algbody->alwaysBlock(), &m_AlwaysPre, _context);
-      if (!isStateLessGraph(&m_AlwaysPre)) {
-        reportError(sourceloc(algbody->alwaysBlock()->ALWAYS()),
-          "always block can only be a one-cycle block");
-      }
-    }
-    if (algbody->alwaysBeforeBlock() != nullptr) {
-      gather(algbody->alwaysBeforeBlock(), &m_AlwaysPre, _context);
-      if (!isStateLessGraph(&m_AlwaysPre)) {
-        reportError(sourceloc(algbody->alwaysBeforeBlock()->ALWAYS_BEFORE()),
-          "always_before block can only be a one-cycle block");
-      }
-    }
     m_AlwaysPost.context.parent_scope = _current;
-    if (algbody->alwaysAfterBlock() != nullptr) {
-      gather(algbody->alwaysAfterBlock(), &m_AlwaysPost, _context);
-      m_AlwaysPost.srcloc = sourceloc(algbody->alwaysAfterBlock());
-      if (!isStateLessGraph(&m_AlwaysPost)) {
-        reportError(sourceloc(algbody->alwaysAfterBlock()->ALWAYS_AFTER()),
-          "always_after block can only be a one-cycle block");
-      }
-      if (algbody->alwaysBlock() != nullptr) {
-        warn(Deprecation, sourceloc(algbody->alwaysBlock()),
-          "Use 'always_before' instead of 'always' in conjunction with 'always_after'");
-      }
-    }
-    // deprecation on algorithms with always blocks
-    if ( algbody->alwaysBlock() != nullptr
-      || algbody->alwaysBeforeBlock() != nullptr
-      || algbody->alwaysAfterBlock() != nullptr) {
-      warn(Deprecation, sourceloc(algbody),
-        "Use a 'unit' instead of always blocks in an algorithm.");
-    }
     // recurse on instruction list
+    _context->in_algorithm = true;
+    _context->in_top_algorithm_block = true;
     _current->srcloc = sourceloc(algbody->instructionSequence());
     _current = gather(algbody->instructionSequence(), _current, _context);
+    _context->in_algorithm = false;
+    _context->in_top_algorithm_block = false;
     recurse  = false;
-  } else if (unitbody)     {
-    // gather declarations
+  } else if (unitbody) { // uses latest snytax
     for (auto d : unitbody->declaration()) {
       int allowed = dWIRE | dVARNOEXPR | dTABLE | dMEMORY | dGROUP | dINSTANCE;
       gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), _current, _context, (e_DeclType)allowed);
     }
-    // gather stableinput checks
-    for (auto s : unitbody->stableinput()) {
-      gatherStableinputCheck(s, _current, _context);
-    }
     // gather always assigned
-    gatherAlwaysAssigned(unitbody->alwaysPre, &m_AlwaysPre);
-    m_AlwaysPre.srcloc = sourceloc(unitbody->alwaysPre);
+    for (auto a : unitbody->alwaysAssigned()) {
+      gatherAlwaysAssigned(a, &m_AlwaysPre);
+    }
     m_AlwaysPre.context.parent_scope = _current;
     m_AlwaysPost.context.parent_scope = _current;
     // gather always block if defined
@@ -3736,7 +3685,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
       }
     }
     recurse  = false;
-  } else if (algblock)     {
+  } else if (algblock) {
     // unit algorithm block
     if (algblock->bpModifiers()) {
       for (auto m : algblock->bpModifiers()->bpModifier()) {
@@ -3751,8 +3700,12 @@ Algorithm::t_combinational_block *Algorithm::gather(
       }
     }
     // gather algorithm content
+    _context->in_algorithm = true;
+    _context->in_top_algorithm_block = true;
     _current->srcloc = sourceloc(algblock);
     _current = gather(algblock->algorithmBlockContent(), _current, _context);
+    _context->in_algorithm = false;
+    _context->in_top_algorithm_block = false;
     recurse  = false;
   } else if (algcontent)   {
     // add global subroutines now (reparse them as if defined in this algorithm)
@@ -3762,15 +3715,6 @@ Algorithm::t_combinational_block *Algorithm::gather(
     // make a new block for the algorithm
     t_combinational_block *newblock = addBlock(generateBlockName(), _current, nullptr, sourceloc(algcontent));
     _current->next(newblock);
-    // gather declarations
-    for (auto d : algcontent->declaration()) {
-      int allowed = dWIRE | dVAR | dTABLE | dMEMORY | dGROUP | dINSTANCE;
-      gatherDeclaration(dynamic_cast<siliceParser::DeclarationContext *>(d), newblock, _context, (e_DeclType)allowed);
-    }
-    // gather local subroutines
-    for (auto s : algcontent->subroutine()) {
-      gatherSubroutine(dynamic_cast<siliceParser::SubroutineContext *>(s), newblock, _context);
-    }
     // gather instructions
     t_combinational_block *after     = gather(algcontent->instructionSequence(), newblock, _context);
     // produce next block
@@ -3781,9 +3725,47 @@ Algorithm::t_combinational_block *Algorithm::gather(
     // recurse on instruction list
     recurse  = false;
   } else if (decl)         {
-    int allowed = dVAR | dTABLE;
+    bool allow_all = _context->in_top_algorithm_block;
+    int  allowed   = allow_all ? (dWIRE | dVAR | dTABLE | dMEMORY | dGROUP | dINSTANCE | dSUBROUTINE | dSTABLEINPUT)
+                               : (dVAR | dTABLE);
     gatherDeclaration(decl, _current, _context, (e_DeclType)allowed);
     recurse = false;
+  } else if (alw_block) {
+    if (!m_UsesLegacySnytax) {
+      if (_context->in_algorithm) {
+        reportError(sourceloc(tree), "cannot declare an always block within an algorithm block");
+      }
+    } else {
+      warn(Deprecation, sourceloc(alw_block), "Use a 'unit' instead of always blocks in an algorithm.");
+      if (!_context->in_top_algorithm_block) {
+        reportError(sourceloc(tree), "the always block can only be declared in the top algorithm block");
+      }
+    }
+    gather(alw_block->block(), &m_AlwaysPre, _context);  recurse = false;
+  } else if (alw_before) {
+    if (!m_UsesLegacySnytax) {
+      if (_context->in_algorithm) {
+        reportError(sourceloc(tree), "cannot declare an always before block within an algorithm block");
+      }
+    } else {
+      warn(Deprecation, sourceloc(alw_before), "Use a 'unit' instead of always blocks in an algorithm.");
+      if (!_context->in_top_algorithm_block) {
+        reportError(sourceloc(tree), "the always before block can only be declared in the top algorithm block");
+      }
+    }
+    gather(alw_before->block(), &m_AlwaysPre, _context);  recurse = false;
+  } else if (alw_after) {
+    if (!m_UsesLegacySnytax) {
+      if (_context->in_algorithm) {
+        reportError(sourceloc(tree), "cannot declare an always after block within an algorithm block");
+      }
+    } else {
+      warn(Deprecation, sourceloc(alw_after), "Use a 'unit' instead of always blocks in an algorithm.");
+      if (!_context->in_top_algorithm_block) {
+        reportError(sourceloc(tree), "the always after block can only be declared in the top algorithm block");
+      }
+    }
+    gather(alw_after->block(), &m_AlwaysPost, _context);  recurse = false;
   } else if (ifelse)       { _current = gatherIfElse(ifelse, _current, _context);          recurse = false;
   } else if (ifthen)       { _current = gatherIfThen(ifthen, _current, _context);          recurse = false;
   } else if (switchC)      { _current = gatherSwitchCase(switchC, _current, _context);     recurse = false;
@@ -3809,9 +3791,10 @@ Algorithm::t_combinational_block *Algorithm::gather(
   } else if (was_at)       { gatherPastCheck(was_at, _current, _context);                  recurse = false;
   } else if (assertstable) { gatherStableCheck(assertstable, _current, _context);          recurse = false;
   } else if (assumestable) { gatherStableCheck(assumestable, _current, _context);          recurse = false;
+  } else if (always)       { gatherAlwaysAssigned(always, &m_AlwaysPre);                   recurse = false;
   } else if (block)        { _current = gatherBlock(block, _current, _context);            recurse = false;
-  } else if (ilist)        { _current = splitOrContinueBlock(ilist, _current, _context); }
-
+  } else if (ilist)        { _current = splitOrContinueBlock(ilist, _current, _context);
+  }
   // recurse
   if (recurse) {
     for (const auto& c : tree->children) {
@@ -7618,10 +7601,12 @@ bool Algorithm::emptyUntilNextStates(const t_combinational_block *block) const
 void Algorithm::findAllStartingPipelines(const t_combinational_block *block, std::unordered_set<t_pipeline_nfo*>& _pipelines) const
 {
   std::queue< const t_combinational_block * > q;
+  std::unordered_set<const t_combinational_block *> visited;
   q.push(block);
   while (!q.empty()) {
     auto cur = q.front();
     q.pop();
+    visited.insert(cur);
     // has pipeline?
     if (cur->pipeline_next()) {
       _pipelines.insert(cur->pipeline_next()->next->context.pipeline_stage->pipeline);
@@ -7631,7 +7616,8 @@ void Algorithm::findAllStartingPipelines(const t_combinational_block *block, std
     cur->getChildren(children);
     for (auto c : children) {
       if (c->context.fsm == block->context.fsm // stay within fsm
-        && !c->is_state) { // explore reachable non-state blocks only
+        && !c->is_state // explore reachable non-state blocks only
+        && visited.count(c) == 0) {
         q.push(c);
       }
     }
@@ -8035,6 +8021,9 @@ void Algorithm::writeStatelessBlockGraph(
         current = current->if_then_else()->after; // yes!
       }
     } else if (current->switch_case()) {
+      // disable all potentially starting pipelines
+      disableStartingPipelines(prefix, w, ictx, current);
+      // write case
       if (current->switch_case()->onehot) {
         w.out << "(* parallel_case, full_case *)" << nxl;
         w.out << "  case (1'b1)" << nxl;
@@ -8053,8 +8042,6 @@ void Algorithm::writeStatelessBlockGraph(
           _lines.insert(lns);
         }
       }
-      // disable all potentially starting pipelines
-      disableStartingPipelines(prefix, w, ictx, current);
       // recurse block
       t_vio_dependencies depds_before_case = _dependencies;
       vector<t_vio_ff_usage> usage_branches;
@@ -9363,7 +9350,7 @@ void Algorithm::writeAsModule(std::ostream& out, const t_instantiation_context& 
 
   // combinational
   out << "always @* begin" << nxl;
-  
+
   {
     std::ostringstream out_pipes;
     t_writer_context  w(out, out_pipes, out_wires);

@@ -1,25 +1,18 @@
-
-circuitry circ(input a,input b,output c)
+algorithm a1(input uint8 i,output uint8 o)
 {
-  c = a;
-->
-  c = c + 1;
-->
-  c = c + 1;
+  o = i;
 }
 
-unit main(output uint8 leds)
+algorithm main(output uint8 leds)
 {
-  algorithm {
+  a1 a;
 
-    uint8 a(0);
+  subroutine s(input uint8 i,output uint8 o,calls a)
+  //                                        ^^^^^ allows sub to call instance a
+  {
+    (o) <- a <- (i);
+  }
 
-		a = 1;
+  (leds) <- s <- (8);
 
-    (a) = circ(a,a+1);
-    (a) = circ(a,a+1);
-
-    a = 5;
-
-	}
 }

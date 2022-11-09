@@ -370,6 +370,10 @@ $$for i=0,doomchip_width-1 do
 $$end
   };
 
+  bram uint$FPw+1$ depthBuffer[$doomchip_height$] = uninitialized; // MSB is a 'clear' toggle
+  // it changes every column so we known whether the value is old (cleared) or
+  // current.
+
   // Writes a pixel in the framebuffer, calls the texture unit
   subroutine writePixel(
      readwrites   colio,
@@ -538,10 +542,6 @@ $$end
   uint5    kpressblind = 0;
 
   uint12   rand = 3137;
-
-  bram uint$FPw+1$ depthBuffer[$doomchip_height$] = uninitialized; // MSB is a 'clear' toggle
-  // it changes every column so we known whether the value is old (cleared) or
-  // current.
 
   int16    debug0 = 0;
   int16    debug1 = 0;

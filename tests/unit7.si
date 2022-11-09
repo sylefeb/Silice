@@ -9,10 +9,12 @@ unit main(output uint8 leds)
   }
 
   algorithm {
+
     subroutine inc(input uint24 a,output uint24 b)
     {
       b = a + 1;
     }
+
     while (1) {
       (count) <- inc <- (count);
     }

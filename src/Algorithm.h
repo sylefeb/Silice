@@ -93,7 +93,11 @@ namespace Silice
     enum e_MemType { UNDEF, BRAM, SIMPLEDUALBRAM, DUALBRAM, BROM };
 
     /// \brief declaration types (used to check for permission during syntax parsing, combined as bitfield)
-    enum e_DeclType { dWIRE=1, dVAR=2, dTABLE=4, dMEMORY=8, dGROUP=16, dINSTANCE=32, dVARNOEXPR = 64};
+    enum e_DeclType {
+      dWIRE = 1, dVAR = 2, dTABLE = 4, dMEMORY = 8,
+      dGROUP = 16, dINSTANCE = 32, dVARNOEXPR = 64,
+      dSUBROUTINE = 128, dSTABLEINPUT = 256
+    };
 
     /// \brief algorithm name
     std::string m_Name;
@@ -595,9 +599,11 @@ private:
     /// \brief context while gathering code
     typedef struct
     {
-      int                                       __id;
-      t_combinational_block                    *break_to;
-      const Blueprint::t_instantiation_context *ictx;
+      bool                                      in_algorithm = false;
+      bool                                      in_top_algorithm_block = false;
+      int                                       __id = -1;
+      t_combinational_block                    *break_to = nullptr;
+      const Blueprint::t_instantiation_context *ictx = nullptr;
     } t_gather_context;
 
     /// \brief information about a past check ('#was_at(lbl, cycle_count)')
@@ -637,6 +643,8 @@ private:
     /// \brief integer name of the next block
     int                                                               m_NextBlockName = 1;
 
+    /// \brief indicates whether this algorithm uses the deprecated algorithm syntax (instead of 'unit')
+    bool        m_UsesLegacySnytax = false;
     /// \brief indicates whether this algorithm is the topmost in the design
     bool        m_TopMost      = false;
     /// \brief indicates whether a FSM report has to be generated and what the filename is (empty means none)
@@ -777,8 +785,6 @@ private:
     t_combinational_block *gatherWhile(siliceParser::WhileLoopContext* loop, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather declaration
     void gatherDeclaration(siliceParser::DeclarationContext *decl, t_combinational_block *_current, t_gather_context *_context, e_DeclType allowed);
-    /// \brief gather declaration list, returns number of gathered declarations
-    int gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_combinational_block *_current, t_gather_context *_context, e_DeclType allowed);
     /// \brief gather a subroutine
     t_combinational_block *gatherSubroutine(siliceParser::SubroutineContext* sub, t_combinational_block *_current, t_gather_context *_context);
     /// \brief concatenate a pipeline to an existing one
@@ -808,7 +814,7 @@ private:
     /// \brief gather a repeat block
     t_combinational_block *gatherRepeatBlock(siliceParser::RepeatBlockContext* repeat, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather always assigned
-    void gatherAlwaysAssigned(siliceParser::AlwaysAssignedListContext* alws, t_combinational_block *always);
+    void gatherAlwaysAssigned(siliceParser::AlwaysAssignedContext* alw, t_combinational_block *always);
     /// \brief check access permissions (recursively) from a specific node
     void checkPermissions(antlr4::tree::ParseTree *node, t_combinational_block *_current);
     /// \brief check access permissions on all block instructions

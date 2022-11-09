@@ -1,0 +1,19 @@
+unit main(output uint8 leds)
+{
+
+  bram uint8 test[16] = {pad(111)}; 
+
+  algorithm {
+  
+    subroutine sub(readwrites test)
+    {
+      test.addr = 0;
+      ++:
+      __display("%d",test.rdata);
+    }
+  
+    () <- sub <- ();
+  
+  }
+
+}
