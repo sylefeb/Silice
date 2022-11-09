@@ -4,7 +4,7 @@ algorithm main(output uint8 leds)
 
   while (n != 3) {
 
-    __display("[1] %d",n); ///////// FIXME goes one step too far
+    __display("[1] %d",n);
     n = n + 1;
 
 ->

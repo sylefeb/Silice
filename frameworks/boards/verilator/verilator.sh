@@ -139,7 +139,7 @@ $MAKE -f Vtop.mk -j$(nproc)
 cd ..
 
 if [[ -z "${NO_PROGRAM}" ]]; then
-  ./obj_dir/Vtop
+  ./obj_dir/Vtop | tee out.log
 else
   echo "Skipping execution."
 fi

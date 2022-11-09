@@ -863,6 +863,8 @@ private:
     std::string fsmPipelineStageFull(const t_fsm_nfo *) const;
     /// \brief returns the 'stall' signal name of the fsm
     std::string fsmPipelineStageStall(const t_fsm_nfo *) const;
+    /// \brief returns the 'first stage disable' signal name of the fsm
+    std::string fsmPipelineFirstStageDisable(const t_fsm_nfo *) const;
     /// \brief returns an expression that evaluates to the fsm next state
     std::string fsmNextState(std::string prefix, const t_fsm_nfo *) const;
     /// \brief returns whether the fsm is empty (no state)
@@ -1146,6 +1148,8 @@ private:
     void writeCombinationalAlwaysPre(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, t_vio_dependencies& _always_dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies) const;
     /// \brief writes all FSM states in the output
     void writeCombinationalStates(const t_fsm_nfo *fsm, std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_vio_dependencies &always_dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies) const;
+    /// \brief disable starting pipelines (used to disable pipeline first stages when they are on the 'false' side of a conditional)
+    void disableStartingPipelines(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_combinational_block* block) const;
     /// \brief writes a graph of stateless blocks to the output, until a jump to other states is reached
     void writeStatelessBlockGraph(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_combinational_block* block, const t_combinational_block* stop_at, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies, std::set<v2i> &_lines) const;
     /// \brief order pipeline stages based on pipeline specific assignments
@@ -1154,6 +1158,8 @@ private:
     const t_combinational_block *writeStatelessPipeline(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_combinational_block* block_before, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies, std::set<v2i> &_lines) const;
     /// \brief returns whether the combinational chain until next state is empty, i.e. it will not produce code
     bool emptyUntilNextStates(const t_combinational_block *block) const;
+    /// \brief returns all pipelines starting within the combinational chain
+    void findAllStartingPipelines(const t_combinational_block *block,std::unordered_set<t_pipeline_nfo*>& _pipelines) const;
     /// \brief returns whether the block is empty, i.e. writeBlock will not produce code
     bool blockIsEmpty(const t_combinational_block *block) const;
     /// \brief writes a single block to the output
