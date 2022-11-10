@@ -4933,8 +4933,17 @@ void Algorithm::determineVIOAccess(
         if (C == m_ExpressionCatchers.end()) {
           // no: nothing to do
         } else {
+#if 1
+          string var = C->second;
+          // tag it as written
+          var = translateVIOName(var, bctx);
+          if (vios.find(var) != vios.end()) {
+            _written.insert(var);
+          }
+#else
           // yes: nothing to do, we do not tag it as written so that it can collapse to a const
           // NOTE: updateAndCheckDependencies has a special case so these are seen as written
+#endif
         }
         // recurse
         recurse = true;
