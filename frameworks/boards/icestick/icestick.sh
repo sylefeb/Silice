@@ -33,6 +33,11 @@ rm build*
 
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
 
+if [[ ! -z "${NO_BUILD}" ]]; then
+  echo "Skipping build."
+  exit
+fi
+
 if ! type "nextpnr-ice40" > /dev/null; then
   # try arachne-pnr instead
   echo "nextpnr-ice40 not found, trying arachne-pnr instead"

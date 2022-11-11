@@ -118,9 +118,13 @@ $$if SPIFLASH then
   output uint1             sf_mosi,
   input  uint1             sf_miso,
 $$end
+)
 $$if ICEBREAKER or ICEBITSY then
-) <@vga_clock,!fast_reset> {
+<@vga_clock,!fast_reset>
+$$end
+{
 
+$$if ICEBREAKER or ICEBITSY then
   uint1 fast_clock = uninitialized;
   pll pllgen(
     clock_in  <: clock,
@@ -142,8 +146,6 @@ $$if ICEBREAKER or ICEBITSY then
   //clean_reset rst2<@vga_clock,!reset>(
   //  out :> vga_reset
   //);
-$$else
-) {
 $$end
 
   // interface for GPU writes in framebuffer
