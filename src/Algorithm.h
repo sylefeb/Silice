@@ -738,7 +738,7 @@ private:
     /// \brief gather group declaration
     void gatherDeclarationGroup(siliceParser::DeclarationInstanceContext* grp, t_combinational_block *_current);
     /// \brief instantiates a blueprint given the instantiation context
-    void Algorithm::instantiateBlueprint(t_instanced_nfo& _nfo, const t_instantiation_context& ictx);
+    void instantiateBlueprint(t_instanced_nfo& _nfo, const t_instantiation_context& ictx);
     /// \brief gather blueprint instance declaration
     void gatherDeclarationInstance(siliceParser::DeclarationInstanceContext* alg, t_combinational_block* _current, t_gather_context *_context);
     /// \brief gather past checks
