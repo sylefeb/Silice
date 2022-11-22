@@ -20,13 +20,13 @@ EHXPLLL #(
         .OUTDIVIDER_MUXB("DIVB"),
         .OUTDIVIDER_MUXC("DIVC"),
         .OUTDIVIDER_MUXD("DIVD"),
-        .CLKI_DIV(20),
+        .CLKI_DIV(3),
         .CLKOP_ENABLE("ENABLED"),
         .CLKOP_DIV(9),
-        .CLKOP_CPHASE(4),
+        .CLKOP_CPHASE(8),
         .CLKOP_FPHASE(0),
         .FEEDBK_PATH("CLKOP"),
-        .CLKFB_DIV(13)
+        .CLKFB_DIV(2)
     ) pll_i (
         .RST(1'b0),
         .STDBY(1'b0),

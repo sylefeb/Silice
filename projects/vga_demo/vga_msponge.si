@@ -29,9 +29,16 @@ $$end
 $include('vga_demo_main.si')
 
 // ----------------------------------------------------------------------------
+// Below we define circuitries for our multipliers.
+//
+// Note that circuitries containing a pipeline are automatically concatenated
+// to the parent pipeline, thus adding stages as expected.
+
+// ----------------------------------------------------------------------------
 $$if ECPIX5 then
 // ----------------------------------------------------------------------------
-
+// NOTE: on the ECP5 the pipelined multipliers do not result in better fmax
+//       which seems suspicious, still investigating!
 circuitry mul_14_18 (output result,input a,input b) { result = a*b; }
 circuitry mul_8_8   (output result,input a,input b) { result = a*b; }
 circuitry imul_24_24(output result,input a,input b) { result = a*b; }
@@ -40,6 +47,8 @@ circuitry imul_24_24(output result,input a,input b) { result = a*b; }
 $$else
 // ----------------------------------------------------------------------------
 
+// NOTE: On the de10nano, we use pipelined multiplier to improve fmax,
+//       works as expected.
 circuitry mul_14_18(output result,input a,input b)
 {
   uint16 ahbl(0); uint16 albh(0); uint16 albl(0); uint16 ahbh(0);
@@ -158,7 +167,9 @@ $$end
     15,  7, 13,  5
   };
 
-  pix_r := 0; pix_g := 0; pix_b := 0;
+  always_before {
+    pix_r = 0; pix_g = 0; pix_b = 0; // maintain at zero, important during
+  }                                  // vga blanking for screen to adjust
 
   algorithm <autorun> {
 
