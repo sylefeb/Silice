@@ -3,8 +3,8 @@
 
 ---
 **Quick links:**
-- To setup Silice, see the [getting started](GetStarted.md) guide.
-- To see what can be done with Silice, checkout the [example projects](projects/README.md) (all are available in this repo).
+- To set up Silice, see the [getting started](GetStarted.md) guide.
+- To see what can be done with Silice, check out the [example projects](projects/README.md) (all are available in this repo).
 - To start designing hardware, see [learn Silice](learn-silice/README.md).
 - Watch the introduction video on [programming FPGAs with Silice](https://www.youtube.com/watch?v=_OhxEY72qxI) (youtube).
 - Watch the [video on the IceV-dual](https://www.youtube.com/watch?v=fr4Dst1fQrk&t=6647s), a dual core RV32I riscv processor [included in this repo](projects/ice-v/IceVDual.md).
@@ -25,9 +25,9 @@
 
 ## What is Silice?
 
-*Silice* simplifies prototyping and implementing algorithms on FPGAs. It provides a comfortable yet thin abstraction above *Verilog* (a typical hardware description language), simplifying design without loosing precise control over the hardware. It provides "quality of life" features to group signals, define generic interfaces and circuitries, instantiate block RAMs, describe pipelines, deal with multiple clock domains and automatically manage flip-flops.
+*Silice* simplifies prototyping and implementing algorithms on FPGAs. It provides a comfortable yet thin abstraction above *Verilog* (a typical hardware description language), simplifying design without losing precise control over the hardware. It provides "quality of life" features to group signals, define generic interfaces and circuitries, instantiate block RAMs, describe pipelines, deal with multiple clock domains and automatically manage flip-flops.
 It gives the (optional) ability to write parts of your design as sequences of operations, subroutines that can be called, and to use control flow statements such as while and break, describing operations and algorithms that run in parallel and are precisely in sync.
-Silice detects combinatorial loops and many other error-prone cases, and features a Lua-preprocessor enabling advanced code generation.
+Silice detects combinational loops and many other error-prone cases, and features a Lua-preprocessor enabling advanced code generation.
 
 Silice does not aim to be a high level synthesis language: it *remains close to the hardware* and lets you fully exploit FPGA architectures, with a fine grain control on how your design maps to the hardware: You remain in control of what happens at each and every clock cycle, with predictable rules for flow control, how and when execution states appear, how flip-flops map to variables, and what gets registered or not. In fact, if you chose so you can design in a way that is very similar to Verilog, while still benefiting from the "quality of life" improvements of Silice syntax.
 This allows to refine an initial prototype from concept to efficient implementation.
@@ -35,7 +35,7 @@ Silice compiles to and inter-operates with Verilog: you can directly instantiate
 
 The language comes with a complete build system, [many examples](projects/README.md) and [basic components](projects/common/) (VGA, HDMI, OLED, UART, and SDRAM controllers). The build system allows to [get started](GetStarted.md) easily, and already supports many [popular boards](frameworks/boards/boards.json) such as the IceBreaker, ULX3S, Fomu and IceStick.
 
-You do not need an FPGA to start with Silice: designs and their outputs (e.g. VGA signal) can be simulated and visualized. Silice works great with the open source FGPA toolchain (yosys/nextpnr/icestorm), see our [Ice40 and ECP5 examples](projects/README.md).
+You do not need an FPGA to start with Silice: designs and their outputs (e.g. VGA signals) can be simulated and visualized. Silice works great with the open source FPGA toolchain (yosys/nextpnr/icestorm), see our [Ice40 and ECP5 examples](projects/README.md).
 
 While I developed Silice for my own needs, I hope you'll find it useful for your projects!
 
@@ -51,14 +51,14 @@ The main features are:
 - The possibility to easily describe pipelines.
 - Automatically takes care of creating flip-flops for variables, with automatic pruning (e.g. const or bindings).
 - Generic interfaces and grouped IOs for easy reuse and modular designs.
-- Generic circuitries that can be instantiated and reused easily.
+- Generic circuits that can be instantiated and reused easily.
 - Explicit clock domains and reset signals.
 - Familiar syntax with both C and Verilog inspired elements.
 - Inter-operates with Verilog, allowing to import and reuse existing modules.
 - Powerful LUA-based pre-processor.
 
 These examples are different and representative of this approach:
-- The [voxel space terrain](projects/terrain/README.md) is relying on Silice sequential flow syntax.
+- The [voxel space terrain](projects/terrain/README.md) relies on Silice sequential flow syntax.
 - The [fire-v](projects/fire-v/README.md) project is a graphical RISCV framework with a [RV32I processor](projects/fire-v/doc/fire-v.md) that relies mostly on non-sequential constructs.
 - The [SDRAM controllers](projects/sdram_test/README.md) use a mixed style.
 - The [pipeline sort](projects/pipeline_sort/README.md) is an example of using the pipeline syntax (**experimental, may change**).
@@ -91,7 +91,7 @@ make mojov3
 ##### Explanations:
 
 Line 1 is the entry point of any Silice hardware: the main algorithm. Line 2 we define
-a 28 bits unsigned int, initialized to 0. Initializers are mandatory and are always constants.
+a 28-bit unsigned int, initialized to 0. Initializers are mandatory and are always constants.
 Line 3 we request that the output led tracks the eight most significant bits of the counter variable.
 The syntax [20,8] means 8 bits wide starting from bit 20. The assignment to led
 uses the := operator which is an *always* assignment: led is now automatically
@@ -104,7 +104,7 @@ In this case, the loop takes exactly one cycle to execute: we have one increment
 at 50 MHz (the clock frequency of the Mojo v3).
 
 We then compile with silice. The -f parameter indicates which framework to use: this is an
-FPGA plateform dependent wrapper code. Here we are using the Mojo framework with LEDs only.
+FPGA platform dependent wrapper code. Here we are using the Mojo framework with LEDs only.
 Several other frameworks are provided, and it is easy to write your own.
 
 The -o parameter indicates where to write the Verilog output. In this example we overwrite
@@ -133,7 +133,7 @@ Here is another small example outlining a core principle of Silice:
 ##### Explanations:
 
 This code is storing a sine table in a block ROM and accesses it to obtain a cosine and sine for the current view angle.
-Note the use of the **++:** *step* operator in lines 7 and 10. This explicitely splits the exectution flow and introduces a one cycle delay, here waiting for the brom to output its result in field *rdata* for the select address in *addr*.
+Note the use of the **++:** *step* operator in lines 7 and 10. This explicitly splits the exectution flow and introduces a one cycle delay, here waiting for the brom to output its result in field *rdata* for the select address in *addr*.
 Anything in between is considered combinational; for instance lines 8 and 9 are evaluated in parallel on hardware, as they
 each produce two pieces of independent circuitry.
 
@@ -148,7 +148,7 @@ This repo contains many [example projects](projects/), some including detailed c
 
 See the [getting started](GetStarted.md) guide. Silice runs great on Windows, Linux, and macOS!
 To start writing code, see [writing your first design](FirstDesign.md).
-To see what can be done with Silice, checkout our [example projects](projects/README.md) (all are available in this repo).
+To see what can be done with Silice, check out our [example projects](projects/README.md) (all are available in this repo).
 
 ## Project status: Alpha release
 
