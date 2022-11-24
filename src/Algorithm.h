@@ -93,7 +93,11 @@ namespace Silice
     enum e_MemType { UNDEF, BRAM, SIMPLEDUALBRAM, DUALBRAM, BROM };
 
     /// \brief declaration types (used to check for permission during syntax parsing, combined as bitfield)
-    enum e_DeclType { dWIRE=1, dVAR=2, dTABLE=4, dMEMORY=8, dGROUP=16, dINSTANCE=32, dVARNOEXPR = 64};
+    enum e_DeclType {
+      dWIRE = 1, dVAR = 2, dTABLE = 4, dMEMORY = 8,
+      dGROUP = 16, dINSTANCE = 32, dVARNOEXPR = 64,
+      dSUBROUTINE = 128, dSTABLEINPUT = 256
+    };
 
     /// \brief algorithm name
     std::string m_Name;
@@ -595,9 +599,11 @@ private:
     /// \brief context while gathering code
     typedef struct
     {
-      int                                       __id;
-      t_combinational_block                    *break_to;
-      const Blueprint::t_instantiation_context *ictx;
+      bool                                      in_algorithm = false;
+      bool                                      in_top_algorithm_block = false;
+      int                                       __id = -1;
+      t_combinational_block                    *break_to = nullptr;
+      const Blueprint::t_instantiation_context *ictx = nullptr;
     } t_gather_context;
 
     /// \brief information about a past check ('#was_at(lbl, cycle_count)')
@@ -637,6 +643,8 @@ private:
     /// \brief integer name of the next block
     int                                                               m_NextBlockName = 1;
 
+    /// \brief indicates whether this algorithm uses the deprecated algorithm syntax (instead of 'unit')
+    bool        m_UsesLegacySnytax = false;
     /// \brief indicates whether this algorithm is the topmost in the design
     bool        m_TopMost      = false;
     /// \brief indicates whether a FSM report has to be generated and what the filename is (empty means none)
@@ -730,7 +738,7 @@ private:
     /// \brief gather group declaration
     void gatherDeclarationGroup(siliceParser::DeclarationInstanceContext* grp, t_combinational_block *_current);
     /// \brief instantiates a blueprint given the instantiation context
-    void Algorithm::instantiateBlueprint(t_instanced_nfo& _nfo, const t_instantiation_context& ictx);
+    void instantiateBlueprint(t_instanced_nfo& _nfo, const t_instantiation_context& ictx);
     /// \brief gather blueprint instance declaration
     void gatherDeclarationInstance(siliceParser::DeclarationInstanceContext* alg, t_combinational_block* _current, t_gather_context *_context);
     /// \brief gather past checks
@@ -777,8 +785,6 @@ private:
     t_combinational_block *gatherWhile(siliceParser::WhileLoopContext* loop, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather declaration
     void gatherDeclaration(siliceParser::DeclarationContext *decl, t_combinational_block *_current, t_gather_context *_context, e_DeclType allowed);
-    /// \brief gather declaration list, returns number of gathered declarations
-    int gatherDeclarationList(siliceParser::DeclarationListContext* decllist, t_combinational_block *_current, t_gather_context *_context, e_DeclType allowed);
     /// \brief gather a subroutine
     t_combinational_block *gatherSubroutine(siliceParser::SubroutineContext* sub, t_combinational_block *_current, t_gather_context *_context);
     /// \brief concatenate a pipeline to an existing one
@@ -808,7 +814,7 @@ private:
     /// \brief gather a repeat block
     t_combinational_block *gatherRepeatBlock(siliceParser::RepeatBlockContext* repeat, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather always assigned
-    void gatherAlwaysAssigned(siliceParser::AlwaysAssignedListContext* alws, t_combinational_block *always);
+    void gatherAlwaysAssigned(siliceParser::AlwaysAssignedContext* alw, t_combinational_block *always);
     /// \brief check access permissions (recursively) from a specific node
     void checkPermissions(antlr4::tree::ParseTree *node, t_combinational_block *_current);
     /// \brief check access permissions on all block instructions
@@ -863,6 +869,8 @@ private:
     std::string fsmPipelineStageFull(const t_fsm_nfo *) const;
     /// \brief returns the 'stall' signal name of the fsm
     std::string fsmPipelineStageStall(const t_fsm_nfo *) const;
+    /// \brief returns the 'first stage disable' signal name of the fsm
+    std::string fsmPipelineFirstStageDisable(const t_fsm_nfo *) const;
     /// \brief returns an expression that evaluates to the fsm next state
     std::string fsmNextState(std::string prefix, const t_fsm_nfo *) const;
     /// \brief returns whether the fsm is empty (no state)
@@ -952,7 +960,7 @@ private:
     /// \brief determine which VIO are accessed by a block
     void determineBlockVIOAccess(t_combinational_block *block,
       const std::unordered_map<std::string, int>& vios,
-      std::unordered_set<std::string>& _read, std::unordered_set<std::string>& _written) const;
+      std::unordered_set<std::string>& _read, std::unordered_set<std::string>& _written, std::unordered_set<std::string>& _declared) const;
     /// \brief determines variable access for an instruction
     void determineAccess(
       antlr4::tree::ParseTree             *instr,
@@ -1146,6 +1154,8 @@ private:
     void writeCombinationalAlwaysPre(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, t_vio_dependencies& _always_dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies) const;
     /// \brief writes all FSM states in the output
     void writeCombinationalStates(const t_fsm_nfo *fsm, std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_vio_dependencies &always_dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies) const;
+    /// \brief disable starting pipelines (used to disable pipeline first stages when they are on the 'false' side of a conditional)
+    void disableStartingPipelines(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_combinational_block* block) const;
     /// \brief writes a graph of stateless blocks to the output, until a jump to other states is reached
     void writeStatelessBlockGraph(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_combinational_block* block, const t_combinational_block* stop_at, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies, std::set<v2i> &_lines) const;
     /// \brief order pipeline stages based on pipeline specific assignments
@@ -1154,6 +1164,8 @@ private:
     const t_combinational_block *writeStatelessPipeline(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_combinational_block* block_before, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies, std::set<v2i> &_lines) const;
     /// \brief returns whether the combinational chain until next state is empty, i.e. it will not produce code
     bool emptyUntilNextStates(const t_combinational_block *block) const;
+    /// \brief returns all pipelines starting within the combinational chain
+    void findAllStartingPipelines(const t_combinational_block *block,std::unordered_set<t_pipeline_nfo*>& _pipelines) const;
     /// \brief returns whether the block is empty, i.e. writeBlock will not produce code
     bool blockIsEmpty(const t_combinational_block *block) const;
     /// \brief writes a single block to the output

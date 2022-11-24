@@ -23,6 +23,7 @@ algorithm main(output uint8 leds)
   grp g;
 
   uint32 cycle(0);
+
   always_after {
     cycle = cycle + 1;
   }

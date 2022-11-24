@@ -93,7 +93,7 @@ void VgaChip::setResolution(int w,int h)
   } else if (w == 640 && h == 480) {
     set640x480();
   } else {
-    fprintf(stderr,"[set_vga_resolution] error, resolution is not supported\n");
+    fprintf(stderr,"[set_vga_resolution] error, resolution %dx%d is not supported\n",w,h);
     exit (-1);
   }
 }

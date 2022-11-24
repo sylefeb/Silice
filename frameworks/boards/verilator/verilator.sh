@@ -19,6 +19,13 @@ case "$(uname -s)" in
 MINGW*)
 LDFLAGS="-LDFLAGS -lopengl32 -LDFLAGS -lfreeglut"
 ;;
+Darwin*)
+#nproc doesn't work on mac, so alias an equivalent command
+alias nproc="sysctl -n hw.logicalcpu"
+
+#add openGL frameworks
+LDFLAGS='-LDFLAGS -framework -LDFLAGS OpenGL -LDFLAGS -framework -LDFLAGS GLUT -LDFLAGS -pthread'
+;;
 *)
 LDFLAGS="-LDFLAGS -lGL -LDFLAGS -lglut -LDFLAGS -pthread"
 ;;
@@ -139,7 +146,7 @@ $MAKE -f Vtop.mk -j$(nproc)
 cd ..
 
 if [[ -z "${NO_PROGRAM}" ]]; then
-  ./obj_dir/Vtop
+  ./obj_dir/Vtop | tee out.log
 else
   echo "Skipping execution."
 fi

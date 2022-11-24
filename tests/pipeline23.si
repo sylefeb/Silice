@@ -1,0 +1,14 @@
+algorithm main(output uint8 leds)
+{
+  uint32 cycle(0);
+  uint8 v = cycle; // should be detected as trickling
+
+    __display("[cycle %d] ==== in:%d",cycle,v);
+
+  ->
+  ->
+  ->
+  ->
+     __display("[cycle %d] ==== result:%d",cycle,v);
+
+}

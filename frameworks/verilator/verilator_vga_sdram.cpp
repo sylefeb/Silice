@@ -118,18 +118,21 @@ int main(int argc,char **argv)
 
   // we need to step simulation until we get
   // the parameters set from design signals
+  int iter = 0;
   do {
     g_VgaTest->clk = 1 - g_VgaTest->clk;
     g_VgaTest->eval();
-  } while ((int)g_VgaTest->video_color_depth == 0);
+  } while (((int)g_VgaTest->video_color_depth == 0 || g_Width == 0)
+       && ++iter<1024);
 
   // instantiate the VGA chip
   g_VgaChip = new VgaChip((int)g_VgaTest->video_color_depth);
 
   // set resolution
   if (g_Width == 0) {
-    fprintf(stderr,"error, no resolution information was received"
+    fprintf(stderr,"error, no resolution information was received "
                    "(set_vga_resolution not called from design)\n");
+    exit(-1);
   }
   g_VgaChip->setResolution(g_Width,g_Height);
 
