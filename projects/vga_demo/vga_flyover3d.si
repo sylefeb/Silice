@@ -3,6 +3,10 @@
 // MIT license, see LICENSE_MIT in Silice repo root
 // https://github.com/sylefeb/Silice
 
+$$if ECPIX5 then
+$$ VGA_1024_768 = 1
+$$end
+
 $include('vga_demo_main.si')
 
 $$div_width    = 16
