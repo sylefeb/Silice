@@ -30,13 +30,6 @@
         "description": "Build using Edalize and Diamond",
         "tool": "diamond",
         "tool_options": [{
-<<<<<<< HEAD
-          "part": "LFE5UM5G-85F-8BG554C"
-        }],
-        "bitstream"  : "build.bit",
-        "constraints": [{"name": "ecpix5.lpf", "file_type": "LPF"}],
-        "program": [{"cmd" : "openFPGAloader", "args" : " -b ecpix5 ./Implementation0/build_Implementation0.bit"}]
-=======
           "part": "LFE5U-85F-8BG554C"
         }],
         "bitstream"  : "build.bit",
@@ -46,7 +39,6 @@
           {"cmd" : "ecppack", "args" : "--input tmp.txt --bit build.bit --idcode 0x81113043"},
           {"cmd" : "openFPGAloader", "args" : "-b ecpix5 build.bit"}
         ]
->>>>>>> draft
       }
       ]
     }
