@@ -11,7 +11,7 @@ unit test(input uint32 i)
     ->
 
       while (v < 10) {
-/// FIXME: better error message, currently breaks on an assert
+				/// error: nested pipelines
         __display("[1][0] v = %d",v);
         v = v + 1;
       ->

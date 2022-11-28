@@ -1738,6 +1738,29 @@ bool Algorithm::isAccess(antlr4::tree::ParseTree *expr, siliceParser::AccessCont
 
 // -------------------------------------------------
 
+bool Algorithm::hasPipeline(antlr4::tree::ParseTree* tree) const
+{
+  if (tree->children.empty()) {
+    return false;
+  } else {
+    auto pip = dynamic_cast<siliceParser::PipelineContext*>(tree);
+    if (pip) {
+      return true;
+    } else {
+      // recurse
+      for (auto c : tree->children) {
+        if (hasPipeline(c)) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+
+}
+
+// -------------------------------------------------
+
 bool Algorithm::isConst(antlr4::tree::ParseTree *expr, std::string& _const) const
 {
   if (expr->children.empty()) {
@@ -1843,7 +1866,7 @@ Algorithm::t_combinational_block *Algorithm::splitOrContinueBlock(siliceParser::
       name = generateBlockName();
     }
     t_combinational_block *block = addBlock(name, _current, nullptr, sourceloc(ilist));
-    block->is_state     = true;    // block explicitely required to be a state (may become a sub-state)
+    block->is_state     = true;    // block explicitely required to be a state
     block->no_skip      = no_skip;
     _current->next(block);
     return block;
@@ -1872,6 +1895,12 @@ Algorithm::t_combinational_block *Algorithm::gatherBreakLoop(siliceParser::Break
 
 Algorithm::t_combinational_block *Algorithm::gatherWhile(siliceParser::WhileLoopContext* loop, t_combinational_block *_current, t_gather_context *_context)
 {
+  // pipeline nesting check
+  if (_current->context.pipeline_stage != nullptr) {
+    if (hasPipeline(loop->while_block)) {
+      reportError(sourceloc(loop->while_block),"while loop contains another pipeline: pipelines cannot be nested.");
+    }
+  }
   // while header block
   t_combinational_block *while_header = addBlock("__while" + generateBlockName(), _current, nullptr, sourceloc(loop));
   _current->next(while_header);
@@ -2463,8 +2492,6 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
 
   } else {
 
-    // TODO FIXME: but then how is pipeline nesting dealt with?
-
     // yes: expand the parent pipeline
     auto nfo = _current->context.pipeline_stage->pipeline;
     return concatenatePipeline(pip, _current, _context, nfo);
@@ -2823,6 +2850,16 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(
 
 Algorithm::t_combinational_block *Algorithm::gatherIfElse(siliceParser::IfThenElseContext* ifelse, t_combinational_block *_current, t_gather_context *_context)
 {
+  // pipeline nesting check
+  if (_current->context.pipeline_stage != nullptr) {
+    if (hasPipeline(ifelse->if_block)) {
+      reportError(sourceloc(ifelse->if_block), "conditonal statement (if side) contains another pipeline: pipelines cannot be nested.");
+    }
+    if (hasPipeline(ifelse->else_block)) {
+      reportError(sourceloc(ifelse->else_block), "conditonal statement (else side) contains another pipeline: pipelines cannot be nested.");
+    }
+  }
+  // blocks for both sides
   t_combinational_block *if_block = addBlock(generateBlockName(), _current, nullptr, sourceloc(ifelse->if_block));
   t_combinational_block *else_block = addBlock(generateBlockName(), _current, nullptr, sourceloc(ifelse->else_block));
   // parse the blocks
@@ -2843,6 +2880,13 @@ Algorithm::t_combinational_block *Algorithm::gatherIfElse(siliceParser::IfThenEl
 
 Algorithm::t_combinational_block *Algorithm::gatherIfThen(siliceParser::IfThenContext* ifthen, t_combinational_block *_current, t_gather_context *_context)
 {
+  // pipeline nesting check
+  if (_current->context.pipeline_stage != nullptr) {
+    if (hasPipeline(ifthen->if_block)) {
+      reportError(sourceloc(ifthen->if_block), "conditonal statement contains another pipeline: pipelines cannot be nested.");
+    }
+  }
+  // blocks for both sides
   t_combinational_block *if_block = addBlock(generateBlockName(), _current, nullptr, sourceloc(ifthen->if_block));
   t_combinational_block *else_block = addBlock(generateBlockName(), _current);
   // parse the blocks
@@ -2862,6 +2906,14 @@ Algorithm::t_combinational_block *Algorithm::gatherIfThen(siliceParser::IfThenCo
 
 Algorithm::t_combinational_block* Algorithm::gatherSwitchCase(siliceParser::SwitchCaseContext* switchCase, t_combinational_block* _current, t_gather_context* _context)
 {
+  // pipeline nesting check
+  if (_current->context.pipeline_stage != nullptr) {
+    for (auto cb : switchCase->caseBlock()) {
+      if (hasPipeline(cb)) {
+        reportError(sourceloc(cb), "switch case contains another pipeline: pipelines cannot be nested.");
+      }
+    }
+  }
   // create a block for after the switch-case
   t_combinational_block* after = addBlock(generateBlockName(), _current, nullptr, sourceloc(switchCase));
   // create a block per case statement
@@ -3858,7 +3910,7 @@ void Algorithm::generateStates(t_fsm_nfo *fsm)
     int                    parent_state_id;
   } t_record;
   t_record rec;
-  // generate state ids and determine sub-state chains
+  // generate state ids
   fsm->maxState = 1; // we start at one, zero is termination state
   std::unordered_set< t_combinational_block * > visited;
   std::queue< t_record > q;
@@ -7131,8 +7183,9 @@ void Algorithm::writeVarFlipFlopUpdate(std::string prefix, std::string reset, st
     init_cond = reset;
   }
   std::string d_var = FF_D + prefix + v.name;
+  // in pipeline?
   auto P = m_Vio2PipelineStage.find(v.name);
-  if (P != m_Vio2PipelineStage.end()) { // in pipeline?
+  if (P != m_Vio2PipelineStage.end()) {
     auto V = P->second->vio_prev_name.find(v.name);
     if (V != P->second->vio_prev_name.end()) {
       auto prev_name = V->second;
@@ -7143,7 +7196,8 @@ void Algorithm::writeVarFlipFlopUpdate(std::string prefix, std::string reset, st
       auto fsm       = P->second->fsm;
       if (!fsmIsEmpty(fsm)) {
         d_var        = std::string("(") + FF_D + prefix + fsmIndex(fsm) + " == " + std::to_string(toFSMState(fsm,entryState(fsm)))
-                     + " ? " + d_var + " : " + FF_D + prefix + v.name + ')';
+                     + " && !" + FF_TMP + "_" + fsmPipelineStageStall(fsm) + ')'
+                     + " ? " + d_var + " : " + FF_D + prefix + v.name;
       }
     }
   }
