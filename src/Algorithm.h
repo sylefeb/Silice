@@ -600,7 +600,8 @@ private:
     typedef struct
     {
       bool                                      in_algorithm = false;
-      bool                                      in_top_algorithm_block = false;
+      bool                                      in_algorithm_preamble = false;
+      bool                                      in_algorithm_top      = false;
       int                                       __id = -1;
       t_combinational_block                    *break_to = nullptr;
       const Blueprint::t_instantiation_context *ictx = nullptr;

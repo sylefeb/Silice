@@ -1843,9 +1843,10 @@ Algorithm::t_combinational_block *Algorithm::gatherBlock(siliceParser::BlockCont
   t_combinational_block *newblock = addBlock(generateBlockName(), _current, nullptr, sourceloc(block));
   _current->next(newblock);
   // gather instructions in new block
-  bool prev_in_top                 = _context->in_top_algorithm_block;
-  t_combinational_block *after     = gather(block->instructionSequence(), newblock, _context);
-  _context->in_top_algorithm_block = prev_in_top;
+  bool prev_top = _context->in_algorithm_top;
+  _context->in_algorithm_top   = false;
+  t_combinational_block *after = gather(block->instructionSequence(), newblock, _context);
+  _context->in_algorithm_top   = prev_top;
   // produce next block
   t_combinational_block *nextblock = addBlock(generateBlockName(), _current, nullptr, sourceloc(block));
   after->next(nextblock);
@@ -1869,6 +1870,7 @@ Algorithm::t_combinational_block *Algorithm::splitOrContinueBlock(siliceParser::
     block->is_state     = true;    // block explicitely required to be a state
     block->no_skip      = no_skip;
     _current->next(block);
+    _context->in_algorithm_preamble = false;
     return block;
   } else {
     return _current;
@@ -1944,8 +1946,7 @@ void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_comb
   } else if (declwire) {
     if (!(allowed & dWIRE)) {
       reportError(sourceloc(declwire),
-        "expression trackers may only be declared in the unit body, or in the algorithm preamble\n"
-        "<new> declarations with initializers are allowed, e.g. uint8 b = a + 8d16;\n"
+        "expression trackers may only be declared in the unit body, or in the algorithm and subroutine preambles\n"
       );
     }
   } else if (decltbl) {
@@ -1991,7 +1992,10 @@ void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_comb
   } else if (stblinput) {
     gatherStableinputCheck(stblinput, _current, _context);
   } else if (subroutine) {
+    bool prev_preamble = _context->in_algorithm_preamble;
+    _context->in_algorithm_preamble = true; // subroutines have their own preamble
     gatherSubroutine(subroutine, _current, _context);
+    _context->in_algorithm_preamble = prev_preamble;
   }
 }
 
@@ -3669,24 +3673,26 @@ Algorithm::t_combinational_block *Algorithm::gather(
   auto alw_before   = dynamic_cast<siliceParser::AlwaysBeforeBlockContext *>(tree);
   auto alw_after    = dynamic_cast<siliceParser::AlwaysAfterBlockContext *>(tree);
 
-  bool recurse  = true;
+  bool recurse      = true;
 
   if (algbody) { // uses legacy snytax
     m_UsesLegacySnytax = true;
     // add global subroutines now (reparse them as if defined in this algorithm)
     for (const auto &s : m_KnownSubroutines) {
+      _context->in_algorithm_preamble = true;
       gatherSubroutine(s.second, _current, _context);
     }
+    _context->in_algorithm_preamble = true;
     // gather always assigned
     m_AlwaysPre.context.parent_scope = _current;
     m_AlwaysPost.context.parent_scope = _current;
     // recurse on instruction list
     _context->in_algorithm = true;
-    _context->in_top_algorithm_block = true;
+    _context->in_algorithm_top = true;
     _current->srcloc = sourceloc(algbody->instructionSequence());
     _current = gather(algbody->instructionSequence(), _current, _context);
     _context->in_algorithm = false;
-    _context->in_top_algorithm_block = false;
+    _context->in_algorithm_top = false;
     recurse  = false;
   } else if (unitbody) { // uses latest snytax
     for (auto d : unitbody->declaration()) {
@@ -3753,17 +3759,20 @@ Algorithm::t_combinational_block *Algorithm::gather(
     }
     // gather algorithm content
     _context->in_algorithm = true;
-    _context->in_top_algorithm_block = true;
+    _context->in_algorithm_preamble = true;
+    _context->in_algorithm_top = true;
     _current->srcloc = sourceloc(algblock);
     _current = gather(algblock->algorithmBlockContent(), _current, _context);
     _context->in_algorithm = false;
-    _context->in_top_algorithm_block = false;
+    _context->in_algorithm_top = false;
     recurse  = false;
   } else if (algcontent)   {
     // add global subroutines now (reparse them as if defined in this algorithm)
     for (const auto &s : m_KnownSubroutines) {
+      _context->in_algorithm_preamble = true;
       gatherSubroutine(s.second, _current, _context);
     }
+    _context->in_algorithm_preamble = true;
     // make a new block for the algorithm
     t_combinational_block *newblock = addBlock(generateBlockName(), _current, nullptr, sourceloc(algcontent));
     _current->next(newblock);
@@ -3777,7 +3786,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
     // recurse on instruction list
     recurse  = false;
   } else if (decl)         {
-    bool allow_all = _context->in_top_algorithm_block;
+    bool allow_all = _context->in_algorithm_preamble;
     int  allowed   = allow_all ? (dWIRE | dVAR | dTABLE | dMEMORY | dGROUP | dINSTANCE | dSUBROUTINE | dSTABLEINPUT)
                                : (dVAR | dTABLE);
     gatherDeclaration(decl, _current, _context, (e_DeclType)allowed);
@@ -3789,8 +3798,8 @@ Algorithm::t_combinational_block *Algorithm::gather(
       }
     } else {
       warn(Deprecation, sourceloc(alw_block), "Use a 'unit' instead of always blocks in an algorithm.");
-      if (!_context->in_top_algorithm_block) {
-        reportError(sourceloc(tree), "the always block can only be declared in the top algorithm block");
+      if (!_context->in_algorithm_top) {
+        reportError(sourceloc(tree), "the always block can only be declared in the algorithm top block");
       }
     }
     gather(alw_block->block(), &m_AlwaysPre, _context);  recurse = false;
@@ -3801,8 +3810,8 @@ Algorithm::t_combinational_block *Algorithm::gather(
       }
     } else {
       warn(Deprecation, sourceloc(alw_before), "Use a 'unit' instead of always blocks in an algorithm.");
-      if (!_context->in_top_algorithm_block) {
-        reportError(sourceloc(tree), "the always before block can only be declared in the top algorithm block");
+      if (!_context->in_algorithm_top) {
+        reportError(sourceloc(tree), "the always before block can only be declared in the algorithm top block");
       }
     }
     gather(alw_before->block(), &m_AlwaysPre, _context);  recurse = false;
@@ -3813,38 +3822,38 @@ Algorithm::t_combinational_block *Algorithm::gather(
       }
     } else {
       warn(Deprecation, sourceloc(alw_after), "Use a 'unit' instead of always blocks in an algorithm.");
-      if (!_context->in_top_algorithm_block) {
-        reportError(sourceloc(tree), "the always after block can only be declared in the top algorithm block");
+      if (!_context->in_algorithm_top) {
+        reportError(sourceloc(tree), "the always after block can only be declared in the algorithm top block");
       }
     }
     gather(alw_after->block(), &m_AlwaysPost, _context);  recurse = false;
-  } else if (ifelse)       { _current = gatherIfElse(ifelse, _current, _context);          recurse = false;
-  } else if (ifthen)       { _current = gatherIfThen(ifthen, _current, _context);          recurse = false;
-  } else if (switchC)      { _current = gatherSwitchCase(switchC, _current, _context);     recurse = false;
-  } else if (loop)         { _current = gatherWhile(loop, _current, _context);             recurse = false;
-  } else if (repeat)       { _current = gatherRepeatBlock(repeat, _current, _context);     recurse = false;
-  } else if (pip)          { _current = gatherPipeline(pip, _current, _context);           recurse = false;
-  } else if (sync)         { _current = gatherSyncExec(sync, _current, _context);          recurse = false;
-  } else if (join)         { _current = gatherJoinExec(join, _current, _context);          recurse = false;
-  } else if (circinst)     { _current = gatherCircuitryInst(circinst, _current, _context); recurse = false;
-  } else if (jump)         { _current = gatherJump(jump, _current, _context);              recurse = false;
-  } else if (ret)          { _current = gatherReturnFrom(ret, _current, _context);         recurse = false;
-  } else if (breakL)       { _current = gatherBreakLoop(breakL, _current, _context);       recurse = false;
-  } else if (async)        { _current->instructions.push_back(t_instr_nfo(async, _current, _context->__id));    recurse = false;
-  } else if (assign)       { _current->instructions.push_back(t_instr_nfo(assign, _current, _context->__id));   recurse = false;
-  } else if (display)      { _current->instructions.push_back(t_instr_nfo(display, _current, _context->__id));  recurse = false;
-  } else if (stall)        { _current->instructions.push_back(t_instr_nfo(stall, _current, _context->__id));    recurse = false;
-  } else if (inline_v)     { _current->instructions.push_back(t_instr_nfo(inline_v, _current, _context->__id)); recurse = false;
-  } else if (finish)       { _current->instructions.push_back(t_instr_nfo(finish, _current, _context->__id));   recurse = false;
-  } else if (assert_)      { _current->instructions.push_back(t_instr_nfo(assert_, _current, _context->__id));  recurse = false;
-  } else if (assume)       { _current->instructions.push_back(t_instr_nfo(assume, _current, _context->__id));   recurse = false;
-  } else if (restrict)     { _current->instructions.push_back(t_instr_nfo(restrict, _current, _context->__id)); recurse = false;
-  } else if (cover)        { _current->instructions.push_back(t_instr_nfo(cover, _current, _context->__id));    recurse = false;
+  } else if (ifelse)       { _current = gatherIfElse(ifelse, _current, _context);          recurse = false; _context->in_algorithm_preamble = false;
+  } else if (ifthen)       { _current = gatherIfThen(ifthen, _current, _context);          recurse = false; _context->in_algorithm_preamble = false;
+  } else if (switchC)      { _current = gatherSwitchCase(switchC, _current, _context);     recurse = false; _context->in_algorithm_preamble = false;
+  } else if (loop)         { _current = gatherWhile(loop, _current, _context);             recurse = false; _context->in_algorithm_preamble = false;
+  } else if (repeat)       { _current = gatherRepeatBlock(repeat, _current, _context);     recurse = false; _context->in_algorithm_preamble = false;
+  } else if (pip)          { _current = gatherPipeline(pip, _current, _context);           recurse = false; _context->in_algorithm_preamble = false;
+  } else if (sync)         { _current = gatherSyncExec(sync, _current, _context);          recurse = false; _context->in_algorithm_preamble = false;
+  } else if (join)         { _current = gatherJoinExec(join, _current, _context);          recurse = false; _context->in_algorithm_preamble = false;
+  } else if (circinst)     { _current = gatherCircuitryInst(circinst, _current, _context); recurse = false; _context->in_algorithm_preamble = false;
+  } else if (jump)         { _current = gatherJump(jump, _current, _context);              recurse = false; _context->in_algorithm_preamble = false;
+  } else if (ret)          { _current = gatherReturnFrom(ret, _current, _context);         recurse = false; _context->in_algorithm_preamble = false;
+  } else if (breakL)       { _current = gatherBreakLoop(breakL, _current, _context);       recurse = false; _context->in_algorithm_preamble = false;
+  } else if (async)        { _current->instructions.push_back(t_instr_nfo(async, _current, _context->__id));    recurse = false;  _context->in_algorithm_preamble = false;
+  } else if (assign)       { _current->instructions.push_back(t_instr_nfo(assign, _current, _context->__id));   recurse = false; _context->in_algorithm_preamble = false;
+  } else if (display)      { _current->instructions.push_back(t_instr_nfo(display, _current, _context->__id));  recurse = false; _context->in_algorithm_preamble = false;
+  } else if (stall)        { _current->instructions.push_back(t_instr_nfo(stall, _current, _context->__id));    recurse = false; _context->in_algorithm_preamble = false;
+  } else if (inline_v)     { _current->instructions.push_back(t_instr_nfo(inline_v, _current, _context->__id)); recurse = false; _context->in_algorithm_preamble = false;
+  } else if (finish)       { _current->instructions.push_back(t_instr_nfo(finish, _current, _context->__id));   recurse = false; _context->in_algorithm_preamble = false;
+  } else if (assert_)      { _current->instructions.push_back(t_instr_nfo(assert_, _current, _context->__id));  recurse = false; _context->in_algorithm_preamble = false;
+  } else if (assume)       { _current->instructions.push_back(t_instr_nfo(assume, _current, _context->__id));   recurse = false; _context->in_algorithm_preamble = false;
+  } else if (restrict)     { _current->instructions.push_back(t_instr_nfo(restrict, _current, _context->__id)); recurse = false; _context->in_algorithm_preamble = false;
+  } else if (cover)        { _current->instructions.push_back(t_instr_nfo(cover, _current, _context->__id));    recurse = false; _context->in_algorithm_preamble = false;
   } else if (was_at)       { gatherPastCheck(was_at, _current, _context);                  recurse = false;
   } else if (assertstable) { gatherStableCheck(assertstable, _current, _context);          recurse = false;
   } else if (assumestable) { gatherStableCheck(assumestable, _current, _context);          recurse = false;
   } else if (always)       { gatherAlwaysAssigned(always, &m_AlwaysPre);                   recurse = false;
-  } else if (block)        { _current = gatherBlock(block, _current, _context);            recurse = false;
+  } else if (block)        { _current = gatherBlock(block, _current, _context);            recurse = false; _context->in_algorithm_preamble = false;
   } else if (ilist)        { _current = splitOrContinueBlock(ilist, _current, _context);
   }
   // recurse

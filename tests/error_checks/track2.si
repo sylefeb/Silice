@@ -1,0 +1,17 @@
+unit main(output uint8 leds)
+{
+
+  algorithm {
+  
+     uint8 a = 0;
+     
+     subroutine s(input uint8 a,output uint8 b) {
+        uint8 c <:: a + 1; // ok
+        b = c;
+        uint8 d <:: b + 1; // not ok (no longer in subroutine preamble)
+      }
+     
+     uint8 z <:: a+100; // ok (still in algorithm preamble)
+  }
+
+}
