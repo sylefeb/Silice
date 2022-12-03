@@ -997,6 +997,11 @@ Running the design with and without the modifier (comment or remove `<@cpu_clock
 > Is the sky the limit? Nope, because if you look at NextPNR's report, it tells us `Info: Max frequency for clock '__main._w_pll_unnamed_0_clock_out_$glb_clk': 178.76 MHz`. So we could run at up to 178 MHz but not faster or the design would glitch (well, in reality there is a bit of margin, and this even depends on operating temperature!).
 
 ___
+### Pipeline 101
+
+> To be written
+
+___
 ### Tx: inouts
 
 > To be written
