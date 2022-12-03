@@ -1311,10 +1311,10 @@ The pipeline syntax is:
 {
   // stage 0
   // ...
-} -> {
+->
   // stage 1
   // ...
-} -> {
+->
   // final stage
   // ...
 }
@@ -1355,43 +1355,41 @@ stage producing a useful result during a cycle.
 How do we tell Silice to pass data around in a pipeline? Well, in fact there is
 nothing special to do, simply assign a variable and it will be passed to the subsequent
 stages. Let's see a simple example:
-```c
+```verilog
 unit main(output uint8 leds)
 {
+  uint16 cycle=0;
+  always_before { cycle = cycle + 1; }
   algorithm {
-    uint16 cycle=0; uint16 a=0; uint16 b=0;
-    while (cycle < 4) {
-      {      // stage 0
+    uint16 a=0; uint16 b=0;
+    while (cycle < 6) {
+        // stage 0
         a = cycle;
         __display("[stage 0] cycle %d, a = %d",cycle,a);
-      } -> { // stage 1
+      -> // stage 1
         __display("[stage 1] cycle %d, a = %d",cycle,a);
-      } -> { // stage 2
-        __display("[stage 2] cycle %d, a = %d\n",cycle,a);
-      }
-      cycle = cycle + 1;
+      -> // stage 2
+        __display("[stage 2] cycle %d, a = %d",cycle,a);
     }
   }
 }
 ```
 
-The result is:
+The result is (grouped by cycle):
 ```
-[stage 0] cycle     0, a =     0
-[stage 1] cycle     0, a =     0
-[stage 2] cycle     0, a =     0
-
-[stage 0] cycle     1, a =     1
-[stage 1] cycle     1, a =     0
-[stage 2] cycle     1, a =     0
-
-[stage 0] cycle     2, a =     2
-[stage 1] cycle     2, a =     1
-[stage 2] cycle     2, a =     0
-
 [stage 0] cycle     3, a =     3
-[stage 1] cycle     3, a =     2
-[stage 2] cycle     3, a =     1
+
+[stage 0] cycle     4, a =     4
+[stage 1] cycle     4, a =     3
+
+[stage 0] cycle     5, a =     5
+[stage 1] cycle     5, a =     4
+[stage 2] cycle     5, a =     3
+
+[stage 1] cycle     6, a =     5
+[stage 2] cycle     6, a =     4
+
+[stage 2] cycle     7, a =     5
 ```
 See how each stage at a given cycle sees a different value of `a`? (E.g. at
 cycle 2, stage 0 reports `a=2`, stage 1 reports `a=1`, stage 2 reports `a=0`).
