@@ -1,0 +1,20 @@
+unit main(output uint8 leds)
+{
+
+  uint8 a = 0; 
+
+  always {
+
+    a = a + 1;
+
+->
+
+    if (a[0,1]) {
+      stall;
+    } 
+
+->
+
+  }
+
+}

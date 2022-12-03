@@ -7904,6 +7904,10 @@ void Algorithm::writeBlock(std::string prefix, t_writer_context &w, const t_inst
         if (block->context.pipeline_stage == nullptr) {
           reportError(sourceloc(a.instr), "can only stall inside a pipeline stage");
         } else {
+          // check the fsm is not empty
+          if (fsmIsEmpty(block->context.pipeline_stage->fsm)) {
+            reportError(sourceloc(a.instr), "stall cannot be used within a pipeline defined in an always blcok");
+          }
           // check this is the last state of the fsm
           if (block->parent_state_id != block->context.pipeline_stage->fsm->lastBlock->parent_state_id) {
             reportError(sourceloc(a.instr), "stall can only be used at the very end of a pipeline stage");
