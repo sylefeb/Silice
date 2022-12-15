@@ -13,16 +13,15 @@ algorithm main(output uint8 leds)
      o = sa;
   }
 
-  uint8 a = 1;
-  a = 2;
+  uint8 l = 1;
   {
     uint8 b = 3;
-    a = b;
+    l = b;
   }
 ++:
   {
     uint8 b = 4;
-    a = b;
+    l = b;
   }
 ++:
   {
@@ -39,6 +38,5 @@ algorithm main(output uint8 leds)
     (leds) = bla(e);
   }
 ++:
-  // a = b;
-  leds = a;
+  leds = l;
 }

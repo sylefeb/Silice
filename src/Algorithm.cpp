@@ -555,8 +555,8 @@ void Algorithm::addVar(t_var_nfo& _var, t_combinational_block *_current, const U
   // source origin
   _var.srcloc = srcloc;
   // check for duplicates
-  if (!isIdentifierAvailable(_var.name)) {
-    reportError(srcloc, "variable '%s': this name is already used by a prior declaration", _var.name.c_str());
+  if (!isIdentifierAvailable(_current, base_name)) {
+    reportError(srcloc, "variable '%s': this name is already used by a prior declaration", base_name.c_str());
   }
   // ok!
   insertVar(_var, _current);
@@ -868,7 +868,7 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
     reportError(sourceloc(decl), "subroutine '%s': a memory cannot be instanced within a subroutine", sub->name.c_str());
   }
   // check for duplicates
-  if (!isIdentifierAvailable(decl->IDENTIFIER()->getText())) {
+  if (!isIdentifierAvailable(_current, decl->IDENTIFIER()->getText())) {
     reportError(sourceloc(decl), "memory '%s': this name is already used by a prior declaration", decl->IDENTIFIER()->getText().c_str());
   }
   // gather memory nfo
@@ -1104,7 +1104,7 @@ void Algorithm::getBindings(
 void Algorithm::gatherDeclarationGroup(siliceParser::DeclarationInstanceContext* grp, t_combinational_block *_current)
 {
   // check for duplicates
-  if (!isIdentifierAvailable(grp->name->getText())) {
+  if (!isIdentifierAvailable(_current, grp->name->getText())) {
     reportError(sourceloc(grp), "group '%s': this name is already used by a prior declaration", grp->name->getText().c_str());
   }
   // gather
@@ -1310,7 +1310,7 @@ void Algorithm::gatherDeclarationInstance(siliceParser::DeclarationInstanceConte
   }
   // check for duplicates
   if (alg->name != nullptr) {
-    if (!isIdentifierAvailable(alg->name->getText())) {
+    if (!isIdentifierAvailable(_current, alg->name->getText())) {
       reportError(sourceloc(alg), "algorithm instance '%s': this name is already used by a prior declaration", alg->name->getText().c_str());
     }
   }
@@ -2072,10 +2072,15 @@ void Algorithm::gatherStableinputCheck(siliceParser::StableinputContext *ctx, t_
 
 // -------------------------------------------------
 
-bool Algorithm::isIdentifierAvailable(std::string name) const
+bool Algorithm::isIdentifierAvailable(t_combinational_block* _current, std::string name) const
 {
   if (m_Subroutines.count(name) > 0) {
     return false;
+  }
+  if (_current->context.subroutine) {
+    if (_current->context.subroutine->io2var.count(name)) {
+      return false;
+    }
   }
   if (m_InstancedBlueprints.count(name) > 0) {
     return false;
@@ -2110,7 +2115,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
   // subroutine name
   nfo->name = sub->IDENTIFIER()->getText();
   // check for duplicates
-  if (!isIdentifierAvailable(nfo->name)) {
+  if (!isIdentifierAvailable(_current, nfo->name)) {
     reportError(sourceloc(sub->IDENTIFIER()),"subroutine '%s': this name is already used by a prior declaration", nfo->name.c_str());
   }
   // subroutine block
