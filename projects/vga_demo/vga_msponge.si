@@ -40,7 +40,7 @@ $include('vga_demo_main.si')
 $$if ECPIX5 then
 // ----------------------------------------------------------------------------
 // NOTE: on the ECP5 the pipelined multipliers do not result in better fmax
-//       which seems suspicious, still investigating!
+//       which seems suprising, still investigating!
 circuitry mul_14_18 (output result,input a,input b) { result = a*b; }
 circuitry mul_8_8   (output result,input a,input b) { result = a*b; }
 circuitry imul_24_24(output result,input a,input b) { result = a*b; }
