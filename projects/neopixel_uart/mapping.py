@@ -20,15 +20,15 @@ def send_byte(b):
 send_byte(255) # reset
 
 while True:
-    for l in range(0,20):
+    for l in range(0,96):
       print("LED " + str(l))
-      for j in range(0,20):
+      for j in range(0,96):
         packet = bytearray()
         send_byte(j)
         if j == l:
           if l == 0:
             send_byte(63)
-            send_byte(63)
+            send_byte(0)
             send_byte(63)
           else:
             send_byte(0)
@@ -38,6 +38,6 @@ while True:
           send_byte(0)
           send_byte(0)
           send_byte(0)
-      time.sleep(1)
+      # time.sleep(0.1)
 
 ser.close()

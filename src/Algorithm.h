@@ -600,7 +600,8 @@ private:
     typedef struct
     {
       bool                                      in_algorithm = false;
-      bool                                      in_top_algorithm_block = false;
+      bool                                      in_algorithm_preamble = false;
+      bool                                      in_algorithm_top      = false;
       int                                       __id = -1;
       t_combinational_block                    *break_to = nullptr;
       const Blueprint::t_instantiation_context *ictx = nullptr;
@@ -701,7 +702,7 @@ private:
     /// \brief add a variable from its definition (_var may be modified with an updated name)
     void addVar(t_var_nfo& _var, t_combinational_block *_current, const Utils::t_source_loc& srcloc);
     /// \brief check if an identifier is available
-    bool isIdentifierAvailable(std::string name) const;
+    bool isIdentifierAvailable(t_combinational_block* _current, std::string name) const;
     /// \brief returns the name of a delayed assignment temporary variable
     std::string delayedName(siliceParser::AlwaysAssignedContext* alw) const;
     /// \brief returns the name of a temporary from the expression and its context
@@ -777,6 +778,8 @@ private:
     bool isAccess(antlr4::tree::ParseTree *expr, siliceParser::AccessContext*& _access) const;
     /// \brief returns true if an expression is a constant (does not perform collapsing yet)
     bool isConst(antlr4::tree::ParseTree *expr, std::string& _const) const;
+    /// \brief returns true if a tree contains a pipeline
+    bool hasPipeline(antlr4::tree::ParseTree* tree) const;
     /// \brief split current block (state present) or continue current with the next instruction list
     t_combinational_block *splitOrContinueBlock(siliceParser::InstructionListContext* ilist, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather a break from loop

@@ -24,8 +24,9 @@ not be used as R,G,B or ID (thus max R,G,B is 254).
 // T1L  0.45us
 // RES 55.0us
 
-// NOTE: this code drives 20 LEDs, change the number below
-$$ NUM_PIXS = 20
+// NOTE: this code drivea fixed number of LEDs, change the number below
+// (max 256 otherwise adjust bitwidths below)
+$$ NUM_PIXS = 96
 
 $$ t0h_cycles          = 5  -- 416 nsec
 $$ t0l_cycles          = 10 -- 833 nsec
@@ -89,11 +90,11 @@ algorithm main(
   // we use a Silice algorithm to implement the driver
   while (1) {
     // iterate through the LEDs and set their color
-    uint5 led_id = 0;
+    uint8 led_id = 0;
     colors.addr0 = led_id;
     while (led_id != $NUM_PIXS$) {
       uint24 send_clr(0);
-      uint5  i     = 0;
+      uint8  i     = 0;
       // color to be sent
       send_clr     = colors.rdata0;
       // next LED

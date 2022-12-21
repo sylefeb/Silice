@@ -145,6 +145,8 @@ $$if not SIMULATION then
     clkout0 :> fast_clock
   );
 $$end
+
+  // -------------------------------------
   // instantiates our CPU as defined above
   cpu_drawer cpu;
 
@@ -153,6 +155,7 @@ $$if SIMULATION then
   uint32 prev(0);
 $$end
 
+  // -------------------------------------
   // interface for sending a full pixel
   uint24 pix_data(0);              // RGB 24bits to send
   uint3  pix_sending(3b000);       // sending? (111 => 011 => 001 => 000 done)
@@ -162,6 +165,7 @@ $$end
   // We have to check we did not send on cycle before as it takes one cycle
   // for the SPI controller to lower displ.ready after a disp.enable
 
+  // -------------------------------------
   // screen driver
   uint1 displ_en         <:: pix_sending[0,1] ?  pix_send_ready
                                               : :cpu.on_screen;

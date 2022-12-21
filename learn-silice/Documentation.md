@@ -7,61 +7,79 @@ When designing with Silice your code describes circuits. If not done already, it
 
 ## Table of content
 
--   [A first example](#a-first-example)
--   [Terminology](#terminology)
--   [Basic language constructs](#basic-language-constructs)
-    -   [Types](#types)
-    -   [Constants](#constants)
-    -   [Variables](#variables)
-    -   [Tables](#tables)
-    -   [Block RAMs / ROMs](#block-rams-roms)
-    -   [Operators](#operators)
-        -   [Swizzling](#swizzling)
-        -   [Arithmetic, comparison, bit-wise, reduction,
-            shift](#arithmetic-comparison-bit-wise-reduction-shift)
-        -   [Concatenation](#concatenation)
-        -   [Bindings](#bindings)
-        -   [Always assign](#contassign)
-        -   [Bound expressions](#exprtrack)
-    -   [Groups](#groups)
-    -   [Interfaces](#interfaces)
-    -   [Bitfields](#bitfields)
-    -   [Intrinsics](#intrinsics)
--   [Algorithms](#algorithms)
-    -   [Declaration](#declaration)
-    -   [Instantiation](#instantiation)
-    -   [Call](#call)
-    -   [Subroutines](#subroutines)
-    -   [Circuitry](#circuitry)
-    -   [Combinational loops](#combloops)
-    -   [Always assignments](#always-assignments)
-    -   [Always blocks](#always-blocks)
-    -   [Clock and reset](#clock-and-reset)
-    -   [Modifiers](#modifiers)
--   [Execution flow and cycle utilization rules](#execution-flow-and-cycle-utilization-rules)
-    -   [The step operator](#the-step-operator)
-    -   [Control flow](#control-flow)
-    -   [Cycle costs of calls to algorithms and
-        subroutines](#cycle-costs-of-calls-to-algorithms-and-subroutines)
-    -   [Pipelines](#pipelines)
--   [Lua preprocessor](#lua-preprocessor)
-    -   [Principle and syntax](#principle-and-syntax)
-    -   [Includes](#includes)
-    -   [Instantiation time preprocessor](#instantiation-time-preprocessor)
-    -   [Preprocessor constraints](#preprocessor-constraints)
-    -   [Preprocessor image and palette
-        functions](#preprocessor-image-and-palette-functions)
--   [Interoperability with Verilog
-    modules](#interoperability-with-verilog-modules)
-    -   [Append](#append)
-    -   [Import](#import)
-    -   [Wrapping](#wrapping)
--   [Host hardware frameworks](#host-hardware-frameworks)
-    -   [VGA emulation](#vga-emulation)
+- [Silice](#silice)
+  - [*A language for hardcoding Algorithms into FPGA hardware*](#a-language-for-hardcoding-algorithms-into-fpga-hardware)
+  - [Table of content](#table-of-content)
+- [Tutorial](#tutorial)
+- [A first example](#a-first-example)
+- [Terminology](#terminology)
+- [Basic language constructs](#basic-language-constructs)
+  - [Types](#types)
+  - [Constants](#constants)
+  - [Variables](#variables)
+  - [Tables](#tables)
+  - [Block RAMs / ROMs](#block-rams--roms)
+      - [Block ROMs](#block-roms)
+      - [Dual-port RAMs](#dual-port-rams)
+  - [Operators](#operators)
+    - [Swizzling](#swizzling)
+    - [Arithmetic, comparison, bit-wise, reduction, shift](#arithmetic-comparison-bit-wise-reduction-shift)
+    - [Concatenation](#concatenation)
+    - [Bindings](#bindings)
+    - [Expression trackers](#expression-trackers)
+    - [Control flow: the step operator](#control-flow-the-step-operator)
+    - [Control flow: the pipeline operator](#control-flow-the-pipeline-operator)
+- [Units and algorithms](#units-and-algorithms)
+    - [main (design 'entry point').](#main-design-entry-point)
+  - [Unit declaration](#unit-declaration)
+      - [*Inputs and outputs.*](#inputs-and-outputs)
+      - [*Declarations.*](#declarations)
+      - [*Always assign.*](#always-assign)
+  - [Instantiation](#instantiation)
+      - [Automatic binding.](#automatic-binding)
+      - [Direct access to inputs and outputs.](#direct-access-to-inputs-and-outputs)
+  - [Call](#call)
+  - [Subroutines](#subroutines)
+  - [Circuitry](#circuitry)
+  - [Combinational loops](#combinational-loops)
+  - [Always assignments](#always-assignments)
+  - [Always blocks](#always-blocks)
+  - [Clock and reset](#clock-and-reset)
+  - [Modifiers](#modifiers)
+- [Execution flow and cycle utilization rules](#execution-flow-and-cycle-utilization-rules)
+  - [Control flow](#control-flow)
+    - [Switches](#switches)
+  - [Cycle costs of calls to algorithms and subroutines](#cycle-costs-of-calls-to-algorithms-and-subroutines)
+- [Pipelines](#pipelines)
+  - [Special assignment operators](#special-assignment-operators)
+  - [The `stall` keyword](#the-stall-keyword)
+  - [Pipelines in always blocks](#pipelines-in-always-blocks)
+- [Advanced language constructs](#advanced-language-constructs)
+  - [Groups](#groups)
+  - [Interfaces](#interfaces)
+    - [Anonymous interfaces](#anonymous-interfaces)
+    - [Named interfaces](#named-interfaces)
+  - [Bitfields](#bitfields)
+  - [Intrinsics](#intrinsics)
+- [Lua preprocessor](#lua-preprocessor)
+  - [Principle and syntax](#principle-and-syntax)
+  - [Includes](#includes)
+  - [Instantiation time preprocessor](#instantiation-time-preprocessor)
+  - [Preprocessor constraints](#preprocessor-constraints)
+  - [Preprocessor image and palette functions](#preprocessor-image-and-palette-functions)
+- [Interoperability with Verilog modules](#interoperability-with-verilog-modules)
+  - [Append](#append)
+  - [Import](#import)
+  - [Wrapping](#wrapping)
+- [Host hardware frameworks](#host-hardware-frameworks)
+  - [VGA and OLED simulation](#vga-and-oled-simulation)
 
 GitHub repository: <https://github.com/sylefeb/Silice/>
 
+# Tutorial
 
+If you prefer to learn by looking at some code and trying out things, please
+check out the [Silice tutorial](README.md).
 
 # A first example
 
@@ -174,15 +192,18 @@ Some terminology we use next:
 
 -   **unit**: The basic building block of a Silice design.
 -   **algorithm**: The part of a unit that describes an algorithm.
--   **One-cycle block**: A block of operations that require a single
+-   **one-cycle block**: A block of operations that require a single
     cycle (no loops, breaks, etc.).
--   **Combinational loop**: A circuit where a cyclic
+-   **combinational chain**: A sequence of operations that result in a circuit
+    updating variable states within a single cycle, typically a one-cycle block
+    or instructions between [step operators](#control-flow-the-step-operator).
+-   **combinational loop**: A circuit where a cyclic
     dependency exists. These lead to unstable hardware synthesis and
     have to be avoided.
 -   **VIO**: A Variable, Input or Output.
--   **Host hardware framework**: The Verilog glue to the hardware meant
-    to run the design. This can also be a glue to Icarus[1] or
-    Verilator[2], both frameworks are provided.
+-   Host hardware **framework**: The Verilog glue to the hardware meant
+    to run the design. This can also be a glue to [Icarus](http://iverilog.icarus.com/)
+    or [Verilator](https://www.veripool.org/wiki/verilator), both frameworks are provided.
 
 # Basic language constructs
 
@@ -471,6 +492,25 @@ To fix this warning we indicate explicitly that we understand the behavior, addi
 ```
 
 What happens now is that the value of `c_plus_a_plus_b` is using the immediate value of `a_plus_b` and the delayed value of `c` (from previous cycle).
+
+### Control flow: the step operator
+
+Placing a `++:` in the sequence of operations of an algorithm explicitly
+asks Silice to wait for exactly one cycle at this precise location in
+the execution flow. Each next `++:` waits one additional cycle.
+
+This has several important applications such as waiting for a memory
+read/write, or breaking down long combinational chains that would
+violate timing.
+
+### Control flow: the pipeline operator
+
+Placing a `->` in the sequence of operations of an algorithm explicitly
+asks Silice to pipeline the one-cycle sequence before with the next.
+Each next `->` adds a pipeline stage.
+
+Control flow operators (`++:` and `->`) can be combined, with `->` having a higher
+priority. Please refer to the [Section on pipelines](#pipelines) for more details.
 
 # Units and algorithms
 
@@ -945,7 +985,7 @@ undesirable as they lead to unpredictable hardware behaviors.
 
 A trivial solution is such a situation is to split the circuit loop
 using the *step* operator (see
-Section <a href="#sec:step" data-reference-type="ref" data-reference="sec:step">5.1</a>).
+Section [step operator](#control-flow-the-step-operator)).
 However, this will change you sequence of operations and the designer
 may choose a different approach. Therefore Silice reports and error and
 invites to either manually add a step, or to revise the code. In many
@@ -1141,9 +1181,9 @@ architecture and vendor toolchain.
 
 # Execution flow and cycle utilization rules
 
-Upon compilation, Silice breaks down the code into a finite state
-machine (FSM). Each state corresponds to a circuit that updates the variables
-within a single cycle, and selects the next state.
+Upon compilation, Silice breaks down the code into finite state
+machines (FSM) . Each FSM state corresponds to a circuit that
+updates the variables within a single cycle, and selects the next state.
 We next call these circuits *combinational chains*.
 
 Silice attempts to form the longest combinational chains, or equivalently
@@ -1162,16 +1202,6 @@ The use of control flow structures such as `while` (or `goto`), as well
 as synchronization with other algorithm also require introducing states.
 This results in additional cycles being introduced. Silice follows a set
 of precise rules to do this, so you always know what to expect.
-
-## The step operator
-
-Placing a `++:` in the sequence of operations of an algorithm explicitly
-asks Silice to wait for exactly one cycle at this precise location in
-the execution flow. Each next `++:` waits one additional cycle.
-
-This has several important applications such as waiting for a memory
-read/write, or breaking down long combinational chains that would
-violate timing.
 
 ## Control flow
 
@@ -1292,30 +1322,32 @@ to jump to the subroutine initial state, and one cycle to jump back.
 
 > **Note:** Keep in mind that algorithms can also autorun and have their inputs/outputs bound to variables. Algorithms may also contain an `always_before` or `always_after` blocks that are always running.
 
-
-
 # Pipelines
+
+> Several projects in the repo use pipelines and can provide a good practical introduction: [pipeline_sort](../projects/pipeline_sort/README.md) (has detailed explanations), [divstd_pipe](../projects/divstd_pipe/README.md) (uses the pre-processor to produce a pipeline for division when instantiated) and the [ice-v conveyor and swirl CPUs](../projects/ice-v/README.md).
 
 The pipeline syntax is:
 ```c
 {
   // stage 0
   // ...
-} -> {
+->
   // stage 1
   // ...
-} -> {
+->
   // final stage
   // ...
 }
 ```
 
-In essence, a pipeline is composed of one-cycle blocks that all run simultaneously,
-in parallel. If stages are independent and do not communicate through variables,
-their order does not matter.
+In essence, a pipeline is composed of one-cycle blocks that all run
+simultaneously, in parallel.
 
-Of course the interesting part is how different stages *can* communicate ;
-and when they do their order indicates how data flows through the pipeline.
+If stages are independent and do not communicate through variables, their order
+would not matter. But of course the interesting part is how different stages
+*can* communicate ; and when they do their order indicates how data flows
+through the pipeline.
+
 Typically, each stage works on some data and passes its output to the next stage
 at the next cycle. Here is an example of a data stream A,B,C,D traversing a
 three stages pipeline just passing the data around:
@@ -1345,50 +1377,60 @@ stage producing a useful result during a cycle.
 How do we tell Silice to pass data around in a pipeline? Well, in fact there is
 nothing special to do, simply assign a variable and it will be passed to the subsequent
 stages. Let's see a simple example:
-```c
+```verilog
 unit main(output uint8 leds)
 {
+  uint16 cycle=0; // cycle counter
+  always_before { cycle = cycle + 1; } // always increment cycle
   algorithm {
-    uint16 cycle=0; uint16 a=0; uint16 b=0;
-    while (cycle < 4) {
-      {      // stage 0
-        a = cycle;
+    uint16 a=0; uint16 b=0;
+    while (a < 3) { // six times
+        // stage 0
+        a = a + 1; // write to a, it will now trickle down the pipeline
         __display("[stage 0] cycle %d, a = %d",cycle,a);
-      } -> { // stage 1
+      -> // stage 1
         __display("[stage 1] cycle %d, a = %d",cycle,a);
-      } -> { // stage 2
-        __display("[stage 2] cycle %d, a = %d\n",cycle,a);
-      }
-      cycle = cycle + 1;
+      -> // stage 2
+        __display("[stage 2] cycle %d, a = %d",cycle,a);
     }
   }
 }
 ```
 
-The result is:
+The result is (grouped by cycle):
 ```
-[stage 0] cycle     0, a =     0
-[stage 1] cycle     0, a =     0
-[stage 2] cycle     0, a =     0
+[stage 0] cycle     3, a =     1
 
-[stage 0] cycle     1, a =     1
-[stage 1] cycle     1, a =     0
-[stage 2] cycle     1, a =     0
+[stage 0] cycle     4, a =     2
+[stage 1] cycle     4, a =     1
 
-[stage 0] cycle     2, a =     2
-[stage 1] cycle     2, a =     1
-[stage 2] cycle     2, a =     0
+[stage 0] cycle     5, a =     3
+[stage 1] cycle     5, a =     2
+[stage 2] cycle     5, a =     1
 
-[stage 0] cycle     3, a =     3
-[stage 1] cycle     3, a =     2
-[stage 2] cycle     3, a =     1
+[stage 1] cycle     6, a =     3
+[stage 2] cycle     6, a =     2
+
+[stage 2] cycle     7, a =     3
 ```
-See how each stage at a given cycle sees a different value of `a`? (E.g. at
-cycle 2, stage 0 reports `a=2`, stage 1 reports `a=1`, stage 2 reports `a=0`).
-That is because `a` is passed from one stage to the next at each cycle, so at
-any point in time there are three different `a`, one per stage
+First, note the pipeline pattern where at cycle 3 only stage 0 is active,
+then stages 0 and 1 at cycle 4, and then all three stages at cycle 5. At this
+point all three value of `a` are in the pipeline (one in each of the stages).
+Since no new values are produced at stage 0, the pipeline starts to empty at
+cycle 6, and terminates at cycle 7.
+
+> Why do we not start at cycle 0? This is due to the way the simulation
+> framework is written, with a reset sequence taking three cycles.
+
+At cycle 5, note how each stage sees a different value of `a`. (e.g. `stage 0`
+sees `a=3`, `stage 1` sees `a=2`, `stage 2` sees `a=1`). Note also that the
+oldest value of `a` (the first produced) is in the latest stage (`stage 2`).
+As you can see, Silice took care of passing `a` through the pipeline.
 In Silice terminology, `a` has been *captured* at stage 0 and *trickles down*
-the pipeline.
+the pipeline between stages.
+
+
+## Special assignment operators
 
 By default, any variable assigned at a given stage immediately starts trickling
 down. In many cases nothing else is needed. But of course there are ways to
@@ -1398,7 +1440,40 @@ special assignement operators:
 - The 'forward assign' operator `v=`
 - The 'after pipeline' assign operator `vv=`
 
-> Several projects in the repo use pipelines and can provide a good practical introduction: [pipeline_sort](../projects/pipeline_sort/README.md) (has detailed explanations), [divstd_pipe](../projects/divstd_pipe/README.md) (uses the pre-processor to produce a pipeline for division when instantiated) and the [ice-v conveyor and swirl CPUs](../projects/ice-v/README.md).
+> **TODO** expand this section. Meanwhile please refer
+> to [this example](../tests/pipeline_ops.si)
+
+## The `stall` keyword
+
+In some cases a pipeline stage cannot immediately deal with the received value:
+it has to pause for a cycle before reconsidering. A pipeline stage can indicate
+it needs to pause the pipeline by calling `stall;`. This will pause all stages
+located before. Stages located after will continue processing their valid input,
+but a *bubble* is introduced in the pipeline at the next stage: the bubble
+is a non valid input, meaning subsequent stages will do nothing as they receive
+this invalid input.
+
+For instance, in the example below stage 1 decided to stall at cycle `i+2`. See
+how stage 2 was subsequently empty at `i+3` (this is the *bubble*) while the
+input of stages 0 and 1 did not change between cycles `i+2` and `i+3`. After
+that the pipeline resumes as normal.
+
+| cycle   |   i   |  i+1  |  i+2          |   i+3  |   i+4  |   i+5  |   i+6  |
+|---------|-------|-------|------         |--------|--------|--------|--------|
+| stage 0 |   A   |   B   |   C           |   C    |    D   |    .   |   .    |
+| stage 1 |   .   |   A   |   B **stall** |   B    |    C   |    D   |   .    |
+| stage 2 |   .   |   .   |   A           |   .    |    B   |    C   |   D    |
+
+> `stall` is a powerful and convenient operator. However, beware that it will
+> negatively impact maximum frequency on pipelines with many stages, since
+> it introduces a feedback from later stages to earlier stages.
+
+## Pipelines in always blocks
+
+Pipelines in always blocks behave slightly differently. In an always block, all
+pipeline stages are active at all times: there are no automatic triggers
+enabling/disabling stages as the stages are *always* active,
+and the `stall` keyword cannot be used. Special assignment operators are available.
 
 # Advanced language constructs
 
@@ -1902,9 +1977,5 @@ New frameworks for additional boards [can be easily created](../frameworks/board
 ## VGA and OLED simulation
 
 The Silice verilator framework supports VGA and OLED display out of the box. For instance see the [VGA demos project](../projects/vga_demo/README.md).
-
-[1] http://iverilog.icarus.com/
-
-[2] https://www.veripool.org/wiki/verilator
 
 [3] See the famous Dijkstra’s paper about this.
