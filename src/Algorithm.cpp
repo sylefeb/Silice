@@ -2565,7 +2565,7 @@ Algorithm::t_combinational_block* Algorithm::gatherSyncExec(siliceParser::SyncEx
     if (_current->context.subroutine) {
       // verify the call is allowed
       if (_current->context.subroutine->allowed_calls.count(S->first) == 0) {
-        reportError(sourceloc(sync),
+        warn(Standard, sourceloc(sync),
           "subroutine '%s' calls other subroutine '%s' without permssion\n\
                             add 'calls %s' to declaration if that was intended.",
           _current->context.subroutine->name.c_str(),
@@ -3070,14 +3070,14 @@ void Algorithm::checkPermissions(antlr4::tree::ParseTree *node, t_combinational_
       if (_current->context.subroutine->allowed_reads.count(R) == 0) {
         std::string msg = "variable '%s' is read by subroutine '%s' without explicit permission\n\n";
         msg += notes;
-        reportError(sourceloc(node), msg.c_str(), R.c_str(), _current->context.subroutine->name.c_str());
+        warn(Standard, sourceloc(node), msg.c_str(), R.c_str(), _current->context.subroutine->name.c_str());
       }
     }
     for (auto W : written) {
       if (_current->context.subroutine->allowed_writes.count(W) == 0) {
         std::string msg = "variable '%s' is written by subroutine '%s' without explicit permission\n\n";
         msg += notes;
-        reportError(sourceloc(node), msg.c_str(), W.c_str(), _current->context.subroutine->name.c_str());
+        warn(Standard, sourceloc(node), msg.c_str(), W.c_str(), _current->context.subroutine->name.c_str());
       }
     }
   }
