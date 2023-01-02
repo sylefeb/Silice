@@ -7,13 +7,14 @@ This classroom project targets the [ULX3S board](https://radiona.org/ulx3s/) wit
 
 The end goal is to build a custom wave player reading files from a SDcard, with a graphical selection menu.
 
-The focus of this project is on the System-On-Chip (SOC) hardware that glues
+This project focuses on the System-On-Chip (SOC) hardware that glues
 the RISC-V RV32I CPU to the peripherals (screen, SDcard, audio DAC).
-We will proceed step-by-step, with exercises, to understand each component of
+We will proceed step-by-step with exercises, to understand each component of
 the SOC.
 
-The project is divided into seven steps. While most steps have exercises, a couple
-steps are only about testing and understanding the design.
+The project is divided into seven steps. While most steps have exercises, a few
+are only about testing and understanding the design. The very first step (step 0)
+has a [complete walkthrough](#step-0).
 
 The final exercise is to build your own player around these components.
 
@@ -140,52 +141,53 @@ bus, and in particular the range of memory addresses that are not RAM but instea
 peripherals. In the SOC this is done by these lines:
 ```c
   // in step0.si ... (Silice design)
-  // track whether the CPU is reading a memory mapped peripheral
-  uint1 memmap_r  =  prev_mem_addr[$memmap_bit$,1] & (prev_mem_rw == 4b0);
-  uint1 is_device = ~prev_mem_addr[$memmap_bit-1$,1];
+    // track whether the CPU reads or writes a memory mapped peripheral
+    uint1 peripheral   =  prev_mem_addr[$memmap_bit$,1];
+    uint1 peripheral_r =  peripheral & (prev_mem_rw == 4b0); // reading periph.
+    uint1 peripheral_w =  peripheral & (prev_mem_rw != 4b0); // writing periph.
 ```
-When `memmap_r` is set we know the address is not a RAM address but instead a peripheral. This will be true for the LEDS ; indeed look carefully at the address
-in bit format: `10000000000000100`. Bit 16 is set, making `memmap_r` true.
-We additionally use bit 15 to set `is_device` if the bit is `0`. Let's ignore
-this for now.
+When `peripheral` is set we know the address is not a RAM address but instead a peripheral.
+This will be true for the LEDS ; indeed look carefully at the address in bit format: `10000000000000100`.
+Bit 16 is set, making `peripheral` true.
 
-How do this help for solving step 0? Well, every time `memmap_r` is set we can
-further check the address `prev_mem_addr` to see whether the addressed peripherals
-are indeed the LEDs. From `config.c` we can see it will be the case if `prev_mem_addr[0,1]` is set.
-
-> Why is this the bit 0 of `prev_mem_addr` while the pointer is set to `10000000000000100`? The two least significant bits are ignored here because we
-are seeing 32 bits aligned addresses!
-
-We can thus add a variable tracking whether the LED is being written:
-```c
-  // in step0.si ... (Silice design), add after line 73
-  uint1 leds_access = prev_mem_addr[ 0,1] & is_device;
-```
-
-Now we know that the LEDS address is being written, but we still have to act on it!
-First, we need to check whether the CPU is really writing, because of course it
-could be /reading/ from this address. This check is already in the SOC, in this
-conditional:
-```c
-  // in step0.si ... (Silice design)
-    // ---- memory mapping to peripherals: writes
-    if (prev_mem_addr[$memmap_bit$,1] & (prev_mem_rw != 4b0)) {
-      // <<<< here we know the CPU is writing >>>>
-    }
-```
-Note that the test is very similar to `memmap_r` but this time we check whether
-`prev_mem_rw` is non zero. Indeed, `prev_mem_rw` is the write mask and it is how the CPU tells that it is writing! The data being written is in `prev_wdata`.
-
-So when the CPU is writing to the LEDs, we can now conditionally write to the `leds` output:
-
-```c
-  // in step0.si ... (Silice design), add within the conditional aboev
-  leds = leds_access ? prev_wdata[0,8] : leds;
-```
+Now we want to know whether the CPU is writing to, or reading from this address.
+This what `peripheral_r` and `peripheral_w` are about. Note how they test whether
+`prev_mem_rw` is zero. Indeed, `prev_mem_rw` is the write mask and it is how the
+CPU tells that it is writing! The data being written is in `prev_wdata`.
 
 > Why are these variables prefixed by `prev_`? That's because these are the values
 from the previous cycle. We work with a one cycle latency to achieve a higher
 frequency, reducing the depth of the circuit.
+
+So, every time `peripheral_r` is set we can
+further check the address `prev_mem_addr` to see whether the addressed peripheral
+is indeed the LEDs. From `config.c` we can see it will be the case if `prev_mem_addr[0,1]` is set.
+
+> Why is this the bit 0 of `prev_mem_addr` while the pointer is set to `10000000000000100`? Looks like it should be bit 3? Well, the two least significant bits are ignored here because we
+are seeing 32 bits aligned addresses!
+
+We can thus add a variable tracking whether the LED is being written:
+```c
+  // in step0.si ... (Silice design), add after line 74
+  uint1 leds_access = prev_mem_addr[ 0,1] & is_device;
+```
+
+Now we know that the LEDS address is being written, but we still have to act on it!
+This check is already in the SOC, in this conditional:
+```c
+  // in step0.si ... (Silice design)
+    // ---- memory mapping to peripherals: writes
+    if (peripheral_w) {
+      // <<<< here we know the CPU is writing >>>>
+    }
+```
+
+So when the CPU is writing to the LEDs, we can now conditionally write to the `leds` output:
+
+```c
+  // in step0.si ... (Silice design), add within the conditional above
+  leds = leds_access ? prev_wdata[0,8] : leds;
+```
 
 ### Step 6
 

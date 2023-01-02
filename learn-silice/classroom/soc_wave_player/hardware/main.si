@@ -235,50 +235,53 @@ $$end
 
   // --- SOC logic, the always block is always active
   always {
-    // track whether the CPU is reading a memory mapped peripheral
-    uint1 memmap_r     =  prev_mem_addr[$memmap_bit$,1] & (prev_mem_rw == 4b0);
-    uint1 is_device    = ~prev_mem_addr[$memmap_bit-1$,1];
+    // track whether the CPU reads or writes a memory mapped peripheral
+    uint1 peripheral   =  prev_mem_addr[$memmap_bit$,1];
+    uint1 peripheral_r =  peripheral & (prev_mem_rw == 4b0); // reading periph.
+    uint1 peripheral_w =  peripheral & (prev_mem_rw != 4b0); // writing periph.
 $$if Solution_AUDIO then
     uint1 audio_access =  prev_mem_addr[$memmap_bit-1$,1];
 $$end
     // track memory mapped peripherals access
 $$if Solution_LED then
-    uint1 leds_access            = prev_mem_addr[ 0,1] & is_device;
+    uint1 leds_access            = prev_mem_addr[ 0,1];
 $$end
 $$if Solution_SCREEN then
-    uint1 display_en_access      = prev_mem_addr[ 1,1] & is_device;
-    uint1 display_reset_access   = prev_mem_addr[ 2,1] & is_device;
+    uint1 display_en_access      = prev_mem_addr[ 1,1];
+    uint1 display_reset_access   = prev_mem_addr[ 2,1];
 $$end
 $$if Solution_UART then
-    uint1 uart_access            = prev_mem_addr[ 3,1] & is_device;
+    uint1 uart_access            = prev_mem_addr[ 3,1];
 $$end
 $$if Solution_SPIflash then
-    uint1 sf_access              = prev_mem_addr[ 4,1] & is_device;
+    uint1 sf_access              = prev_mem_addr[ 4,1];
 $$end
 $$if Solution_SD then
-    uint1 sd_access              = prev_mem_addr[ 5,1] & is_device;
+    uint1 sd_access              = prev_mem_addr[ 5,1];
 $$end
 $$if Solution_BTN then
-    uint1 button_access          = prev_mem_addr[ 6,1] & is_device;
+    uint1 button_access          = prev_mem_addr[ 6,1];
 $$end
-	  // ---- memory access
-    // BRAM wenable update following wenable from CPU <-> SOC interface
+	  // ---- memory address access (reads and writes)
+    // forward CPU write enable to RAM
     mem.wenable = memio.wenable & {4{~memio.addr[$memmap_bit$,1]}};
 		//                            ^^^^^^^ no BRAM write if in peripheral addresses
     // data sent to the CPU
     memio.rdata   = // read data is either from memory or SOC peripherals
-       (~memmap_r                  ? mem.rdata          : 32b0)
+       // CPU reading from RAM
+       (~peripheral_r                  ? mem.rdata          : 32b0)
+       // CPU reading from peripherals
 $$if Solution_SPIflash then
-     | ((memmap_r & sf_access)     ? {31b0,reg_sf_miso} : 32b0)
+     | ((peripheral_r & sf_access)     ? {31b0,reg_sf_miso} : 32b0)
 $$end
 $$if Solution_SD then
-     | ((memmap_r & sd_access)     ? {31b0,reg_sd_miso} : 32b0)
+     | ((peripheral_r & sd_access)     ? {31b0,reg_sd_miso} : 32b0)
 $$end
 $$if Solution_BTN then
-     | ((memmap_r & button_access) ? {31b0,   reg_btns} : 32b0)
+     | ((peripheral_r & button_access) ? {31b0,   reg_btns} : 32b0)
 $$end
 $$if Solution_STREAM then
-     | ((memmap_r & audio_access)  ? audio_addr_cpu     : 32b0)
+     | ((peripheral_r & audio_access)  ? audio_addr_cpu     : 32b0)
 $$end
     ;
     mem.wdata        = memio.wdata;
@@ -316,11 +319,18 @@ $$if Solution_STREAM then
           );
     audio_counter       = (audio_counter == $PERIOD$) ? 0 : (audio_counter+1);
 $$end
-    // ---- memory mapping to peripherals: writes
-    if (prev_mem_addr[$memmap_bit$,1] & (prev_mem_rw != 4b0)) {
+    // ---- CPU is writing to peripherals
+$$if Solution_STREAM then
+    if (peripheral_w & ~audio_access) {
+$$else
+    if (peripheral_w) {
+$$end
 $$if Solution_LED then
       /// LEDs
       leds           = leds_access ? prev_wdata[0,8] : leds;
+$$else
+      __display("[cycle %d] CPU is writing %d to peripheral address @%x",
+                cycle,prev_wdata,prev_mem_addr);
 $$end
 $$if Solution_SCREEN then
       /// display
@@ -350,53 +360,49 @@ $$if Solution_AUDIO then
       /// audio
   $$if not Solution_STREAM then
       if (audio_access) {audio_l = prev_wdata[0,8]; audio_r = prev_wdata[0,8];}
-  $$else
-      { // block for locally declaring 'which' below
-        uint2 which = prev_mem_rw[1,2] | {2{prev_mem_rw[3,1]}};
-        //    ^^^^^ produces 0,1,2,3 based on write mask
-        audio_buffer.wdata1   = prev_wdata >> {which,3b0};
-        //       ^^^ sample to be written ^^ (shift due to 32bits addressing)
-        audio_buffer.addr1    = audio_buffer_start_waddr
-                              | {prev_mem_addr[0,7],2b0}//addr from CPU (32bits)
-                              | which; // sample address
-      }
-      audio_buffer.wenable1 = audio_access; // write sample
   $$end
 $$end
-
 $$if SIMULATION then
-      // Simulation debug output, very convenient during development!
-$$if Solution_LED then
+      // Add some simulation debug output here, convenient during development!
+  $$if Solution_LED then
       if (leds_access) {
         __display("[cycle %d] LEDs: %b (%d)",cycle,leds,prev_wdata);
         if (leds == 255) { __finish(); }// special LED value stops simulation
                                         // convenient to interrupt from firmware
       }
-$$end
-$$if Solution_UART then
+  $$end
+  $$if Solution_UART then
       if (uart_access) { // printf via UART
         __write("%c",prev_wdata[0,8]);
       }
-$$end
-$$if Solution_SPIflash then
+  $$end
+  $$if Solution_SPIflash then
       if (sf_access) {
         __display("[cycle %d] SPI write %b",cycle,prev_wdata[0,3]);
       }
-$$end
-$$if Solution_AUDIO then
-  $$if Solution_STREAM then
-      if (audio_access) {
-        __display("[cycle %d] audio sample %x, written @%x wenable:%b",
-            cycle,audio_buffer.wdata1,audio_buffer.addr1,prev_mem_rw);
-      }
-  $$else
+  $$end
+  $$if Solution_AUDIO then
+    $$if not Solution_STREAM then
       if (audio_access) {
         __display("[cycle %d] audio sample %x",cycle,audio_l);
       }
+    $$end
   $$end
 $$end
-$$end
     }
+
+$$if Solution_STREAM then
+    if (peripheral_w) {
+      uint2 which = prev_mem_rw[1,2] | {2{prev_mem_rw[3,1]}};
+      //    ^^^^^ produces 0,1,2,3 based on write mask
+      audio_buffer.wdata1   = prev_wdata >> {which,3b0};
+      //       ^^^ sample to be written ^^ (shift due to 32bits addressing)
+      audio_buffer.addr1    = audio_buffer_start_waddr
+                            | {prev_mem_addr[0,7],2b0}//addr from CPU (32bits)
+                            | which; // sample address
+      audio_buffer.wenable1 = audio_access; // write sample
+    }
+$$end
 
     // record current access for next cycle memory mapping checks
 		prev_mem_addr = memio.addr;
