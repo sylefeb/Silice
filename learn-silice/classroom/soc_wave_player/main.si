@@ -7,22 +7,30 @@
 // Meant to be used on a ULX3S board with SSD1351 SPIscreen
 // See README for instructions and exercises
 //
-// Step 0: driving LEDs from C
-//         ()
-// Step 1: making audio from the CPU
-//         (LED)
-// Step 2: turning the screen on, printing hello world
-//         (LED, AUDIO, OLED)
-// Step 3: adding buttons, making a menu
-//         (LED, AUDIO, OLED)
-// Step 4: sdcard, listing files
-//         (LED, AUDIO, OLED, BTN, SD)
-// Step 5: outputting audio using hardware streaming
-//         (LED, AUDIO, OLED, BTN, SD, STREAM)
-// Step 6: improving audio with a PWM
-//         (LED, AUDIO, OLED, BTN, SD, STREAM)
-// Final
-//         (LED, AUDIO, OLED, BTN, SD, STREAM, PWM)
+// Step 0: Todo     : modify SOC to drive LEDs from C
+//         Firmware : step0_leds.c
+//
+// Step 1: Todo     : modify SOC to make audio from the CPU
+//         Firmware : step1_audio_cpu.c
+//         ** WARNING ** High-pitch high-volume sounds! Do NOT use a helmet!
+//
+// Step 2: To test  : turning the screen on, print hello world, display an image
+//         Firmwares: step2_hello_world.c, step2_show_image.c
+//
+// Step 3: Todo     : modify SOC to add buttons, make a menu
+//         Firmware : step3_menu.c
+//
+// Step 4: Todo     : modify firmware to make a menu listing files on sdcard
+//         Firmware : step4_file_menu.c
+//
+// Step 5: To test  : output audio using hardware streaming
+//         Firmware : step5_audio_stream.c
+//
+// Step 6: Todo     : implement an audio PWM in the audio unit
+//         Firmware : step5_audio_stream.c
+//
+// Final:  Todo     : wave file reader with image previews
+//         Firmware : step_final.c (to be created)
 //
 // - To start working on a step simply do "make stepN"
 //   You may then edit the stepN.si file
@@ -60,9 +68,7 @@ $$if Solution_STREAM then
 // Audio output
 // --------------------------------------------------
 
-algorithm audio(
-  input  uint8 audio_in,
-  output uint4 audio_out) <autorun>
+unit audio(input  uint8 audio_in,output uint4 audio_out)
 {
 $$if not Solution_PWM then
   always {

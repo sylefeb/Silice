@@ -1,4 +1,4 @@
-TSTS = $(wildcard test*.c)
+TSTS = $(wildcard step*.c test*.c)
 PRGS = $(basename $(TSTS))
 ARCH = $(shell bash ../../../../tools/bash/riscv_arch.sh)
 CC   = $(ARCH)-gcc

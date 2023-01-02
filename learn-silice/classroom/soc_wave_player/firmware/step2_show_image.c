@@ -9,24 +9,25 @@
 #include "display.h"
 #include "printf.h"
 
+// include the fat32 library
 #include "fat_io_lib/src/fat_filelib.h"
 
 void main()
 {
   // install putchar handler for printf
   f_putchar = display_putchar;
-
+  // initialize oled screen
   oled_init();
   oled_fullscreen();
-
+  // clear framebuffer
   memset(display_framebuffer(),0x00,128*128);
+  // refresh display (sends framebuffer to screen)
   display_refresh();
-
+  // print a message
   display_set_cursor(0,0);
   display_set_front_back_color(255,0);
   printf("init ... ");
   display_refresh();
-
   // init sdcard
   sdcard_init();
   // initialise File IO Library
@@ -36,7 +37,7 @@ void main()
     // try again, we need this
   }
   printf("done.\n");
-  // open the file
+  // open the image file
   FL_FILE *f = fl_fopen("/img.raw","rb");
   if (f == NULL) {
     printf("img.raw not found.\n");
@@ -46,9 +47,9 @@ void main()
     display_refresh();
     // read pixels in framebuffer
     fl_fread(display_framebuffer(),1,128*128,f);
+    // refresh display to show the image
     display_refresh();
     // close
     fl_fclose(f);
   }
-
 }
