@@ -49,11 +49,11 @@ $$if Question_PWM then
 $$else
   uint8 counter(0);
   always {
-    uint4 low  <: 4b0;
-    uint4 high <: 4b1;
-    uint8 frac <: audio_in[0,8];
-    audio_out = counter < frac ? low : high;
-    counter   = counter + 1;
+    uint4 low  = 4b0;
+    uint4 high = 4b1;
+    uint8 frac = audio_in[0,8];
+    audio_out  = counter < frac ? low : high;
+    counter    = counter + 1;
   }
 $$end
 }
@@ -210,18 +210,17 @@ $$end
   // --- SOC logic, the always block is always active
   always {
     // track whether the CPU is reading a memory mapped peripheral
-    uint1 memmap_r <:: prev_mem_addr[$memmap_bit$,1] & (prev_mem_rw == 4b0);
-    //             ^^^ track values at cycle start
+    uint1 memmap_r = prev_mem_addr[$memmap_bit$,1] & (prev_mem_rw == 4b0);
     // track memory mapped peripherals access
-    uint1 audio_access           <:: prev_mem_addr[$memmap_bit-1$,1];
-    uint1 leds_access            <:: prev_mem_addr[ 0,1] & ~audio_access;
-    uint1 display_en_access      <:: prev_mem_addr[ 1,1] & ~audio_access;
-    uint1 display_reset_access   <:: prev_mem_addr[ 2,1] & ~audio_access;
-    uint1 uart_access            <:: prev_mem_addr[ 3,1] & ~audio_access;
-    uint1 sf_access              <:: prev_mem_addr[ 4,1] & ~audio_access;
-    uint1 sd_access              <:: prev_mem_addr[ 5,1] & ~audio_access;
+    uint1 audio_access           = prev_mem_addr[$memmap_bit-1$,1];
+    uint1 leds_access            = prev_mem_addr[ 0,1] & ~audio_access;
+    uint1 display_en_access      = prev_mem_addr[ 1,1] & ~audio_access;
+    uint1 display_reset_access   = prev_mem_addr[ 2,1] & ~audio_access;
+    uint1 uart_access            = prev_mem_addr[ 3,1] & ~audio_access;
+    uint1 sf_access              = prev_mem_addr[ 4,1] & ~audio_access;
+    uint1 sd_access              = prev_mem_addr[ 5,1] & ~audio_access;
 $$if not Question_Buttons then
-    uint1 button_access          <:: prev_mem_addr[6,1] & ~audio_access;
+    uint1 button_access          = prev_mem_addr[6,1] & ~audio_access;
 $$end
 	  // ---- memory access
     // BRAM wenable update following wenable from CPU<->SOC interface
