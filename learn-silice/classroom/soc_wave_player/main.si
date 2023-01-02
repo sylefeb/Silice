@@ -294,7 +294,7 @@ $$if Question_Streaming then
       if (audio_access) { audiopwm.audio_in = prev_wdata[0,8]; }
 $$else
       { // block for locally declaring 'which' below
-        uint2 which <:: prev_mem_rw[1,2] | {2{prev_mem_rw[3,1]}};
+        uint2 which = prev_mem_rw[1,2] | {2{prev_mem_rw[3,1]}};
         //    ^^^^^ produces 0,1,2,3 based on write mask
         audio_buffer.wdata1   = prev_wdata >> {which,3b0};
         //       ^^^ sample to be written ^^ (shift due to 32bits addressing)
@@ -340,8 +340,7 @@ $$end
 
   // --- algorithm part
 
-  // run the CPU (never returns)
-  () <- cpu <- ();
+  while (1) { } // wait forever (CPU runs)
 
 }
 
