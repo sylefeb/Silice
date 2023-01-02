@@ -2,11 +2,33 @@
 //
 // Learning Silice
 //
-// A simple but feature complete SOC:
-// display, UART, sdcard, SPIflash, buttons
+// Building a simple but feature complete SOC, step by step.
 //
 // Meant to be used on a ULX3S board with SSD1351 SPIscreen
 // See README for instructions and exercises
+//
+// Step 0: driving LEDs from C
+//         ()
+// Step 1: making audio from the CPU
+//         (LED)
+// Step 2: turning the screen on, printing hello world
+//         (LED, AUDIO, OLED)
+// Step 3: adding buttons, making a menu
+//         (LED, AUDIO, OLED)
+// Step 4: sdcard, listing files
+//         (LED, AUDIO, OLED, BTN, SD)
+// Step 5: outputting audio using hardware streaming
+//         (LED, AUDIO, OLED, BTN, SD, STREAM)
+// Step 6: improving audio with a PWM
+//         (LED, AUDIO, OLED, BTN, SD, STREAM)
+// Final
+//         (LED, AUDIO, OLED, BTN, SD, STREAM, PWM)
+//
+// - To start working on a step simply do "make stepN"
+//   You may then edit the stepN.si file
+// - To generate with a specific firmware do "make stepN FIRMWARE=<src>"
+//   where <src> is a C file in the firmware subdirectory (see stepN_*.c)
+// - For simulation use "make stepN FIRMWARE=<src> BOARD=verilator"
 //
 // https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
@@ -33,17 +55,18 @@ $$uart_in_clock_freq_mhz = 25
 $$uart_bauds             = 115200
 $include('../../../projects/common/uart.si')
 
+$$if Solution_STREAM then
 // --------------------------------------------------
-// PWM
+// Audio output
 // --------------------------------------------------
 
-algorithm pwm(
+algorithm audio(
   input  uint8 audio_in,
   output uint4 audio_out) <autorun>
 {
-$$if Question_PWM then
+$$if not Solution_PWM then
   always {
-    // simple passthrough: implement the actual PWM
+    // simple passthrough
     audio_out = audio_in[4,4];
   }
 $$else
@@ -57,6 +80,7 @@ $$else
   }
 $$end
 }
+$$end
 
 // --------------------------------------------------
 // SOC
@@ -74,13 +98,8 @@ group bram_io
 // The SOC starts here
 // - some input/outputs do not exist in simulation and
 //   are therefore enclosed in pre-processor conditions
-algorithm main(
+unit main(
   output uint8 leds,
-  output uint1 oled_clk,
-  output uint1 oled_mosi,
-  output uint1 oled_dc,
-  output uint1 oled_resn,
-  output uint1 oled_csn(0),
 $$if BUTTONS then
   input  uint7 btns,
 $$end
@@ -88,30 +107,44 @@ $$if AUDIO then
   output uint4 audio_l,
   output uint4 audio_r,
 $$end
+$$if Solution_OLED then
+  output uint1 oled_clk,
+  output uint1 oled_mosi,
+  output uint1 oled_dc,
+  output uint1 oled_resn,
+  output uint1 oled_csn(0),
 $$if VERILATOR then
   // configuration for SPIscreen simulation
   output uint2  spiscreen_driver(1/*SSD1351*/),
   output uint10 spiscreen_width(128),
   output uint10 spiscreen_height(128),
 $$end
+$$end
+$$if Solution_SPIflash then
 $$if SPIFLASH then
   output uint1 sf_clk,
   output uint1 sf_csn,
   output uint1 sf_mosi,
   input  uint1 sf_miso,
 $$end
+$$end
+$$if Solution_UART then
 $$if UART then
   output uint1 uart_tx,
   input  uint1 uart_rx,
 $$end
+$$end
+$$if Solution_SD then
 $$if SDCARD then
   output  uint1  sd_clk,
   output  uint1  sd_csn,
   output  uint1  sd_mosi,
   input   uint1  sd_miso,
 $$end
+$$end
 ) {
 
+$$if Solution_OLED then
   // SPIscreen (OLED) controller chip
   uint1 displ_dta_or_cmd <: prev_wdata[10,1];
   uint8 displ_byte       <: prev_wdata[0,8];
@@ -125,7 +158,9 @@ $$end
     oled_clk        :> oled_clk,
     oled_dc         :> oled_dc,
   );
+$$end
 
+$$if Solution_SPIflash then
   // spiflash miso register
   // -> avoid readin a pin directly in design as it is asynchronous
   //    we always track it in a register which updates on clock posedge
@@ -137,7 +172,9 @@ $$if not SPIFLASH then
   uint1       sf_mosi(0);
   uint1       sf_miso(0);
 $$end
+$$end
 
+$$if Solution_SD then
   // SDCARD miso register
   uint1        reg_sd_miso(0);
 $$if not SDCARD then
@@ -147,7 +184,9 @@ $$if not SDCARD then
   uint1  sd_mosi(0);
   uint1  sd_miso(0);
 $$end
+$$end
 
+$$if Solution_UART then
   // UART transmit interface
   uart_out uo;
 $$if UART then
@@ -157,23 +196,28 @@ $$if UART then
     uart_tx :>  uart_tx
   );
 $$end
+$$end
 
+$$if Solution_BTN then
   // buttons inputs register
   // -> also an asynchronous signal, so we register it
   uint7 reg_btns(0);
 $$if not BUTTONS then
   uint7 btns(0);
 $$end
+$$end
 
-  // audio PWM
-  pwm audiopwm;
-  // audio bypass for simulation
+$$if Solution_AUDIO then
 $$if not AUDIO then
+  // audio bypass for simulation
   uint4 audio_l(0);
   uint4 audio_r(0);
 $$end
+$$end
 
-$$if not Question_Streaming then
+$$if Solution_STREAM then
+  // audio output
+  audio audio;
   // audio streaming
   $$PERIOD = 3124
   // we allocated 2x 512 8bit samples
@@ -210,88 +254,121 @@ $$end
   // --- SOC logic, the always block is always active
   always {
     // track whether the CPU is reading a memory mapped peripheral
-    uint1 memmap_r = prev_mem_addr[$memmap_bit$,1] & (prev_mem_rw == 4b0);
+    uint1 memmap_r     =  prev_mem_addr[$memmap_bit$,1] & (prev_mem_rw == 4b0);
+    uint1 peripheral   = ~prev_mem_addr[$memmap_bit-1$,1];
+$$if Solution_AUDIO then
+    uint1 audio_access =  prev_mem_addr[$memmap_bit-1$,1];
+$$end
     // track memory mapped peripherals access
-    uint1 audio_access           = prev_mem_addr[$memmap_bit-1$,1];
-    uint1 leds_access            = prev_mem_addr[ 0,1] & ~audio_access;
-    uint1 display_en_access      = prev_mem_addr[ 1,1] & ~audio_access;
-    uint1 display_reset_access   = prev_mem_addr[ 2,1] & ~audio_access;
-    uint1 uart_access            = prev_mem_addr[ 3,1] & ~audio_access;
-    uint1 sf_access              = prev_mem_addr[ 4,1] & ~audio_access;
-    uint1 sd_access              = prev_mem_addr[ 5,1] & ~audio_access;
-$$if not Question_Buttons then
-    uint1 button_access          = prev_mem_addr[6,1] & ~audio_access;
+$$if Solution_LED then
+    uint1 leds_access            = prev_mem_addr[ 0,1] & peripheral;
+$$end
+$$if Solution_OLED then
+    uint1 display_en_access      = prev_mem_addr[ 1,1] & peripheral;
+    uint1 display_reset_access   = prev_mem_addr[ 2,1] & peripheral;
+$$end
+$$if Solution_UART then
+    uint1 uart_access            = prev_mem_addr[ 3,1] & peripheral;
+$$end
+$$if Solution_SPIflash then
+    uint1 sf_access              = prev_mem_addr[ 4,1] & peripheral;
+$$end
+$$if Solution_SD then
+    uint1 sd_access              = prev_mem_addr[ 5,1] & peripheral;
+$$end
+$$if Solution_BTN then
+    uint1 button_access          = prev_mem_addr[ 6,1] & peripheral;
 $$end
 	  // ---- memory access
-    // BRAM wenable update following wenable from CPU<->SOC interface
+    // BRAM wenable update following wenable from CPU <-> SOC interface
     mem.wenable = memio.wenable & {4{~memio.addr[$memmap_bit$,1]}};
 		//                            ^^^^^^^ no BRAM write if in peripheral addresses
     // data sent to the CPU
-    memio.rdata   = // read data is either SPIflash, sdcard or memory
-       ((memmap_r & sf_access)     ? {31b0,reg_sf_miso} : 32b0)
+    memio.rdata   = // read data is either from memory or SOC peripherals
+       (~memmap_r                  ? mem.rdata          : 32b0)
+$$if Solution_SPIflash then
+     | ((memmap_r & sf_access)     ? {31b0,reg_sf_miso} : 32b0)
+$$end
+$$if Solution_SD then
      | ((memmap_r & sd_access)     ? {31b0,reg_sd_miso} : 32b0)
-$$if not Question_Buttons then
+$$end
+$$if Solution_BTN then
      | ((memmap_r & button_access) ? {31b0,   reg_btns} : 32b0)
 $$end
-$$if not Question_Streaming then
+$$if Solution_STREAM then
      | ((memmap_r & audio_access)  ? audio_addr_cpu     : 32b0)
 $$end
-     | (~memmap_r                  ? mem.rdata          : 32b0);
+    ;
     mem.wdata        = memio.wdata;
     mem.addr         = memio.addr;
 		// ---- peripherals
+$$if Solution_OLED then
     display.enable     = 0;       // maintain display enable low (pulses on use)
+$$end
+$$if Solution_UART then
     uo.data_in_ready   = 0;       // maintain uart trigger low (pulses on use)
+$$end
+$$if Solution_SPIflash then
     reg_sf_miso        = sf_miso; // register flash miso
+$$end
+$$if Solution_SD then
     reg_sd_miso        = sd_miso; // register sdcard miso
+$$end
+$$if Solution_BTN then
     reg_btns           = btns;    // register buttons
-    audio_l            = audiopwm.audio_out; // feed PWM output to on-board DAC
-    audio_r            = audiopwm.audio_out;
-$$if not Question_Streaming then
-    audiopwm.audio_in   = audio_buffer.rdata0; // feed current sample to PWM
+$$end
+$$if Solution_STREAM then
+    audio_l            = audio.audio_out; // feed output to on-board DAC
+    audio_r            = audio.audio_out;
+    audio.audio_in      = audio_buffer.rdata0; // feed sample to audio out
     audio_buffer_select = audio_buffer_sample[9,1]    // if == 512, done reading
         ? ~audio_buffer_select : audio_buffer_select; // swap buffers
     audio_buffer.addr0  = audio_buffer_start_raddr         // start addr
                         | {1b0,audio_buffer_sample[0,9]};  // current sample
     audio_buffer.wenable1 = 0; // maintain write port low (pulses on CPU write)
-    audio_buffer_sample =
+    audio_buffer_sample   =
           audio_buffer_sample[9,1] ? 0 : ( // reset counter if done
               audio_counter != $PERIOD$
             ? audio_buffer_sample     // stay on sample if delay not elapsed
             : (audio_buffer_sample+1) // go to next sample
           );
     audio_counter       = (audio_counter == $PERIOD$) ? 0 : (audio_counter+1);
-$$if SIMULATION then
-    if (audio_counter == 0) {
-    //  __display("[cycle %d] sample %d wbuffer %b cpuaddr @%x",
-    //    cycle,audio_buffer_sample,audio_buffer_select,audio_addr_cpu);
-    }
-$$end
 $$end
     // ---- memory mapping to peripherals: writes
     if ((prev_mem_rw != 4b0) & prev_mem_addr[$memmap_bit$,1]) {
+$$if Solution_LED then
       /// LEDs
       leds           = leds_access ? prev_wdata[0,8] : leds;
+$$end
+$$if Solution_OLED then
       /// display
       // -> whether to send command or data
       display.enable = display_en_access & (prev_wdata[9,1] | prev_wdata[10,1]);
       // -> SPIscreen reset
       oled_resn      = ~ (display_reset_access & prev_wdata[0,1]);
+$$end
+$$if Solution_UART then
       /// uart
       uo.data_in_ready = ~uo.busy & uart_access;
       uo.data_in       =  uo.data_in_ready ? prev_wdata[ 0,8] : uo.data_in;
+$$end
+$$if Solution_SPIflash then
       /// SPIflash output pins
 			sf_clk  = sf_access ? prev_wdata[0,1] : sf_clk;
 			sf_mosi = sf_access ? prev_wdata[1,1] : sf_mosi;
 			sf_csn  = sf_access ? prev_wdata[2,1] : sf_csn;
+$$end
+$$if Solution_SD then
       /// sdcard output pins
       sd_clk  = sd_access ? prev_wdata[0,1] : sd_clk;
       sd_mosi = sd_access ? prev_wdata[1,1] : sd_mosi;
       sd_csn  = sd_access ? prev_wdata[2,1] : sd_csn;
+$$end
       /// audio
-$$if Question_Streaming then
-      if (audio_access) { audiopwm.audio_in = prev_wdata[0,8]; }
-$$else
+$$if Solution_AUDIO then
+  $$if not Solution_STREAM then
+      if (audio_access) {audio_l = prev_wdata[0,8]; audio_r = prev_wdata[0,8];}
+  $$else
       { // block for locally declaring 'which' below
         uint2 which = prev_mem_rw[1,2] | {2{prev_mem_rw[3,1]}};
         //    ^^^^^ produces 0,1,2,3 based on write mask
@@ -302,27 +379,40 @@ $$else
                               | which; // sample address
       }
       audio_buffer.wenable1 = audio_access; // write sample
+  $$end
 $$end
 
 $$if SIMULATION then
       // Simulation debug output, very convenient during development!
+$$if Solution_LED then
       if (leds_access) {
         __display("[cycle %d] LEDs: %b (%d)",cycle,leds,prev_wdata);
         if (leds == 255) { __finish(); }// special LED value stops simulation
                                         // convenient to interrupt from firmware
       }
+$$end
+$$if Solution_UART then
       if (uart_access) { // printf via UART
         __write("%c",prev_wdata[0,8]);
       }
+$$end
+$$if Solution_SPIflash then
       if (sf_access) {
         __display("[cycle %d] SPI write %b",cycle,prev_wdata[0,3]);
       }
+$$end
+$$if Solution_AUDIO then
+  $$if Solution_STREAM then
       if (audio_access) {
-$$if not Question_Streaming then
         __display("[cycle %d] audio sample %x, written @%x wenable:%b",
             cycle,audio_buffer.wdata1,audio_buffer.addr1,prev_mem_rw);
-$$end
       }
+  $$else
+      if (audio_access) {
+        __display("[cycle %d] audio sample %x",cycle,audio_l);
+      }
+  $$end
+$$end
 $$end
     }
 
@@ -336,10 +426,6 @@ $$if SIMULATION then
 $$end
 
   } // end of always block
-
-  // --- algorithm part
-
-  while (1) { } // wait forever (CPU runs)
 
 }
 
