@@ -2,7 +2,8 @@ import re
 import argparse
 
 parser = argparse.ArgumentParser(description='tool to produce exercises from full source')
-parser.add_argument('-s','--solutions', help="Comma separated list of solutions to include")
+parser.add_argument('-i','--input', help="Input source file.")
+parser.add_argument('-s','--solutions', help="Comma separated list of solutions.")
 
 args = parser.parse_args()
 
@@ -11,7 +12,7 @@ if args.solutions:
 else:
   solutions = []
 
-f = open('main.si', 'r')
+f = open(args.input, 'r')
 lines = f.readlines()
 
 prev_empty = False

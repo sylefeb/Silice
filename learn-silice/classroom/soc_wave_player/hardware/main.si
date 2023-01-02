@@ -1,43 +1,14 @@
 // SL 2022-01-10 @sylefeb
+$$if Solution_HEADER then
 //
 // Learning Silice
 //
 // Building a simple but feature complete SOC, step by step.
 //
 // Meant to be used on a ULX3S board with SSD1351 SPIscreen
-// See README for instructions and exercises
+// See README.md for instructions and exercises
 //
-// Step 0: Todo     : modify SOC to drive LEDs from C
-//         Firmware : step0_leds.c
-//
-// Step 1: Todo     : modify SOC to make audio from the CPU
-//         Firmware : step1_audio_cpu.c
-//         ** WARNING ** High-pitch high-volume sounds! Do NOT use a helmet!
-//
-// Step 2: To test  : turning the screen on, print hello world, display an image
-//         Firmwares: step2_hello_world.c, step2_show_image.c
-//
-// Step 3: Todo     : modify SOC to add buttons, make a menu
-//         Firmware : step3_menu.c
-//
-// Step 4: Todo     : modify firmware to make a menu listing files on sdcard
-//         Firmware : step4_file_menu.c
-//
-// Step 5: To test  : output audio using hardware streaming
-//         Firmware : step5_audio_stream.c
-//
-// Step 6: Todo     : implement an audio PWM in the audio unit
-//         Firmware : step5_audio_stream.c
-//
-// Final:  Todo     : wave file reader with image previews
-//         Firmware : step_final.c (to be created)
-//
-// - To start working on a step simply do "make stepN"
-//   You may then edit the stepN.si file
-// - To generate with a specific firmware do "make stepN FIRMWARE=<src>"
-//   where <src> is a C file in the firmware subdirectory (see stepN_*.c)
-// - For simulation use "make stepN FIRMWARE=<src> BOARD=verilator"
-//
+$$end
 // https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
@@ -56,12 +27,18 @@ $$config['bram_wmask_byte_wenable_width'] = 'data'
 
 // Includes the processor
 $include('../../../projects/ice-v/CPUs/ice-v.si')
+
+$$if Solution_SCREEN then
 // Includes the SPIscreen driver
 $include('../../../projects/ice-v/SOCs/ice-v-oled.si')
+$$end
+
+$$if Solution_UART then
 // Includes the UART controller
 $$uart_in_clock_freq_mhz = 25
 $$uart_bauds             = 115200
 $include('../../../projects/common/uart.si')
+$$end
 
 $$if Solution_STREAM then
 // --------------------------------------------------
@@ -113,7 +90,7 @@ $$if AUDIO then
   output uint4 audio_l,
   output uint4 audio_r,
 $$end
-$$if Solution_OLED then
+$$if Solution_SCREEN then
   output uint1 oled_clk,
   output uint1 oled_mosi,
   output uint1 oled_dc,
@@ -150,7 +127,7 @@ $$end
 $$end
 ) {
 
-$$if Solution_OLED then
+$$if Solution_SCREEN then
   // SPIscreen (OLED) controller chip
   uint1 displ_dta_or_cmd <: prev_wdata[10,1];
   uint8 displ_byte       <: prev_wdata[0,8];
@@ -242,9 +219,8 @@ $$end
   uint32      prev_wdata(0);
 
 $$if SIMULATION then
-   // these only exist in simulation for debugging purposes
+   // count cycles in simulation for debugging purposes
    uint32 cycle(0);
-   uint32 prev_cycle(0);
 $$end
 
   // RAM
@@ -261,29 +237,29 @@ $$end
   always {
     // track whether the CPU is reading a memory mapped peripheral
     uint1 memmap_r     =  prev_mem_addr[$memmap_bit$,1] & (prev_mem_rw == 4b0);
-    uint1 peripheral   = ~prev_mem_addr[$memmap_bit-1$,1];
+    uint1 is_device    = ~prev_mem_addr[$memmap_bit-1$,1];
 $$if Solution_AUDIO then
     uint1 audio_access =  prev_mem_addr[$memmap_bit-1$,1];
 $$end
     // track memory mapped peripherals access
 $$if Solution_LED then
-    uint1 leds_access            = prev_mem_addr[ 0,1] & peripheral;
+    uint1 leds_access            = prev_mem_addr[ 0,1] & is_device;
 $$end
-$$if Solution_OLED then
-    uint1 display_en_access      = prev_mem_addr[ 1,1] & peripheral;
-    uint1 display_reset_access   = prev_mem_addr[ 2,1] & peripheral;
+$$if Solution_SCREEN then
+    uint1 display_en_access      = prev_mem_addr[ 1,1] & is_device;
+    uint1 display_reset_access   = prev_mem_addr[ 2,1] & is_device;
 $$end
 $$if Solution_UART then
-    uint1 uart_access            = prev_mem_addr[ 3,1] & peripheral;
+    uint1 uart_access            = prev_mem_addr[ 3,1] & is_device;
 $$end
 $$if Solution_SPIflash then
-    uint1 sf_access              = prev_mem_addr[ 4,1] & peripheral;
+    uint1 sf_access              = prev_mem_addr[ 4,1] & is_device;
 $$end
 $$if Solution_SD then
-    uint1 sd_access              = prev_mem_addr[ 5,1] & peripheral;
+    uint1 sd_access              = prev_mem_addr[ 5,1] & is_device;
 $$end
 $$if Solution_BTN then
-    uint1 button_access          = prev_mem_addr[ 6,1] & peripheral;
+    uint1 button_access          = prev_mem_addr[ 6,1] & is_device;
 $$end
 	  // ---- memory access
     // BRAM wenable update following wenable from CPU <-> SOC interface
@@ -308,7 +284,7 @@ $$end
     mem.wdata        = memio.wdata;
     mem.addr         = memio.addr;
 		// ---- peripherals
-$$if Solution_OLED then
+$$if Solution_SCREEN then
     display.enable     = 0;       // maintain display enable low (pulses on use)
 $$end
 $$if Solution_UART then
@@ -341,12 +317,12 @@ $$if Solution_STREAM then
     audio_counter       = (audio_counter == $PERIOD$) ? 0 : (audio_counter+1);
 $$end
     // ---- memory mapping to peripherals: writes
-    if ((prev_mem_rw != 4b0) & prev_mem_addr[$memmap_bit$,1]) {
+    if (prev_mem_addr[$memmap_bit$,1] & (prev_mem_rw != 4b0)) {
 $$if Solution_LED then
       /// LEDs
       leds           = leds_access ? prev_wdata[0,8] : leds;
 $$end
-$$if Solution_OLED then
+$$if Solution_SCREEN then
       /// display
       // -> whether to send command or data
       display.enable = display_en_access & (prev_wdata[9,1] | prev_wdata[10,1]);
@@ -370,8 +346,8 @@ $$if Solution_SD then
       sd_mosi = sd_access ? prev_wdata[1,1] : sd_mosi;
       sd_csn  = sd_access ? prev_wdata[2,1] : sd_csn;
 $$end
-      /// audio
 $$if Solution_AUDIO then
+      /// audio
   $$if not Solution_STREAM then
       if (audio_access) {audio_l = prev_wdata[0,8]; audio_r = prev_wdata[0,8];}
   $$else

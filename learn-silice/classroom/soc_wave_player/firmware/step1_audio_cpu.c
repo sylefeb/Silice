@@ -6,7 +6,7 @@
 // that can be listened to on the audio port
 
 // ==================================================================
-// ** WARNING ** High-pitch high-volume sounds! Do NOT use a helmet!
+// ** WARNING ** High-pitch high-volume sounds! Do NOT use headphones!
 // ==================================================================
 
 #include "config.h"
