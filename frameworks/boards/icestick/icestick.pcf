@@ -58,6 +58,8 @@ set_io --warn-no-port SD 107
 #    | 87    78 | <
 #     ----------
 #
+# use '-pullup yes' to add a pull-up on these pins
+
 set_io --warn-no-port PMOD1 78
 set_io --warn-no-port PMOD2 79
 set_io --warn-no-port PMOD3 80

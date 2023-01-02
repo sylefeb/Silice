@@ -57,23 +57,24 @@ module top(
   input  RX,
 `endif
 `ifdef VGA
-  output P1A1, // r0
-  output P1A2, // r1
-  output P1A3, // r2
-  output P1A4, // r3
+  output P1A1,  // r0
+  output P1A2,  // r1
+  output P1A3,  // r2
+  output P1A4,  // r3
 
-  output P1A7,   // b0
-  output P1A8,   // b1
-  output P1A9,   // b2
-  output P1A10,  // b3
+  output P1A7,  // b0
+  output P1A8,  // b1
+  output P1A9,  // b2
+  output P1A10, // b3
 
   output P1B1,  // g0
   output P1B2,  // g1
   output P1B3,  // g2
   output P1B4,  // g3
 
-  output P1B7, // hs
+  output P1B7,  // hs
   output P1B8,  // vs
+// NOTE: P1B9 and P1B10 are left unused
 `endif
 `ifdef OLED
   output P1A1,
@@ -106,6 +107,13 @@ module top(
   inout  FLASH_IO1,
   inout  FLASH_IO2,
   inout  FLASH_IO3,
+`endif
+`ifdef EXTRAS
+  inout RGB_R,
+  inout RGB_G,
+  inout RGB_B,
+  inout P1B9,
+  inout P1B10,
 `endif
   input  CLK
   );
@@ -211,6 +219,9 @@ M_main __main(
   .inout_sf_io1(FLASH_IO1),
   .inout_sf_io2(FLASH_IO2),
   .inout_sf_io3(FLASH_IO3),
+`endif
+`ifdef EXTRAS
+  .inout_extras({P1B10,P1B9,RGB_B,RGB_G,RGB_R}),
 `endif
   .in_run(run_main)
 );

@@ -12,7 +12,8 @@
         {"set"    : "oled", "define" : "OLED=1"},
         {"set"    : "pmod", "define" : "PMOD=1"},
         {"set"    : "spiflash", "define" : "SPIFLASH=1"},
-        {"set"    : "qspiflash", "define" : "QSPIFLASH=1"}
+        {"set"    : "qspiflash", "define" : "QSPIFLASH=1"},
+        {"set"    : "extras", "define" : "EXTRAS=1"}
       ],
       "builders": [
         {
