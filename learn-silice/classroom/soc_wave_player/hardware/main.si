@@ -328,9 +328,6 @@ $$end
 $$if Solution_LED then
       /// LEDs
       leds           = leds_access ? prev_wdata[0,8] : leds;
-$$else
-      __display("[cycle %d] CPU is writing %d to peripheral address @%x",
-                cycle,prev_wdata,prev_mem_addr);
 $$end
 $$if Solution_SCREEN then
       /// display
@@ -370,6 +367,9 @@ $$if SIMULATION then
         if (leds == 255) { __finish(); }// special LED value stops simulation
                                         // convenient to interrupt from firmware
       }
+  $$else
+      __display("[cycle %d] CPU is writing %d to peripheral address @%x",
+                cycle,prev_wdata,prev_mem_addr);
   $$end
   $$if Solution_UART then
       if (uart_access) { // printf via UART
