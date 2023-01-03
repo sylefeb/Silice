@@ -13,26 +13,23 @@ $$end
 // MIT license, see LICENSE_MIT in Silice repo root
 
 // Pre-compilation script, embeds compiled code within a string
-// - Code has to be compiled into firmware/code.hex before
+// Code has to be compiled into firmware/code.hex before
 $$dofile('pre_include_compiled.lua')
 
-// Setup memory
-// - we allocate 2^(addrW-1) uint32
+// Setup memory size
+// - addrW is the address bus width
 // - the topmost bit is used to indicate peripheral access
+// - we thus allocate 2^(addrW-1) uint32 of RAM
 $$addrW      = 15
-$$memmap_bit = addrW-1
-
+$$periph_bit = addrW-1
 // Configure BRAM (needed for write mask)
 $$config['bram_wmask_byte_wenable_width'] = 'data'
-
 // Includes the processor
 $include('../../../projects/ice-v/CPUs/ice-v.si')
-
 $$if Solution_SCREEN then
 // Includes the SPIscreen driver
 $include('../../../projects/ice-v/SOCs/ice-v-oled.si')
 $$end
-
 $$if Solution_UART then
 // Includes the UART controller
 $$uart_in_clock_freq_mhz = 25
@@ -40,9 +37,18 @@ $$uart_bauds             = 115200
 $include('../../../projects/common/uart.si')
 $$end
 
+// Memory interface between SOC and CPU
+group mem_io
+{
+  uint4       wenable(0), // write enable mask (xxxx, 0:nop, 1:write)
+  uint32      wdata(0),   // data to write
+  uint32      rdata(0),   // data read from memory
+  uint$addrW$ addr(0),    // address, init is boot address
+}
+
 $$if Solution_STREAM then
 // --------------------------------------------------
-// Audio output
+// Audio output unit
 // --------------------------------------------------
 
 unit audio(input  uint8 audio_in,output uint4 audio_out)
@@ -66,20 +72,9 @@ $$end
 $$end
 
 // --------------------------------------------------
-// SOC
+// SOC unit (main)
 // --------------------------------------------------
-
-// Memory interface between SOC and CPU
-group bram_io
-{
-  uint4       wenable(0), // write enable mask (xxxx, 0:nop, 1:write)
-  uint32      wdata(0),   // data to write
-  uint32      rdata(0),   // data read from memory
-  uint$addrW$ addr(0),    // address, init is boot address
-}
-
-// The SOC starts here
-// - some input/outputs do not exist in simulation and
+//   some input/outputs do not exist in simulation and
 //   are therefore enclosed in pre-processor conditions
 unit main(
   output uint8 leds,
@@ -126,6 +121,11 @@ $$if SDCARD then
 $$end
 $$end
 ) {
+
+$$if SIMULATION then
+   // count cycles in simulation for debugging purposes
+   uint32 cycle(0);
+$$end
 
 $$if Solution_SCREEN then
   // SPIscreen (OLED) controller chip
@@ -213,36 +213,64 @@ $$if Solution_STREAM then
   uint32 audio_addr_cpu           <:: 32h18000 | {22b0,audio_buffer_start_waddr};
 $$end
 
-	// for peripherals memory mapping, record previous cycle CPU access
+  // RAM
+  // Instantiate the memory interface
+  mem_io memio;
+  // Instantiate a BRAM holding the system's RAM, 32bits words
+  // -> uses template "bram_wmask_byte", that turns wenable into a byte mask
+  bram uint32 ram<"bram_wmask_byte">[$1<<(addrW-1)$] = $meminit$;
+
+  // Instantiate our CPU
+  rv32i_cpu cpu( mem <:> memio );
+
+	// Variables to record previous cycle CPU access (peripherals memory mapping)
+  // The CPU issues a memory request a cycle i and expects the result at i+1
 	uint$addrW$ prev_mem_addr(0);
 	uint4       prev_mem_rw(0);
   uint32      prev_wdata(0);
 
-$$if SIMULATION then
-   // count cycles in simulation for debugging purposes
-   uint32 cycle(0);
-$$end
-
-  // RAM
-  // Instantiate the memory interface
-  bram_io memio;
-  // Instantiate a BRAM holding the system's RAM
-  // -> uses template "bram_wmask_byte", that turns wenable into a byte mask
-  bram uint32 mem<"bram_wmask_byte">[$1<<(addrW-1)$] = $meminit$;
-
-  // Instantiate our CPU!
-  rv32i_cpu cpu( mem <:> memio );
-
   // --- SOC logic, the always block is always active
   always {
-    // track whether the CPU reads or writes a memory mapped peripheral
-    uint1 peripheral   =  prev_mem_addr[$memmap_bit$,1];
+$$if Solution_SCREEN then
+    display.enable     = 0;       // maintain display enable low (pulses on use)
+$$end
+$$if Solution_UART then
+    uo.data_in_ready   = 0;       // maintain uart trigger low (pulses on use)
+$$end
+$$if Solution_SPIflash then
+    reg_sf_miso        = sf_miso; // register flash miso
+$$end
+$$if Solution_SD then
+    reg_sd_miso        = sd_miso; // register sdcard miso
+$$end
+$$if Solution_BTN then
+    reg_btns           = btns;    // register buttons
+$$end
+$$if Solution_STREAM then
+    // ---- hardware audio streaming
+    audio_l             = audio.audio_out; // feed output to on-board DAC
+    audio_r             = audio.audio_out;
+    audio.audio_in      = audio_buffer.rdata0; // feed sample to audio out
+    audio_buffer_select = audio_buffer_sample[9,1]    // if == 512, done reading
+        ? ~audio_buffer_select : audio_buffer_select; // swap buffers
+    audio_buffer.addr0  = audio_buffer_start_raddr         // start addr
+                        | {1b0,audio_buffer_sample[0,9]};  // current sample
+    audio_buffer.wenable1 = 0; // maintain write port low (pulses on CPU write)
+    audio_buffer_sample   =
+          audio_buffer_sample[9,1] ? 0 : ( // reset counter if done
+              audio_counter != $PERIOD$
+            ? audio_buffer_sample     // stay on sample if delay not elapsed
+            : (audio_buffer_sample+1) // go to next sample
+          );
+    audio_counter       = (audio_counter == $PERIOD$) ? 0 : (audio_counter+1);
+$$end
+    // ---- check whether the CPU read from or wrote to a peripheral address
+    uint1 peripheral   =  prev_mem_addr[$periph_bit$,1];
     uint1 peripheral_r =  peripheral & (prev_mem_rw == 4b0); // reading periph.
     uint1 peripheral_w =  peripheral & (prev_mem_rw != 4b0); // writing periph.
 $$if Solution_AUDIO then
-    uint1 audio_access =  prev_mem_addr[$memmap_bit-1$,1];
+    uint1 audio_access =  prev_mem_addr[$periph_bit-1$,1];
 $$end
-    // track memory mapped peripherals access
 $$if Solution_LED then
     uint1 leds_access            = prev_mem_addr[ 0,1];
 $$end
@@ -262,14 +290,11 @@ $$end
 $$if Solution_BTN then
     uint1 button_access          = prev_mem_addr[ 6,1];
 $$end
-	  // ---- memory address access (reads and writes)
-    // forward CPU write enable to RAM
-    mem.wenable = memio.wenable & {4{~memio.addr[$memmap_bit$,1]}};
-		//                            ^^^^^^^ no BRAM write if in peripheral addresses
-    // data sent to the CPU
+	  // ---- memory access CPU <-> BRAM (reads and writes)
+    // reads  RAM, peripherals => CPU
     memio.rdata   = // read data is either from memory or SOC peripherals
        // CPU reading from RAM
-       (~peripheral_r                  ? mem.rdata          : 32b0)
+       (~peripheral_r                  ? ram.rdata          : 32b0)
        // CPU reading from peripherals
 $$if Solution_SPIflash then
      | ((peripheral_r & sf_access)     ? {31b0,reg_sf_miso} : 32b0)
@@ -284,42 +309,12 @@ $$if Solution_STREAM then
      | ((peripheral_r & audio_access)  ? audio_addr_cpu     : 32b0)
 $$end
     ;
-    mem.wdata        = memio.wdata;
-    mem.addr         = memio.addr;
-		// ---- peripherals
-$$if Solution_SCREEN then
-    display.enable     = 0;       // maintain display enable low (pulses on use)
-$$end
-$$if Solution_UART then
-    uo.data_in_ready   = 0;       // maintain uart trigger low (pulses on use)
-$$end
-$$if Solution_SPIflash then
-    reg_sf_miso        = sf_miso; // register flash miso
-$$end
-$$if Solution_SD then
-    reg_sd_miso        = sd_miso; // register sdcard miso
-$$end
-$$if Solution_BTN then
-    reg_btns           = btns;    // register buttons
-$$end
-$$if Solution_STREAM then
-    audio_l            = audio.audio_out; // feed output to on-board DAC
-    audio_r            = audio.audio_out;
-    audio.audio_in      = audio_buffer.rdata0; // feed sample to audio out
-    audio_buffer_select = audio_buffer_sample[9,1]    // if == 512, done reading
-        ? ~audio_buffer_select : audio_buffer_select; // swap buffers
-    audio_buffer.addr0  = audio_buffer_start_raddr         // start addr
-                        | {1b0,audio_buffer_sample[0,9]};  // current sample
-    audio_buffer.wenable1 = 0; // maintain write port low (pulses on CPU write)
-    audio_buffer_sample   =
-          audio_buffer_sample[9,1] ? 0 : ( // reset counter if done
-              audio_counter != $PERIOD$
-            ? audio_buffer_sample     // stay on sample if delay not elapsed
-            : (audio_buffer_sample+1) // go to next sample
-          );
-    audio_counter       = (audio_counter == $PERIOD$) ? 0 : (audio_counter+1);
-$$end
-    // ---- CPU is writing to peripherals
+    // writes CPU => RAM
+    ram.wenable = memio.wenable & {4{~memio.addr[$periph_bit$,1]}};
+		//                            ^^^^^^^ no write if on peripheral addresses
+    ram.wdata        = memio.wdata;
+    ram.addr         = memio.addr;
+    // writes CPU => peripherals
 $$if Solution_STREAM then
     if (peripheral_w & ~audio_access) {
 $$else

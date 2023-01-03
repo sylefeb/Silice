@@ -1,7 +1,7 @@
 // SL 2021-07-30 @sylefeb, dual core RV32I cpu, see IceVDual.md, MIT license
 bitfield Rtype { uint1 unused1, uint1 sign, uint4 unused2, uint1 muldiv,
                  uint5 rs2,     uint5 rs1,  uint3 op, uint5 rd, uint7 opcode}
-algorithm execute( // ================================== execute: decoder + ALU
+unit execute( // ================================== execute: decoder + ALU
   input  uint32 instr,    input  uint$addrW$ pc, input int32 xa, input int32 xb,
   input  uint1  trigger,  input  uint1  core_id,   output int32  r,
   output uint3  op,       output uint5  write_rd,  output uint1  no_rd,
@@ -61,7 +61,7 @@ algorithm execute( // ================================== execute: decoder + ALU
     n     = addr_a + addr_imm; // next address adder
     cycle = cycle + 1; // increment cycle counter
 } }
-algorithm rv32i_cpu(bram_port mem) { // ================= dual Risc-V RV32I CPU
+unit rv32i_cpu(bram_port mem) { // ================= dual Risc-V RV32I CPU
   // register files, two BRAMs to fetch two registers at once
   bram int32  rA_0[32]={pad(0)}; bram int32 rB_0[32]={pad(0)};
   bram int32  rA_1[32]={pad(0)}; bram int32 rB_1[32]={pad(0)};
