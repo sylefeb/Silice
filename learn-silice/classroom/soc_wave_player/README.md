@@ -3,12 +3,20 @@
 
 ---
 
-This classroom project targets the [ULX3S board](https://radiona.org/ulx3s/) with a [SSD1351 128x128 pixel SPI screen](https://www.waveshare.com/1.5inch-rgb-oled-module.htm), a SDcard and speakers/headphones with a standard audio jack.
+This classroom project targets the [ULX3S board](https://radiona.org/ulx3s/) with a [SSD1351 128x128 pixel SPI screen](https://www.waveshare.com/1.5inch-rgb-oled-module.htm), a SDcard and speakers/headphones with a standard audio jack. The end goal is to build a custom wave player reading files from a SDcard, with a graphical selection menu.
 
-The end goal is to build a custom wave player reading files from a SDcard, with a graphical selection menu.
+We will not be starting from scratch. Instead we will hack new features within
+an existing basic SOC. The idea is to learn and understand
+progressively by enriching the design, while starting with something quite
+capable already.
 
-This project focuses on the System-On-Chip (SOC) hardware that glues
-the [RISC-V RV32I CPU](../../../projects/ice-v/IceV.md) to the peripherals (screen, SDcard, audio output and audio hardware streaming buffer).
+The project focuses on the so called "System-On-Chip" (SOC). This is the hardware
+that glues the CPU ([we use a RISCV RV32I CPU](../../../projects/ice-v/IceV.md))
+to the peripherals (screen, SDcard, audio, etc.).
+The SOC is a key part of a design, and in particular this is where we can implement additional hardware support for functionalities that the CPU cannot efficiently deal with -- think co-processors for sound,
+graphics and input devices. In this project we will implement a hardware PWM
+for the audio, and the SOC also helps the CPU with audio streaming.
+
 We will proceed step-by-step with exercises, to understand each component of
 the SOC.
 
@@ -16,7 +24,8 @@ The project is divided into seven steps. While most steps have exercises, a few
 are only about testing and understanding the design. The very first step (step 0)
 has a [complete walkthrough](#step-0).
 
-The final exercise is to build your own player around these components.
+The final exercise is to build your own player around these components. Please
+send share the results with everyone!
 
 ## Setup instructions
 
@@ -187,7 +196,7 @@ for this purpose in the SOC:
   ```
   This says "if `led_access` is true, assign `prev_wdata[0,8]` to `leds` otherwise assign `leds` to `leds`" (which means `leds` keeps its value).
   This sort of conditional "assign or stay the same" is very often encountered
-  in hardware designs.
+  in hardware designs. If you find it confusing, simply do ```if (led_access) { leds = prev_wdata[0,8]; }``` instead.
 
   > We used the syntax `prev_wdata[0,8]` to assign the eight least significant
   bits of the 32 bits `prev_wdata` from the CPU. Using `prev_wdata` would have done the same by defaults since `leds` is 8 bits, however it is a good practice
@@ -199,8 +208,11 @@ Proceed as with [step 0](#step-0), this time writing data to `audio_l` and `audi
 
 ### Step 3
 
-This step differs from steps 0 and 1 in that this time we send back data to the
-CPU when it accesses (reads) the `BUTTONS` pointer. Proceed similarly to detect
+This step differs from steps 0 and 1 in that this time we send data back to the
+CPU when it accesses (reads) the `BUTTONS` pointer.
+The on-board buttons are given to the SOC as an input, `input uint7 btns`.
+
+Proceed similarly to detect
 when the accessed address corresponds to the buttons. Then, insert a new line
 in the assignment to `memio.rdata = ...` such that it is assigned the button
 status when the corresponding address is selected.
@@ -214,12 +226,33 @@ an expression `(a ? A : 0) | (b ? B : 0)` evaluates to:
 > - `B` if `b` is true and not `a`,
 > - 0 if neither `a` nor `b` are true
 >
-> It is then possible to chain multiple such expressions `(a ? A : 0) | (b ? B : 0) | (c ? C : 0) | ...` that will evaluate to `A`, `B` or `C` assuming `a`,`b` and `c` are mutually exclusive.
+> It is then possible to chain multiple such expressions `(a ? A : 0) | (b ? B : 0) | (c ? C : 0) | ...` that will evaluate to `A`, `B` or `C` assuming `a`,`b` and `c` are mutually exclusive. This construct is used in the SOC to assign different values to `memio.rdata = ...`, it is generally more efficient that a cascade of ifs.
+
+### Step 4
+
+See how the menu was implemented in the firmware from step 3 ([step3_menu.c](firmware/step3_menu.c)) and combine
+it with the firmware of step 4 ([step4_list_files.c](firmware/step4_list_files.c)).
+
+### Step 5
+
+Encode a music, copy it onto the SDcard and listen to it with the design produced
+by `make step5 FIRMWARE=step5_audio_stream.c`. The music will be recognizable but
+the quality will be horrendous.
+
+> The music file should be called `music.raw` and place on the SDcard root directory. Prepare the file using `./encode_music.sh <file.mp3>` (ffmpeg has to be installed). Use your favorite `mp3` (or perhaps not, this music is going to go through a grinder ;) ).
+
+Why is the sound so bad? The onboard DAC is only 4 bits and our music file only
+has 8 bits per sample to start with. We need a way to take into account this
+missing information!
 
 ### Step 6
 
 To improve sound quality we implement a hardware audio PWM ([see here for the principle](https://electronics.stackexchange.com/questions/239442/audio-using-pwm-what-is-the-principle-behind-it)).
-Surprisingly I got best results with the PWM using a single bit of the DAC, considering all 8 sample bits as fractional part.
+
+Somewhat surprisingly I got best results with the PWM using a single bit of the DAC, considering all 8 sample bits as fractional part.
+
+Implementing the PWM does not require a lot of code ; the solution should
+take only a few lines. Tip: all that is needed is a counter and a comparison.
 
 ### About image files
 

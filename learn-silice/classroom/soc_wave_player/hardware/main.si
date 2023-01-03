@@ -144,10 +144,6 @@ $$if Solution_SCREEN then
 $$end
 
 $$if Solution_SPIflash then
-  // spiflash miso register
-  // -> avoid readin a pin directly in design as it is asynchronous
-  //    we always track it in a register which updates on clock posedge
-  uint1       reg_sf_miso(0);
 $$if not SPIFLASH then
   // for simulation ('fake' inputs/outputs)
   uint1       sf_clk(0);
@@ -158,8 +154,6 @@ $$end
 $$end
 
 $$if Solution_SD then
-  // SDCARD miso register
-  uint1        reg_sd_miso(0);
 $$if not SDCARD then
   // for simulation ('fake' inputs/outputs)
   uint1  sd_clk(0);
@@ -182,17 +176,15 @@ $$end
 $$end
 
 $$if Solution_BTN then
-  // buttons inputs register
-  // -> also an asynchronous signal, so we register it
-  uint7 reg_btns(0);
 $$if not BUTTONS then
+  // for simulation ('fake' inputs/outputs)
   uint7 btns(0);
 $$end
 $$end
 
 $$if Solution_AUDIO then
 $$if not AUDIO then
-  // audio bypass for simulation
+  // for simulation ('fake' inputs/outputs)
   uint4 audio_l(0);
   uint4 audio_r(0);
 $$end
@@ -236,15 +228,6 @@ $$if Solution_SCREEN then
 $$end
 $$if Solution_UART then
     uo.data_in_ready   = 0;       // maintain uart trigger low (pulses on use)
-$$end
-$$if Solution_SPIflash then
-    reg_sf_miso        = sf_miso; // register flash miso
-$$end
-$$if Solution_SD then
-    reg_sd_miso        = sd_miso; // register sdcard miso
-$$end
-$$if Solution_BTN then
-    reg_btns           = btns;    // register buttons
 $$end
 $$if Solution_STREAM then
     // ---- hardware audio streaming
@@ -297,13 +280,13 @@ $$end
        (~peripheral_r                  ? ram.rdata          : 32b0)
        // CPU reading from peripherals
 $$if Solution_SPIflash then
-     | ((peripheral_r & sf_access)     ? {31b0,reg_sf_miso} : 32b0)
+     | ((peripheral_r & sf_access)     ? {31b0,    sf_miso} : 32b0)
 $$end
 $$if Solution_SD then
-     | ((peripheral_r & sd_access)     ? {31b0,reg_sd_miso} : 32b0)
+     | ((peripheral_r & sd_access)     ? {31b0,    sd_miso} : 32b0)
 $$end
 $$if Solution_BTN then
-     | ((peripheral_r & button_access) ? {31b0,   reg_btns} : 32b0)
+     | ((peripheral_r & button_access) ? {31b0,       btns} : 32b0)
 $$end
 $$if Solution_STREAM then
      | ((peripheral_r & audio_access)  ? audio_addr_cpu     : 32b0)
