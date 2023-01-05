@@ -26,7 +26,7 @@ not be used as R,G,B or ID (thus max R,G,B is 254).
 
 // NOTE: this code drivea fixed number of LEDs, change the number below
 // (max 256 otherwise adjust bitwidths below)
-$$ NUM_PIXS = 96
+$$ NUM_PIXS = 83
 
 $$ t0h_cycles          = 5  -- 416 nsec
 $$ t0l_cycles          = 10 -- 833 nsec
@@ -102,11 +102,11 @@ algorithm main(
       colors.addr0 = led_id;
       // send the 24 bits
       while (i != 24) {
-        uint10 th <:: send_clr[23,1] ? $t1h_cycles-2$ : $t0h_cycles-2$;
-        //                                        ^^^              ^^^
+        uint10 th = send_clr[23,1] ? $t1h_cycles-2$ : $t0h_cycles-2$;
+        //                                     ^^^              ^^^
         // this accounts for the two cycles entering and exiting a while
-        uint10 tl <:: send_clr[23,1] ? $t1l_cycles-3$ : $t0l_cycles-3$;
-        //                                        ^^^              ^^^
+        uint10 tl = send_clr[23,1] ? $t1l_cycles-3$ : $t0l_cycles-3$;
+        //                                     ^^^              ^^^
         // this accounts for the two cycles entering and exiting a while and
         // the additional cycle it takes to loop back in the main loop
         // generates a '1'
