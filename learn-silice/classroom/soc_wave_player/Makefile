@@ -28,22 +28,22 @@ step2: step2.si
 ifeq ($(BOARD),verilator)
 	silice-make.py -s $@.si -b $(BOARD) -p basic,oled -o BUILD_$(subst :,_,$@) $(ARGS)
 else
-	silice-make.py -s $@.si -b $(BOARD) -p basic,audio,oled -o BUILD_$(subst :,_,$@) $(ARGS)
+	silice-make.py -s $@.si -b $(BOARD) -p basic,audio,oled,sdcard -o BUILD_$(subst :,_,$@) $(ARGS)
 endif
 
 step2.si : hardware/main.si
-	python ../tools/solutions.py -i hardware/main.si -s LED,AUDIO,SCREEN > $@
+	python ../tools/solutions.py -i hardware/main.si -s LED,AUDIO,SCREEN,SD > $@
 
 step3: step3.si
 	make -C firmware $(FIRMWARE)
 ifeq ($(BOARD),verilator)
 	silice-make.py -s $@.si -b $(BOARD) -p basic,oled -o BUILD_$(subst :,_,$@) $(ARGS)
 else
-	silice-make.py -s $@.si -b $(BOARD) -p basic,audio,oled,buttons -o BUILD_$(subst :,_,$@) $(ARGS)
+	silice-make.py -s $@.si -b $(BOARD) -p basic,audio,oled,buttons,sdcard -o BUILD_$(subst :,_,$@) $(ARGS)
 endif
 
 step3.si : hardware/main.si
-	python ../tools/solutions.py -i hardware/main.si -s LED,AUDIO,SCREEN > $@
+	python ../tools/solutions.py -i hardware/main.si -s LED,AUDIO,SCREEN,SD > $@
 
 step4: step4.si
 	make -C firmware $(FIRMWARE)
