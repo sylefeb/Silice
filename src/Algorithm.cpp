@@ -5342,14 +5342,54 @@ void Algorithm::determineBlockVIOAccess(
 
 // -------------------------------------------------
 
-void Algorithm::determineAccess(t_combinational_block *block)
+void Algorithm::determineAccess(t_combinational_block *head)
 {
-  // determine variable access
+  std::queue< std::pair< t_combinational_block*, std::unordered_set<std::string> > > q;
+  //                     ^^^^ block              ^^^^ already written
+  std::unordered_set< t_combinational_block* > visited;
+  // determine variable access for head
   std::unordered_set<std::string> already_written;
-  std::vector<t_instr_nfo>        instrs;
-  getAllBlockInstructions(block,instrs);
-  for (const auto& i : instrs) {
-    determineAccess(i.instr, block, already_written, block->in_vars_read, block->out_vars_written);
+  {
+    std::vector<t_instr_nfo>      instrs;
+    getAllBlockInstructions(head, instrs);
+    for (const auto& i : instrs) {
+      determineAccess(i.instr, head, already_written, head->in_vars_read, head->out_vars_written);
+    }
+  }
+  // initialize queue
+  {
+    std::vector< t_combinational_block* > children;
+    head->getChildren(children);
+    for (auto c : children) {
+      q.push(std::make_pair(c, already_written));
+    }
+  }
+  // explore
+  while (!q.empty()) {
+    auto cur = q.front();
+    q.pop();
+    visited.insert(cur.first);
+    // check
+    if (cur.first == nullptr) { // tags a forward ref (jump), not stateless
+      // do not recurse
+    } else if (cur.first->is_state) {
+      // do not recurse
+    } else {
+      // determine variable access
+      std::vector<t_instr_nfo>     instrs;
+      getAllBlockInstructions(cur.first, instrs);
+      for (const auto& i : instrs) {
+        determineAccess(i.instr, cur.first, cur.second, cur.first->in_vars_read, cur.first->out_vars_written);
+      }
+      // recurse
+      std::vector< t_combinational_block* > children;
+      cur.first->getChildren(children);
+      for (auto c : children) {
+        if (visited.count(c) == 0) {
+          q.push(std::make_pair(c,cur.second));
+        }
+      }
+    }
   }
 }
 
@@ -5455,14 +5495,14 @@ void Algorithm::determineAccess(
 {
   // for all blocks
   for (auto& b : m_Blocks) {
-    if (b->state_id == -1 && b->is_state) {
-      continue; // block is never reached
+    if (b->is_state && b->state_id != -1) {
+      //               ^^^^^^^^^^^ state is never reached
+      determineAccess(b);
     }
-    determineAccess(b);
   }
   // determine variable access for always blocks
   determineAccess(&m_AlwaysPre);
-  determineAccess(&m_AlwaysPost);
+  determineAccess(&m_AlwaysPost); // TODO: should see all always written as written before? (missing opportunities for temps)
   // determine variable access due to instances
   // -> bindings are considered as belonging to the always pre block
   std::vector<t_binding_nfo> all_bindings;

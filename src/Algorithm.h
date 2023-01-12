@@ -806,7 +806,7 @@ private:
     t_combinational_block *gatherJoinExec(siliceParser::JoinExecContext* join, t_combinational_block *_current, t_gather_context *_context);
     /// \brief tests whether a graph of block is stateless
     bool isStateLessGraph(const t_combinational_block *head) const;
-    /// \brief find all non-comibnation leaves from this block
+    /// \brief find all non-combination leaves from this block
     void findNonCombinationalLeaves(const t_combinational_block *head,std::set<t_combinational_block*>& _leaves) const;
     /// \brief gather an if-then-else
     t_combinational_block *gatherIfElse(siliceParser::IfThenElseContext* ifelse, t_combinational_block *_current, t_gather_context *_context);
