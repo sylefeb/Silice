@@ -6,6 +6,7 @@ out.v
 *.d
 *.class
 *.interp
+src/version.inc
 BUILD*
 antlr/*.tokens
 antlr/*Listener.*

@@ -1,0 +1,14 @@
+algorithm main(output uint8 leds)
+{
+
+int8 a = 0;
+
+a = 1;
+if (a == 2) { goto g2; }
+a = 3;
+++:
+a = 10;
+g2:
+a = 100;
+
+}

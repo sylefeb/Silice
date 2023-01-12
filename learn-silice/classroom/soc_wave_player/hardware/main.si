@@ -131,9 +131,6 @@ $$if Solution_SCREEN then
   // SPIscreen (OLED) controller chip
   uint1 displ_dta_or_cmd <: prev_wdata[10,1];
   uint8 displ_byte       <: prev_wdata[0,8];
-  uint1 internal_oled_mosi(0);
-  uint1 internal_oled_clk(0);
-  uint1 internal_oled_dc(0);
   oled display(
     data_or_command <: displ_dta_or_cmd,
     byte            <: displ_byte,

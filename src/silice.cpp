@@ -38,6 +38,8 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <tclap/CmdLine.h>
 #include <tclap/UnlabeledValueArg.h>
 
+#include "version.inc"
+
 using namespace Silice;
 
 // -------------------------------------------------
@@ -46,11 +48,18 @@ int main(int argc, char **argv)
 {
   try {
 
+    const std::string version_string = std::string(" 0.1.1") + " " + c_GitHash;
+    //                                               ^ ^ ^
+    //                                               | | |
+    //                                               | | \_ increments with features in wip/draft (x.x.x)
+    //                                               | \_ increments with features in master (x.x.0)
+    //                                               \_ increments on releases (x.0.0)
+
     TCLAP::CmdLine cmd(
       "<< Silice to Verilog compiler >>\n"
       "(c) Sylvain Lefebvre -- @sylefeb\n"
       "Under GPLv3 license, see LICENSE_GPLv3 in Silice repo root, source code on https://github.com/sylefeb/Silice\n"
-      , ' ', "0.1");
+      ,' ', version_string.c_str());
 
     TCLAP::UnlabeledValueArg<std::string> source("source", "Input source file (.si)", true, "","string");
     cmd.add(source);
