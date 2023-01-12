@@ -2630,9 +2630,6 @@ bool Algorithm::isStateLessGraph(const t_combinational_block *head) const
     q.pop();
     visited.insert(cur);
     // test
-    if (cur == nullptr) { // tags a forward ref (jump), not stateless
-      return false;
-    }
     if (cur->is_state) {
       return false; // not stateless
     }
@@ -2641,7 +2638,7 @@ bool Algorithm::isStateLessGraph(const t_combinational_block *head) const
     cur->getChildren(children);
     for (auto c : children) {
       if (c == nullptr) {
-        continue;
+        return false; // tags a forward ref (jump), not stateless
       }
       if (visited.count(c) == 0 && c->context.fsm == head->context.fsm) {
         q.push(c);
