@@ -175,7 +175,7 @@ which is `10000000000000100` in binary? Looks like it should be bit 2? Excellent
 We can thus add a variable tracking whether the LED is being written:
 ```c
   // in step0.si ... (Silice design), add after line 71
-  uint1 leds_access = prev_mem_addr[ 0,1] & is_device;
+  uint1 leds_access = prev_mem_addr[ 0,1];
 ```
 
 We now detect that the LEDs address is being written, but we still have to act on it! When, how and what do we write to the `leds` output?
