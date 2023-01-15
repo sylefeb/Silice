@@ -1859,15 +1859,25 @@ Algorithm::t_combinational_block *Algorithm::splitOrContinueBlock(siliceParser::
 {
   if (ilist->state() != nullptr) {
     // start a new block
-    bool no_skip = true;
+    bool no_skip  = false;
+    bool is_state = false;
     std::string name;
-    if (ilist->state()->state_name != nullptr) {
-      name = ilist->state()->state_name->getText();
+    if (ilist->state()->NEXT() == nullptr) {
+      // label
+      name    = ilist->state()->state_name->getText();
+      if (name.empty()) {
+        reportError(sourceloc(ilist->state()), "state name cannot be empty"); // should never occur under grammar rules
+      }
+      is_state = false; // named states are states only if jumped to
+      no_skip  = false; // named states may be skipped
     } else {
-      name = generateBlockName();
+      // step operator
+      name     = generateBlockName();
+      is_state = true; // block explicitely required to be a state
+      no_skip  = true; // block state cannot be skipped
     }
     t_combinational_block *block = addBlock(name, _current, nullptr, sourceloc(ilist));
-    block->is_state     = true;    // block explicitely required to be a state
+    block->is_state     = is_state;
     block->no_skip      = no_skip;
     _current->next(block);
     _context->in_algorithm_preamble = false;

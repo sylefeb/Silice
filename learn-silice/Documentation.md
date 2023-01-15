@@ -1211,13 +1211,34 @@ directly, it is recommended to prefer higher level primitives such as
 and maintain code[3]. Yet, they are a fundamental low-level operation
 and Silice is happy to expose them for your enjoyment!
 
+Goto labels are added with the `<LABEL_NAME>:` syntax at the
+beginning of a line, for instance:
+``` c
+  a = b + 1;
+  if (a == 0) {
+    goto error;
+  }
+  goto done;
+error:
+  leds = 255;
+done:
+}
+```
+
 `goto` always requires one cycle to ’jump’: this is a change of state in
 the FSM. Entering a `while` takes one cycle and then, if the block inside is
 a single combinational chain, it takes exactly one cycle per iteration.
 Exiting a `while` takes one cycle ; however when chaining
 loops only one cycle is required to enter the next loop. So the first
-loop takes one cycle to enter, any additional loop afterwards adds a single cycle
-if there is nothing in between them, the last loop takes one cycle to exit.
+loop takes one cycle to enter, any additional loop afterwards adds a single
+cycle if there is nothing in between them, the last loop takes one cycle to
+exit.
+
+> **Note:** When a label is jumped to, a cycle is introduced at the label
+location as if the step operator `++:` had been used, unless it is
+directly following an existing state (e.g. after a while). If the label is never
+jumped to from a goto, no additional cycle is introduced and the label has
+no effect.
 
 Now, `if-then-else` is slightly more subtle. When applied to sequences
 of operations not requiring any control flow, an `if-then-else`

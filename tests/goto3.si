@@ -1,0 +1,26 @@
+algorithm main(output uint8 leds)
+{
+
+int8 a = 0;
+
+a = 1;
+if (a == 2) { goto g2; }
+a = 103;
+g2:
+a = 3;
+++:
+a = 10;
+unused:
+a = 20;
+a = 30;
+while (a < 10) {  }
+g3:
+a = 100;
+a = 101;
+goto g4;
+a = 102;
+++:
+g4:
+a = 103;
+
+}
