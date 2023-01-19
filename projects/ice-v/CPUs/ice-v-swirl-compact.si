@@ -11,28 +11,23 @@ unit rv32i_cpu_swirl(bram_port mem,bram_port rom) { // ===================== CPU
   // ^^^^^^^^^^^^^ dualport so that we can read/write simultaneously
   // however read/write on same address returns old value
   // pipeline control signals
-  uint$addrW$   pc(0);           uint32 instr(0);
-  uint1         hold(0);         uint1  bubble(0);
+  uint$addrW$   pc(0);           uint32 instr(0);   uint1 bpred(0);
+  uint1         hold(0);         uint1  bubble(0);  uint1 jumping(0);
   uint$addrW$   refetch_addr(0); uint1  refetch(0); uint1 stage3_bubble(0);
-  uint1         bpred(0);        int32  xb(0);      uint1 jumping(0);
-  uint1         no_rd(0);        uint5  rd(0);
+  int32         xb(0);           uint1  no_rd(0);   uint5  rd(0);
   // what to write in decoder + ALU register inputs
   // these are mutually exclusive choices; see exec.xa = ... after pipeline
   uint1 xa_keep(0);  uint1 xa_regR(0);  uint1 xa_regW(0);  uint1 xa_regW_prev(0);
   uint1 xb_keep(0);  uint1 xb_regR(0);  uint1 xb_regW(0);  uint1 xb_regW_prev(0);
   // decoder + ALU, executes the instruction and tells processor what to do
-  decode_and_ALU_swirl exec<reginputs>;
+  decode_and_ALU_swirl exec<reginputs>; // registered inputs
 $$if SIMULATION then
   uint32 reinstr(0);
 $$end
   always {
-    // tracks whether a register was written cycle before
-    uint1 reg_was_written(0);
-    reg_was_written  = xregsA.wenable1;
-    // maintain register wenable low (pulsed when necessary)
-    xregsA.wenable1  = 0;
-    // maintain memory write low
-    mem.wenable      = 0;
+    uint1 reg_was_written = xregsA.wenable1; // was a reg. written cycle before?
+    // maintain wenable low (pulsed when necessary)
+    xregsA.wenable1 = 0; mem.wenable = 0;
     { // start of pipeline
 // ==== stage 1
       pc       = hold ? pc    : rom.addr;  // update pc
@@ -170,15 +165,14 @@ unit decode_and_ALU_swirl( // ----------------------------------- decoder + ALU
   output! uint1 intop,     output! uint3 op, output! int32 r, output! int32 val,
 ) { uint32 cycle(0); // cycle counter
   always { // ==== decode op
-  op             = Rtype(instr).op;    write_rd      = Rtype(instr).rd;
-  uint5 opcode   = instr[ 2, 5];       is_branch     = opcode == 5b11000;
-  load           = opcode == 5b00000;  store         = opcode == 5b01000;
-  uint1 AUIPC    = opcode == 5b00101;  uint1 LUI     = opcode == 5b01101;
-  uint1 JAL      = opcode == 5b11011;  uint1 JALR    = opcode == 5b11001;
-  uint1 CSR      = opcode == 5b11100;
+  op             = Rtype(instr).op;    write_rd       = Rtype(instr).rd;
+  uint5 opcode   = instr[ 2, 5];       is_branch      = opcode == 5b11000;
+  load           = opcode == 5b00000;  store          = opcode == 5b01000;
+  uint1 AUIPC    = opcode == 5b00101;  uint1 LUI      = opcode == 5b01101;
+  uint1 JAL      = opcode == 5b11011;  uint1 JALR     = opcode == 5b11001;
   uint1 IntImm   = opcode == 5b00100;   uint1 IntReg  = opcode == 5b01100;
   uint1 regOrImm = IntReg  | is_branch; uint1 pcOrReg = AUIPC | JAL | is_branch;
-  uint1 sub      = IntReg  & Rtype(instr).sign;
+  uint1 sub      = IntReg  & Rtype(instr).sign; uint1 CSR = opcode == 5b11100;
   // ==== decode immediates
   int32 imm_u  = {instr[12,20],12b0};
   int32 imm_j  = {{12{instr[31,1]}},instr[12,8],instr[20,1],instr[21,10],1b0};

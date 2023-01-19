@@ -8330,8 +8330,8 @@ void Algorithm::writeStatelessBlockGraph(
       }
     } else {
       // no action
-      if (fsm) {
-        if (! (fsm == &m_RootFSM && hasNoFSM() ) ) { // special case for root fsm
+      if (fsm) {                 // vvvvvvvvvv special case for root fsm
+        if ( !fsmIsEmpty(fsm) && !(fsm == &m_RootFSM && hasNoFSM()) ) {
           // goto end
           w.out << FF_D << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm,terminationState(fsm)) << ";" << nxl;
         }
