@@ -4,21 +4,19 @@ bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2,
                  uint5 rs1,     uint3 op,   uint5 rd,      uint7 opcode}
 $$ICEV_RTYPE = 1
 $$end
-unit rv32i_cpu_swirl(bram_port mem,bram_port rom) { // ===================== CPU
+unit rv32i_cpu_swirl(bram_port mem,bram_port rom) { // ____________________ CPU
   // register file, uses 2x BRAMs, fetch 2x registers at once, r/w same cycle
-  simple_dualport_bram int32 xregsA[32] = {pad(0)};
+  simple_dualport_bram int32 xregsA[32] = {pad(0)}; // r/w on same returns old
   simple_dualport_bram int32 xregsB[32] = {pad(0)};
-  // ^^^^^^^^^^^^^ dualport so that we can read/write simultaneously
-  // however read/write on same address returns old value
-  // pipeline control signals
-  uint$addrW$   pc(0);           uint32 instr(0);   uint1 bpred(0);
-  uint1         hold(0);         uint1  bubble(0);  uint1 jumping(0);
-  uint$addrW$   refetch_addr(0); uint1  refetch(0); uint1 stage3_bubble(0);
-  int32         xb(0);           uint1  no_rd(0);   uint5  rd(0);
+  // CPU state variables
+  uint$addrW$  pc(0);            uint32 instr(0);    uint1 bpred(0);
+  uint1        hold(0);          uint1  bubble(0);   uint1 jumping(0);
+  uint$addrW$  refetch_addr(0);  uint1  refetch(0);  uint1 stage3_bubble(0);
+  int32        xb(0);            uint1  no_rd(0);    uint5 rd(0);
   // what to write in decoder + ALU register inputs
   // these are mutually exclusive choices; see exec.xa = ... after pipeline
-  uint1 xa_keep(0);  uint1 xa_regR(0);  uint1 xa_regW(0);  uint1 xa_regW_prev(0);
-  uint1 xb_keep(0);  uint1 xb_regR(0);  uint1 xb_regW(0);  uint1 xb_regW_prev(0);
+  uint1 xa_keep(0); uint1 xa_regR(0); uint1 xa_regW(0); uint1 xa_regW_prev(0);
+  uint1 xb_keep(0); uint1 xb_regR(0); uint1 xb_regW(0); uint1 xb_regW_prev(0);
   // decoder + ALU, executes the instruction and tells processor what to do
   decode_and_ALU_swirl exec<reginputs>; // registered inputs
 $$if SIMULATION then
@@ -26,13 +24,11 @@ $$if SIMULATION then
 $$end
   always {
     uint1 reg_was_written = xregsA.wenable1; // was a reg. written cycle before?
-    // maintain wenable low (pulsed when necessary)
-    xregsA.wenable1 = 0; mem.wenable = 0;
+    xregsA.wenable1 = 0; mem.wenable = 0; // default wenable to low
     { // start of pipeline
 // ==== stage 1
-      pc       = hold ? pc    : rom.addr;  // update pc
-      instr    = hold ? instr : rom.rdata; // update instruction
-      //         ^^^^ hold if hazard (c)
+      pc       = hold ? pc    : rom.addr;  // hold or update pc
+      instr    = hold ? instr : rom.rdata; // hold or update instruction
       bubble   = refetch | reset; // insert a bubble on a refetch
       // setup register read
       xregsA.addr0 = Rtype(instr).rs1; xregsB.addr0 = Rtype(instr).rs2;
@@ -49,17 +45,16 @@ $$end
                             ? (bpred ? (bpred_n>>2) : (pc[0,$addrW$] + 1))
                             : pc;
 -> // ==== stage 2
-      instr        = hold ? exec.instr : instr; // update instruction
-      pc           = hold ? exec.pc    : pc;    // update pc
-      exec.instr   = instr; exec.pc    = pc;    // give new instr and pc to ALU
+      instr        = hold ? exec.instr : instr; // hold instruction if needed
+      pc           = hold ? exec.pc    : pc;    // hold pc if needed
+      exec.instr   = instr; exec.pc    = pc;    // give instr and pc to ALU
       // maintain branch prediction indicator on bubbles
       uint1 prev_bpred(0); bpred = hold? prev_bpred : bpred; prev_bpred = bpred;
       // data hazards detection
       uint1 store     = (Rtype(instr).opcode[2,5] == 5b01000); // store
       uint1 has_rs2   = store | (Rtype(instr).opcode[2,5] == 5b01100)  // intreg
                               | (Rtype(instr).opcode[2,5] == 5b11000); // branch
-      // by default we select the register value read after stage 1
-      // (assuming no data hazard)
+      // by default we select the register value read after stage 1 (no hazard)
       xa_regR = 1; xa_regW = 0; xa_regW_prev = 0; xa_keep = 0;
       xb_regR = 1; xb_regW = 0; xb_regW_prev = 0; xb_keep = 0;
       // [data hazards] case (c) detection
@@ -129,7 +124,7 @@ $$end
                     | (storeAddr ? alu_n  : 32b0) | (storeVal ? alu_val : 32b0)
                     | (load      ? loaded : 32b0) | (intop    ? alu_r   : 32b0);
 $$if ICEV_VERILATOR_TRACE then
-      // this is used by SOCs/ice-v-cmp, to track retired instr. and compare CPUs
+      // this is used by SOCs/ice-v-cmp, to track retired instr and compare CPUs
       if (~bubble & ~refetch & ~reset) {
 				__verilog("$c32(\"cpu_retires(3,\",%,\",\",%,\",\",%,\",\",%,\");\");",
           pc<<2,instr,Rtype(instr).rd,xregsA.wdata1);
@@ -157,7 +152,7 @@ $$end
     xregsB.wdata1 = xregsA.wdata1;
     xregsB.addr1 = xregsA.addr1;
 } }
-unit decode_and_ALU_swirl( // ----------------------------------- decoder + ALU
+unit decode_and_ALU_swirl( // ___________________________________ decoder + ALU
   input   uint32 instr,    input uint$addrW$ pc, input int32 xa, input int32 xb,
   output! uint1 no_rd,     output! uint1 jump,     output! uint$addrW+2$ n(0),
   output! uint1 load,      output! uint1 store,    output! uint5  write_rd,
