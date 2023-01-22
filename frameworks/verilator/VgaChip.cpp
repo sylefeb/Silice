@@ -71,6 +71,17 @@ void VgaChip::set1024x768()
 
 // ----------------------------------------------------------------------------
 
+void VgaChip::set1280x960()
+{
+  m_framebuffer  = LibSL::Image::ImageRGBA(1280,960);
+  m_h_res        = 1280;
+  m_h_bck_porch  = 216;
+  m_v_res        = 960;
+  m_v_bck_porch  = 30;
+}
+
+// ----------------------------------------------------------------------------
+
 void VgaChip::set1920x1080()
 {
   m_framebuffer  = LibSL::Image::ImageRGBA(1920,1080);
@@ -86,6 +97,8 @@ void VgaChip::setResolution(int w,int h)
 {
   if (w == 1920 && h == 1080) {
     set1920x1080();
+  } else if (w == 1280 && h == 960) {
+    set1280x960();
   } else if (w == 1024 && h == 768) {
     set1024x768();
   } else if (w == 800 && h == 600) {

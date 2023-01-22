@@ -63,6 +63,7 @@ private:
   void set640x480();
   void set800x600();
   void set1024x768();
+  void set1280x960();
   void set1920x1080();
 
 public:

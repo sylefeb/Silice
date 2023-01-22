@@ -25,6 +25,17 @@ $$  V_FRT_PORCH = 3
 $$  V_SYNCH     = 6
 $$  V_BCK_PORCH = 29
 $$  V_RES       = 768
+$$elseif VGA_1280_960 then
+//_ 1280x960@60 (102MHz pixel clock)
+$$  H_FRT_PORCH = 80
+$$  H_SYNCH     = 136
+$$  H_BCK_PORCH = 216
+$$  H_RES       = 1280
+//
+$$  V_FRT_PORCH = 1
+$$  V_SYNCH     = 3
+$$  V_BCK_PORCH = 30
+$$  V_RES       = 960
 $$elseif VGA_800_600 then
 //_ 800x600@56 (36MHz pixel clock)
 $$  H_FRT_PORCH = 24
@@ -112,6 +123,8 @@ $$if VGA_1024_768 then
     __verilog("$c32(\"set_vga_resolution(1024,768);\");");
 $$elseif VGA_800_600 then
     __verilog("$c32(\"set_vga_resolution(800,600);\");");
+$$elseif VGA_1280_960 then
+    __verilog("$c32(\"set_vga_resolution(1280,960);\");");
 $$elseif VGA_1920_1080 then
     __verilog("$c32(\"set_vga_resolution(1920,1080);\");");
 $$else
