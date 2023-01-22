@@ -24,7 +24,7 @@ $$ICEV_FAST_SHIFT=1
 $$ICEV_VERILATOR_TRACE=1
 $include('../CPUs/ice-v.si')
 $include('../CPUs/ice-v-conveyor.si')
-$include('../CPUs/ice-v-swirl.si')
+$include('../CPUs/ice-v-swirl-compact.si')
 
 // --------------------------------------------------
 // SOC

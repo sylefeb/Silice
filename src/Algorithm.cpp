@@ -8370,8 +8370,8 @@ void Algorithm::writeStatelessBlockGraph(
       }
     } else {
       // no action
-      if (fsm) {
-        if (! (fsm == &m_RootFSM && hasNoFSM() ) ) { // special case for root fsm
+      if (fsm) {                 // vvvvvvvvvv special case for root fsm
+        if ( !fsmIsEmpty(fsm) && !(fsm == &m_RootFSM && hasNoFSM()) ) {
           // goto end
           w.out << FF_D << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm,terminationState(fsm)) << ";" << nxl;
         }
@@ -8480,7 +8480,7 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
   // follow the chain
   w.out << "// pipeline" << nxl;
   const t_combinational_block *current   = block_before->pipeline_next()->next;
-  const t_combinational_block *after     = current->context.fsm->lastBlock;
+  const t_combinational_block *last      = current->context.fsm->lastBlock;
   const t_pipeline_nfo        *pip       = current->context.pipeline_stage->pipeline;
   sl_assert(pip != nullptr);
   // record dependencies
@@ -8488,17 +8488,17 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
   t_vio_dependencies deps_before_pipeline = _dependencies;
   // first, gather stages
   const t_combinational_block *cur = current;
-  const t_combinational_block *aft = after;
+  const t_combinational_block *lst  = last;
   std::vector< t_pipeline_stage_range > stages;
   while (true) {
     sl_assert(pip == cur->context.pipeline_stage->pipeline);
-    stages.push_back({ cur,aft });
-    if (cur != aft) {
-      cur = aft;
+    stages.push_back({ cur,lst });
+    if (cur != lst) {
+      cur = lst;
     }
     if (cur->pipeline_next()) {
       cur = cur->pipeline_next()->next;
-      aft = cur->context.fsm->lastBlock;
+      lst = cur->context.fsm->lastBlock;
     } else {
       break; // done
     }
@@ -8531,7 +8531,7 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
     if (fsmIsEmpty(st.first->context.fsm)) {
       std::ostringstream _;
       t_writer_context wtmp(w.out,_,w.wires);
-      writeStatelessBlockGraph(prefix, wtmp, ictx, st.first, st.last, _q, deps, _ff_usage, _post_dependencies, _lines);
+      writeStatelessBlockGraph(prefix, wtmp, ictx, st.first, nullptr, _q, deps, _ff_usage, _post_dependencies, _lines);
       sl_assert(_.str().empty());
     } else {
       t_vio_dependencies always_deps = deps;
