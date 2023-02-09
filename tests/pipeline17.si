@@ -46,3 +46,17 @@ unit main(output uint8 leds)
     cycle = cycle + 1;
   }
 }
+
+/*
+
+started on cycle         10
+        11) 1 [        10]
+        12) after pipeline start
+        12) 2 [        10]
+        13) 3 [        10]
+        14) 4 [        10]
+        15) 5 [        10]
+        16) 6 [        10] <=== last
+done on cycle         18
+
+*/

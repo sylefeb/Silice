@@ -2,23 +2,25 @@ unit main(output uint8 leds)
 {
   uint32 cycle(0);
   uint8 d(0);
-  
+
   always {
 
-{
-    __display("[cycle %d] start",cycle);
+    {
+        __display("[cycle %d] start",cycle);
 
-  ->
+      ->
 
-    if (cycle > 100) {
-      __display("here");
+        if (cycle > 100) {
+          __display("here");
+        }
+        d = 4;
+
+      ->
+        __display("[cycle %d] ==== result:%d",cycle,d);
     }
-    d = 4;
-
-  ->
-     __display("[cycle %d] ==== result:%d",cycle,d);
-}
     cycle = cycle + 1;
+
+    if (cycle > 110) { __finish(); }
   }
 
 }

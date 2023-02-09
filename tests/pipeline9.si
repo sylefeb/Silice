@@ -9,30 +9,69 @@ unit main(output uint8 leds)
     {      // stage 0
 
       t = q;
-      __display("[cycle %d] in ==== %d",cycle,q);
+      __display("[cycle %d] in ===== %d",cycle,q);
       q = q + 1;
-			
+
     } -> { // stage 1
 
+      __display("[cycle %d] 1_A ==== %d",cycle,t);
       uint4 i=0;
       while (~i[3,1]) {
         t = t + 1000;
         i = i + 1;
       }
+      __display("[cycle %d] 1_B ==== %d",cycle,t);
 
     } -> { // stage 2
 
-++:
-++:
+			__display("[cycle %d] 2_ ===== %d",cycle,t);
 
-			__display("[cycle %d] 2_ ==== %d",cycle,t);
-			
     }
 
   } }
-	
+
 	always_after {
     if (cycle == 100) { __finish(); }
     cycle = cycle + 1;
 	}
 }
+
+/*
+
+[cycle         11] in =====          0
+[cycle         12] in =====          1
+[cycle         12] 1_A ====          0
+[cycle         22] 1_B ====       8000
+[cycle         23] in =====          2
+[cycle         23] 1_A ====          1
+[cycle         23] 2_ =====       8000
+[cycle         33] 1_B ====       8001
+[cycle         34] in =====          3
+[cycle         34] 1_A ====          2
+[cycle         34] 2_ =====       8001
+[cycle         44] 1_B ====       8002
+[cycle         45] in =====          4
+[cycle         45] 1_A ====          3
+[cycle         45] 2_ =====       8002
+[cycle         55] 1_B ====       8003
+[cycle         56] in =====          5
+[cycle         56] 1_A ====          4
+[cycle         56] 2_ =====       8003
+[cycle         66] 1_B ====       8004
+[cycle         67] in =====          6
+[cycle         67] 1_A ====          5
+[cycle         67] 2_ =====       8004
+[cycle         77] 1_B ====       8005
+[cycle         78] in =====          7
+[cycle         78] 1_A ====          6
+[cycle         78] 2_ =====       8005
+[cycle         88] 1_B ====       8006
+[cycle         89] in =====          8
+[cycle         89] 1_A ====          7
+[cycle         89] 2_ =====       8006
+[cycle         99] 1_B ====       8007
+[cycle        100] in =====          9
+[cycle        100] 1_A ====          8
+[cycle        100] 2_ =====       8007
+
+*/
