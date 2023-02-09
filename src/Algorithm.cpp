@@ -3892,10 +3892,13 @@ void Algorithm::resolveForwardJumpRefs(const t_fsm_nfo *fsm)
         lines += std::to_string(j.jump->getStart()->getLine()) + ",";
       }
       lines.pop_back(); // remove last comma
-      std::string msg = "cannot find state '"
-        + refs.first + "' (line"
+      std::string msg = "cannot find state '" + refs.first + "' ";
+      msg += std::string("line")
         + (refs.second.size() > 1 ? "s " : " ")
-        + lines + ")";
+        + lines;
+      if (fsm != &m_RootFSM) {
+        msg += " (jumping outside of pipeline?)";
+      }
       reportError(sourceloc(refs.second.front().jump),
         "%s", msg.c_str());
     } else {
@@ -3998,6 +4001,7 @@ void Algorithm::fsmGetBlocks(t_fsm_nfo *fsm,std::unordered_set<t_combinational_b
     std::vector< t_combinational_block * > children;
     cur->getChildren(children);
     for (auto c : children) {
+      if (c == nullptr) continue; // skip if null (happens on unresolved forward ref) TODO FIXME issue with forward jumps in pipelines?
       if (_blocks.find(c) == _blocks.end() && c->context.fsm == fsm) {
         q.push(c);
       }
