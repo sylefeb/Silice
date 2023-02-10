@@ -254,6 +254,10 @@ Somewhat surprisingly I got best results with the PWM using a single bit of the 
 Implementing the PWM does not require a lot of code ; the solution should
 take only a few lines. Tip: all that is needed is a counter and a comparison.
 
+### Final
+
+Want to see/hear the end result? `make final FIRMWARE=step5_audio_stream.c`
+
 ### About image files
 
 Save the image on the sdcard in a raw pixel format, 256 grayscale 128x128 pixels

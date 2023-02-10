@@ -3892,10 +3892,13 @@ void Algorithm::resolveForwardJumpRefs(const t_fsm_nfo *fsm)
         lines += std::to_string(j.jump->getStart()->getLine()) + ",";
       }
       lines.pop_back(); // remove last comma
-      std::string msg = "cannot find state '"
-        + refs.first + "' (line"
+      std::string msg = "cannot find state '" + refs.first + "' ";
+      msg += std::string("line")
         + (refs.second.size() > 1 ? "s " : " ")
-        + lines + ")";
+        + lines;
+      if (fsm != &m_RootFSM) {
+        msg += " (jumping outside of pipeline?)";
+      }
       reportError(sourceloc(refs.second.front().jump),
         "%s", msg.c_str());
     } else {
@@ -3998,6 +4001,7 @@ void Algorithm::fsmGetBlocks(t_fsm_nfo *fsm,std::unordered_set<t_combinational_b
     std::vector< t_combinational_block * > children;
     cur->getChildren(children);
     for (auto c : children) {
+      if (c == nullptr) continue; // skip if null (happens on unresolved forward ref) TODO FIXME issue with forward jumps in pipelines?
       if (_blocks.find(c) == _blocks.end() && c->context.fsm == fsm) {
         q.push(c);
       }
@@ -8067,6 +8071,7 @@ void Algorithm::writeStatelessBlockGraph(
   std::set<v2i>&                             _lines) const
 {
   const t_fsm_nfo *fsm = block->context.fsm;
+  bool enclosed_in_conditional = false;
   // recursive call?
   if (stop_at != nullptr) { // yes
     // if called on a state, index state and stop there
@@ -8083,6 +8088,7 @@ void Algorithm::writeStatelessBlockGraph(
       if (block->context.pipeline_stage->stage_id == 0 && !fsmIsEmpty(fsm)) {
         // add conditional on first stage disabled (in case the pipeline is enclosed in a conditional)
         w.out << "if (~" << FF_TMP << prefix << fsmPipelineFirstStageDisable(fsm) << ") begin " << nxl;
+        enclosed_in_conditional = true;
       }
     }
   }
@@ -8101,16 +8107,15 @@ void Algorithm::writeStatelessBlockGraph(
           w.out << FF_D << '_' << fsmPipelineStageFull(fsm) << " = 1;" << nxl;
           // first state of pipeline first stage?
           sl_assert(block->context.pipeline_stage);
-          if (block->context.pipeline_stage->stage_id == 0) {
-            // end conditional on first stage active
-            w.out << "end" << nxl;
-          }
+          if (enclosed_in_conditional) { w.out << "end // 0" << nxl; } // end conditional
           // select next index (termination or stall)
           sl_assert(current->parent_state_id == lastPipelineStageState(fsm));
           std::string end_or_stall = FF_TMP + prefix + fsmPipelineStageStall(fsm)
             + " ? " + std::to_string(toFSMState(fsm, current->parent_state_id))
             + " : " + std::to_string(toFSMState(fsm, terminationState(fsm)));
           w.out << FF_D << prefix << fsmIndex(fsm) << " = " << end_or_stall << ';' << nxl;
+        } else {
+          sl_assert(!enclosed_in_conditional);
         }
         mergeDependenciesInto(_dependencies, _post_dependencies);
         return;
@@ -8146,6 +8151,7 @@ void Algorithm::writeStatelessBlockGraph(
       // follow after?
       if (current->if_then_else()->after->is_state) {
         mergeDependenciesInto(_dependencies, _post_dependencies);
+        if (enclosed_in_conditional) { w.out << "end // 1" << nxl; } // end conditional
         return; // no: already indexed by recursive calls
       } else {
         current = current->if_then_else()->after; // yes!
@@ -8223,6 +8229,7 @@ void Algorithm::writeStatelessBlockGraph(
       // follow after?
       if (current->switch_case()->after->is_state) {
         mergeDependenciesInto(_dependencies, _post_dependencies);
+        if (enclosed_in_conditional) { w.out << "end // 2" << nxl; } // end conditional
         return; // no: already indexed by recursive calls
       } else {
         current = current->switch_case()->after; // yes!
@@ -8244,6 +8251,7 @@ void Algorithm::writeStatelessBlockGraph(
           _lines.insert(lns);
         }
       }
+      if (enclosed_in_conditional) { w.out << "end // 3" << nxl; } // end conditional
       return;
     } else if (current->return_from()) {
       // return to caller (goes to termination of algorithm is not set)
@@ -8279,6 +8287,7 @@ void Algorithm::writeStatelessBlockGraph(
         w.out << FF_D << prefix << fsmIndex(fsm) << " = " << stateWidth(fsm) << "'d" << terminationState(fsm) << ';' << nxl;
       }
       mergeDependenciesInto(_dependencies, _post_dependencies);
+      if (enclosed_in_conditional) { w.out << "end // 4" << nxl; } // end conditional
       return;
     } else if (current->goto_and_return_to()) {
       // goto subroutine
@@ -8295,6 +8304,7 @@ void Algorithm::writeStatelessBlockGraph(
       w.out << FF_D << prefix << ALG_CALLER << " = " << C->second << ";" << nxl;
       pushState(fsm, current->goto_and_return_to()->return_to, _q);
       mergeDependenciesInto(_dependencies, _post_dependencies);
+      if (enclosed_in_conditional) { w.out << "end // 5" << nxl; } // end conditional
       return;
     } else if (current->wait()) {
       // wait for algorithm
@@ -8318,6 +8328,7 @@ void Algorithm::writeStatelessBlockGraph(
         w.out << "end" << nxl;
       }
       mergeDependenciesInto(_dependencies, _post_dependencies);
+      if (enclosed_in_conditional) { w.out << "end // 6" << nxl; } // end conditional
       return;
     } else if (current->pipeline_next()) {
       if (current->pipeline_next()->next->context.pipeline_stage->stage_id > 0) {
@@ -8328,16 +8339,15 @@ void Algorithm::writeStatelessBlockGraph(
           w.out << FF_D << '_' << fsmPipelineStageFull(fsm) << " = 1;" << nxl;
           // first state of pipeline first stage?
           sl_assert(block->context.pipeline_stage);
-          if (block->context.pipeline_stage->stage_id == 0) {
-            // end conditional on first stage active
-            w.out << "end" << nxl;
-          }
+          if (enclosed_in_conditional) { w.out << "end // 7" << nxl; } // end conditional
           // select next index (termination or stall)
           sl_assert(current->parent_state_id == lastPipelineStageState(fsm));
           std::string end_or_stall = FF_TMP + prefix + fsmPipelineStageStall(fsm)
             + " ? " + std::to_string(toFSMState(fsm, current->parent_state_id))
             + " : " + std::to_string(toFSMState(fsm, terminationState(fsm)));
           w.out << FF_D << prefix << fsmIndex(fsm) << " = " << end_or_stall << ';' << nxl;
+        } else {
+          sl_assert(!enclosed_in_conditional);
         }
         mergeDependenciesInto(_dependencies, _post_dependencies);
         return;
@@ -8377,6 +8387,7 @@ void Algorithm::writeStatelessBlockGraph(
         }
       }
       mergeDependenciesInto(_dependencies, _post_dependencies);
+      if (enclosed_in_conditional) { w.out << "end // 8" << nxl; } // end conditional
       return;
     }
     // check whether next is a state
@@ -8385,16 +8396,19 @@ void Algorithm::writeStatelessBlockGraph(
       w.out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fsm,fastForward(current)->state_id) << ";" << nxl;
       pushState(fsm, current, _q);
       mergeDependenciesInto(_dependencies, _post_dependencies);
+      if (enclosed_in_conditional) { w.out << "end // 9" << nxl; } // end conditional
       return;
     }
     // reached stop?
     if (current == stop_at) {
       mergeDependenciesInto(_dependencies, _post_dependencies);
+      if (enclosed_in_conditional) { w.out << "end // 10" << nxl; } // end conditional
       return;
     }
     // keep going
   }
   mergeDependenciesInto(_dependencies, _post_dependencies);
+  if (enclosed_in_conditional) { w.out << "end // 11" << nxl; } // end conditional
 }
 
 // -------------------------------------------------

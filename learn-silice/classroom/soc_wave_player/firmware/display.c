@@ -50,10 +50,10 @@ void display_putchar(int c)
     }
   }
   cursor_x += 5;
-  if (cursor_x > 128) {
+  if (cursor_x >= 128) {
     cursor_x = 0;
     cursor_y += 8;
-    if (cursor_y > 128) {
+    if (cursor_y >= 128) {
       cursor_y = 0;
     }
   }

@@ -76,7 +76,7 @@ else
 endif
 
 step6.si : hardware/main.si
-	python ../tools/solutions.py -i hardware/main.si -s LED,AUDIO,SCREEN,BTN,SD,STREAM,PWM > $@
+	python ../tools/solutions.py -i hardware/main.si -s LED,AUDIO,SCREEN,BTN,SD,STREAM > $@
 
 final: final.si
 	make -C firmware $(FIRMWARE)

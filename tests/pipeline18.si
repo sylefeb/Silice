@@ -57,3 +57,24 @@ unit main(output uint8 leds)
     cycle = cycle + 1;
   }
 }
+
+
+/*
+
+started on cycle         10
+[0]         0
+[1] v =          0
+[1] v =          1
+[1] v =          2
+[1] v =          3
+[1] v =          4
+[1] v =          5
+[1] v =          6
+[1] v =          7
+[1] v =          8
+[1] v =          9
+[1] v =         10
+[3]        11
+done on cycle         27
+
+*/

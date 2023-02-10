@@ -15,3 +15,21 @@ unit main(output uint8 leds)
     }
   }
 }
+
+/*
+[stage 0] cycle     1, a =     0
+[stage 0] cycle     2, a =     1
+[stage 1] cycle     1, a =     0
+[stage 0] cycle     3, a =     2
+[stage 1] cycle     2, a =     1
+[stage 2] cycle     1, a =     0
+
+[stage 0] cycle     4, a =     3
+[stage 1] cycle     3, a =     2
+[stage 2] cycle     2, a =     1
+
+[stage 1] cycle     4, a =     3
+[stage 2] cycle     3, a =     2
+
+[stage 2] cycle     4, a =     3
+*/

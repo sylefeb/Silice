@@ -66,6 +66,10 @@ module top(
   output SPI_MOSI,
   input  SPI_MISO,
 `endif
+`ifdef UART      // This requires an external FT232 on these pins
+  output PMOD_B1,
+  input  PMOD_B2,
+`endif
   input  CLK_48
   );
 
@@ -106,6 +110,10 @@ M_main __main(
   .out_video_r(VGA_R),
   .out_video_g(VGA_G),
   .out_video_b(VGA_B),
+`endif
+`ifdef UART
+  .out_uart_tx  (PMOD_B1),
+  .in_uart_rx   (PMOD_B2),
 `endif
 `ifdef PMOD
   .inout_pmod({PMOD_A10,PMOD_A9,PMOD_A8,PMOD_A7,PMOD_A4,PMOD_A3,PMOD_A2,PMOD_A1}),

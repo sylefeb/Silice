@@ -59,13 +59,13 @@ $$if not Solution_PWM then
     audio_out = audio_in[4,4];
   }
 $$else
-  uint8 counter(0);
+  uint8 counter = 0;
+  uint4 low     = 4b0;
+  uint4 high    = 4b1;
   always {
-    uint4 low  = 4b0;
-    uint4 high = 4b1;
-    uint8 frac = audio_in[0,8];
-    audio_out  = counter < frac ? low : high;
-    counter    = counter + 1;
+    uint8 frac  = audio_in;
+    audio_out   = counter < frac ? high : low;
+    counter     = counter + 1;
   }
 $$end
 }
