@@ -315,7 +315,8 @@ private:
     class t_subroutine_nfo {
     public:
       std::string                                     name;
-      t_combinational_block                          *top_block;
+      t_combinational_block                          *top_block = nullptr;
+      bool                                            body_parsed = false; // indicates whether the body was parsed
       std::unordered_set<std::string>                 allowed_reads;
       std::unordered_set<std::string>                 allowed_writes;
       std::unordered_set<std::string>                 allowed_calls;

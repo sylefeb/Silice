@@ -465,7 +465,8 @@ subroutineParam     : ( READ | WRITE | READWRITE | CALLS ) IDENTIFIER
 					  | input | output ;
 
 subroutineParamList : subroutineParam (',' subroutineParam)* ','? | ;
-subroutine          : SUB IDENTIFIER '(' subroutineParamList ')' '{' instructionSequence (RETURN ';')? '}' ;
+subroutine          : SUB IDENTIFIER '(' subroutineParamList ')' '{' instructionSequence (RETURN ';')? '}'
+                    | SUB IDENTIFIER ';' ;
 
 declAndInstrSeq     : instructionSequence ;
 

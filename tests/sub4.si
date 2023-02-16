@@ -1,0 +1,19 @@
+algorithm main(output uint8 leds)
+{
+
+  subroutine subB; // forward declaration
+
+  subroutine subA(input uint8 i,output uint8 o)
+  {
+	  (o) <- subB <- (i);
+  }
+
+  subroutine subB(input uint8 i,output uint8 o)
+  {
+	  o = i + 11;
+  }
+
+  (leds) <- subA <- (22);
+
+	__display("%d",leds);
+}

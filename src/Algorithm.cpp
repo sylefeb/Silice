@@ -2121,17 +2121,35 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
   if (_current->context.subroutine != nullptr) {
     reportError(sourceloc(sub->IDENTIFIER()), "subroutine '%s': cannot declare a subroutine in another", sub->IDENTIFIER()->getText().c_str());
   }
-  t_subroutine_nfo *nfo = new t_subroutine_nfo;
-  // subroutine name
-  nfo->name = sub->IDENTIFIER()->getText();
-  // check for duplicates
-  if (!isIdentifierAvailable(_current, nfo->name)) {
-    reportError(sourceloc(sub->IDENTIFIER()),"subroutine '%s': this name is already used by a prior declaration", nfo->name.c_str());
+  t_subroutine_nfo* nfo = nullptr;
+  t_combinational_block* subb = nullptr;
+  if (m_Subroutines.count(sub->IDENTIFIER()->getText())) {
+    nfo = m_Subroutines.at(sub->IDENTIFIER()->getText());
+    subb = nfo->top_block;
+    // check the return does not yet have a body
+    if (nfo->body_parsed) {
+      // no, error
+      reportError(sourceloc(sub->IDENTIFIER()), "subroutine '%s' already has a body", nfo->name.c_str());
+    }
+  } else {
+    nfo = new t_subroutine_nfo;
+    // subroutine name
+    nfo->name = sub->IDENTIFIER()->getText();
+    // check for duplicates
+    if (!isIdentifierAvailable(_current, nfo->name)) {
+      reportError(sourceloc(sub->IDENTIFIER()), "subroutine '%s': this name is already used by a prior declaration", nfo->name.c_str());
+    }
+    // subroutine block
+    subb = addBlock(SUB_ENTRY_BLOCK + nfo->name, _current, nullptr, sourceloc(sub));
+    subb->context.subroutine = nfo;
+    nfo->top_block = subb;
   }
-  // subroutine block
-  t_combinational_block *subb = addBlock(SUB_ENTRY_BLOCK + nfo->name, _current, nullptr, sourceloc(sub));
-  subb->context.subroutine    = nfo;
-  nfo->top_block              = subb;
+  // forward declaration?
+  if (sub->instructionSequence() == nullptr) {
+    // yes, record and stop here
+    m_Subroutines.insert(std::make_pair(nfo->name, nfo));
+    return _current;
+  }
   // cross ref between block and subroutine
   // gather inputs/outputs and access constraints
   sl_assert(sub->subroutineParamList() != nullptr);
@@ -2247,6 +2265,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
   }
   // parse the subroutine
   t_combinational_block *sub_last = gather(sub->instructionSequence(), subb, _context);
+  nfo->body_parsed = true;
   // add return from last
   sub_last->return_from(nfo->name,m_SubroutinesCallerReturnStates);
   // subroutine has to be a state
