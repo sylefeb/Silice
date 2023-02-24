@@ -4885,7 +4885,10 @@ std::string Algorithm::determineAccessedVar(siliceParser::PartSelectContext* acc
     return determineAccessedVar(access->ioAccess(), bctx);
   } else if (access->tableAccess() != nullptr) {
     return determineAccessedVar(access->tableAccess(), bctx);
+  } else if (access->bitfieldAccess() != nullptr) {
+    return determineAccessedVar(access->bitfieldAccess(), bctx);
   } else {
+    sl_assert(access->IDENTIFIER() != nullptr);
     return translateVIOName(access->IDENTIFIER()->getText(), bctx);
   }
 }
@@ -4897,6 +4900,7 @@ std::string Algorithm::determineAccessedVar(siliceParser::TableAccessContext* ac
   if (access->ioAccess() != nullptr) {
     return determineAccessedVar(access->ioAccess(), bctx);
   } else {
+    sl_assert(access->IDENTIFIER() != nullptr);
     return translateVIOName(access->IDENTIFIER()->getText(),bctx);
   }
 }
