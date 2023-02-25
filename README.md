@@ -27,13 +27,13 @@ documents (rare) breaking changes and how to recover from them.
 ## What is Silice?
 
 Silice is an easy-to-learn, powerful hardware description language, that allows
-both to prototype ideas quickly and then optimize designs to be compact and
+both to prototype ideas quickly and then refine designs to be compact and
 efficient.
 
 Silice achieves this by offering a few, carefully designed high level design
 primitives atop a low level description language. In particular, Silice allows
 to write and combine algorithms, pipelines and per-cycle logic in a coherent,
-unified way. It features a very powerful instantiation-time pre-processor,
+unified way. It features a powerful instantiation-time pre-processor,
 making it easy to describe parametric designs.
 
 Silice offers a ready-to-go design environment, supporting many FPGA boards, both
