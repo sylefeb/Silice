@@ -1,0 +1,15 @@
+unit adder(input uint8 a,input uint8 b,output uint8 v)
+{
+  v := a + b;
+}
+
+unit main(output uint8 leds)
+{
+  uint8 a(2);
+	uint8 b(5);
+	uint8 c(0);
+  adder add(a <: a, b <: b, v :> c);
+	algorithm {
+		__display("c = %d",c);
+	}
+}

@@ -99,4 +99,6 @@ public:
   LibSL::Image::ImageRGBA& framebuffer() override { return m_framebuffer; }
 
   bool framebufferChanged() override;
+  
+  bool ready() override { return true; }
 };

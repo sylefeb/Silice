@@ -5,13 +5,13 @@ algorithm alg(input uint8 num,output uint8 ret)
 }
 
 algorithm main(
-  output int8 led 
+  output int8 leds
 )
 {
   uint8 val = 231;
 
   alg alg0;
 
-  (led) <- alg0 <- (val);
+  (leds) <- alg0 <- (val);
 }
 

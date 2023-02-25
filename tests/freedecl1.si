@@ -1,12 +1,10 @@
-algorithm main(output uint8 led)
+algorithm main(output uint8 leds)
 {
-  subroutine foo(output uint4 v) 
+  subroutine foo(output uint4 v)
   {
     uint4 d = 1;
 
     v = 3;
-
-    e = 1;
 
     {
       uint4 e = 10;
@@ -16,17 +14,17 @@ algorithm main(output uint8 led)
   }
 
   uint8 a = 0;
-  
+
   a = 2;
-  b = 3;
   
   {
     uint8 c = 1;
     uint8 b = 1;
-  
+
     a = b + 1;
   }
-  
+
+  uint8 b = 1;
   (b) <- foo <- ();
-  
+
 }

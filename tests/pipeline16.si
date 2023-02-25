@@ -1,0 +1,17 @@
+unit main(output uint8 leds)
+{
+  uint32 cycle(0);
+  uint32 v(0);
+
+  algorithm {
+    __display("********************************** %d",cycle);
+    { v = cycle + 1000; -> -> -> __display("A:%d:%d",cycle,v); }
+    { v = cycle; -> -> -> __display("B:%d:%d",cycle,v); }
+  }
+
+  always_after {
+    cycle = cycle + 1;
+    if (cycle == 100) { __display("======== tick %d",cycle); __finish(); }
+  }
+
+}

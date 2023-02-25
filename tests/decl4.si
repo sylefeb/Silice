@@ -1,0 +1,21 @@
+algorithm main(output uint8 leds)
+{
+  uint8 n(0);
+
+  while (n != 3) {
+
+    __display("[1] %d",n);
+    n = n + 1;
+
+->
+
+    uint8 v = n + 10;
+    __display("[2] %d",v);
+
+->
+
+    __display("[3] %d",v);
+
+  }
+
+}

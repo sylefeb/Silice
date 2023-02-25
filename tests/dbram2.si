@@ -1,8 +1,8 @@
 // Dual-port bram test, with different clocks
 
-algorithm main(output uint8 led)
+algorithm main(output uint8 leds)
 {
-  
+
   uint9 n    = 0;
   uint9 tmp1 = 0;
   uint8 tmp2 = 0;
@@ -10,11 +10,11 @@ algorithm main(output uint8 led)
   uint8 cnt    = 0;
 
   dualport_bram uint8 mem<@clock,@cnt>[8] = {10,20,30,40,50,60,70,80};
-  
+
   always {
-    cnt = cnt + 1;  
+    cnt = cnt + 1;
   }
-  
+
   mem.wenable0 = 0;
   mem.wenable1 = 0;
 
@@ -24,5 +24,5 @@ algorithm main(output uint8 led)
     tmp2 = mem.rdata1;
     n = n + 1;
   }
-  
+
 }

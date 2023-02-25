@@ -77,7 +77,6 @@ namespace Silice
       int          table_size        = 0; // 0: not a table, otherwise size
       bool         do_not_initialize = false;
       bool         init_at_startup   = false;
-      std::string  pipeline_prev_name; // if not empty, name of previous in pipeline trickling
       e_Access     access            = e_NotAccessed;
       e_VarUsage   usage             = e_Undetermined;
       std::string  attribs;
@@ -98,18 +97,28 @@ namespace Silice
 
     /// \brief information about instantiation
     typedef struct {
+      SiliceCompiler                              *compiler = nullptr;
       std::string                                  instance_name;
       std::string                                  local_instance_name;
       std::unordered_map<std::string, std::string> autos;
       std::unordered_map<std::string, std::string> params;
     } t_instantiation_context;
 
+    /// \brief context for the writer
+    class t_writer_context {
+    public:
+      std::ostream& out;
+      std::ostream& pipes;
+      std::ostream& wires;
+      t_writer_context(std::ostream& out_, std::ostream& pipes_, std::ostream& wires_) : out(out_), pipes(pipes_), wires(wires_) { }
+    };
+
     /// \brief returns the blueprint name
     virtual std::string name() const = 0;
     /// \brief sets as a top module in the output stream
     virtual void setAsTopMost() { }
     /// \brief writes the blueprint as a Verilog module
-    virtual void writeAsModule(SiliceCompiler *compiler, std::ostream& out, const t_instantiation_context& ictx, bool first_pass) = 0;
+    virtual void writeAsModule(std::ostream& out, const t_instantiation_context& ictx, bool first_pass) = 0;
     /// \brief returns true if the blueprint requires a reset
     virtual bool requiresReset() const = 0;
     /// \brief returns true if the blueprint requires a clock

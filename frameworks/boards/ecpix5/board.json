@@ -12,7 +12,7 @@
       "builders": [
       {
         "builder" : "edalize",
-        "description": "Build using Edalize",
+        "description": "Build using Edalize and yosys/nextpnr",
         "tool": "trellis",
         "tool_options": [
           {
@@ -24,6 +24,21 @@
         "bitstream"  : "build.bit",
         "constraints": [{"name": "ecpix5.lpf", "file_type": "LPF"}],
         "program": [{"cmd" : "openFPGAloader", "args" : " -b ecpix5 build.bit"}]
+      },
+      {
+        "builder" : "edalize",
+        "description": "Build using Edalize and Diamond",
+        "tool": "diamond",
+        "tool_options": [{
+          "part": "LFE5U-85F-8BG554C"
+        }],
+        "bitstream"  : "build.bit",
+        "constraints": [{"name": "ecpix5.lpf", "file_type": "LPF"}],
+        "program": [
+          {"cmd" : "ecpunpack", "args" : "--input ./Implementation0/build_Implementation0.bit --textcfg tmp.txt"},
+          {"cmd" : "ecppack", "args" : "--input tmp.txt --bit build.bit --idcode 0x81113043"},
+          {"cmd" : "openFPGAloader", "args" : "-b ecpix5 build.bit"}
+        ]
       }
       ]
     }

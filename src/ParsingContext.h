@@ -94,6 +94,15 @@ namespace Silice {
     AutoPtr<Blueprint>      unit;
   } t_parsed_unit;
 
+  /// \brief contains info about a parsed circuitry and its parsing context
+  typedef struct {
+    std::string             parsed_circuitry;
+    AutoPtr<ParsingContext> ios_parser;
+    AutoPtr<ParsingContext> body_parser;
+    siliceParser::IoListContext    *ioList = nullptr;
+    siliceParser::CircuitryContext *circuitry = nullptr;
+  } t_parsed_circuitry;
+
   // -------------------------------------------------
 
 };

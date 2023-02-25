@@ -12,19 +12,19 @@ loop:
   if (w != 0) { goto loop; } else {}
 }
 
-algorithm main(output int8 led)
+algorithm main(output int8 leds)
 {
   wait  w;
   int8 myled = 0;
-  
-  led := myled;
-  
+
+  leds := myled;
+
   myled = 0;
-  
+
 loop:
   () <- w <- ();
   myled = 0;
   () <- w <- ();
-  myled = 255;  
+  myled = 255;
   goto loop;
 }

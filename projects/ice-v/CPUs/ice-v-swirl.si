@@ -145,6 +145,7 @@ $$end
 
     // CPU pipeline
 
+    { // pipeline is contained within this block
     { // ==== stage 1
 $$if ICEV_BRANCH_PRED then
       uint1         jinstr(0);  uint1 jal(0);             uint1 branch(0);
@@ -315,7 +316,7 @@ $$end
       prev_bpred = bpred;
 
     } -> { // ==== stage 4
-      sameas(pc) pcp1 <:: pc + 1;
+      sameas(pc) pcp1 = pc + 1;
       // decodes values loaded from memory (if any)
       int32  loaded(0);
       uint32 aligned(0);
@@ -365,6 +366,7 @@ $$if DEBUG_swirl then
       }
 $$end
     }
+    } // end of pipeline
 
     // set decoder+ALU inputs
     // (out of pipeline to get up-to-date value of xregsA.wdata1 from stage 4)

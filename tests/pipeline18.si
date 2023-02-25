@@ -1,0 +1,80 @@
+
+unit test(input uint32 i)
+{
+  uint32 cycle(0);
+  uint32 v(0);
+
+  algorithm {
+    v = 0;
+++:
+    {
+
+     __display("[0]",v);
+
+    ->
+
+      if (v != 10) {
+        stall;
+      }
+      __display("[1] v = %d",v);
+      v = v + 1;
+
+    ->
+
+      if (v < 5) {
+        __display("[2] v is below 10: %d",v); // should not be reached
+      }
+
+    ->
+
+      __display("[3]",v);
+
+    }
+
+  }
+
+  always_after {
+    cycle = cycle + 1;
+  }
+}
+
+unit main(output uint8 leds)
+{
+  uint32 cycle(0);
+
+  test   t;
+
+  algorithm {
+
+    t <- (cycle);
+    __display("started on cycle %d",cycle);
+    while (!isdone(t)) { } // algorithm is not done until pipeline has finished
+    __display("done on cycle %d",cycle);
+
+  }
+
+  always_after {
+    cycle = cycle + 1;
+  }
+}
+
+
+/*
+
+started on cycle         10
+[0]         0
+[1] v =          0
+[1] v =          1
+[1] v =          2
+[1] v =          3
+[1] v =          4
+[1] v =          5
+[1] v =          6
+[1] v =          7
+[1] v =          8
+[1] v =          9
+[1] v =         10
+[3]        11
+done on cycle         27
+
+*/

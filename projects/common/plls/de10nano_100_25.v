@@ -1,6 +1,6 @@
 `timescale 1ns/10ps
 
-module  pll_100_25(
+module  pll(
 	// interface 'refclk'
 	input refclk,
 	// interface 'reset'
@@ -83,4 +83,3 @@ module  pll_100_25(
 		.refclk	(refclk)
 	);
 endmodule
-

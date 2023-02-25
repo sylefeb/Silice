@@ -1,13 +1,14 @@
 circuitry shift_right(input a,output b,output c)
 {
-  b = a >>> 3;
-  c = a + 1;
+  b = a >> 3;
+  c = b + 1;
 }
 
-algorithm main(output uint8 led)
+algorithm main(output uint8 leds)
 {
-  uint8 r = 1;
-  while (1) {
-    (led,r) = shift_right(r);
+  uint16 r = 10000;
+  while (r != 1) {
+    (leds,r) = shift_right(r);
+		__display("%d",r);
   }
 }

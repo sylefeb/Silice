@@ -130,11 +130,11 @@ algorithm main(output uint8 leds,inout uint8 pmod)
       colors.addr0 = led_id;
       // send the 24 bits
       while (i != 24) {
-        uint10 th <:: send_clr[23,1] ? $t1h_cycles-2$ : $t0h_cycles-2$;
-        //                                        ^^^              ^^^
+        uint10 th = send_clr[23,1] ? $t1h_cycles-2$ : $t0h_cycles-2$;
+        //                                      ^^^              ^^^
         // this accounts for the two cycles entering and exiting a while
-        uint10 tl <:: send_clr[23,1] ? $t1l_cycles-3$ : $t0l_cycles-3$;
-        //                                        ^^^              ^^^
+        uint10 tl = send_clr[23,1] ? $t1l_cycles-3$ : $t0l_cycles-3$;
+        //                                      ^^^              ^^^
         // this accounts for the two cycles entering and exiting a while and
         // the additional cycle it takes to loop back in the main loop
         // generates a '1'

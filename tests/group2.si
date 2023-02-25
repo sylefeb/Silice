@@ -23,3 +23,5 @@ algorithm alg(
   (t0) = foo(t0);
 
 }
+
+unit main(output uint8 leds) {}

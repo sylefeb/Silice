@@ -1,0 +1,16 @@
+
+unit main(output uint8 leds)
+{
+
+  algorithm {
+	
+	  subroutine sub(input uint8 x) {
+		  uint8 x(20); /// overlap with input name was not detected
+			__display("x = %d",x);
+		}
+		
+		() <- sub <- (100);
+
+	}
+
+}

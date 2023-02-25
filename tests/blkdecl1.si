@@ -4,41 +4,39 @@ circuitry bla(input i,output o)
   o = i;
 }
 
-algorithm main(output uint8 led)
+algorithm main(output uint8 leds)
 {
-  subroutine foo(output uint8 o) 
+  subroutine foo(output uint8 o)
   {
      uint8 sa = 0;
-     
+
      o = sa;
   }
 
-  uint8 a = 1;  
-  a = 2;
+  uint8 l = 1;
   {
     uint8 b = 3;
-    a = b;
+    l = b;
   }
 ++:
   {
     uint8 b = 4;
-    a = b;
+    l = b;
   }
 ++:
   {
     uint8 a = 4;
-    led = a;
+    leds = a;
     a = 1000;
   }
 ++:
-  (led) <- foo <- ();
+  (leds) <- foo <- ();
 ++:
   {
     uint8 e = 0;
     e = 12;
-    (led) = bla(e);
+    (leds) = bla(e);
   }
-++:  
-  // a = b;
-  led = a;
+++:
+  leds = l;
 }

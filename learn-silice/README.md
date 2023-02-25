@@ -997,6 +997,19 @@ Running the design with and without the modifier (comment or remove `<@cpu_clock
 > Is the sky the limit? Nope, because if you look at NextPNR's report, it tells us `Info: Max frequency for clock '__main._w_pll_unnamed_0_clock_out_$glb_clk': 178.76 MHz`. So we could run at up to 178 MHz but not faster or the design would glitch (well, in reality there is a bit of margin, and this even depends on operating temperature!).
 
 ___
-### Tx: inouts
+### T14: inouts
 
 > To be written
+
+___
+### T15: Pipeline 101
+
+In this step we are going to introduce a very important topic: pipelines.
+A great advantage of FPGAs (and hardware design) over fixed architecture is
+the ability to describe pipelines that exactly fit your needs. If you don't
+feel comfortable with the notion of a *pipeline* please refer to the
+[Silice documentation](Documentation.md#pipelines). Here I assume you
+know what a pipeline is and want to learn how to write it down in Silice. This
+is a deep topic, we are only scratching the surface with this example.
+
+To make this more fun, we'll be targeting real hardware again.

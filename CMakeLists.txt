@@ -102,6 +102,16 @@ add_subdirectory(antlr/antlr4-cpp-runtime-4.7.2-source)
 add_subdirectory(src/libs/lua)
 add_subdirectory(src/libs/luabind-deboostified)
 
+# generate the git hash version string
+
+execute_process(COMMAND git log --pretty=format:'%h' -n 1
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                OUTPUT_VARIABLE GIT_HASH
+                )
+
+set(VERSION "const char* c_GitHash=\"${GIT_HASH}\";")
+file(WRITE ${CMAKE_CURRENT_SOURCE_DIR}/src/version.inc "${VERSION}")
+
 # libsilice
 
 add_library(libsilice STATIC ${SILICE_CORE})

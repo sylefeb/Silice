@@ -82,12 +82,6 @@ namespace Silice
       const t_type_nfo& nfo_b
     ) const;
 
-    /// \brief returns type nfo of expression
-    void typeNfo(
-      antlr4::tree::ParseTree                        *expr,
-      const Algorithm::t_combinational_block_context *bctx, 
-      t_type_nfo& _nfo) const;
-
     /// \brief returns type nfo of an identifier
     void typeNfo(
       std::string                                     idnt,
@@ -148,6 +142,13 @@ namespace Silice
       const t_type_nfo                               &left,
       const t_type_nfo                               &right
       ) const;
+
+    /// \brief Returns the type nfo of an expression
+    void typeNfo(
+      antlr4::tree::ParseTree                        *expr,
+      const Algorithm::t_combinational_block_context *bctx,
+      t_type_nfo& _nfo) const;
+
 
   };
 

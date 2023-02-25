@@ -11,6 +11,6 @@ algorithm main(output int8 leds)
   uint4 w <: 0;
   test _(a <: w,  b :> leds, c <: w);
   uint4 w2 <: 5;
-  sameas(leds) tmp;
+  sameas(leds) tmp=0;
   test _(a <: w2, b :> tmp, c <: w);
 }

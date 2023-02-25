@@ -1,0 +1,23 @@
+bitfield fp64{
+  uint1 sign,
+  uint11 exponent,
+  uint52 fraction
+}
+
+unit main(output uint64 leds)
+{
+  uint64 a = 64haabbccddeeff9988;
+
+  uint64 aRET <:: { 32hffffffff,
+    fp64( a ).sign,
+    fp64( a ).exponent[0,8],
+    fp64( a ).fraction[29,23]
+  };
+
+  algorithm {
+
+    __display("value: %x",aRET);
+
+    leds = aRET;
+  }
+}

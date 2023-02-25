@@ -1,0 +1,13 @@
+circuitry test(output result,input a)
+{
+$$print('\n\nwidth = ' .. widthof('a') .. '\n')
+  result = a;
+}
+
+algorithm main(output uint8 leds)
+{
+  uint24 t(0);
+  uint8  z(0);
+  
+  (t) = test(z[0,4]);
+}

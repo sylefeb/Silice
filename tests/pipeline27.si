@@ -1,0 +1,86 @@
+
+unit test(input uint32 i,output uint32 o,output uint1 out_valid(0))
+{
+  uint32 cycle(0);
+
+  always_before { out_valid = 0; }
+
+  algorithm {
+
+    uint32 v = i;
+    //__display("[%d][%d:0] v = %d",cycle,$id$,v);
+
+  ->
+
+    v = v + 100;
+    //__display("[%d][%d:1] v = %d",cycle,$id$,v);
+
+  ->
+
+    v = v + 100;
+    //__display("[%d][%d:2] v = %d",cycle,$id$,v);
+
+    o = v;
+    out_valid = 1;
+
+  }
+
+  always_after { cycle = cycle + 1; }
+}
+
+unit main(output uint8 leds)
+{
+  uint32 cycle(0);
+
+  test t1<id=0>;
+  test t2<id=1>;
+
+  algorithm {
+
+    uint32 n(0);
+    while (1) { // iterates every cycle
+
+      if (n < 10) {
+        t1 <- (n);    // feed an input to the 1st algorithm pipeline
+      }
+      if (t1.out_valid) {
+        t2 <- (t1.o); // feed an input to the 2nd algorithm pipeline
+        __display("[cycle %d] t1.o = %d",cycle,t1.o);
+      }
+      if (t2.out_valid) {
+        __display("[cycle %d] t2.o = %d",cycle,t2.o);
+      }
+      n = n + 1;
+      // stop if t2 is done on a valid output
+      if (t2.out_valid && isdone(t2)) { break; }
+    }
+
+  }
+
+  always_after { cycle = cycle + 1; }
+}
+
+/*
+
+[cycle         15] t1.o =        200
+[cycle         16] t1.o =        201
+[cycle         17] t1.o =        202
+[cycle         18] t1.o =        203
+[cycle         19] t1.o =        204
+[cycle         19] t2.o =        400
+[cycle         20] t1.o =        205
+[cycle         20] t2.o =        401
+[cycle         21] t1.o =        206
+[cycle         21] t2.o =        402
+[cycle         22] t1.o =        207
+[cycle         22] t2.o =        403
+[cycle         23] t1.o =        208
+[cycle         23] t2.o =        404
+[cycle         24] t1.o =        209
+[cycle         24] t2.o =        405
+[cycle         25] t2.o =        406
+[cycle         26] t2.o =        407
+[cycle         27] t2.o =        408
+[cycle         28] t2.o =        409
+
+*/

@@ -1,0 +1,116 @@
+// mockup of multi-fsm pipeline
+
+unit C(input uint8 i,output uint8 o)
+{
+  algorithm {
+    uint8 t(0);
+    __display("C %d",i);
+    t = i;
+  ++:
+    t = t + 1;
+  ++:
+    t = t + 1;
+  ++:
+    t = t + 1;
+    o = t;
+  }
+}
+
+unit B(input uint8 i,output uint8 o)
+{
+  algorithm {
+    uint8 t(0);
+    __display("B %d",i);
+    t = i;
+  ++:
+    t = t + 1;
+  ++:
+    t = t + 1;
+    o = t;
+  }
+}
+
+unit A(input uint8 i,output uint8 o)
+{
+  algorithm {
+    uint8 t(0);
+    __display("A %d",i);
+    t = i;
+  ++:
+    t = t + 1;
+    o = t;
+  }
+}
+
+unit main(output uint8 leds)
+{
+  uint32 cycle(0);
+  A a; B b; C c;
+
+  algorithm {  while (1) {
+
+    { // we make a pipeline inside this block
+
+      uint8 v(0);
+
+      __display("[cycle %d] call",cycle);
+      (v) <- a <- (cycle);
+
+      ->
+
+      (v) <- b <- (v);
+
+      ->
+
+      (v) <- c <- (v);
+       __display("[cycle %d] ==== result:%d",cycle,v);
+
+    }
+
+  } }
+
+  always_after {
+    cycle = cycle + 1;
+    if (cycle == 60) { __finish(); }
+  }
+
+}
+
+/*
+
+[cycle         11] call
+A  11
+[cycle         16] call
+B  12
+A  16
+[cycle         22] call
+B  17
+C  14
+A  22
+[cycle         28] ==== result: 17
+[cycle         29] call
+B  23
+C  19
+A  29
+[cycle         35] ==== result: 22
+[cycle         36] call
+B  30
+C  25
+A  36
+[cycle         42] ==== result: 28
+[cycle         43] call
+B  37
+C  32
+A  43
+[cycle         49] ==== result: 35
+[cycle         50] call
+B  44
+C  39
+A  50
+[cycle         56] ==== result: 42
+[cycle         57] call
+B  51
+C  46
+A  57
+
+*/

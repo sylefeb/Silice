@@ -1,0 +1,29 @@
+algorithm main(output uint8 leds)
+{
+  uint8 a(0); // top declarations are visible everywhere
+  
+  a = 1;
+
+  uint8 b(0); // but as soon as not in top, no longer the case NOTE: make an exception for first 'chain'?
+  b = a + 10;
+
+++:
+
+  uint8 c(0);
+  c = a + 20;
+  b = 12;
+
+++:
+
+  uint8 e(0);
+  e = a + b + c;
+  
+->
+
+  uint8 d(0);
+  d = b + 30;
+  
+  //__display("a:%d b:%d c:%d d:%d",a,b,c,d);
+
+  
+}

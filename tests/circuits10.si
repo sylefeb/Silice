@@ -1,0 +1,31 @@
+
+circuitry circ(input z,output c)
+{
+	sameas(c) t(0);
+
+  t = z;
+->
+  t = t + 10;
+->
+  c = t + 100;
+}
+
+unit main(output uint8 leds)
+{
+  algorithm {
+
+    uint16 a(0);
+    uint16 o(0);
+
+		a = 1;
+
+->
+
+    (o) = circ(a);
+
+->
+
+    __display("%d",o);
+
+	}
+}

@@ -18,6 +18,8 @@ $$  elseif ICEBREAKER then
 $$    uart_in_clock_freq_mhz = 12
 $$  elseif ICESTICK then
 $$    uart_in_clock_freq_mhz = 12
+$$  elseif RIEGEL then
+$$    uart_in_clock_freq_mhz = 48
 $$  else
 $$    error("[uart] clock frequency 'uart_in_clock_freq_mhz' not specified")
 $$  end

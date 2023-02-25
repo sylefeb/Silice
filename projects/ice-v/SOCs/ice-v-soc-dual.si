@@ -226,14 +226,14 @@ $$end
 
   // io mapping
   always {
-    uint1 in_periph <: memio.addr[$periph$,1];
-    uint4 mem_wmask <: memio.wenable & {4{~in_periph}};
+    uint1 in_periph = memio.addr[$periph$,1];
+    uint4 mem_wmask = memio.wenable & {4{~in_periph}};
 		//                                     ^^^^^^^ no write if in peripheral addresses
 	  // ---- memory access
 $$if USE_SPRAM then
     $$if not SPIFLASH and not SIMULATION then error('USE_SPRAM requires SPIFLASH or SIMULATION') end
-    uint1 in_bram      <:  memio.addr[14,1]; // in BRAM if addr greater than 64KB
-    uint1 prev_in_bram <:: prev_mem_addr[14,1]; // 14 as we address uint32 instr.
+    uint1 in_bram      = memio.addr[14,1]; // in BRAM if addr greater than 64KB
+    uint1 prev_in_bram = prev_mem_addr[14,1]; // 14 as we address uint32 instr.
     sp0_data_in   = memio.wdata[ 0,16];
     sp1_data_in   = memio.wdata[16,16];
     sp0_addr      = memio.addr[0,14];
@@ -286,7 +286,7 @@ $$end
 
     // ---- memory mapping to peripherals: writes
     if (memio.wenable[0,1] & memio.addr[$periph$,1]) {
-      uint5 select <: memio.addr[0,5];
+      uint5 select = memio.addr[0,5];
       onehot (select) {
         case 0: {
           leds      = mem.wdata[0,5];

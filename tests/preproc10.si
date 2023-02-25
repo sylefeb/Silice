@@ -1,0 +1,15 @@
+circuitry circ(input a,output b)
+{
+  $$print('widthof(a) = ' .. widthof('a'))
+  b = 100 + a;
+}
+
+unit main(output uint8 leds)
+{
+  uint8  m(123);
+  uint8  n(0);
+  algorithm {
+    (n) = circ(m);
+    __display("return = %d",n);
+  }
+}

@@ -5,7 +5,7 @@ group g
 }
 
 algorithm test(
-  g           it { input value, output enable }, 
+  g           it { input value, output enable },
   output uint8 v
 ) {
   v = it.value + 1;
@@ -16,7 +16,7 @@ algorithm main(output uint8 leds)
 {
   g    foo;
   test t;
-  
+
   foo.value = 13;
   (foo,leds) <- t <- (foo);
 }

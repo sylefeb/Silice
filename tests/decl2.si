@@ -1,0 +1,21 @@
+algorithm main(output uint8 leds)
+{
+  uint8 w <:: a + 10;
+  uint8 a(50);
+
+  a = 1;
+  uint8 b = a + 10;
+  uint8 c = b + 100;
+
+  // b = a; // ok
+  // b = c; // ok
+
+  a = 9;
+
+  //uint8 b = a + 10 + b; /// FIXME TODO: should trigger an error
+
+  // b = 5;
+
+  __display("%d",c);
+
+}

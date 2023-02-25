@@ -1,0 +1,22 @@
+circuitry circ(input a,output b)
+{
+  $$print('N = ' .. N)
+  $$if N > 1 then
+  sameas(b) t1(0);
+  sameas(b) t2(0);
+  (t1) = circ<N=$N>>1$>(a);
+  (t2) = circ<N=$N>>1$>(a);
+  b = t1 + t2;
+  $$else
+  b = a;
+  $$end
+}
+
+unit main(output uint8 leds)
+{
+  uint8  n(0);
+  algorithm {
+    (n) = circ<N=16>(8d3);
+    __display("return = %d",n);
+  }
+}

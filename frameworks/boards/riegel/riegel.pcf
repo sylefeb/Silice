@@ -24,11 +24,6 @@ set_io PMOD_B8  J1
 set_io PMOD_B9  H1
 set_io PMOD_B10 G1
 
-#set_io UART_CTS  K2
-#set_io UART_RX   J2
-#set_io UART_TX   H2
-#set_io UART_RTS  G2
-
 # --
 
 # VGA

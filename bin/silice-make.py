@@ -15,7 +15,7 @@ def colored(str,clr,attrs=0):
 parser = argparse.ArgumentParser(description='silice-make is the Silice build tool')
 parser.add_argument('-s','--source', help="Source file to build.")
 parser.add_argument('-b','--board', help="Board to build for. Variant can be specified as board:variant")
-parser.add_argument('-t','--tool', help="Tool used for building (edalize,shell).")
+parser.add_argument('-t','--tool', help="Builder used (e.g. edalize, shell).")
 parser.add_argument('-p','--pins', help="Pins used in the design, comma separated, e.g. basic,vga")
 parser.add_argument('-o','--outdir', help="Specify name of output directory.", default="BUILD")
 parser.add_argument('-l','--list_boards', help="List all available target boards.", action="store_true")
@@ -158,13 +158,22 @@ variant_pin_sets = {}
 for pin_set in target_variant['pins']:
     variant_pin_sets[pin_set['set']] = pin_set
 
-# check the selected tool exists (or selects default, first in json file)
+# check the selected builder exists (or selects default, first in json file)
 if args.tool:
     target_builder = None
+    # split builder/variant
+    target_builder_name = args.tool.split(":")[0]
+    target_builder_tool = None
+    if len(args.tool.split(":")) > 1:
+        target_builder_tool = args.tool.split(":")[1]
     for builder in target_variant['builders']:
-        if builder['builder'] == args.tool:
-            target_builder = builder
-            break
+        if builder['builder'] == target_builder_name:
+            if target_builder_tool == None:
+              target_builder = builder
+              break
+            elif target_builder_tool == builder['tool']:
+              target_builder = builder
+              break
     if target_builder == None:
         print(colored("builder '" + args.tool + "' not found", 'red'))
         sys.exit(-1)

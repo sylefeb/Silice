@@ -1,0 +1,27 @@
+unit main(output uint8 leds)
+{
+  uint32 cycle(0);
+  uint32 v(0);
+
+  algorithm {
+
+      v = v + 1; // v trickles
+      __display("[%d | 0]",cycle,v);
+
+    ->
+
+      __display("[%d | 1]",cycle,v);
+
+    ->
+
+      __display("[%d | 2]",cycle,v);
+      if (cycle < 16) {
+        stall;
+      }
+
+  }
+
+  always_after {
+    cycle = cycle + 1;
+  }
+}

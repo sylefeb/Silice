@@ -24,8 +24,9 @@ not be used as R,G,B or ID (thus max R,G,B is 254).
 // T1L  0.45us
 // RES 55.0us
 
-// NOTE: this code drives 20 LEDs, change the number below
-$$ NUM_PIXS = 20
+// NOTE: this code drivea fixed number of LEDs, change the number below
+// (max 1023 otherwise adjust bitwidths below)
+$$ NUM_PIXS = 2048
 
 $$ t0h_cycles          = 5  -- 416 nsec
 $$ t0l_cycles          = 10 -- 833 nsec
@@ -45,7 +46,7 @@ $include('../common/uart.si')
 
 // The hardware implements the LED driver
 algorithm main(
-  output uint8 leds,
+  output uint8 leds = 0,
   output uint1 uart_tx,
   input  uint1 uart_rx,
   inout  uint8 pmod)
@@ -60,40 +61,43 @@ algorithm main(
   simple_dualport_bram uint24 colors[$NUM_PIXS$] = {pad(0)};
 
   uint24 clr_from_uart(0);
-  uint8  id_from_uart(0);
-  uint2  receive_step(0); // each LEDS requies four bytes from uart
+  uint16 id_from_uart(0);
+  uint5  receive_step(5b1); // each LEDS requies four bytes from uart
 
   always_after {
-    pmod.oenable    = 8b11111111;
-    pmod.o          = {8{ctrl}}; // output on PMOD pins
-    colors.wenable1 = 0; // maintain low, pulses if needed (see next)
+    pmod.oenable     = 8b11111111;
+    pmod.o           = {8{ctrl}}; // output on PMOD pins
+    colors.wenable1  = 0; // maintain low, pulses if needed (see next)
     if (ui.data_out_ready) {
-      leds = ui.data_out; // for debugging
+      leds         = receive_step;
+      // leds = ui.data_out; // for debugging
       // data is ready on uart
-      if (ui.data_out == 8hff) { // FF reset the sequence
-        receive_step = 0;
+      if (ui.data_out == 8hff && id_from_uart == 16hffff) { // FF reset the sequence
+        receive_step = 5b1;
       } else {
-        colors.wenable1 = (receive_step == 2b11);
-        switch (receive_step) {
-          case 0:  { id_from_uart  = ui.data_out; clr_from_uart = 0; }
-          default: { clr_from_uart = (clr_from_uart<<8) | ui.data_out; }
-          // default: { clr_from_uart = { ui.data_out,clr_from_uart[8,16]}; }
+        colors.wenable1 = receive_step[4,1];
+        onehot (receive_step) {
+          case 0: { id_from_uart  = (id_from_uart <<8) | ui.data_out; }
+          case 1: { id_from_uart  = (id_from_uart <<8) | ui.data_out; }
+          case 2: { clr_from_uart = (clr_from_uart<<8) | ui.data_out; }
+          case 3: { clr_from_uart = (clr_from_uart<<8) | ui.data_out; }
+          case 4: { clr_from_uart = (clr_from_uart<<8) | ui.data_out; }
         }
-        receive_step = receive_step + 1;
+        receive_step = {receive_step[0,4],receive_step[4,1]};
       }
     }
-    colors.wdata1   = clr_from_uart;
-    colors.addr1    = id_from_uart;
+    colors.wdata1    = clr_from_uart;
+    colors.addr1     = id_from_uart;
   }
 
   // we use a Silice algorithm to implement the driver
   while (1) {
     // iterate through the LEDs and set their color
-    uint5 led_id = 0;
+    uint16 led_id = 0;
     colors.addr0 = led_id;
     while (led_id != $NUM_PIXS$) {
       uint24 send_clr(0);
-      uint5  i     = 0;
+      uint8  i     = 0;
       // color to be sent
       send_clr     = colors.rdata0;
       // next LED
@@ -101,11 +105,11 @@ algorithm main(
       colors.addr0 = led_id;
       // send the 24 bits
       while (i != 24) {
-        uint10 th <:: send_clr[23,1] ? $t1h_cycles-2$ : $t0h_cycles-2$;
-        //                                        ^^^              ^^^
+        uint10 th = send_clr[23,1] ? $t1h_cycles-2$ : $t0h_cycles-2$;
+        //                                     ^^^              ^^^
         // this accounts for the two cycles entering and exiting a while
-        uint10 tl <:: send_clr[23,1] ? $t1l_cycles-3$ : $t0l_cycles-3$;
-        //                                        ^^^              ^^^
+        uint10 tl = send_clr[23,1] ? $t1l_cycles-3$ : $t0l_cycles-3$;
+        //                                     ^^^              ^^^
         // this accounts for the two cycles entering and exiting a while and
         // the additional cycle it takes to loop back in the main loop
         // generates a '1'

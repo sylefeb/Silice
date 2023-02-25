@@ -8,7 +8,7 @@ loop:
 }
 
 
-algorithm main(output uint8 leds)
+algorithm foo(output uint8 leds)
 {
   uint8 led = 0;
   uint8 tmp = 0;
@@ -39,3 +39,5 @@ loop:
 
   goto loop;
 }
+
+algorithm main(output int8 leds) {}

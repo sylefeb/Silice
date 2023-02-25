@@ -1,0 +1,8 @@
+algorithm main(output int8 leds)
+{
+  uint8 tbl[4] = {8h21,8h42,0,8hef};
+++:
+  tbl[2] = 8ha4;
+++:
+  __display("%x",tbl[3][4,4]);
+}

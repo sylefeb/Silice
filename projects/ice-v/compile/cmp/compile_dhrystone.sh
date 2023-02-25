@@ -24,8 +24,7 @@ echo "Adding mylibc"
 # $ARCH-as -march=rv32i -mabi=ilp32 -o $DST/crt0.o $BASE/crt0.s
 # $ARCH-ld -m elf32lriscv -b elf32-littleriscv -T$BASE/config_c.ld --no-relax -o $DST/code.elf $OBJECTS
 
-$ARCH-gcc -fstack-reuse=none -fno-builtin -O3 -fno-stack-protector -fno-pic -march=rv32i -mabi=ilp32 -T$BASE/config_c.ld -ffreestanding -nostdlib -o $DST/code.elf $BASE/crt0.s ../fire-v/smoke/mylibc/div.s $BASE/mylibc.c $MAIN
-
+$ARCH-gcc -w -fstack-reuse=none -fno-builtin -O3 -fno-stack-protector -fno-pic -march=rv32i -mabi=ilp32 -T$BASE/config_c.ld -ffreestanding -nostdlib -o $DST/code.elf $BASE/crt0.s ../fire-v/smoke/mylibc/div.s $BASE/mylibc.c $MAIN
 
 $ARCH-objcopy -O verilog $DST/code.elf $DST/code.hex
 

@@ -1,0 +1,48 @@
+unit main(output uint8 leds)
+{
+  uint32 cycle(0);
+  uint32 v(0);
+  uint32 m(0);
+  uint32 n(0);
+  uint32 o(0);
+
+  algorithm {
+
+    while (v != 4) {
+
+      v = v + 1; // v trickles
+      __display("[%d | 0] %d",cycle,v);
+
+    ->
+
+      __display("[%d | 1] %d m=%d",cycle,v,m);
+      m = m + 1; // when stage 2 stalls, this is no longer incrementing
+                 // since all stages above (including this one) are paused
+
+    ->
+
+      __write("[%d | 2] %d n=%d ",cycle,v,n);
+      n = n + 1; // this keeps incrementing since the stage remains acrive
+                 // when it declares itself stalled
+
+      if (cycle < 64) {
+        __display("stall");
+        stall;
+      } else {
+        __display("");
+      }
+
+    ->
+
+      __display("[%d | 3] %d o=%d",cycle,v,o);
+      o = o + 1; // when stage 2 stalls, this stage does not receive
+                 // any input, so o no longer increments
+
+    }
+
+  }
+
+  always_after {
+    cycle = cycle + 1;
+  }
+}

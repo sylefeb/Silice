@@ -1047,9 +1047,12 @@ void LuaPreProcessor::decomposeSource(
     } else {
       int before = bs.pos();
       std::string w = parser.readString(" \t\r/*");
-      if (w == "unit" || w == "algorithm" || w == "algorithm#") {
+      if (w == "unit" || w == "algorithm" || w == "algorithm#" || w == "circuitry") {
         std::string name = parser.readString("( \t\r");
-        cerr << "functionalizing unit " << name << '\n';
+        if (name.empty()) {
+          throw Fatal((w + " has no name").c_str()); // TODO: improve error report (line)
+        }
+        cerr << "functionalizing " << w << ' ' << name << '\n';
         if (w == "algorithm#") {
           m_FormalUnits.insert(name);
         }

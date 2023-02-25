@@ -3,12 +3,11 @@ bitfield Node {
   uint16 left
 }
 
-algorithm main()
+algorithm main(output uint8 leds)
 {
   uint32 data = Node(left=16hffff,right=16h1234);
 
   uint16 l = 33;
- 
+
   Node(data).left = 33;
  }
- 

@@ -9,10 +9,10 @@ algorithm blink(output int1 b_fast,output int1 b_slow) <autorun>
     if (counter == 0) {
 	  b_slow = !b_slow;
     }
-  }	
+  }
 }
 
-algorithm main(output int8 led)
+algorithm main(output uint8 leds)
 {
   int1 a = 0;
   int1 b = 0;
@@ -20,10 +20,10 @@ algorithm main(output int8 led)
     b_slow :> a,
     b_fast :> b
   );
-  
-  led      := 0; // turn off all eight LEDs to 
-  led[0,1] := a; // first tracks slow blink
-  led[1,1] := b; // second tracks fast blink
 
-  while (1) { }  // inifinite loop, blink runs in parallel
+  leds      := 0; // turn off all eight LEDs to
+  leds[0,1] := a; // first tracks slow blink
+  leds[1,1] := b; // second tracks fast blink
+
+  // while (1) { }  // inifinite loop, blink runs in parallel
 }

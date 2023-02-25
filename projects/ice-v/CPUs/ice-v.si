@@ -175,7 +175,7 @@ unit rv32i_cpu(bram_port mem) {
   // Default values are overriden from within the algorithm loop.
   always_before {
     // decodes values loaded from memory (used when exec.load == 1)
-    uint32 aligned <: mem.rdata >> {exec.n[0,2],3b000};
+    uint32 aligned = mem.rdata >> {exec.n[0,2],3b000};
     switch ( exec.op[0,2] ) { // LB / LBU, LH / LHU, LW
       case 2b00:{ loaded = {{24{(~exec.op[2,1])&aligned[ 7,1]}},aligned[ 0,8]}; }
       case 2b01:{ loaded = {{16{(~exec.op[2,1])&aligned[15,1]}},aligned[ 0,16]};}

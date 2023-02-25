@@ -58,6 +58,8 @@ RETURN              : 'return' ;
 
 BREAK               : 'break' ;
 
+STALL               : 'stall' ;
+
 DISPLAY             : '$display' | '__display' ;
 
 DISPLWRITE          : '__write' ;
@@ -209,11 +211,19 @@ type                   : TYPE | (SAMEAS '(' base=IDENTIFIER ('.' member=IDENTIFI
 declarationWire        : type alwaysAssigned;
 declarationVarInitSet  : '=' (value | UNINITIALIZED) ;
 declarationVarInitCstr : '(' (value | UNINITIALIZED) ')';
-declarationVar         : type IDENTIFIER ( declarationVarInitSet | declarationVarInitCstr )? ATTRIBS? ;
+declarationVarInitExpr : '=' expression_0 ;
+declarationVar         : type IDENTIFIER ( declarationVarInitSet | declarationVarInitCstr | declarationVarInitExpr )? ATTRIBS? ;
 declarationTable       : type IDENTIFIER '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
 declarationMemory      : (BRAM | BROM | DUALBRAM | SIMPLEDUALBRAM) TYPE name=IDENTIFIER memModifiers? '[' NUMBER? ']' ('=' (initList | STRING | UNINITIALIZED))? ;
 declarationInstance    : blueprint=IDENTIFIER (name=IDENTIFIER | NONAME) bpModifiers? ( '(' bpBindingList ')' ) ? ;
-declaration            : declarationVar | declarationInstance | declarationTable | declarationMemory | declarationWire;
+declaration            : subroutine
+                       | declarationVar ';'
+                       | declarationInstance ';'
+                       | declarationTable ';'
+                       | declarationMemory ';'
+                       | declarationWire ';'
+                       | stableinput ';'
+                       ;
 
 bpBinding              : left=IDENTIFIER (LDEFINE | LDEFINEDBL | RDEFINE | BDEFINE | BDEFINEDBL) right=idOrAccess | AUTOBIND;
 bpBindingList          : bpBinding ',' bpBindingList | bpBinding | ;
@@ -345,8 +355,6 @@ alwaysAssigned      : IDENTIFIER   (ALWSASSIGN    | LDEFINE   ) expression_0
                     | access        ALWSASSIGNDBL               expression_0
                     ;
 
-alwaysAssignedList  : alwaysAssigned ';' alwaysAssignedList | ;
-
 /* -- Algorithm calls -- */
 
 callParamList       : expression_0 (',' expression_0)* ','? | ;
@@ -357,14 +365,7 @@ syncExec            : joinExec LARROW '(' callParamList ')' ;
 
 /* -- Circuitry instantiation -- */
 
-idOrIoAccessList    : idOrIoAccess ',' idOrIoAccessList
-                    | constValue   ',' idOrIoAccessList
-                    | idOrIoAccess
-                    | constValue
-                    |
-                    ;
-
-circuitryInst       : '(' outs=idOrIoAccessList ')' '=' IDENTIFIER '(' ins=idOrIoAccessList ')';
+circuitryInst       : '(' outs=callParamList ')' '='  IDENTIFIER ('<' sparam+ '>')? '(' ins=callParamList ')';
 
 /* -- Control flow -- */
 
@@ -372,6 +373,7 @@ state               : state_name=IDENTIFIER ':' | NEXT ;
 jump                : GOTO IDENTIFIER ;
 returnFrom          : RETURN ;
 breakLoop           : BREAK ;
+stall               : STALL ;
 assert_             : ASSERT '(' expression_0 ')';
 // NOTE: keep the `_` here else it clashes with various keywords etc
 assume              : ASSUME '(' expression_0 ')';
@@ -382,7 +384,7 @@ assumestable        : ASSUMESTABLE '(' expression_0 ')';
 stableinput         : STABLEINPUT '(' idOrIoAccess ')';
 cover               : COVER '(' expression_0 ')';
 
-block               : '{' declarationList instructionList '}';
+block               : '{' instructionSequence '}';
 ifThen              : 'if' '(' expression_0 ')' if_block=block ;
 ifThenElse          : 'if' '(' expression_0 ')' if_block=block 'else' else_block=block ;
 switchCase          : (SWITCH | ONEHOT) '(' expression_0 ')' '{' caseBlock * '}' ;
@@ -403,6 +405,7 @@ instruction         : assignment
                     | circuitryInst
                     | returnFrom
                     | breakLoop
+                    | stall
                     | display
                     | finish
                     | assert_
@@ -413,15 +416,14 @@ instruction         : assignment
                     | assertstable
                     | cover
                     | inline_v
+                    | alwaysAssigned
                     ;
 
 alwaysBlock         : ALWAYS        block;
 alwaysBeforeBlock   : ALWAYS_BEFORE block;
 alwaysAfterBlock    : ALWAYS_AFTER  block;
 
-repeatBlock         : REPEATCNT '{' instructionList '}' ;
-
-pipeline            : block ('->' block) +;
+repeatBlock         : REPEATCNT '{' instructionSequence '}' ;
 
 /* -- Inputs/outputs -- */
 
@@ -437,35 +439,36 @@ inOutList           :  inOrOut (',' inOrOut)* ','? | ;
 
 /* -- Declarations, subroutines, instruction lists -- */
 
-declarationList     : declaration ';' declarationList | ;
-
 instructionList     :
                       (
                         (instruction ';') +
+                      | declaration
                       | block
+                      | alwaysBlock
+                      | alwaysBeforeBlock
+                      | alwaysAfterBlock
                       | repeatBlock
                       | state
                       | ifThenElse
                       | ifThen
                       | whileLoop
                       | switchCase
-                      | pipeline
                       ) instructionList
                       | ;
+
+pipeline             : instructionList ('->' instructionList) +
+                     | ;
+
+instructionSequence  : pipeline | instructionList ;
 
 subroutineParam     : ( READ | WRITE | READWRITE | CALLS ) IDENTIFIER
 					  | input | output ;
 
 subroutineParamList : subroutineParam (',' subroutineParam)* ','? | ;
-subroutine          : SUB IDENTIFIER '(' subroutineParamList ')' '{' declList = declarationList  instructionList (RETURN ';')? '}' ;
+subroutine          : SUB IDENTIFIER '(' subroutineParamList ')' '{' instructionSequence (RETURN ';')? '}'
+                    | SUB IDENTIFIER ';' ;
 
-declAndInstrList    : (declaration ';' | subroutine | stableinput ';' ) *
-                      alwaysPre = alwaysAssignedList
-                      alwaysBlock?
-                      alwaysBeforeBlock?
-                      alwaysAfterBlock?
-                      instructionList
-					  ;
+declAndInstrSeq     : instructionSequence ;
 
 /* -- Import -- */
 
@@ -479,18 +482,16 @@ circuitry           : 'circuitry' IDENTIFIER '(' ioList ')' block ;
 
 /* -- Algorithm -- */
 
-algorithm           : 'algorithm' HASH? IDENTIFIER '(' inOutList ')' bpModifiers? '{' declAndInstrList '}' ;
+algorithm           : 'algorithm' HASH? IDENTIFIER '(' inOutList ')' bpModifiers? '{' declAndInstrSeq '}' ;
 
-algorithmBlockContent : (declaration ';' | subroutine ) *
-                        instructionList
-					  ;
+algorithmBlockContent : instructionSequence ;
 
 algorithmBlock      : 'algorithm' bpModifiers? '{' algorithmBlockContent '}' ;
 
 /* -- Unit -- */
 
-unitBlocks          :   (declaration ';' | stableinput ';' ) *
-                        alwaysPre = alwaysAssignedList
+unitBlocks          :   (declaration) *
+                        (alwaysAssigned ';') *
                         alwaysBlock?
                         alwaysBeforeBlock? algorithmBlock? alwaysAfterBlock?
                         ;
@@ -522,3 +523,7 @@ root                : topList EOF ;
 rootInOutList       : inOutList EOF ;
 
 rootUnit            : (unit | algorithm) EOF ;
+
+rootIoList          : ioList EOF ;
+
+rootCircuitry       : circuitry EOF ;

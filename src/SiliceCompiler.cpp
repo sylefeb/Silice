@@ -73,7 +73,7 @@ std::string SiliceCompiler::findFile(std::string fname) const
 
 // -------------------------------------------------
 
-void SiliceCompiler::gatherBody(antlr4::tree::ParseTree* tree)
+void SiliceCompiler::gatherBody(antlr4::tree::ParseTree* tree, const Blueprint::t_instantiation_context& ictx)
 {
   if (tree == nullptr) {
     return;
@@ -96,7 +96,7 @@ void SiliceCompiler::gatherBody(antlr4::tree::ParseTree* tree)
 
     // keep going
     for (auto c : tree->children) {
-      gatherBody(c);
+      gatherBody(c, ictx);
     }
 
   } else if (alg || unit) {
@@ -116,7 +116,7 @@ void SiliceCompiler::gatherBody(antlr4::tree::ParseTree* tree)
     std::cerr << "found static unit " << name << nxl;
     AutoPtr<Algorithm> unit(new Algorithm(m_Subroutines, m_Circuitries, m_Groups, m_Interfaces, m_BitFields));
     unit->gatherIOs(inout);
-    gatherUnitBody(unit,tree);
+    gatherUnitBody(unit,tree,ictx);
     m_Blueprints.insert(std::make_pair(name, unit));
     m_BlueprintsInDeclOrder.push_back(name);
 
@@ -206,7 +206,7 @@ void SiliceCompiler::gatherBody(antlr4::tree::ParseTree* tree)
 
 // -------------------------------------------------
 
-void SiliceCompiler::gatherUnitBody(AutoPtr<Algorithm> unit, antlr4::tree::ParseTree* tree)
+void SiliceCompiler::gatherUnitBody(AutoPtr<Algorithm> unit, antlr4::tree::ParseTree* tree, const Blueprint::t_instantiation_context& ictx)
 {
   auto a = dynamic_cast<siliceParser::AlgorithmContext*>(tree);
   auto u = dynamic_cast<siliceParser::UnitContext *>(tree);
@@ -287,9 +287,9 @@ void SiliceCompiler::gatherUnitBody(AutoPtr<Algorithm> unit, antlr4::tree::Parse
   );
 
   if (a) {
-    unit->gatherBody(a->declAndInstrList());
+    unit->gatherBody(a->declAndInstrSeq(), ictx);
   } else {
-    unit->gatherBody(u->unitBlocks());
+    unit->gatherBody(u->unitBlocks(), ictx);
   }
 
 }
@@ -377,7 +377,7 @@ void SiliceCompiler::beginParsing(
       m_BodyContext->prepareParser(preprocessed);
       auto root = m_BodyContext->parser->root();
       m_BodyContext->setRoot(root);
-      gatherBody(root);
+      gatherBody(root, ictx);
 
     } catch (ReportError&) {
 
@@ -396,6 +396,62 @@ void SiliceCompiler::endParsing()
   // done
   m_BodyContext = AutoPtr<ParsingContext>();
   Algorithm::setLuaPreProcessor(nullptr);
+}
+
+// -------------------------------------------------
+
+t_parsed_circuitry SiliceCompiler::parseCircuitryIOs(std::string to_parse)
+{
+  t_parsed_circuitry parsed;
+
+  parsed.parsed_circuitry = to_parse;
+  std::string preprocessed_io = std::string(m_BodyContext->fresult) + "." + parsed.parsed_circuitry + ".io.lpp";
+
+  // create parsing contexts
+  parsed.ios_parser = AutoPtr<ParsingContext>(new ParsingContext(
+    m_BodyContext->fresult, m_BodyContext->lpp,
+    m_BodyContext->framework_verilog, m_BodyContext->defines));
+
+  { /// parse the ios
+    // bind local context
+    parsed.ios_parser->bind();
+    // pre-process unit IOs (done first to gather intel on parameterized vs static ios
+    m_BodyContext->lpp->generateUnitIOSource(parsed.parsed_circuitry, preprocessed_io);
+    // gather the unit
+    parsed.ios_parser->prepareParser(preprocessed_io);
+    auto ios_root = parsed.ios_parser->parser->rootIoList();
+    parsed.ios_parser->setRoot(ios_root);
+    parsed.ioList = ios_root->ioList();
+    // done
+    parsed.ios_parser->unbind();
+  }
+
+  return parsed;
+}
+
+// -------------------------------------------------
+
+void               SiliceCompiler::parseCircuitryBody(t_parsed_circuitry& _parsed, const Blueprint::t_instantiation_context& ictx)
+{
+  std::string preprocessed = std::string(m_BodyContext->fresult) + "." + _parsed.parsed_circuitry + ".lpp";
+
+  // create parsing context
+  _parsed.body_parser = AutoPtr< ParsingContext>(new ParsingContext(
+    m_BodyContext->fresult, m_BodyContext->lpp,
+    m_BodyContext->framework_verilog, m_BodyContext->defines));
+
+  /// parse the body
+  // bind local context
+  _parsed.body_parser->bind();
+  // pre-process unit
+  m_BodyContext->lpp->generateUnitSource(_parsed.parsed_circuitry, preprocessed, ictx);
+  // gather the unit
+  _parsed.body_parser->prepareParser(preprocessed);
+  auto body_root = _parsed.body_parser->parser->rootCircuitry();
+  _parsed.body_parser->setRoot(body_root);
+  _parsed.circuitry = body_root->circuitry();
+  // done
+  _parsed.body_parser->unbind();
 }
 
 // -------------------------------------------------
@@ -456,9 +512,9 @@ void SiliceCompiler::parseUnitBody(t_parsed_unit& _parsed, const Blueprint::t_in
   _parsed.body_parser->setRoot(body_root);
   auto alg = AutoPtr<Algorithm>(_parsed.unit);
   if (body_root->unit()) {
-    gatherUnitBody(alg, body_root->unit());
+    gatherUnitBody(alg, body_root->unit(), ictx);
   } else {
-    gatherUnitBody(alg, body_root->algorithm());
+    gatherUnitBody(alg, body_root->algorithm(), ictx);
   }
   // done
   _parsed.body_parser->unbind();
@@ -571,7 +627,7 @@ void SiliceCompiler::writeUnit(
       // ask for reports
       alg->enableReporting(m_BodyContext->fresult);
       // write algorithm (recurses from there)
-      alg->writeAsModule(this, _out, ictx, pass);
+      alg->writeAsModule(_out, ictx, pass);
     }
     // unbind context
     parsed.body_parser->unbind();
@@ -641,10 +697,11 @@ void SiliceCompiler::run(
 
     // create top instantiation context
     Blueprint::t_instantiation_context ictx;
+    ictx.compiler = this;
     for (auto p : export_params) {
       auto eq = p.find('=');
       if (eq != std::string::npos) {
-        ictx.autos [p.substr(0, eq)] = p.substr(eq + 1); // NOTE TODO: we add to both without distinction but that might have 
+        ictx.autos [p.substr(0, eq)] = p.substr(eq + 1); // NOTE TODO: we add to both without distinction but that might have
         ictx.params[p.substr(0, eq)] = p.substr(eq + 1); // side-effects compared to a std instantiation since autos are for types only ...
       }
     }

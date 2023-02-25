@@ -1,4 +1,4 @@
-algorithm main(
+algorithm foo(
   output uint1 led0,
   output uint1 led1,
   output uint1 led2,
@@ -21,5 +21,7 @@ algorithm main(
       myled = ~myled;
     }
   }
-  
+
 }
+
+algorithm main(output uint8 leds) {}

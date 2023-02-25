@@ -1,0 +1,17 @@
+algorithm main(output uint8 leds)
+{
+
+  subroutine subB(input uint8 i,output uint8 o) {}
+
+  subroutine subA(input uint8 i,output uint8 o)
+  {
+	  (o) <- subB <- (i);
+  }
+
+  subroutine subB(input uint8 i,output uint8 o)
+  {
+	  o = i;
+  }
+
+  (leds) <- subA <- (0);
+}

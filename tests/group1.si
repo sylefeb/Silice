@@ -14,8 +14,7 @@ algorithm foo(
   tin.c = tin.a;
 }
 
-algorithm main(
-  output uint8 led,
+algorithm mmm(
   test t0 {
     input a,
     output b,
@@ -32,3 +31,5 @@ algorithm main(
   t0.a = 10;
 
 }
+
+algorithm main(output uint8 leds) {}

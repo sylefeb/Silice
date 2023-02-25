@@ -37,6 +37,17 @@
         "program": [{"cmd" : "openFPGALoader", "args" : "-b ulx3s build.bit"}]
       },
       {
+        "builder" : "edalize",
+        "description": "Build using Edalize and Diamond",
+        "tool": "diamond",
+        "tool_options": [{
+          "part": "LFE5U-85F-6BG381C"
+        }],
+        "bitstream"  : "build.bit",
+        "constraints": [{"name": "ulx3s.lpf", "file_type": "LPF"}],
+        "program": [{"cmd" : "openFPGAloader", "args" : " -b ulx3s ./Implementation0/build_Implementation0.bit"}]
+      },
+      {
         "builder" : "shell",
         "command" : "ulx3s.sh",
         "description": "Custom shell scripts using yosys and nextpnr"

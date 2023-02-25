@@ -23,6 +23,7 @@ algorithm main(output uint8 leds)
   grp g;
 
   uint32 cycle(0);
+
   always_after {
     cycle = cycle + 1;
   }
@@ -32,6 +33,7 @@ algorithm main(output uint8 leds)
     __display("[cycle %d] (main) calling",cycle);
     g.b = cycle;
     (g) <- alg_inst <- (g);
+    g.b = g.a + 1;
     __display("[cycle %d] (main) done, a = %d",cycle,g.a);
   }
 

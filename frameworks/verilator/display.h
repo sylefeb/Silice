@@ -34,6 +34,7 @@ class DisplayChip {
 public:
   virtual LibSL::Image::ImageRGBA& framebuffer() = 0;
   virtual bool framebufferChanged() = 0;
+  virtual bool ready() = 0;
 };
 
 void display_loop(DisplayChip *chip);

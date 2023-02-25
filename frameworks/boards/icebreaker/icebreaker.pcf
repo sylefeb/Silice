@@ -67,3 +67,8 @@ set_io -nowarn P2_7  26
 set_io -nowarn P2_8  23
 set_io -nowarn P2_9  20
 set_io -nowarn P2_10 18
+
+# ------------ RGB Led pins -------------------------------------
+set_io -nowarn RGB_R 39
+set_io -nowarn RGB_G 40
+set_io -nowarn RGB_B 41

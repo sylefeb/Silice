@@ -5,13 +5,31 @@ unit main(output uint8 leds)
     while (cycle < 4) {
       {      // stage 0
         a = cycle;
+        cycle = cycle + 1;
         __display("[stage 0] cycle %d, a = %d",cycle,a);
       } -> { // stage 1
         __display("[stage 1] cycle %d, a = %d",cycle,a);
       } -> { // stage 2
         __display("[stage 2] cycle %d, a = %d\n",cycle,a);
       }
-      cycle = cycle + 1;
     }
   }
 }
+
+/*
+[stage 0] cycle     1, a =     0
+[stage 0] cycle     2, a =     1
+[stage 1] cycle     1, a =     0
+[stage 0] cycle     3, a =     2
+[stage 1] cycle     2, a =     1
+[stage 2] cycle     1, a =     0
+
+[stage 0] cycle     4, a =     3
+[stage 1] cycle     3, a =     2
+[stage 2] cycle     2, a =     1
+
+[stage 1] cycle     4, a =     3
+[stage 2] cycle     3, a =     2
+
+[stage 2] cycle     4, a =     3
+*/

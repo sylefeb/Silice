@@ -170,9 +170,9 @@ $$end
 
   always {
 $$if FIREV_MULDIV then
-    uint1 alu_wait <:: alu.aluPleaseWait;
+    uint1 alu_wait = alu.aluPleaseWait;
 $$else
-    uint1 alu_wait <:: 0; // never wait ALU in RV32I
+    uint1 alu_wait = 0; // never wait ALU in RV32I
 $$end
 
     state = {
@@ -240,9 +240,9 @@ $$end
         do_load_store   = 0;
         // data with memory access
         if (~saved_store) {
-          uint5 offset  <:: {saved_loadStoreAlign,3b000};
-          uint5 signB   <:: offset | 5b00111;
-          uint5 signH   <:: offset | 5b01111;
+          uint5 offset  = {saved_loadStoreAlign,3b000};
+          uint5 signB   = offset | 5b00111;
+          uint5 signH   = offset | 5b01111;
           // finalize load
           uint32 tmp = uninitialized;
           switch ( saved_loadStoreOp[0,2] ) {

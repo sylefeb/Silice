@@ -1,0 +1,14 @@
+circuitry test_circuit(input a,output b)
+{
+  __display("input=%d",a);
+  b = a;
+}
+
+algorithm main(output uint8 leds)
+{
+  uint4 tbl1[3] = {15,14,13};
+  uint4 tbl2[3] = {12,11,10};
+  uint4 a(100);
+  (a) = test_circuit(tbl1[0]); //// TODO FIXME: name collision?
+	__display("%d",a);
+}

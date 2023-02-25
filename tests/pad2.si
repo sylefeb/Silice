@@ -1,4 +1,4 @@
-algorithm main()
+algorithm main(output uint8 leds)
 {
 //  uint8 table[16] = {}; // error
 //  uint8 table[16] = {0,1,2}; // error
@@ -7,7 +7,7 @@ algorithm main()
 //  uint8 table[16] = {0,1,2,pad(uninitialized)};
 //  uint8 table[16] = {pad(uninitialized)};
 //  uint8 table[16] = uninitialized;
- 
+
  uint8 next = 0;
  while (next < 16) {
    uint8 v = 0;

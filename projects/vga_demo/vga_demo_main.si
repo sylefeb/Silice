@@ -1,11 +1,17 @@
 // SL 2020-04-23
-// Main file for all vga demo projects
+// Main file for all vga demo projects  --  Let's race the beam!
 // -------------------------
 // MIT license, see LICENSE_MIT in Silice repo root
 // https://github.com/sylefeb/Silice
 
 // VGA driver
 $include('../common/vga.si')
+
+$$if VGA_1920_1080 or VGA_1024_768 or VGA_800_600 then
+$$  if not ECPIX5 and not SIMULATION and not DE10NANO then
+$$    error('Higher resolution VGA support only for ecpix5 (missing plls)')
+$$  end
+$$end
 
 $$if CROSSLINKNX_EVN then
 // Clock
@@ -34,7 +40,11 @@ $$end
 
 $$if DE10NANO then
 // Clock
-import('../common/plls/de10nano_100_25.v')
+$$if VGA_1920_1080 then
+import('../common/plls/de10nano_173.v')
+$$else
+import('../common/plls/de10nano_25.v')
+$$end
 $$end
 
 $$if DE2 then
@@ -44,7 +54,15 @@ $$end
 
 $$if ECPIX5 then
 // Clock
-import('../common/plls/ecpix5_100_25.v')
+$$if VGA_1024_768 then
+import('../common/plls/ecpix5_65.v')
+$$elseif VGA_1920_1080 then
+import('../common/plls/ecpix5_173.v')
+$$elseif VGA_800_600 then
+import('../common/plls/ecpix5_36.v')
+$$else
+import('../common/plls/ecpix5_25.v')
+$$end
 $$end
 
 $$if HARDWARE then
@@ -101,7 +119,7 @@ $$end
 $$if MOJO then
   uint1 sdram_clock = 0;
   // --- clock
-  pll_100_25 clk_gen (
+  pll clk_gen (
     CLK_IN1  <: clock,
     CLK_OUT1 :> sdram_clock,
     CLK_OUT2 :> video_clock
@@ -131,13 +149,11 @@ $$elseif ICEBREAKER or ICEBITSY or RIEGEL then
   );
 $$elseif DE10NANO then
   // --- clock
-  uint1 sdram_clock = 0;
   uint1 pll_lock    = 0;
-  pll_100_25 clk_gen(
+  pll clk_gen(
     refclk   <: clock,
     rst      <: reset,
-    outclk_0 :> sdram_clock,
-    outclk_1 :> video_clock,
+    outclk_0 :> video_clock,
     locked   :> pll_lock
   );
 $$elseif DE2 then
@@ -150,12 +166,10 @@ $$elseif DE2 then
   );
 $$elseif ECPIX5 then
   // --- clock
-  uint1 sdram_clock = 0;
   uint1 pll_lock = 0;
-  pll_100_25 clk_gen(
+  pll clk_gen(
     clkin    <: clock,
-    clkout0  :> sdram_clock,
-    clkout1  :> video_clock,
+    clkout0  :> video_clock,
     locked   :> pll_lock
   );
 $$end
@@ -175,10 +189,12 @@ $$end
   uint1  vblank = 0;
   uint10 pix_x  = 0;
   uint10 pix_y  = 0;
+  uint1  vga_hs = 0;
+  uint1  vga_vs = 0;
 
   vga vga_driver (
-    vga_hs :> video_hs,
-	  vga_vs :> video_vs,
+    vga_hs :> vga_hs,
+	  vga_vs :> vga_vs,
 	  active :> active,
 	  vblank :> vblank,
 	  vga_x  :> pix_x,
@@ -203,9 +219,11 @@ $$end
   uint8 frame  = 0;
 
   // boost colors if color depth is greater than 6 (demos were developped for 6 bits colors)
-  video_r := r << $math.max(0,color_depth-6)$;
-  video_g := g << $math.max(0,color_depth-6)$;
-  video_b := b << $math.max(0,color_depth-6)$;
+  video_r  := r << $math.max(0,color_depth-6)$;
+  video_g  := g << $math.max(0,color_depth-6)$;
+  video_b  := b << $math.max(0,color_depth-6)$;
+  video_hs := vga_hs;
+  video_vs := vga_vs;
 
 $$if ICARUS then
   // we count a number of frames and stop

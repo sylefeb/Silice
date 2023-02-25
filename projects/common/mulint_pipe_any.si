@@ -38,7 +38,7 @@ $$end
   uint1 m0_neg = 0;
   uint1 m1_neg = 0;
 
-  // the pipeline runs forever, consuming anything throw at it
+  // the pipeline runs forever, consuming anything thrown at it
   while (1) {
 
     // initial stage

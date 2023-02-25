@@ -1,0 +1,105 @@
+
+unit test(input uint32 i,output uint32 o,output uint1 out_valid(0))
+{
+  uint32 cycle(0);
+  uint32 n(0);
+
+  always_before { out_valid = 0; }
+
+  algorithm {
+
+    while (n < 10) {
+
+      uint32 v = i + n;
+      __display("[%d][0] v = %d",cycle,v);
+      n        = n + 1;
+
+    ->
+
+      v = v + 100;
+      __display("[%d][1] v = %d",cycle,v);
+
+    ->
+
+      v = v + 100;
+      __display("[%d][2] v = %d",cycle,v);
+
+      o = v;
+      out_valid = 1;
+
+    }
+
+  }
+
+  always_after { cycle = cycle + 1; }
+}
+
+unit main(output uint8 leds)
+{
+  uint32 cycle(0);
+
+  test t;
+
+  algorithm {
+
+    t <- (1000);
+    while (1) {
+      if (t.out_valid) {
+        __display("t outputs %d on cycle %d",t.o,cycle);
+      }
+      if (isdone(t)) { break; }  // algorithm not done until pipeline finished
+    }
+    __display("done on cycle %d",cycle);
+
+  }
+
+  always_after {
+    cycle = cycle + 1;
+  }
+}
+
+/*
+
+[        12][0] v =       1000
+[        13][0] v =       1001
+[        13][1] v =       1100
+[        14][0] v =       1002
+[        14][1] v =       1101
+[        14][2] v =       1200
+t outputs       1200 on cycle         15
+[        15][0] v =       1003
+[        15][1] v =       1102
+[        15][2] v =       1201
+t outputs       1201 on cycle         16
+[        16][0] v =       1004
+[        16][1] v =       1103
+[        16][2] v =       1202
+t outputs       1202 on cycle         17
+[        17][0] v =       1005
+[        17][1] v =       1104
+[        17][2] v =       1203
+t outputs       1203 on cycle         18
+[        18][0] v =       1006
+[        18][1] v =       1105
+[        18][2] v =       1204
+t outputs       1204 on cycle         19
+[        19][0] v =       1007
+[        19][1] v =       1106
+[        19][2] v =       1205
+t outputs       1205 on cycle         20
+[        20][0] v =       1008
+[        20][1] v =       1107
+[        20][2] v =       1206
+t outputs       1206 on cycle         21
+[        21][0] v =       1009
+[        21][1] v =       1108
+[        21][2] v =       1207
+t outputs       1207 on cycle         22
+[        22][1] v =       1109
+[        22][2] v =       1208
+t outputs       1208 on cycle         23
+[        23][2] v =       1209
+t outputs       1209 on cycle         24
+done on cycle         25
+
+*/

@@ -29,11 +29,6 @@ export QT_QPA_PLATFORM_PLUGIN_PATH=/mingw64/share/qt5/plugins
 *)
 esac
 
-if [[ ! -z "${NO_BUILD}" ]]; then
-  echo "Skipping build."
-  exit
-fi
-
 cd $BUILD_DIR
 
 set +e
@@ -41,6 +36,11 @@ rm build*
 set -e
 
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
+
+if [[ ! -z "${NO_BUILD}" ]]; then
+  echo "Skipping build."
+  exit
+fi
 
 yosys -p "synth_ice40 -dsp -json build.json -abc9 -device u -top top" build.v
 nextpnr-ice40 --up5k --freq 12 --package sg48 --json build.json --pcf $BOARD_DIR/icebreaker.pcf --asc build.asc -r

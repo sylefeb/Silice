@@ -1,0 +1,29 @@
+circuitry mul_12_12(output result,input a,input b)
+{
+  uint12 albh(0);
+  uint12 ahbl(0);
+  uint12 albl(0);
+  uint12 ahbh(0);
+  ahbl   = a[6,6] * b[0,6];
+  albh   = a[0,6] * b[6,6];
+  albl   = a[0,6] * b[0,6];
+  ahbh   = a[6,6] * b[6,6];
+ ->
+  result = { {ahbh,6b0} + ahbl+albh+albl[6,6] , albl[0,6] };
+ ->
+}
+
+algorithm main(output uint8 leds)
+{
+  uint32 t(0);
+  uint12 a($(1<<12)-1$);
+  uint12 b($(1<<12)-1$);
+->
+  (t) = mul_12_12(a,b);
+->
+++:
+++:
+++:
+  uint32 m = a*b;
+  __display("%d %d",t,m);
+}

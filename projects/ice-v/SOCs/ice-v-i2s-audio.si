@@ -45,10 +45,10 @@ algorithm audio_pcm_i2s(
 
   always {
 
-    // track expressions for serial bit clock, edge, negedge, all bits sent
-    uint1 edge      <:: (count == $bit_hperiod_count-1$);
-    uint1 negedge   <:: edge &  i2s_bck;
-    uint1 allsent   <:: mod32 == 0;
+    // serial bit clock, edge, negedge, all bits sent
+    uint1 edge      = (count == $bit_hperiod_count-1$);
+    uint1 negedge   = edge &  i2s_bck;
+    uint1 allsent   = mod32 == 0;
 
     // output i2s signals
     i2s = {i2s_lck,data[7,1],i2s_bck,1b0};

@@ -147,7 +147,7 @@ $$end
     // ====================== ALU
 $$if not ICEV_FAST_SHIFT then
     // are we still shifting?
-    uint1 shiting <:: (shamt != 0);
+    uint1 shiting = (shamt != 0);
     // shift (one bit per clock)
     if (trigger) {
       // start shifting?
@@ -267,7 +267,7 @@ unit rv32i_cpu(
   bram_port    mem,
 $$if ICEV_STALL then
   // advanced feature to stall the CPU (rise only on even stage F/LS1)
-  input uint1  stall,
+  input uint1  stall_cpu,
 $$end
 $$if ICEV_USERDATA then
   input uint32 user_data
@@ -289,7 +289,7 @@ $$if ICEV_STALL then
   uint1  stalled(0);
 $$else
   // make these constant, removing the feature
-  uint1 stall <: 0; uint1 stalled <: 0;
+  uint1 stall_cpu <: 0; uint1 stalled <: 0;
 $$end
 
   // program counters
@@ -322,7 +322,7 @@ $$end
   // always block, done every cycle
   always {
     // decodes values loaded from memory (used when exec.load == 1)
-    uint32 aligned <: mem.rdata >> {exec.n[0,2],3b000};
+    uint32 aligned = mem.rdata >> {exec.n[0,2],3b000};
     switch ( exec.op[0,2] ) { // LB / LBU, LH / LHU, LW
       case 2b00:{ loaded = {{24{(~exec.op[2,1])&aligned[ 7,1]}},aligned[ 0,8]}; }
       case 2b01:{ loaded = {{16{(~exec.op[2,1])&aligned[15,1]}},aligned[ 0,16]};}
@@ -384,7 +384,7 @@ $$end
 
       // LS1
       // memory address from which to load/store
-      mem.addr = (~exec.working & ~stall) ? (exec.n >> 2) : mem.addr;
+      mem.addr = (~exec.working & ~stall_cpu) ? (exec.n >> 2) : mem.addr;
       // no need to know which core, since we only read from exec
       if (exec.store) {
         // == Store (enabled if exec.store == 1)
@@ -461,10 +461,10 @@ $$end
     }
 
     // advance states unless stuck in ALU or reset is high
-    stage   = (exec.working | reset | stall) ? stage : stage + 1;
+    stage   = (exec.working | reset | stall_cpu) ? stage : stage + 1;
 $$if ICEV_STALL then
     // track CPU was stalled
-    stalled = stall;
+    stalled = stall_cpu;
 $$end
 
 $$if VERBOSE then

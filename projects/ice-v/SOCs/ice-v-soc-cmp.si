@@ -24,7 +24,7 @@ $$ICEV_FAST_SHIFT=1
 $$ICEV_VERILATOR_TRACE=1
 $include('../CPUs/ice-v.si')
 $include('../CPUs/ice-v-conveyor.si')
-$include('../CPUs/ice-v-swirl.si')
+$include('../CPUs/ice-v-swirl-compact.si')
 
 // --------------------------------------------------
 // SOC
@@ -58,8 +58,8 @@ unit cpu1_bench()
   // io mapping
   always {
     uint32 reinstr(0);
-    uint1  mapped      <:: :memio.addr  [$addrW-1$,1];
-    uint1  prev_mapped <:: prev_mem_addr[$addrW-1$,1];
+    uint1  mapped      = memio.addr  [$addrW-1$,1];
+    uint1  prev_mapped = prev_mem_addr[$addrW-1$,1];
 	  // RAM access
     mem.wenable   = memio.wenable & {4{~mapped}};
 		//                              ^^^^^^^ no BRAM write if in peripherals
@@ -102,8 +102,8 @@ unit cpu2_bench()
   // io mapping
   always {
     uint32 reinstr(0);
-    uint1  mapped      <:: :memio.addr  [$addrW-1$,1];
-    uint1  prev_mapped <:: prev_mem_addr[$addrW-1$,1];
+    uint1  mapped      = memio.addr  [$addrW-1$,1];
+    uint1  prev_mapped = prev_mem_addr[$addrW-1$,1];
 	  // RAM access
     mem.wenable = memio.wenable & {4{~memio.addr[$addrW-1$,1]}};
 		//                            ^^^^^^^ no BRAM write if in peripherals
@@ -146,8 +146,8 @@ unit cpu3_bench()
   // io mapping
   always {
     uint32 reinstr(0);
-    uint1  mapped      <:: :memio.addr  [$addrW-1$,1];
-    uint1  prev_mapped <:: prev_mem_addr[$addrW-1$,1];
+    uint1  mapped      = memio.addr  [$addrW-1$,1];
+    uint1  prev_mapped = prev_mem_addr[$addrW-1$,1];
 	  // RAM access
     mem.wenable = memio.wenable & {4{~memio.addr[$addrW-1$,1]}};
 		//                            ^^^^^^^ no BRAM write if in peripherals

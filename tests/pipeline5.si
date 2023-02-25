@@ -13,6 +13,7 @@ algorithm main(output uint8 leds)
 
     {
       pi = i;
+      i = i + 1;
       a  = a + 1;
     } -> {
 			__display("A [%d] = %d (e = %d)",pi,b,e);
@@ -25,8 +26,6 @@ algorithm main(output uint8 leds)
     } -> {
       o[pi*8,8] = b;
     }
-
-    i = i + 1;
 
   }
 

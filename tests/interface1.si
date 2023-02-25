@@ -13,7 +13,7 @@ interface port {
 
 algorithm test(
   port access
-) <autorun> {  
+) <autorun> {
 
 ++: // let main start (loop entry)
 
@@ -47,13 +47,13 @@ algorithm test(
   }
 }
 
-algorithm main()
+algorithm main(output uint8 leds)
 {
   table t;
-  
+
   test tst(
     access <::> t // :: is used to delay the inputs to next clock cycle
-                  // this prevents forming a combinational cycle and 
+                  // this prevents forming a combinational cycle and
                   // achieves the desired one cycle latency
   );
 
@@ -68,5 +68,5 @@ algorithm main()
     }
     n = n + 1;
   }
- 
+
 }
