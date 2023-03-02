@@ -441,7 +441,7 @@ inOutList           :  inOrOut (',' inOrOut)* ','? | ;
 
 instructionList     :
                       (
-                        (instruction ';') +
+                        instruction (';' instruction) * ';'
                       | declaration
                       | block
                       | alwaysBlock
@@ -456,10 +456,9 @@ instructionList     :
                       ) instructionList
                       | ;
 
-pipeline             : instructionList ('->' instructionList) +
-                     | ;
+pipeline             : instructionList ('->' instructionList) * ;
 
-instructionSequence  : pipeline | instructionList ;
+instructionSequence  : pipeline ;
 
 subroutineParam     : ( READ | WRITE | READWRITE | CALLS ) IDENTIFIER
 					  | input | output ;

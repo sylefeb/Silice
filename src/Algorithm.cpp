@@ -1745,7 +1745,9 @@ bool Algorithm::hasPipeline(antlr4::tree::ParseTree* tree) const
   } else {
     auto pip = dynamic_cast<siliceParser::PipelineContext*>(tree);
     if (pip) {
-      return true;
+      if (pip->instructionList().size() > 1) { // really a pipeline?
+        return true;
+      }
     } else {
       // recurse
       for (auto c : tree->children) {
@@ -2371,6 +2373,7 @@ Algorithm::t_combinational_block *Algorithm::concatenatePipeline(siliceParser::P
 
 Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::PipelineContext* pip, t_combinational_block *_current, t_gather_context *_context)
 {
+  sl_assert(pip->instructionList().size() > 1); // otherwise not a pipeline
   // are we already within a parent pipeline?
   if (_current->context.pipeline_stage == nullptr) {
 
@@ -3705,6 +3708,16 @@ Algorithm::t_combinational_block *Algorithm::gather(
   auto alw_after    = dynamic_cast<siliceParser::AlwaysAfterBlockContext *>(tree);
 
   bool recurse      = true;
+
+  // if this is a pipeline check whether it has a unique stage, and if yes,
+  // ignore it as a pipeline (this is to simplify grammar parsing)
+  if (pip) {
+    if (pip->instructionList().size() == 1) {
+      ilist    = pip->instructionList().front();
+      tree     = ilist;
+      pip      = nullptr;
+    }
+  }
 
   if (algbody) { // uses legacy snytax
     m_UsesLegacySnytax = true;
