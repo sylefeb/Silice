@@ -64,6 +64,10 @@ module top(
   // gpio
   inout [27:0] gpio,
 `endif
+`ifdef VGA
+  // vga
+  output [27:0] gpio,
+`endif
 `ifdef HDMI
   // hdmi
   output [3:0]  gpdi_dp, // {clock,R,G,B}
@@ -193,6 +197,15 @@ M_main __main(
   .out_uart_tx  (__main_out_uart_rx),
   .in_uart_rx   (ftdi_txd),
 `endif
+
+`ifdef VGA
+wire        __main_out_vga_hs;
+wire        __main_out_vga_vs;
+wire [5:0]  __main_out_vga_r;
+wire [5:0]  __main_out_vga_g;
+wire [5:0]  __main_out_vga_b;
+`endif
+
 `ifdef SPIFLASH
   .out_sf_clk(__main_flash_clk),
   .out_sf_csn(flash_csn),
@@ -232,9 +245,38 @@ assign sd_mosi       = __main_sd_mosi;
 `ifdef UART
 assign ftdi_rxd      = __main_out_uart_rx;
 `endif
-
+`ifdef VGA
+  .out_video_hs (__main_out_vga_hs),
+  .out_video_vs (__main_out_vga_vs),
+  .out_video_r  (__main_out_vga_r),
+  .out_video_g  (__main_out_vga_g),
+  .out_video_b  (__main_out_vga_b),
+`endif
 `ifdef HDMI
 assign gpdi_dp       = __main_out_gpdi_dp;
+`endif
+
+`ifdef VGA
+assign gpio[2]         = __main_out_vga_vs;
+assign gpio[3]         = __main_out_vga_hs;
+assign gpio[4]         = __main_out_vga_r[5];
+assign gpio[5]         = __main_out_vga_r[4];
+assign gpio[6]         = __main_out_vga_r[3];
+assign gpio[7]         = __main_out_vga_r[2];
+assign gpio[8]         = __main_out_vga_r[1];
+assign gpio[9]         = __main_out_vga_r[0];
+assign gpio[10]        = __main_out_vga_g[5];
+assign gpio[11]        = __main_out_vga_g[4];
+assign gpio[12]        = __main_out_vga_g[3];
+assign gpio[13]        = __main_out_vga_g[2];
+assign gpio[14]        = __main_out_vga_g[1];
+assign gpio[15]        = __main_out_vga_g[0];
+assign gpio[16]        = __main_out_vga_b[0];
+assign gpio[17]        = __main_out_vga_b[1];
+assign gpio[18]        = __main_out_vga_b[2];
+assign gpio[19]        = __main_out_vga_b[3];
+assign gpio[20]        = __main_out_vga_b[4];
+assign gpio[21]        = __main_out_vga_b[5];
 `endif
 
 `ifdef SPIFLASH
