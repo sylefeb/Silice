@@ -1,0 +1,337 @@
+{
+  "name": "ulx4m_ls",
+  "variants": [
+    {
+      "name": "85k",
+      "framework" : "ulx4m_ls.v",
+      "pins": [
+        {"set"    : "basic"},
+        {"set"    : "buttons", "define" : "BUTTONS=1"},
+        {"set"    : "sdram",   "define" : "SDRAM=1"},
+        {"set"    : "sdcard",  "define" : "SDCARD=1"},
+        {"set"    : "hdmi",    "define" : "HDMI=1"},
+        {"set"    : "gpio",    "define" : "GPIO=1"},
+        {"set"    : "uart",    "define" : "UART=1"},
+        {"set"    : "uart2",   "define" : "UART2=1"},
+        {"set"    : "spiflash","define" : "SPIFLASH=1"},
+        {"set"    : "us2_ps2", "define" : "US2_PS2=1"},
+        {"set"    : "i2c",     "define" : "I2C=1"}
+      ],
+      "builders": [
+      {
+        "builder" : "edalize",
+        "description": "Build using Edalize",
+        "tool": "trellis",
+        "tool_options": [
+          {
+              "yosys_synth_options": ["-abc9 -top top"],
+              "nextpnr_options": ["--85k", "--freq 25", "--package CABGA381", "--timing-allow-fail"],
+              "pnr": "next"
+          }
+        ],
+        "bitstream"  : "build.bit",
+        "constraints": [{"name": "ulx4m_ls.lpf", "file_type": "LPF"}],
+        "program": [{"cmd" : "openFPGALoader", "args" : "--dfu --vid 0x1d50 --pid 0x614b --altsetting 0 build.bit"}]
+      },
+      {
+        "builder" : "shell",
+        "command" : "ulx4m_ls.sh",
+        "description": "Custom shell scripts using yosys and nextpnr"
+      }
+      ]
+    },
+    {
+      "name": "45k",
+      "framework" : "ulx4m_ls.v",
+      "pins": [
+        {"set"    : "basic"},
+        {"set"    : "buttons","define" : "BUTTONS=1"},
+        {"set"    : "sdram",  "define" : "SDRAM=1"},
+        {"set"    : "sdcard", "define" : "SDCARD=1"},
+        {"set"    : "hdmi",   "define" : "HDMI=1"},
+        {"set"    : "gpio",   "define" : "GPIO=1"},
+        {"set"    : "uart",   "define" : "UART=1"},
+        {"set"    : "uart2",  "define" : "UART2=1"},
+        {"set"    : "us2_ps2","define" : "US2_PS2=1"},
+        {"set"    : "i2c",    "define" : "I2C=1"}
+      ],
+      "builders": [
+      {
+        "builder" : "edalize",
+        "description": "Build using Edalize",
+        "tool": "trellis",
+        "tool_options": [
+          {
+              "yosys_synth_options": ["-abc9"],
+              "nextpnr_options": ["--45k", "--freq 25", "--package CABGA381", "--timing-allow-fail"],
+              "pnr": "next"
+          }
+        ],
+        "bitstream"  : "build.bit",
+        "constraints": [{"name": "ulx4m_ls.lpf", "file_type": "LPF"}],
+        "program": [{"cmd" : "openFPGALoader", "args" : " --dfu --vid 0x1d50 --pid 0x614b --altsetting 0 build.bit"}]
+      },
+      {
+        "builder" : "shell",
+        "command" : "ulx4m_ls.sh",
+        "description": "Custom shell scripts using yosys and nextpnr"
+      }
+      ]
+    },
+    {
+      "name": "25k",
+      "framework" : "ulx4m_ls.v",
+      "pins": [
+        {"set"    : "basic"},
+        {"set"    : "buttons","define" : "BUTTONS=1"},
+        {"set"    : "sdram",  "define" : "SDRAM=1"},
+        {"set"    : "sdcard", "define" : "SDCARD=1"},
+        {"set"    : "hdmi",   "define" : "HDMI=1"},
+        {"set"    : "gpio",   "define" : "GPIO=1"},
+        {"set"    : "uart",   "define" : "UART=1"},
+        {"set"    : "uart2",  "define" : "UART2=1"},
+        {"set"    : "us2_ps2","define" : "US2_PS2=1"},
+        {"set"    : "i2c",    "define" : "I2C=1"}
+      ],
+      "builders": [
+      {
+        "builder" : "edalize",
+        "description": "Build using Edalize",
+        "tool": "trellis",
+        "tool_options": [
+          {
+              "yosys_synth_options": ["-abc9"],
+              "nextpnr_options": ["--25k", "--freq 25", "--package CABGA381", "--timing-allow-fail"],
+              "pnr": "next"
+          }
+        ],
+        "bitstream"  : "build.bit",
+        "constraints": [{"name": "ulx4m_ls.lpf", "file_type": "LPF"}],
+        "program": [{"cmd" : "openFPGALoader", "args" : "--dfu --vid 0x1d50 --pid 0x614b --altsetting 0 build.bit"}]
+      },
+      {
+        "builder" : "shell",
+        "command" : "ulx4m_ls.sh",
+        "description": "Custom shell scripts using yosys and nextpnr"
+      }
+      ]
+    },
+    {
+      "name": "12k",
+      "framework" : "ulx4m_ls.v",
+      "pins": [
+        {"set"    : "basic"},
+        {"set"    : "buttons","define" : "BUTTONS=1"},
+        {"set"    : "sdram",  "define" : "SDRAM=1"},
+        {"set"    : "sdcard", "define" : "SDCARD=1"},
+        {"set"    : "hdmi",   "define" : "HDMI=1"},
+        {"set"    : "gpio",   "define" : "GPIO=1"},
+        {"set"    : "uart",   "define" : "UART=1"},
+        {"set"    : "uart2",  "define" : "UART2=1"},
+        {"set"    : "us2_ps2","define" : "US2_PS2=1"},
+        {"set"    : "i2c",    "define" : "I2C=1"}
+      ],
+      "builders": [
+      {
+        "builder" : "edalize",
+        "description": "Build using Edalize",
+        "tool": "trellis",
+        "tool_options": [
+          {
+              "yosys_synth_options": ["-abc9"],
+              "nextpnr_options": ["--12k", "--freq 25", "--package CABGA381", "--timing-allow-fail"],
+              "pnr": "next"
+          }
+        ],
+        "bitstream"  : "build.bit",
+        "constraints": [{"name": "ulx4m_ls.lpf", "file_type": "LPF"}],
+        "program": [{"cmd" : "openFPGALoader", "args" : "--dfu --vid 0x1d50 --pid 0x614b --altsetting 0 build.bit"}]
+      },
+      {
+        "builder" : "shell",
+        "command" : "ulx4m_ls.sh",
+        "description": "Custom shell scripts using yosys and nextpnr"
+      }
+      ]
+    }
+  ],
+  "pins": {
+    "basic": [
+      {
+        "name": "leds",
+        "type": "uint8",
+        "io": "output"
+      }
+    ],
+    "buttons" : [
+      {
+        "name": "btns",
+        "type": "uint7",
+        "io": "input"
+      }
+    ],
+    "sdcard": [
+      {
+        "name": "sd_csn",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sd_clk",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sd_mosi",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sd_miso",
+        "type": "uint1",
+        "io": "input"
+      }
+    ],
+    "sdram": [
+      {
+        "name": "sdram_dq",
+        "type": "uint16",
+        "io": "inout"
+      },
+      {
+        "name": "sdram_clk",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sdram_cle",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sdram_dqm",
+        "type": "uint2",
+        "io": "output"
+      },
+      {
+        "name": "sdram_cs",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sdram_we",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sdram_cas",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sdram_ras",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sdram_ba",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "sdram_a",
+        "type": "uint1",
+        "io": "output"
+      }
+    ],
+    "hdmi": [
+      {
+        "name": "gpdi_dp",
+        "type": "uint1",
+        "io": "output"
+      },
+      {
+        "name": "gpdi_dn",
+        "type": "uint1",
+        "io": "output"
+      }
+    ],
+    "gpio": [
+      {
+        "name": "gpio",
+        "type": "uint28",
+        "io": "inout"
+      }
+    ],
+    "uart": [
+      {
+        "name": "uart_tx",
+        "type": "uint1",
+        "io"  : "output"
+      },
+      {
+        "name": "uart_rx",
+        "type": "uint1",
+        "io"  : "input"
+      }
+    ],
+    "uart2": [
+      {
+        "name": "uart2_tx",
+        "type": "uint1",
+        "io"  : "output"
+      },
+      {
+        "name": "uart2_rx",
+        "type": "uint1",
+        "io"  : "input"
+      }
+    ],
+    "spiflash": [
+      {
+        "name" : "sf_clk",
+        "type" : "uint1",
+        "io"   : "output"
+      },
+      {
+        "name" : "sf_csn",
+        "type" : "uint1",
+        "io"   : "output"
+      },
+      {
+        "name" : "sf_mosi",
+        "type" : "uint1",
+        "io"   : "output"
+      },
+      {
+        "name" : "sf_miso",
+        "type" : "uint1",
+        "io"   : "input"
+      }
+    ],
+    "us2_ps2": [
+      {
+        "name": "us2_bd_dp",
+        "type": "uint1",
+        "io"  : "input"
+      },
+      {
+        "name": "us2_bd_dn",
+        "type": "uint1",
+        "io"  : "input"
+      }
+    ],
+    "i2c": [
+      {
+        "name": "gpio_sda",
+        "type": "uint1",
+        "io"  : "inout"
+      },
+      {
+        "name": "gpio_scl",
+        "type": "uint1",
+        "io"  : "inout"
+      }
+    ]
+  }
+}
