@@ -2665,6 +2665,10 @@ bool Algorithm::isStateLessGraph(const t_combinational_block *head) const
     if (cur->is_state) {
       return false; // not stateless
     }
+    if (cur->goto_and_return_to()) {
+      // NOTE: this special case is required to tag subroutine calls as non stateless
+      return false; // not stateless
+    }
     // recurse
     std::vector< t_combinational_block* > children;
     cur->getChildren(children);
@@ -8184,13 +8188,15 @@ void Algorithm::writeStatelessBlockGraph(
       mergeDependenciesInto(depds_else, _dependencies);
       // combine ff usage
       combineFFUsageInto(current,_ff_usage, usage_branches, _ff_usage);
-      // follow after?
+      // is after a state?
       if (current->if_then_else()->after->is_state) {
+        // yes: already indexed by recursive calls, stop here
         mergeDependenciesInto(_dependencies, _post_dependencies);
         if (enclosed_in_conditional) { w.out << "end // 1" << nxl; } // end conditional
-        return; // no: already indexed by recursive calls
+        return;
       } else {
-        current = current->if_then_else()->after; // yes!
+        // no: follow
+        current = current->if_then_else()->after;
       }
     } else if (current->switch_case()) {
       // disable all potentially starting pipelines
