@@ -23,9 +23,9 @@ pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-gtkwave
 pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-verilator
 pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-openFPGALoader
 pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-dfu-util
-# pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-nextpnr
-# pacman -S --noconfirm --needed  ${MINGW_PACKAGE_PREFIX}-icestorm
-# pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-prjtrellis
+pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-nextpnr
+pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-icestorm
+pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-prjtrellis
 pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-boost
 
 wget -c https://github.com/sylefeb/fpga-binutils/releases/download/v20230115/fpga-binutils-64.zip
