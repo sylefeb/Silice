@@ -3,7 +3,7 @@
 
 This is the Silice main documentation.
 
-When designing with Silice your code describes circuits. If not done already, it is highly recommended to [watch the introductory video](https://www.youtube.com/watch?v=_OhxEY72qxI) (youtube) to get more familiar with this notion and what it entails.
+When designing with Silice your code describes circuits. If not done already, I recommended to [watch the introductory video](https://www.youtube.com/watch?v=_OhxEY72qxI) (youtube) to get more familiar with this notion and what it entails. The video is slightly outdated in terms of what Silice can do, but still useful when getting started.
 
 ## Table of content
 
@@ -1345,7 +1345,11 @@ to jump to the subroutine initial state, and one cycle to jump back.
 
 # Pipelines
 
-> Several projects in the repo use pipelines and can provide a good practical introduction: [pipeline_sort](../projects/pipeline_sort/README.md) (has detailed explanations), [divstd_pipe](../projects/divstd_pipe/README.md) (uses the pre-processor to produce a pipeline for division when instantiated) and the [ice-v conveyor and swirl CPUs](../projects/ice-v/README.md).
+> Several projects in the repo use pipelines and can provide a good practical introduction:
+> [pipeline_sort](../projects/pipeline_sort/README.md) has detailed explanations,
+> [divstd_pipe](../projects/divstd_pipe/README.md) uses the pre-processor to produce a pipeline for division when instantiated,
+> [Menger sponge](../projects/vga_demo/vga_msponge.si) is a long pipeline rendering a 3D fractal racing the beam in full HD,
+> and the [ice-v conveyor and swirl CPUs](../projects/ice-v/README.md) are pipelined CPUs.
 
 The pipeline syntax is:
 ```c
@@ -1457,12 +1461,71 @@ By default, any variable assigned at a given stage immediately starts trickling
 down. In many cases nothing else is needed. But of course there are ways to
 control that behavior. In a pipeline, there are three
 special assignement operators:
-- The 'backward assign' operator `^=`
-- The 'forward assign' operator `v=`
-- The 'after pipeline' assign operator `vv=`
+- The *backward assign* operator `^=`
+- The *forward assign* operator `v=`
+- The *after pipeline* assign operator `vv=`
 
-> **TODO** expand this section. Meanwhile please refer
-> to [this example](../tests/pipeline_ops.si)
+Let's consider [this example](../tests/pipeline_ops.si):
+```c
+    // pipeline
+    {
+        a = a + 1;
+        __display("[%d, stage 0] a=%d b  =%d c   =%d  d   =%d",cycle,a,b,c,d);
+     ->
+        a = a + 100;
+        b ^= a;  // all stages see the new value of b within the same cycle.
+        c v= a;  // stage 2 (and all after stage 1) see the new value of c within
+                 // the same cycle (stage 0 does not, it will see the new value
+                 //  of c only at the next cycle).
+        d vv= a; // other stages will see the update at next cycle
+        __display("[%d, stage 1] a=%d b ^=%d  c v=%d  d vv=%d",cycle,a,b,c,d);
+     ->
+        __display("[%d, stage 2] a=%d b  =%d c   =%d  d   =%d",cycle,a,b,c,d);
+    }
+```
+
+The output (formatted for clarity) is:
+```
+[  0, stage 0] a=    1 b  =  100 c  =    0 d   =    0
+[  0, stage 1] a=  100 b ^=  100 c v=  100 d vv=  100
+[  0, stage 2] a=    0 b  =  100 c  =  100 d   =    0
+
+[  1, stage 0] a=    2 b  =  101 c  =  100 d   =  100
+[  1, stage 1] a=  101 b ^=  101 c v=  101 d vv=  101
+[  1, stage 2] a=  100 b  =  101 c  =  101 d   =  100
+
+[  2, stage 0] a=    3 b  =  102 c  =  101 d   =  101
+[  2, stage 1] a=  102 b ^=  102 c v=  102 d vv=  102
+[  2, stage 2] a=  101 b  =  102 c  =  102 d   =  101
+
+[  3, stage 0] a=    4 b  =  103 c  =  102 d   =  102
+[  3, stage 1] a=  103 b ^=  103 c v=  103 d vv=  103
+[  3, stage 2] a=  102 b  =  103 c  =  103 d   =  102
+
+[  4, stage 0] a=    5 b  =  104 c  =  103 d   =  103
+[  4, stage 1] a=  104 b ^=  104 c v=  104 d vv=  104
+[  4, stage 2] a=  103 b  =  104 c  =  104 d   =  103
+```
+
+Let's first consider `b`. It is assigned in stage 1 with `^=`. This means the
+change will be immediately visible to all stages. And indeed, `b` has the same
+value every cycle in all stages (`100`, `101`, ..., `104`).
+
+Let's now consider `c`. It is assigned in stage 1 with `v=`. This means stages
+located *on and after* stage 1 (here, stages 1 and 2) will see this change immediately. And indeed, in the
+output we can see that `c` has the same value in stages 1 and 2, but a different
+value (the previous one) in stage 0.
+
+Let's now consider `d`. It is assigned in stage 1 with `vv=`. Stages 0 and 2
+will see this change only *at the next cycle*. And indeed, each cycle the value
+of `d` in stages 0 and 2 is one cycle behind that of stage 1.
+
+`a` itself behaves normally, trickling down the pipeline every cycle.
+
+Taken together, these operators afford for a lot of flexibility in pipelines.
+One typical use is to deal with data hazards (see the [ice-v conveyor and swirl CPUs](../projects/ice-v/README.md)).
+Note however that the assignments could contradict each other and lead to
+impossible cyclic constraints. Silice will issue an error in such cases.
 
 ## The `stall` keyword
 
