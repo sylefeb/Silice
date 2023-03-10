@@ -919,9 +919,14 @@ other subroutines) are not possible.
 
 ## Circuitry
 
+> Circuitries have become a powerful tool in Silice.
+> They define pieces of algorithms and pipelines that can be later
+> assembled together, with mechanisms for genericity.
+> Intuitively they are similar to inline, templated functions.
+
 Sometimes, it is useful to write a generic piece of code that can be
-instantiated within a design. Such an example is a piece of circuitry to
-write into an SDRAM, which bit width may not ne known in advance.
+instantiated repeatedly within a design. Such an example is a piece of
+circuitry to write into an SDRAM, which bit width may not ne known in advance.
 
 A circuitry offers exactly this mechanism in Silice. It is declared as:
 
@@ -938,7 +943,7 @@ INSTRUCTIONS
 Note that there is no type specification on inputs/outputs as these are
 resolved during instantiation. Here is an example of circuitry:
 
-``` verilog
+```verilog
 circuitry writeData(inout sd,input addr,input data) {
   // wait for sdram to not be busy
   while (sd.busy) { /*waiting*/ }
@@ -949,14 +954,14 @@ circuitry writeData(inout sd,input addr,input data) {
 }
 ```
 
-Note the use of inout for sd (which is a group, see
+Note the use of `inout` for sd (which is a group, see
 Section <a href="#groups">groups</a>).
 A circuitry is not called, it is instantiated. This means that every
 instantiation is indeed a duplication of the circuitry.
 
 Here is the syntax for instantiation:
 
-``` verilog
+```verilog
 (output_0,...,output_N) = ID(input_0,...input_N)
 ```
 
@@ -965,15 +970,94 @@ the order of declaration in the lists. An inout appears twice, both as
 output and input. Following the previous example here is the
 instantiation from an algorithm:
 
-``` verilog
+```verilog
 (sd) = writeData(sd,myaddr,abyte);
 ```
 
-> **Note:** currently circuitry instantiation can only be made on VIO identifiers
-(no expressions, no bit-select or part-select). This restriction will be removed
-at some point. In the meantime expression trackers provide a work around, first
-defining a tracker with an identifier then giving it to the circuitry
-(these can be defined in a block around the circuit instantiation).
+### Instantiation time specialization
+
+The exact shape of the circuitry is determined when it is instanced. Therefore
+it is possible, through the pre-processor, to adjust the circuitry to its exact
+context. Here is a [first example](../tests/circuits15.si) where the width of
+the result is used to generate a different code each time:
+
+```c
+circuitry msbs_to_one(output result)
+{
+  $$for i=widthof('result')>>1,widthof('result')-1 do
+    result[$i$,1] = 1;
+  $$end
+}
+
+algorithm main(output uint8 leds)
+{
+  uint12 a(0); uint20 b(0);
+  (a) = msbs_to_one();
+  (b) = msbs_to_one();
+  __display("a = %b, b = %b",a,b);
+}
+```
+
+Result is: ```a = 111111000000, b = 11111111110000000000```. Internally
+two different pieces of code have been generated when assembly the circuitry.
+
+A circuit being instantiated can receive other parameters, [for instance](circuits16.si):
+
+```c
+circuitry add_some(input a,output b)
+{
+  b = $N$ + a;
+	//  ^^^ this is how we get the value of instantiation-time parameter N
+	//  (pre-processor syntax)
+}
+
+unit main(output uint8 leds)
+{
+  uint8  m(123);
+  uint8  n(0);
+  algorithm {
+    (n) = add_some<N=50>(m);
+    __display("result = %d",n);
+    (n) = add_some<N=100>(m);
+    __display("result = %d",n);
+  }
+}
+```
+
+Result is:
+```
+result = 173
+result = 223
+```
+
+So indeed the first circuitry `add_some<N=50>` adds 50, the second
+`add_some<N=100>` adds 100.
+
+To conclude let's see a more advanced example of a [recursive circuitry
+definition](circuits17.si)!
+
+```c
+circuitry circ(output v)
+{
+  $$if N > 1 then
+	$$print('N='..N)
+    sameas(v) t1(0);
+    sameas(v) t2(0);
+    (t1) = circ< N=$N>>1$ >();
+    (t2) = circ< N=$N>>1$ >();
+    v = t1 + t2;
+  $$else
+    v = 1;
+  $$end
+}
+
+algorithm main(output uint8 leds)
+{
+  uint10  n(0);
+  (n) = circ<N=16>();
+  __display("result = %d",n);
+}
+```
 
 ## Combinational loops
 
@@ -1401,12 +1485,11 @@ stage producing a useful result during a cycle.
 
 How do we tell Silice to pass data around in a pipeline? Well, in fact there is
 nothing special to do, simply assign a variable and it will be passed to the subsequent
-stages. Let's see a simple example:
+stages. Let's see a <a id="simple-pipeline"></a>simple example:
 ```verilog
 unit main(output uint8 leds)
 {
   uint16 cycle=0; // cycle counter
-  always_before { cycle = cycle + 1; } // always increment cycle
   algorithm {
     uint16 a=0; uint16 b=0;
     while (a < 3) { // six times
@@ -1419,41 +1502,48 @@ unit main(output uint8 leds)
         __display("[stage 2] cycle %d, a = %d",cycle,a);
     }
   }
+  always_after { cycle = cycle + 1; } // increment cycle
 }
 ```
 
 The result is (grouped by cycle):
 ```
-[stage 0] cycle     3, a =     1
+[stage 0] cycle     2, a =     1
 
-[stage 0] cycle     4, a =     2
-[stage 1] cycle     4, a =     1
+[stage 0] cycle     3, a =     2
+[stage 1] cycle     3, a =     1
 
-[stage 0] cycle     5, a =     3
-[stage 1] cycle     5, a =     2
-[stage 2] cycle     5, a =     1
+[stage 0] cycle     4, a =     3
+[stage 1] cycle     4, a =     2
+[stage 2] cycle     4, a =     1
 
-[stage 1] cycle     6, a =     3
-[stage 2] cycle     6, a =     2
+[stage 1] cycle     5, a =     3
+[stage 2] cycle     5, a =     2
 
-[stage 2] cycle     7, a =     3
+[stage 2] cycle     6, a =     3
 ```
-First, note the pipeline pattern where at cycle 3 only stage 0 is active,
-then stages 0 and 1 at cycle 4, and then all three stages at cycle 5. At this
+First, note the pipeline pattern where at cycle 2 only stage 0 is active,
+then stages 0 and 1 at cycle 3, and then all three stages at cycle 4. At this
 point all three value of `a` are in the pipeline (one in each of the stages).
 Since no new values are produced at stage 0, the pipeline starts to empty at
-cycle 6, and terminates at cycle 7.
+cycle 5, and terminates at cycle 6.
 
 > Why do we not start at cycle 0? This is due to the way the simulation
-> framework is written, with a reset sequence taking three cycles.
+> framework is written, with a reset sequence taking two cycles.
 
-At cycle 5, note how each stage sees a different value of `a`. (e.g. `stage 0`
+At cycle 4, note how each stage sees a different value of `a`. (e.g. `stage 0`
 sees `a=3`, `stage 1` sees `a=2`, `stage 2` sees `a=1`). Note also that the
 oldest value of `a` (the first produced) is in the latest stage (`stage 2`).
 As you can see, Silice took care of passing `a` through the pipeline.
 In Silice terminology, `a` has been *captured* at stage 0 and *trickles down*
 the pipeline between stages.
 
+**Wait, how does the pipeline interact with the while loop?**
+Excellent question! Think of it this way: the pipeline is always there waiting
+for data to enter. The while loop is actually *feeding* stage 0 of the pipeline.
+When the while loop terminates the pipeline keeps going until done. The
+algorithm does not terminate until all of its pipelines are done. We discuss
+this in [more details later](#pipelines-in-algorithm).
 
 ## Special assignment operators
 
@@ -1531,11 +1621,11 @@ impossible cyclic constraints. Silice will issue an error in such cases.
 
 In some cases a pipeline stage cannot immediately deal with the received value:
 it has to pause for a cycle before reconsidering. A pipeline stage can indicate
-it needs to pause the pipeline by calling `stall;`. This will pause all stages
-located before. Stages located after will continue processing their valid input,
-but a *bubble* is introduced in the pipeline at the next stage: the bubble
-is a non valid input, meaning subsequent stages will do nothing as they receive
-this invalid input.
+that it needs to pause the pipeline by calling `stall;`. This will pause all
+stages located before. Stages located after will continue processing their valid
+input, but a *bubble* is introduced in the pipeline at the next stage: the
+bubble is a non valid input, meaning subsequent stages will do nothing as they
+receive this invalid input.
 
 For instance, in the example below stage 1 decided to stall at cycle `i+2`. See
 how stage 2 was subsequently empty at `i+3` (this is the *bubble*) while the
@@ -1551,6 +1641,123 @@ that the pipeline resumes as normal.
 > `stall` is a powerful and convenient operator. However, beware that it will
 > negatively impact maximum frequency on pipelines with many stages, since
 > it introduces a feedback from later stages to earlier stages.
+
+## Pipelines in algorithm
+
+A powerful feature of Silice is to enable pipelines to be started from within
+algorithms, and pipelines stages can also have multiple steps using the `++:`
+operator.
+
+### Parallel pipelines
+
+We have seen a [first example](#simple-pipeline) where the pipeline is fed from
+the while loop. It is possible to define and feed pipelines from anywhere,
+[for instance](../tests/pipeline_alg2.si):
+
+```c
+unit main(output uint8 leds)
+{
+  uint16 cycle = 0; // cycle counter
+  algorithm {
+    uint8 a = 0;
+    // a first pipeline adding +4 every stage
+    { uint8 b=a+4; -> b=b+4; -> b=b+4; -> b=b+4; -> __display("cycle %d [end of pip0] b = %d",cycle,b); }
+    // a second pipeline adding +1 every stage
+    { uint8 b=a+1; -> b=b+1; -> b=b+1; -> b=b+1; -> __display("cycle %d [end of pip1] b = %d",cycle,b); }
+++:
+    __display("cycle %d [bottom of algorithm]",cycle);
+  }
+  always_after { cycle = cycle + 1; } // increment cycle
+}
+```
+The result is:
+```
+cycle     2 [bottom of algorithm]
+cycle     5 [end of pip0] b =  16
+cycle     5 [end of pip1] b =   4
+```
+Note how both pipelines end exactly at the same cycle (cycle 5). That is because
+they were fed together at the same step of the algorithm. They effectively
+operate in parallel!
+
+Note also how we reach the 'bottom' of the algorithm *before* the pipelines end.
+This is an important rule: an algorithm does not return until all of its
+pipelines are done, which is why the pipelines properly terminate even though
+the algorithm bottom was reached.
+
+> **Note:** Pipelines cannot be nested (for now at least...).
+
+### Multiple steps in a stage
+
+Let's see how each stage can have a different number of steps.
+Consider [this example](../tests/pipeline_alg3.si):
+
+```c
+unit main(output uint8 leds)
+{
+  uint16 cycle = 0; // cycle counter
+  algorithm {
+    uint16 a = 0;
+    while (a<3) { // this pipeline has a middle stage that takes multiple cycles
+      // stage 0
+      uint16 b = a;
+      __display("cycle %d [stage 0] b = %d",cycle,b);
+      a = a + 1;
+  ->
+      // stage 1
+      b = b + 10;
+    ++: // step
+      b = b + 100;
+    ++: // step
+      b = b + 1000;
+  ->
+     // stage 2
+      __display("cycle %d [stage 2] b = %d",cycle,b);
+    }
+  }
+  always_after { cycle = cycle + 1; } // increment cycle
+}
+```
+
+The result is:
+
+```
+cycle     2 [stage 0] b =     0
+cycle     3 [stage 0] b =     1
+cycle     6 [stage 0] b =     2
+cycle     6 [stage 2] b =  1110
+cycle     9 [stage 2] b =  1111
+cycle    12 [stage 2] b =  1112
+```
+
+First let's check that we get the expected result. Stage 1 adds 1110 in total
+to the value coming from stage 0, while stage 2 simply displays the value
+it receives. We can see that stage 0 receives `0`,`1`,`2` and stage 2
+reports `1110`,`1111`,`1112`. Correct!
+
+Now let's look at the cycles. The pipeline is first fed on cycle 2 (value `0`
+enters stage 0) and then on cycle 3 (value `1`). However, nothing happens until cycle *6* where `2` enters. The reason is simple: stage 1 is taking three steps, so the pipeline
+earlier stages (here only stage 0) are stalled. Meanwhile stage 2 is still
+waiting for data. Thus, at cycle 4 stage 1 is
+doing `b = b + 100` and at cycle 5 `b = b + 1000`. At cycle 6 stage 1 can take
+the next value (`1`), while stage 0 now can consider `2` and stage 2 displays
+the result `1110`.
+
+Another interesting thing to note is that stage 2 is active every three cycles
+(cycles 6,9,12). So this pipeline takes three cycles to produce an output.
+
+Pipeline stages can also use data-dependent while loops. They can even call algorithms!
+Of course, favor simple, stateless pipelines whenever possible, but this can
+come in handy.
+
+> **Note:** Pipeline stages cannot call subroutines.
+
+### Pipelines and circuitries
+
+A powerful construct is to define pipelines in [circuitries](#circuitry), which
+can then be *concatenated* to a current pipeline.
+
+
 
 ## Pipelines in always blocks
 

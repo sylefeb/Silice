@@ -1,0 +1,18 @@
+circuitry add_some(input a,output b)
+{
+  b = $N$ + a;
+	//  ^^^ this is how we get the value of instantiation-time parameter N
+	//  (pre-processor syntax)
+}
+
+unit main(output uint8 leds)
+{
+  uint8  m(123);
+  uint8  n(0);
+  algorithm {
+    (n) = add_some<N=50>(m);
+    __display("result = %d",n);
+    (n) = add_some<N=100>(m);
+    __display("result = %d",n);
+  }
+}

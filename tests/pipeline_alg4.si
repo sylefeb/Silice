@@ -1,0 +1,29 @@
+algorithm add_1000(input uint16 i,output uint16 o)
+{
+	o = i + 1000;		
+}
+	
+unit main(output uint8 leds)
+{
+	add_1000 addsome;
+  uint16 cycle = 0; // cycle counter
+  algorithm {
+	
+    uint16 a = 0;
+    while (a<3) { // this pipeline has a middle stage that takes multiple cycles
+      // stage 0
+      uint16 b = a;
+      __display("cycle %d [stage 0] b = %d",cycle,b);
+      a = a + 1;
+  ->
+      // stage 1
+			__display("cycle %d [stage 1] before",cycle);
+			(b) <- addsome <- (b);
+			__display("cycle %d [stage 1] after ",cycle);
+  ->
+     // stage 2
+      __display("cycle %d [stage 2] b = %d",cycle,b);
+    }
+  }
+  always_after { cycle = cycle + 1; } // increment cycle
+}

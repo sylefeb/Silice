@@ -1,0 +1,20 @@
+circuitry circ(output v)
+{
+  $$if N > 1 then
+	$$print('N='..N)
+    sameas(v) t1(0);
+    sameas(v) t2(0);
+    (t1) = circ< N=$N>>1$ >();
+    (t2) = circ< N=$N>>1$ >();
+    v = t1 + t2;
+  $$else
+    v = 1;
+  $$end
+}
+
+algorithm main(output uint8 leds)
+{
+  uint10  n(0);
+  (n) = circ<N=16>();
+  __display("result = %d",n);
+}
