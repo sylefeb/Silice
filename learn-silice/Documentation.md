@@ -27,8 +27,9 @@ When designing with Silice your code describes circuits. If not done already, I 
     - [Concatenation](#concatenation)
     - [Bindings](#bindings)
     - [Expression trackers](#expression-trackers)
-    - [Control flow: the step operator](#control-flow-the-step-operator)
-    - [Control flow: the pipeline operator](#control-flow-the-pipeline-operator)
+  - [Control flow](#control-flow)
+    - [The step operator](#the-step-operator)
+    - [The pipeline operator](#the-pipeline-operator)
 - [Units and algorithms](#units-and-algorithms)
     - [main (design 'entry point').](#main-design-entry-point)
   - [Unit declaration](#unit-declaration)
@@ -41,20 +42,25 @@ When designing with Silice your code describes circuits. If not done already, I 
   - [Call](#call)
   - [Subroutines](#subroutines)
   - [Circuitry](#circuitry)
+    - [Instantiation time specialization](#instantiation-time-specialization)
   - [Combinational loops](#combinational-loops)
   - [Always assignments](#always-assignments)
   - [Always blocks](#always-blocks)
   - [Clock and reset](#clock-and-reset)
   - [Modifiers](#modifiers)
 - [Execution flow and cycle utilization rules](#execution-flow-and-cycle-utilization-rules)
-  - [Control flow](#control-flow)
+  - [Control flow](#control-flow-1)
     - [Switches](#switches)
   - [Cycle costs of calls to algorithms and subroutines](#cycle-costs-of-calls-to-algorithms-and-subroutines)
 - [Pipelines](#pipelines)
   - [Special assignment operators](#special-assignment-operators)
   - [The `stall` keyword](#the-stall-keyword)
+  - [Pipelines in algorithm](#pipelines-in-algorithm)
+    - [Parallel pipelines](#parallel-pipelines)
+    - [Multiple steps in a stage](#multiple-steps-in-a-stage)
+    - [Pipelines and circuitries](#pipelines-and-circuitries)
   - [Pipelines in always blocks](#pipelines-in-always-blocks)
-- [Advanced language constructs](#advanced-language-constructs)
+- [Other language constructs](#other-language-constructs)
   - [Groups](#groups)
   - [Interfaces](#interfaces)
     - [Anonymous interfaces](#anonymous-interfaces)
@@ -437,10 +443,12 @@ This, however, produces deeper circuits and can reduce the max frequency of a de
 
 ### Expression trackers
 
-Variables can be defined to constantly track the value of an expression,
-hence *binding the variable* and the expression. This is done during the
-variable declaration, using either the *&lt;:* or *&lt;::* binding
-operators. Example:
+Outside of algorithms and always blocks, variables can be *bound* to expressions,
+thus tracking the value of the expression.
+This is done during the variable declaration, using either
+the `<:` or `<::` binding operators.
+
+Example:
 
 ```c
 algorithm adder(
@@ -457,15 +465,15 @@ algorithm adder(
 }
 ```
 
-In this case *o* gets assigned 15+3 on line 11, as it tracks immediate
-changes to the expression *a+b*. Note that the variable *a\_plus\_b*
-becomes read only (in Verilog terms, this is now a wire). We call *o* an
-expression tracker.
+In this case `o` gets assigned 15+3 on line 11, as it tracks
+the expression `a+b`. Note that the variable `a_plus_b`
+becomes read only (in Verilog terms, this is now a wire). We call `o` an
+expression tracker or bound expression.
 
 The second operator, `<::` tracks the expression with a one cycle latency. Thus, its value is the value of the expression at the previous cycle. If used
-in this example, o would be assigned 1+2.
+in this example, `o` would evaluate to `1+2`.
 
-> The `<::` operator is *very important*: it allows to relax timing constraints (reach higher frequencies), by accepting a one cycle latency. As a general rule, using delayed operators (indicated by `::`) is recommended whenever possible.
+> The `<::` operator is *very useful*. It allows to relax timing constraints (reach higher frequencies), by accepting a one cycle latency. As a general rule, using delayed operators (indicated by `::`) is recommended whenever possible.
 
 Expression trackers can refer to other trackers. Note that when mixing  `<:` and `<::` the second operator (`<::`) will not change the behavior of the first tracker. Silice will issue a warning in that situation, which can be silenced by adding a `:` in front of the first tracker, example:
 
@@ -493,7 +501,9 @@ To fix this warning we indicate explicitly that we understand the behavior, addi
 
 What happens now is that the value of `c_plus_a_plus_b` is using the immediate value of `a_plus_b` and the delayed value of `c` (from previous cycle).
 
-### Control flow: the step operator
+## Control flow
+
+### The step operator
 
 Placing a `++:` in the sequence of operations of an algorithm explicitly
 asks Silice to wait for exactly one cycle at this precise location in
@@ -503,7 +513,7 @@ This has several important applications such as waiting for a memory
 read/write, or breaking down long combinational chains that would
 violate timing.
 
-### Control flow: the pipeline operator
+### The pipeline operator
 
 Placing a `->` in the sequence of operations of an algorithm explicitly
 asks Silice to pipeline the one-cycle sequence before with the next.
@@ -619,7 +629,7 @@ Such a problem would typically result in simulation hanging (unable to stabilize
 #### *Declarations.*
 
 Variables, instanced algorithms and instanced modules have to be
-declared first (in any order). A simple example:
+declared (in any order). A simple example:
 
 ``` c
 algorithm main(output uint8 led)
@@ -630,6 +640,9 @@ algorithm main(output uint8 led)
   // ... btw this is a comment
 }
 ```
+
+Variables can also be declared as assigned expressions anywhere within an
+algorithm or always block.
 
 #### *Always assign.*
 
@@ -813,7 +826,7 @@ called by the algorithm multiple times. A subroutine takes parameters,
 and has access to the variables, instanced algorithms and instanced
 modules of the parent algorithm – however access permissions have to be
 explicitly given. Subroutines offer a simple mechanism to allow for the
-equivalent of local functions, without having to wire all the parent
+equivalent of local routines, without having to wire all the parent
 algorithm context into another module/algorithm. Subroutines can also
 declare local variables, visible only to their scope. Subroutines avoid
 duplicating a same functionality over and over, as their code is
@@ -1034,30 +1047,35 @@ So indeed the first circuitry `add_some<N=50>` adds 50, the second
 `add_some<N=100>` adds 100.
 
 To conclude let's see a more advanced example of a [recursive circuitry
-definition](circuits17.si)!
+definition](circuits17.si).
 
 ```c
-circuitry circ(output v)
+circuitry rec(output v)
 {
   $$if N > 1 then
-	$$print('N='..N)
-    sameas(v) t1(0);
-    sameas(v) t2(0);
-    (t1) = circ< N=$N>>1$ >();
-    (t2) = circ< N=$N>>1$ >();
-    v = t1 + t2;
+    sameas(v) t1(0); // t1 will be same type as v
+    sameas(v) t2(0); // t2 will be same type as v
+    (t1) = rec< N = $N>>1$ >(); // recursive instantiation with N/2
+    (t2) = rec< N = $N>>1$ >(); // recursive instantiation with N/2
+    v = t1 + t2;     // evaluates to sum of both half results
   $$else
-    v = 1;
+    v = 1; // bottom of recursion: evaluates to 1
   $$end
 }
 
 algorithm main(output uint8 leds)
 {
   uint10  n(0);
-  (n) = circ<N=16>();
+  (n) = rec<N=16>(); // instantiate for size 16
   __display("result = %d",n);
 }
 ```
+
+This toy example produces a tree of instantiations, instantiating two circuits
+using half the parameter value (N/2) until N is equal to 1. The leaves
+evaluate to 1, and for a top instantiation of size $N=2^p$ we expect the result
+to evaluate to $2^p$ (since there are $2^p$ leaves in a binary tree of
+depth $p$). We indeed get: ```result = 16```.
 
 ## Combinational loops
 
@@ -1757,6 +1775,14 @@ come in handy.
 A powerful construct is to define pipelines in [circuitries](#circuitry), which
 can then be *concatenated* to a current pipeline.
 
+Here is a simple example:
+
+```c
+
+```
+
+An advanced example is the raymarching pipeline available in the
+[demo projects](../projects/vga_demo/vga_msponge.si).
 
 
 ## Pipelines in always blocks
@@ -1766,7 +1792,7 @@ pipeline stages are active at all times: there are no automatic triggers
 enabling/disabling stages as the stages are *always* active,
 and the `stall` keyword cannot be used. Special assignment operators are available.
 
-# Advanced language constructs
+# Other language constructs
 
 ## Groups
 
