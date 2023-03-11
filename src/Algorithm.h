@@ -543,6 +543,7 @@ private:
       std::unordered_set<std::string>      out_vars_written;     // which variables have been written after
       ~t_combinational_block() { swap_end(nullptr); }
 
+      bool        has_end_action()  const { return end_action != nullptr; }
       std::string end_action_name() { if (end_action != nullptr) return end_action->name(); else return "<none>"; }
 
       void next(t_combinational_block *next)
@@ -1013,6 +1014,8 @@ private:
     bool doesNotCallSubroutines() const;
     /// \brief converts an internal state into a FSM state
     int  toFSMState(const t_fsm_nfo *fsm, int state) const;
+    /// \brief return the FSM state of a block, does fastforward
+    int  fastForwardToFSMState(const t_fsm_nfo* fsm, const t_combinational_block* block) const;
     /// \brief finds the binding to var
     const t_binding_nfo &findBindingLeft(std::string left, const std::vector<t_binding_nfo> &bndgs, bool &_found) const;
     /// \brief finds the binding on var

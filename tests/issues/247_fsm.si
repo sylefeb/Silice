@@ -1,0 +1,5 @@
+algorithm main(output uint8 leds)
+{
+  uint8 test = 255;
+  while (test != 0) { __display("here"); test = test - 1; }
+}

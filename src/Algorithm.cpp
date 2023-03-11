@@ -4151,6 +4151,20 @@ int  Algorithm::toFSMState(const t_fsm_nfo *fsm, int state) const
 
 // -------------------------------------------------
 
+int  Algorithm::fastForwardToFSMState(const t_fsm_nfo* fsm, const t_combinational_block *block) const
+{
+  // fast forward
+  block = fastForward(block);
+  if (blockIsEmpty(block) && block == fsm->lastBlock) {
+    // special case of empty block at the end of the algorithm
+    return toFSMState(fsm,terminationState(fsm));
+  } else {
+    return toFSMState(fsm,block->state_id);
+  }
+}
+
+// -------------------------------------------------
+
 int Algorithm::width(int val) const
 {
   sl_assert(val > 0);
@@ -4169,6 +4183,50 @@ int Algorithm::stateWidth(const t_fsm_nfo *fsm) const
   return width(fsm->maxState);
 }
 
+
+// -------------------------------------------------
+
+bool Algorithm::blockIsEmpty(const t_combinational_block *block) const
+{
+  if (!block->initialized_vars.empty()) {
+    return false;
+  }
+  if (block->instructions.empty()) {
+    return true;
+  } else {
+    if (block->instructions.size() == 1) {
+      // special case of empty return from call
+      auto j = dynamic_cast<siliceParser::JoinExecContext*>(block->instructions.front().instr);
+      if (j != nullptr) {
+        // find algorithm
+        auto A = m_InstancedBlueprints.find(j->IDENTIFIER()->getText());
+        if (A == m_InstancedBlueprints.end()) {
+          // return of subroutine?
+          auto S = m_Subroutines.find(j->IDENTIFIER()->getText());
+          if (S == m_Subroutines.end()) {
+            reportError(sourceloc(j),"unknown identifier '%s'", j->IDENTIFIER()->getText().c_str());
+          }
+          if (S->second->outputs.empty()) {
+            return true; // nothing returned, block can be considered empty
+          }
+        } else {
+          sl_assert(dynamic_cast<Algorithm*>(A->second.blueprint.raw()) != nullptr); // calls should not be allowed on anything else
+          if (A->second.blueprint->outputs().empty()) {
+            return true; // nothing returned, we can fast forward
+          }
+        }
+      }
+    }
+    // expression catchers are ok, anything else is not
+    for (auto i : block->instructions) {
+      if (dynamic_cast<siliceParser::Expression_0Context*>(i.instr) == nullptr) {
+        return false;
+      }
+    }
+    return true;
+  }
+}
+
 // -------------------------------------------------
 
 const Algorithm::t_combinational_block *Algorithm::fastForward(const t_combinational_block *block) const
@@ -4182,35 +4240,9 @@ const Algorithm::t_combinational_block *Algorithm::fastForward(const t_combinati
   const t_combinational_block *last_state = block;
   while (true) {
     // check instructions
-    if (!current->instructions.empty()) {
-      bool stop = true;
-      if (current->instructions.size() == 1) {
-        // special case of empty return from call
-        auto j = dynamic_cast<siliceParser::JoinExecContext *>(current->instructions.front().instr);
-        if (j != nullptr) {
-          // find algorithm
-          auto A = m_InstancedBlueprints.find(j->IDENTIFIER()->getText());
-          if (A == m_InstancedBlueprints.end()) {
-            // return of subroutine?
-            auto S = m_Subroutines.find(j->IDENTIFIER()->getText());
-            if (S == m_Subroutines.end()) {
-              reportError(sourceloc(j),"unknown identifier '%s'", j->IDENTIFIER()->getText().c_str());
-            }
-            if (S->second->outputs.empty()) {
-              stop = false; // nothing returned, we can fast forward
-            }
-          } else {
-            sl_assert(dynamic_cast<Algorithm*>(A->second.blueprint.raw()) != nullptr); // calls should not be allowed on anything else
-            if (A->second.blueprint->outputs().empty()) {
-              stop = false; // nothing returned, we can fast forward
-            }
-          }
-        }
-      }
+    if (!blockIsEmpty(current)) {
       // non-empty, stop here
-      if (stop) {
-        return last_state;
-      }
+      return last_state;
     }
     if (current->next() == nullptr) {
       // not a simple next, stop here
@@ -7794,26 +7826,6 @@ void Algorithm::findAllStartingPipelines(const t_combinational_block *block, std
 
 // -------------------------------------------------
 
-bool Algorithm::blockIsEmpty(const t_combinational_block *block) const
-{
-  if (!block->initialized_vars.empty()) {
-    return false;
-  }
-  if (block->instructions.empty()) {
-    return true;
-  } else {
-    // expression catchers are ok, anything else is not
-    for (auto i : block->instructions) {
-      if (dynamic_cast<siliceParser::Expression_0Context*>(i.instr) == nullptr) {
-        return false;
-      }
-    }
-  }
-  return true;
-}
-
-// -------------------------------------------------
-
 void Algorithm::writeBlock(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_combinational_block *block, t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage, std::set<v2i>& _lines) const
 {
   w.out << "// " << block->block_name;
@@ -8117,7 +8129,7 @@ void Algorithm::writeStatelessBlockGraph(
     // if called on a state, index state and stop there
     if (block->is_state) {
       // yes: index the state directly
-      w.out << FF_D << prefix << fsmIndex(fsm) << " = " << toFSMState(fsm,fastForward(block)->state_id) << ";" << nxl;
+      w.out << FF_D << prefix << fsmIndex(fsm) << " = " << fastForwardToFSMState(fsm,block) << ";" << nxl;
       pushState(fsm, block, _q);
       mergeDependenciesInto(_dependencies, _post_dependencies);
       return;
@@ -8281,7 +8293,7 @@ void Algorithm::writeStatelessBlockGraph(
       w.out << "if (" << rewriteExpression(prefix, current->while_loop()->test.instr, current->while_loop()->test.__id, &current->context, ictx, FF_Q, true, _dependencies, _ff_usage) << ") begin" << nxl;
       writeStatelessBlockGraph(prefix, w, ictx, current->while_loop()->iteration, current->while_loop()->after, _q, _dependencies, _ff_usage, _post_dependencies, _lines);
       w.out << "end else begin" << nxl;
-      w.out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fsm,fastForward(current->while_loop()->after)->state_id) << ";" << nxl;
+      w.out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << fastForwardToFSMState(fsm,current->while_loop()->after) << ";" << nxl;
       disableStartingPipelines(prefix, w, ictx, current->while_loop()->iteration);
       pushState(fsm, current->while_loop()->after, _q);
       w.out << "end" << nxl;
@@ -8305,7 +8317,7 @@ void Algorithm::writeStatelessBlockGraph(
           w.out << "case (" << FF_Q << prefix << ALG_CALLER << ") " << nxl;
           for (auto caller_return : RS->second) {
             w.out << width(m_SubroutineCallerNextId) << "'d" << caller_return.first << ": begin" << nxl;
-            w.out << "  " << FF_D << prefix << fsmIndex(fsm) << " = " << stateWidth(fsm) << "'d" << toFSMState(fsm,fastForward(caller_return.second)->state_id) << ';' << nxl;
+            w.out << "  " << FF_D << prefix << fsmIndex(fsm) << " = " << stateWidth(fsm) << "'d" << fastForwardToFSMState(fsm,caller_return.second) << ';' << nxl;
             // if returning to a subroutine, restore caller id
             if (caller_return.second->context.subroutine != nullptr) {
               sl_assert(caller_return.second->context.subroutine->contains_calls);
@@ -8317,7 +8329,7 @@ void Algorithm::writeStatelessBlockGraph(
           w.out << "endcase" << nxl;
         } else {
           auto caller_return = *RS->second.begin();
-          w.out << FF_D << prefix << fsmIndex(fsm) << " = " << stateWidth(fsm) << "'d" << toFSMState(fsm,fastForward(caller_return.second)->state_id) << ';' << nxl;
+          w.out << FF_D << prefix << fsmIndex(fsm) << " = " << stateWidth(fsm) << "'d" << fastForwardToFSMState(fsm,caller_return.second) << ';' << nxl;
           // if returning to a subroutine, restore caller id
           if (caller_return.second->context.subroutine != nullptr) {
             sl_assert(caller_return.second->context.subroutine->contains_calls);
@@ -8333,7 +8345,7 @@ void Algorithm::writeStatelessBlockGraph(
       return;
     } else if (current->goto_and_return_to()) {
       // goto subroutine
-      w.out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fsm,fastForward(current->goto_and_return_to()->go_to)->state_id) << ";" << nxl;
+      w.out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << fastForwardToFSMState(fsm,current->goto_and_return_to()->go_to) << ";" << nxl;
       pushState(fsm, current->goto_and_return_to()->go_to, _q);
       // if in subroutine making nested calls, store callerid
       if (current->context.subroutine != nullptr) {
@@ -8360,12 +8372,12 @@ void Algorithm::writeStatelessBlockGraph(
         w.out << "if (" WIRE << A->second.instance_prefix + "_" + ALG_DONE " == 1) begin" << nxl;
         // yes!
         // -> goto next
-        w.out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fsm,fastForward(current->wait()->next)->state_id) << ";" << nxl;
+        w.out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << fastForwardToFSMState(fsm,current->wait()->next) << ";" << nxl;
         pushState(fsm, current->wait()->next, _q);
         w.out << "end else begin" << nxl;
         // no!
         // -> wait
-        w.out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fsm,fastForward(current->wait()->waiting)->state_id) << ";" << nxl;
+        w.out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << fastForwardToFSMState(fsm,current->wait()->waiting) << ";" << nxl;
         pushState(fsm, current->wait()->waiting, _q);
         w.out << "end" << nxl;
       }
@@ -8435,7 +8447,7 @@ void Algorithm::writeStatelessBlockGraph(
     // check whether next is a state
     if (current->is_state) {
       // yes: index and stop
-      w.out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << toFSMState(fsm,fastForward(current)->state_id) << ";" << nxl;
+      w.out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << fastForwardToFSMState(fsm,current) << ";" << nxl;
       pushState(fsm, current, _q);
       mergeDependenciesInto(_dependencies, _post_dependencies);
       if (enclosed_in_conditional) { w.out << "end // 9" << nxl; } // end conditional
@@ -9696,7 +9708,7 @@ void Algorithm::outputFSMGraph(std::string dotFile) const
     std::set<t_combinational_block*> leaves;
     findNonCombinationalLeaves(b, leaves);
     for (auto other : leaves) {
-      nexts.insert(toFSMState(other->context.fsm,fastForward(other)->state_id));
+      nexts.insert(fastForwardToFSMState(other->context.fsm,other));
     }
     for (auto N : nexts) {
        out << "st_" << toFSMState(b->context.fsm, b->state_id) << " -> " << "st_" << N << ';' << nxl;
