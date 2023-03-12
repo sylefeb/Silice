@@ -1,11 +1,11 @@
-circuitry add_three(input i,output o)
+circuitry add_two(input i,output o)
 {
+  // stage 1
   uint8 v = i + 1;
 ->
-  v = v + 1;
-->
+  // stage 2
   o = v + 1;
-->  
+->
 }
 
 unit main(output uint8 leds)
@@ -13,13 +13,19 @@ unit main(output uint8 leds)
   uint32 cycle=0;
   uint8  a    =0;
   algorithm {
-    while (a<16) {
-        uint8 v = a;
-        __display("cycle %d, first stage, v=%d",cycle,v);
-        a = a + 1;
-    (v) = add_three(v);
-        __display("cycle %d, last stage, v=%d",cycle,v);
-    }    
+    while (a<3) {
+      // stage 0
+      uint8 v = a;
+      __display("cycle %d, first stage, v=%d",cycle,v);
+      a = a + 1;
+  ->
+  (v) = add_two(v);
+      // stage 3
+      v = v + 100;
+  ->
+      // stage 4
+      __display("cycle %d, last stage, v=%d",cycle,v);
+    }
   }
   always_after { cycle = cycle + 1; }
 }

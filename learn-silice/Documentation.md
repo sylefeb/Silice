@@ -1775,15 +1775,64 @@ come in handy.
 A powerful construct is to define pipelines in [circuitries](#circuitry), which
 can then be *concatenated* to a current pipeline.
 
-Here is a simple example:
+Here is [an example](../tests/circuits18.si):
 
 ```c
+circuitry add_two(input i,output o)
+{ // stage 1
+  uint8 v = i + 1;
+->
+  // stage 2
+  o = v + 1;
+->
+}
 
+unit main(output uint8 leds)
+{
+  uint32 cycle=0;
+  uint8  a    =0;
+  algorithm {
+    while (a<3) {
+      // stage 0
+      uint8 v = a;
+      __display("cycle %d, first stage, v=%d",cycle,v);
+      a = a + 1;
+  ->
+  (v) = add_two(v); // adds two stages
+      // stage 3
+      v = v + 100;
+  ->
+      // stage 4
+      __display("cycle %d, last stage, v=%d",cycle,v);
+    }
+  }
+  always_after { cycle = cycle + 1; }
+}
 ```
+The output is:
+```
+cycle 2, first stage, v=  0
+cycle 3, first stage, v=  1
+cycle 4, first stage, v=  2
+cycle 6, last stage,  v=102
+cycle 7, last stage,  v=103
+cycle 8, last stage,  v=104
+```
+Everything happens as if the content of the `add_two` circuitry had been cut and
+pasted where it is instantiated, with two stage being added to the pipeline.
+This is very convenient to defined pieces of pipelines to be added, for instance
+a pipelined multiplier.
 
-An advanced example is the raymarching pipeline available in the
-[demo projects](../projects/vga_demo/vga_msponge.si).
+More advanced examples are in the raymarching pipeline
+available in the [demo projects](../projects/vga_demo/vga_msponge.si).
 
+> **Note:** As a good practice suggestion, see how I indented the circuitry
+instantiation to align with the pipelining arrows, indicating it does change the
+pipeline.
+
+> **Note:** A limitation of the current implementation is that a circuitry
+containing a pipeline can only be instantiated within a parent pipeline using
+at least one `->`. This will be fixed in the future.
 
 ## Pipelines in always blocks
 

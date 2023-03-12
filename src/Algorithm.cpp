@@ -2324,37 +2324,49 @@ Algorithm::t_combinational_block *Algorithm::concatenatePipeline(siliceParser::P
   // go through the pipeline
   // -> for each stage block
   t_combinational_block *prev = _current;
+  bool first = (_current->context.pipeline_stage != nullptr); // if in an existing pipeline, start by adding to the last stage
   for (auto b : pip->instructionList()) {
-    // create a fsm for the pipeline stage
-    t_fsm_nfo *fsm = new t_fsm_nfo;
-    fsm->name = "fsm_" + nfo->name + "_" + std::to_string(nfo->stages.size());
-    m_PipelineFSMs.push_back(fsm);
-    // stage info
-    t_pipeline_stage_nfo *snfo = new t_pipeline_stage_nfo();
-    snfo->pipeline = nfo;
-    snfo->fsm = fsm;
-    snfo->stage_id = (int)nfo->stages.size();
-    snfo->node = b;
-    // block context
-    t_combinational_block_context ctx = {
-      fsm, _current->context.subroutine, snfo,
-      nfo->stages.empty() ? _current                       : nfo->stages.back()->fsm->lastBlock,
-      nfo->stages.empty() ? _current->context.vio_rewrites : nfo->stages.back()->fsm->lastBlock->context.vio_rewrites
-    };
-    // add stage
-    nfo->stages.push_back(snfo);
-    // gather stage blocks (may recurse and concatenate other pipelines parts)
-    t_combinational_block *stage_start = addBlock("__stage_" + generateBlockName(), nullptr, &ctx, sourceloc(b));
-    fsm->firstBlock = stage_start;
-    fsm->parentBlock = _current;
+    t_fsm_nfo*             fsm  = nullptr;
+    t_pipeline_stage_nfo*  snfo = nullptr;
+    t_combinational_block* from = nullptr;
+    if (first) {
+      // resume from previous
+      fsm   = _current->context.pipeline_stage->fsm;
+      snfo  = _current->context.pipeline_stage;
+      from  = _current;
+      first = false;
+    } else {
+      // create a fsm for the pipeline stage
+      fsm = new t_fsm_nfo;
+      fsm->name = "fsm_" + nfo->name + "_" + std::to_string(nfo->stages.size());
+      m_PipelineFSMs.push_back(fsm);
+      // stage info
+      snfo = new t_pipeline_stage_nfo();
+      snfo->pipeline = nfo;
+      snfo->fsm = fsm;
+      snfo->stage_id = (int)nfo->stages.size();
+      snfo->node = b;
+      // block context
+      t_combinational_block_context ctx = {
+        fsm, _current->context.subroutine, snfo,
+        nfo->stages.empty() ? _current                       : nfo->stages.back()->fsm->lastBlock,
+        nfo->stages.empty() ? _current->context.vio_rewrites : nfo->stages.back()->fsm->lastBlock->context.vio_rewrites
+      };
+      // gather stage blocks (may recurse and concatenate other pipelines parts)
+      from = addBlock("__stage_" + generateBlockName(), nullptr, &ctx, sourceloc(b));
+      fsm->firstBlock = from;
+      fsm->parentBlock = _current;
+      // add stage
+      nfo->stages.push_back(snfo);
+    }
     // gather the rest (note: stages may be recursively added in this call)
-    gather(b, stage_start, _context);
+    gather(b, from, _context);
     // stage end is on last block
     t_combinational_block *stage_end = fsm->lastBlock;
     // -> check whether pipeline may contain fsms
     if (_current->context.fsm == nullptr) {
       // no, report an error if that is the case
-      if (!isStateLessGraph(stage_start)) {
+      if (!isStateLessGraph(from)) {
         reportError(sourceloc(pip), "pipelines in always blocks cannot contain multiple states (they can in algorithms)");
       }
       fsm->firstBlock->is_state = false;
@@ -2362,7 +2374,7 @@ Algorithm::t_combinational_block *Algorithm::concatenatePipeline(siliceParser::P
       fsm->firstBlock->is_state = true; // make them all FSMs
     }
     // set next stage
-    prev->pipeline_next(stage_start, stage_end);
+    prev->pipeline_next(from, stage_end);
     // advance
     prev = nfo->stages.back()->fsm->lastBlock;
   }
@@ -2536,6 +2548,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     // yes: expand the parent pipeline
     auto nfo = _current->context.pipeline_stage->pipeline;
     return concatenatePipeline(pip, _current, _context, nfo);
+
   }
 
 }
