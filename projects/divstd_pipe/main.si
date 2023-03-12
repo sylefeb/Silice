@@ -9,18 +9,17 @@ $$div_width_pow2 = clog2(div_width)
 algorithm div$div_width$(
   input   uint$div_width$ num,
   input   uint$div_width$ den,
-  output! uint$div_width$ ret)
+  output  uint$div_width$ ret)
 {
   uint$div_width+1$ ac = uninitialized;
   uint$div_width+1$ rt = uninitialized;
   uint$div_width$   dn = uninitialized;
   always { // always active
-    {
       ac   = {{$div_width-1${1b0}},num[$div_width-1$,1]};
       rt   = {num[0,$div_width-1$],1b0};
       dn   = den;
   $$for i=1,div_width do
-    } -> { // next pipeline stage
+    -> // next pipeline stage
       uint$div_width+1$ diff = ac - dn;
       if (diff[$div_width$,1] == 0) { // positive
         ac  = {diff[0,$div_width-1$],rt[$div_width-1$,1]};
@@ -33,7 +32,6 @@ algorithm div$div_width$(
       ret = rt;
       $$end
   $$end
-    }
   }
 }
 
