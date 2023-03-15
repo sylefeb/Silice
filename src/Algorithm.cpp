@@ -33,6 +33,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "LuaPreProcessor.h"
 #include "Utils.h"
 #include "SiliceCompiler.h"
+#include "ChangeLog.h"
 
 #include <cctype>
 
@@ -2386,6 +2387,8 @@ Algorithm::t_combinational_block *Algorithm::concatenatePipeline(siliceParser::P
 Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::PipelineContext* pip, t_combinational_block *_current, t_gather_context *_context)
 {
   sl_assert(pip->instructionList().size() > 1); // otherwise not a pipeline
+  // inform change log
+  CHANGELOG.addPointOfInterest("CL0002", sourceloc(pip));
   // are we already within a parent pipeline?
   if (_current->context.pipeline_stage == nullptr) {
 

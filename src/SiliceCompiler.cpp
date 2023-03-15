@@ -30,6 +30,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "ExpressionLinter.h"
 #include "RISCVSynthesizer.h"
 #include "Utils.h"
+#include "ChangeLog.h"
 
 // -------------------------------------------------
 
@@ -737,6 +738,9 @@ void SiliceCompiler::run(
     writeUnit(bp, ictx, out, false);
     // stop parsing
     endParsing();
+
+    // change log report
+    CHANGELOG.printReport(std::cout);
 
   } catch (ReportError&) {
 

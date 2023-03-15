@@ -92,81 +92,24 @@ void ReportError::printReport(std::pair<std::string, int> where, std::string msg
 
 // -------------------------------------------------
 
-std::string ReportError::extractCodeAroundToken(std::string file, antlr4::Token* tk, antlr4::TokenStream* tk_stream, int& _offset) const
-{
-  antlr4::Token* first_tk = tk;
-  int index = (int)first_tk->getTokenIndex();
-  int tkline = (int)first_tk->getLine();
-  while (index > 0) {
-    first_tk = tk_stream->get(--index);
-    if (first_tk->getLine() < tkline) {
-      first_tk = tk_stream->get(index + 1);
-      break;
-    }
-  }
-  antlr4::Token* last_tk = tk;
-  index = (int)last_tk->getTokenIndex();
-  tkline = (int)last_tk->getLine();
-  while (index < (int)tk_stream->size() - 2) {
-    last_tk = tk_stream->get(++index);
-    if (last_tk->getLine() > tkline) {
-      last_tk = tk_stream->get(index - 1);
-      break;
-    }
-  }
-  _offset = (int)first_tk->getStartIndex();
-  // now extract from file
-  return extractCodeBetweenTokens(file, tk_stream, (int)first_tk->getTokenIndex(), (int)last_tk->getTokenIndex());
-}
-
-// -------------------------------------------------
-
 std::string ReportError::prepareMessage(antlr4::TokenStream* tk_stream, antlr4::Token* offender, antlr4::misc::Interval interval) const
 {
   std::string msg = "";
   if (tk_stream != nullptr && (offender != nullptr || !(interval == antlr4::misc::Interval::INVALID))) {
     msg = "#";
-    std::string file = tk_stream->getTokenSource()->getInputStream()->getSourceName();
-    int offset = 0;
+    std::string file;
     std::string codeline;
-    if (offender != nullptr) {
-      tk_stream->getText(offender, offender); // this seems required to refresh the steam? TODO FIXME investigate
-      codeline = extractCodeAroundToken(file, offender, tk_stream, offset);
-    } else if (!(interval == antlr4::misc::Interval::INVALID)) {
-      if (interval.a > interval.b) {
-        std::swap(interval.a, interval.b);
-      }
-      codeline = extractCodeBetweenTokens(file, tk_stream, (int)interval.a, (int)interval.b);
-      offset = (int)tk_stream->get(interval.a)->getStartIndex();
-    }
+    int first=0, last=0;
+    getSourceInfo(tk_stream, offender, interval, file, codeline, first, last);
     msg += codeline;
     msg += "#";
     msg += tk_stream->getText(offender, offender);
     msg += "#";
-    if (offender != nullptr) {
-      msg += std::to_string(offender->getStartIndex() - offset);
-      msg += "#";
-      msg += std::to_string(offender->getStopIndex() - offset);
-    } else if (!(interval == antlr4::misc::Interval::INVALID)) {
-      msg += std::to_string(tk_stream->get(interval.a)->getStartIndex() - offset);
-      msg += "#";
-      msg += std::to_string(tk_stream->get(interval.b)->getStopIndex() - offset);
-    }
+    msg += std::to_string(first);
+    msg += "#";
+    msg += std::to_string(last);
   }
   return msg;
-}
-
-// -------------------------------------------------
-
-int ReportError::lineFromInterval(antlr4::TokenStream *tk_stream, antlr4::misc::Interval interval) const
-{
-  if (tk_stream != nullptr && !(interval == antlr4::misc::Interval::INVALID)) {
-    // attempt to recover source line from interval only
-    antlr4::Token *tk = tk_stream->get(interval.a);
-    return (int)tk->getLine();
-  } else {
-    return -1;
-  }
 }
 
 // -------------------------------------------------
