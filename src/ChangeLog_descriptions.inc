@@ -31,11 +31,34 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 /// TODO: auto-generate from text file?
 
-const std::string c_CL0001_desc = 
+const std::string c_CL0001_desc =
+"  The new instantiation-time preprocessor introduced a few constraints.\n"
+"  A problem that can appear is receiving the following error:\n"
+"\n"
+"      'error: [parser] Pre-processor directives are unbalanced ...'\n"
+"\n"
+"  The new rule is that a preprocessor if-then-else can appear between\n"
+"  the ( and ) of the algorithm or unit in/out declaration, and between\n"
+"  the { and } of the algorithm block, but there should be no if-then-else\n"
+"  enclosing or repeating these parentheses and braces.\n"
 "  Preprocessor directives can no longer cross unit declaration boundaries.\n"
 ;
 
-const std::string c_CL0002_desc = 
+const std::string c_CL0002_desc =
+"  Expression trackers are now restricted to where they are required to\n"
+"  remove ambiguities:\n"
+"   - unit bodies,\n"
+"   - algorithm preambles,\n"
+"   - subroutine preambles.\n"
+"\n"
+"  In all other places, use the newly introduced initializing expressions:\n"
+"\n"
+"     uint8 a = b + 5 - c;\n"
+"\n"
+"  This declares variable `a` and initializes it to the given expression.\n"
+;
+
+const std::string c_CL0003_desc =
 "  The syntax to define pipelines has changed. Before a pipeline had to\n"
 "  use one block per stage, with arrows in between stages:\n"
 "     { /*stage0*/ } -> { /*stage1*/ } -> { /*stage2*/ }\n"
@@ -50,8 +73,44 @@ const std::string c_CL0002_desc =
 "       A { { S0 } -> { S1 } -> { S2 } } B \n"
 ;
 
-const std::string c_CL0003_desc = 
-"  TO BE WRITTEN"
+const std::string c_CL0004_desc =
+"  The state following a loop is now collapsed into the loop conditional whenever\n"
+"  possible, avoiding an extra cycle. This results in a more efficient usage of\n"
+"  cycles, and clarifies the while loop chaining rules. However, this can impact\n"
+"  the logic of existing code in cases such as follows :\n"
+"  \n"
+"    while (C) {\n"
+"      A\n"
+"    }\n"
+"    B\n"
+"  \n"
+"  Before, there would* always* be a cycle introduced upon exiting the loop, so\n"
+"  `B` would be in a different cycle than `A`. This also meant that there\n"
+"  would be an extra cycle between `C` becoming false, and `B` being reached.\n"
+"  \n"
+"  Silice now automatically deals with such loops as if they were written as :\n"
+"  \n"
+"    while (1) {\n"
+"      if (C) {\n"
+"        A\n"
+"      } else {\n"
+"        B\n"
+"        break;\n"
+"      }\n"
+"    }\n"
+"  \n"
+"  This means there is no extra cycle between `C` becoming false and `B` being\n"
+"  reached.\n"
+"  \n"
+"  While it is generally favorable, this change may break some existing code.\n"
+"  To revert to the previous behavior, add a step operator as follows :\n"
+"  \n"
+"    while (C) {\n"
+"      A\n"
+"    }\n"
+"    ++: // added\n"
+"    B\n"
+"\n"
 ;
 
 /// \brief A change log case.
@@ -64,9 +123,10 @@ typedef struct {
 /// \brief All cases in a map using case reference as key.
 std::map<std::string,t_changelog_case> c_ChangleLogCases = {
 
-    {"CL0001", {"0.1.1", "Preprocessor directives", c_CL0001_desc}},
-    {"CL0002", {"0.1.1", "Pipeline syntax",         c_CL0002_desc}},
-    {"CL0003", {"0.1.1", "While loops cycle rules", c_CL0003_desc}},
+    {"CL0001", {"0.1.1", "Instantiation time pre-processor", c_CL0001_desc}},
+    {"CL0002", {"0.1.1", "Tracker declarations",             c_CL0002_desc}},
+    {"CL0003", {"0.1.1", "Pipeline syntax",                  c_CL0003_desc}},
+    {"CL0004", {"0.1.1", "While loops cycle rules",          c_CL0004_desc}},
 
 };
 

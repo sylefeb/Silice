@@ -55,7 +55,7 @@ namespace Silice
       int         source_exerpt_last_char;
     } t_point_of_interest;
     /// \brief All points of interest found in the code, per case ref.
-    std::map<std::string, std::vector<t_point_of_interest> > m_PointsOfInterest;
+    std::map<std::string, std::map<std::pair<std::string, int>, t_point_of_interest> > m_PointsOfInterest;
 
   public:
 
@@ -65,7 +65,7 @@ namespace Silice
     void addPointOfInterest(std::string caseRef, const Utils::t_source_loc& srcloc);
     /// \brief writes the report in the stream
     void printReport(std::ostream& out) const;
-    
+
   };
 
 };

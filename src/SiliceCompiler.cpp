@@ -744,6 +744,9 @@ void SiliceCompiler::run(
 
   } catch (ReportError&) {
 
+    // change log report
+    CHANGELOG.printReport(std::cerr);
+
     m_BodyContext->unbind();
     throw Fatal("[SiliceCompiler] writer stopped");
 

@@ -60,13 +60,13 @@ void ChangeLog::addPointOfInterest(std::string caseRef, const Utils::t_source_lo
   }
   int line = Utils::lineFromInterval(pctx->parser->getTokenStream(), srcloc.interval) - 1;
   poi.source_file = pctx->lpp->lineAfterToFileAndLineBefore(pctx, (int)line);
-  // get source info    
+  // get source info
   std::string _;
   Utils::getSourceInfo(pctx->parser->getTokenStream(), nullptr, srcloc.interval,
     _/*out*/,poi.source_exerpt/*out*/,
     poi.source_exerpt_first_char/*out*/, poi.source_exerpt_last_char/*out*/);
   // add
-  m_PointsOfInterest[caseRef].push_back(poi);
+  m_PointsOfInterest[caseRef].insert(std::make_pair(poi.source_file,poi));
 }
 
 // -------------------------------------------------
@@ -79,14 +79,15 @@ void ChangeLog::printReport(std::ostream& out) const
     // nothnig to report, good!
     return;
   }
-  out << Console::bold << Console::white 
+  out << Console::bold << Console::white
     << nxl << nxl
-    << "----------<<<<< change log report >>>>>----------" 
+    << "----------<<<<< change log report >>>>>----------"
     << nxl << nxl;
   out << "Your code may be impacted by recent changes that modified\n";
   out << "the behavior of language constructs.\n";
   out << nxl;
-  out << "Please review these carefully:\n";
+  out << "These are *not* errors, your code is likely perfectly fine\n";
+  out << "but please review these cases carefully:\n";
   out << nxl;
   out << Console::normal << Console::gray;
   for (const auto& all_for_case : m_PointsOfInterest) {
@@ -103,10 +104,11 @@ void ChangeLog::printReport(std::ostream& out) const
     for (const auto& poi : all_for_case.second) {
       out << Console::bold << Console::white;
       std::cerr
-        << "  - file: " << poi.source_file.first << nxl
-        << "    line: " << poi.source_file.second + 1 << nxl;
+        << "  - file: " << poi.second.source_file.first << nxl
+        << "    line: " << poi.second.source_file.second + 1 << nxl;
       out << Console::normal << Console::gray;
     }
+    out << nxl;
   }
   out << nxl << nxl;
 }

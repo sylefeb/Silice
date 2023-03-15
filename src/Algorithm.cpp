@@ -1936,7 +1936,6 @@ Algorithm::t_combinational_block *Algorithm::gatherWhile(siliceParser::WhileLoop
   while_header->while_loop(t_instr_nfo(loop->expression_0(), _current, _context->__id), iter, after);
   // set states
   while_header->is_state = true; // header has to be a state
-  after->is_state = true; // after has to be a state
   return after;
 }
 
@@ -1958,6 +1957,9 @@ void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_comb
     }
   } else if (declwire) {
     if (!(allowed & dWIRE)) {
+      // inform change log
+      CHANGELOG.addPointOfInterest("CL0002", sourceloc(declwire));
+      // report error
       reportError(sourceloc(declwire),
         "expression trackers may only be declared in the unit body, or in the algorithm and subroutine preambles\n"
       );
@@ -2388,7 +2390,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
 {
   sl_assert(pip->instructionList().size() > 1); // otherwise not a pipeline
   // inform change log
-  CHANGELOG.addPointOfInterest("CL0002", sourceloc(pip));
+  CHANGELOG.addPointOfInterest("CL0003", sourceloc(pip));
   // are we already within a parent pipeline?
   if (_current->context.pipeline_stage == nullptr) {
 
@@ -8201,13 +8203,13 @@ void Algorithm::writeStatelessBlockGraph(
       }
       // recurse if
       t_vio_dependencies depds_if = _dependencies;
-      usage_branches.push_back(_ff_usage/*t_vio_ff_usage()*/);
+      usage_branches.push_back(_ff_usage);
       writeStatelessBlockGraph(prefix, w, ictx, current->if_then_else()->if_next, current->if_then_else()->after, _q, depds_if, usage_branches.back(), _post_dependencies, _lines);
       disableStartingPipelines(prefix,w,ictx,current->if_then_else()->else_next);
       w.out << "end else begin" << nxl;
       // recurse else
       t_vio_dependencies depds_else = _dependencies;
-      usage_branches.push_back(_ff_usage/*t_vio_ff_usage()*/);
+      usage_branches.push_back(_ff_usage);
       writeStatelessBlockGraph(prefix, w, ictx, current->if_then_else()->else_next, current->if_then_else()->after, _q, depds_else, usage_branches.back(), _post_dependencies, _lines);
       disableStartingPipelines(prefix, w, ictx, current->if_then_else()->if_next);
       w.out << "end" << nxl;
@@ -8292,7 +8294,7 @@ void Algorithm::writeStatelessBlockGraph(
       }
       // merge ff usage
       if (!has_default && !current->switch_case()->onehot) {
-        usage_branches.push_back(_ff_usage/*t_vio_ff_usage()*/); // push an empty set
+        usage_branches.push_back(_ff_usage); // push an empty set
         // NOTE: the case could be complete, currently not checked ; safe but missing an opportunity
       }
       combineFFUsageInto(current,_ff_usage, usage_branches, _ff_usage);
@@ -8306,17 +8308,33 @@ void Algorithm::writeStatelessBlockGraph(
       }
     } else if (current->while_loop()) {
       // while
+      vector<t_vio_ff_usage> usage_branches;
       w.out << "if (" << rewriteExpression(prefix, current->while_loop()->test.instr, current->while_loop()->test.__id, &current->context, ictx, FF_Q, true, _dependencies, _ff_usage) << ") begin" << nxl;
-      writeStatelessBlockGraph(prefix, w, ictx, current->while_loop()->iteration, current->while_loop()->after, _q, _dependencies, _ff_usage, _post_dependencies, _lines);
+      t_vio_dependencies depds_if = _dependencies;
+      usage_branches.push_back(_ff_usage);
+      writeStatelessBlockGraph(prefix, w, ictx, current->while_loop()->iteration, current->while_loop()->after, _q, depds_if, usage_branches.back(), _post_dependencies, _lines);
+      disableStartingPipelines(prefix, w, ictx, current->while_loop()->after);
       w.out << "end else begin" << nxl;
-      w.out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << fastForwardToFSMState(fsm,current->while_loop()->after) << ";" << nxl;
-      disableStartingPipelines(prefix, w, ictx, current->while_loop()->iteration);
-
-      // writeStatelessBlockGraph(prefix, w, ictx, current->while_loop()->after, stop_at, _q, _dependencies, _ff_usage, _post_dependencies, _lines);
-      pushState(fsm, current->while_loop()->after, _q);
-
+      t_vio_dependencies depds_else = _dependencies;
+      if (!current->while_loop()->after->is_state) {
+        usage_branches.push_back(_ff_usage);
+        writeStatelessBlockGraph(prefix, w, ictx, current->while_loop()->after, stop_at, _q, depds_else, usage_branches.back(), _post_dependencies, _lines);
+        disableStartingPipelines(prefix, w, ictx, current->while_loop()->iteration);
+        // inform change log
+        if (!emptyUntilNextStates(current->while_loop()->after)) {
+          CHANGELOG.addPointOfInterest("CL0004", current->while_loop()->after->srcloc);
+        }
+      } else {
+        w.out << FF_D << prefix << fsmIndex(current->context.fsm) << " = "
+              << fastForwardToFSMState(fsm, current->while_loop()->after) << ";" << nxl;
+        pushState(fsm, current->while_loop()->after, _q);
+      }
       w.out << "end" << nxl;
-      mergeDependenciesInto(_dependencies, _post_dependencies);
+      // merge dependencies
+      mergeDependenciesInto(depds_if, _dependencies);
+      mergeDependenciesInto(depds_else, _dependencies);
+      // combine ff usage
+      combineFFUsageInto(current, _ff_usage, usage_branches, _ff_usage);
       // add to lines
       if (m_ReportingEnabled) {
         v2i lns = instructionLines(current->while_loop()->test.instr, ictx);
@@ -8324,6 +8342,7 @@ void Algorithm::writeStatelessBlockGraph(
           _lines.insert(lns);
         }
       }
+      mergeDependenciesInto(_dependencies, _post_dependencies);
       if (enclosed_in_conditional) { w.out << "end // 3" << nxl; } // end conditional
       return;
     } else if (current->return_from()) {
