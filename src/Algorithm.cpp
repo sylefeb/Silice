@@ -8308,7 +8308,10 @@ void Algorithm::writeStatelessBlockGraph(
       w.out << "end else begin" << nxl;
       w.out << FF_D << prefix << fsmIndex(current->context.fsm) << " = " << fastForwardToFSMState(fsm,current->while_loop()->after) << ";" << nxl;
       disableStartingPipelines(prefix, w, ictx, current->while_loop()->iteration);
+
+      // writeStatelessBlockGraph(prefix, w, ictx, current->while_loop()->after, stop_at, _q, _dependencies, _ff_usage, _post_dependencies, _lines);
       pushState(fsm, current->while_loop()->after, _q);
+
       w.out << "end" << nxl;
       mergeDependenciesInto(_dependencies, _post_dependencies);
       // add to lines
