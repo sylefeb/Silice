@@ -9,6 +9,7 @@
 *.h text eol=lf
 *.cpp text eol=lf
 *.hpp text eol=lf
+*.inc text eol=lf
 *.py text eol=lf
 *.ucf text eol=lf
 *.pcf text eol=lf
