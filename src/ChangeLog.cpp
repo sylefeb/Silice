@@ -86,8 +86,8 @@ void ChangeLog::printReport(std::ostream& out) const
   out << "Your code may be impacted by recent changes that modified\n";
   out << "the behavior of language constructs.\n";
   out << nxl;
-  out << "These are *not* errors, your code is likely perfectly fine\n";
-  out << "but please review these cases carefully:\n";
+  out << "Your design is likely perfectly fine, but please review\n";
+  out << "these cases carefully:\n";
   out << nxl;
   out << Console::normal << Console::gray;
   for (const auto& all_for_case : m_PointsOfInterest) {
