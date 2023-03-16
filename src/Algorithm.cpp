@@ -5555,7 +5555,9 @@ void Algorithm::determineAccessForWires(
       if (var == v.name) { // found it
         all_wires.insert(make_pair(v.name, wa));
         if (v.access != e_NotAccessed) { // used in design
-          sl_assert(v.access == e_ReadOnly); // there should not be any other use for a bound expression
+          if (v.access != e_ReadOnly) { // there should not be any other use for a bound expression
+            reportError(v.srcloc, "cannot write to '%s' bound to an expression", v.name.c_str());
+          }
           // add to stack
           q_wires.push(v.name);
         }
