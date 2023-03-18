@@ -1,0 +1,67 @@
+algorithm main(output uint8 leds)
+{
+  uint8 test = 8;
+
+  /// case A
+  while (test != 0) {
+    __display("- test: %d",test);
+    if (test > 6) {
+      break;
+    }
+	  test = test - 1;
+	}
+	__display("after while");
+
+
+  /// case B
+  if (test > 4) {
+    goto label1;
+  }
+  __display("after if 1");
+label1:
+
+
+  /// case C
+  if (test > 4) {
+    __display("in if 2");
+  } else {
+    goto label2;
+  }
+  __display("after if 2");
+label2:
+
+
+  /// case D
+  if (test > 4) {
+    goto label3;
+  }
+	__display("after if D, test:%d",test);
+label4:
+  __display("after after if D");
+	goto label5;
+label3:
+  goto label4;
+label5:
+
+
+  if (test > 0) {
+	  goto b;
+   __display("unreached3");
+b:
+   __display("reached3");
+	}
+	__display("after 3");
+
+
+  if (test > 2) {
+	  goto d;
+		__display("unreached4");
+d:	
+		__display("reached4");
+	} else {
+		__display("else4");	
+  }
+
+	__display("bottom");
+
+}

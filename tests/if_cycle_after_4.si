@@ -1,0 +1,22 @@
+algorithm main(output uint8 leds)
+{
+  uint8 test = 8;
+	uint1 C1=0;
+	uint1 C2=0;
+	uint1 C3=0;
+
+  /// case A
+  while (test == 0) {
+
+		if (C1) { break; }
+		if (C2) {	break; }
+		if (C3) {	break; }
+		
+		__display("here");
+		
+	}
+	
+out:
+	__display("out");
+
+}

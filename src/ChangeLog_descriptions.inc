@@ -77,7 +77,7 @@ const std::string c_CL0004_desc =
 "  The state following a loop is now collapsed into the loop conditional whenever\n"
 "  possible, avoiding an extra cycle. This results in a more efficient usage of\n"
 "  cycles, and clarifies the while loop chaining rules. However, this can impact\n"
-"  the logic of existing code in cases such as follows :\n"
+"  the logic of existing code in cases such as follows:\n"
 "  \n"
 "    while (C) {\n"
 "      A\n"
@@ -113,6 +113,30 @@ const std::string c_CL0004_desc =
 "\n"
 ;
 
+const std::string c_CL0005_desc =
+"  Some if/else constructs are such that when taking one branch\n"
+"  what comes after the if/else is not reached. These would before\n"
+"  introduce a non-necessary cycle before what was next.\n"
+"  Consider this example in a loop body: \n"
+"  \n"
+"    if (C) {\n"
+"      break;\n"
+"    }\n"
+"    N\n"
+"  \n"
+"  One cycle would have been introduced before `N`. These are now\n"
+"  optimized away, pulling `N` into the else part of the conditional.\n"
+"  These optimizations cascade to successive if-s, for instance:\n"
+"  \n"
+"    if (C1) { break; }\n"
+"    if (C2) { break; }\n"
+"    if (C3) { break; }\n"
+"    N\n"
+"\n"
+"  Takes only one cycle as the if-s and `N` are automatically nested.\n"
+;
+
+
 /// \brief A change log case.
 typedef struct {
     std::string from_version; // version from which this applies
@@ -123,11 +147,11 @@ typedef struct {
 /// \brief All cases in a map using case reference as key.
 std::map<std::string,t_changelog_case> c_ChangleLogCases = {
 
-    {"CL0001", {"0.1.1", "Instantiation time pre-processor", c_CL0001_desc}},
-    {"CL0002", {"0.1.1", "Tracker declarations",             c_CL0002_desc}},
-    {"CL0003", {"0.1.1", "Pipeline syntax",                  c_CL0003_desc}},
-    {"CL0004", {"0.1.1", "While loops cycle rules",          c_CL0004_desc}},
-
+    {"CL0001", {"0.1.2", "Instantiation time pre-processor", c_CL0001_desc}},
+    {"CL0002", {"0.1.2", "Tracker declarations",             c_CL0002_desc}},
+    {"CL0003", {"0.1.2", "Pipeline syntax",                  c_CL0003_desc}},
+    {"CL0004", {"0.1.2", "While loops cycle rules",          c_CL0004_desc}},
+    {"CL0005", {"0.1.2", "If-else cycle rules",              c_CL0005_desc}},
 };
 
 // -------------------------------------------------

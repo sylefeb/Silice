@@ -417,8 +417,18 @@ private:
       t_combinational_block        *if_next;
       t_combinational_block        *else_next;
       t_combinational_block        *after;
-      end_action_if_else(t_instr_nfo test_, t_combinational_block *if_next_, t_combinational_block *else_next_, t_combinational_block *after_)
-        : test(test_), if_next(if_next_), else_next(else_next_), after(after_) {}
+      bool                          if_stateless;      // if side is stateless
+      t_combinational_block        *if_trail;          // block ending the if branch
+      bool                          else_stateless;    // else side is stateless
+      t_combinational_block        *else_trail;        // block ending the else branch
+      end_action_if_else(t_instr_nfo test_, 
+                         t_combinational_block *if_next_, bool if_stateless_, t_combinational_block* if_trail_,
+                         t_combinational_block *else_next_, bool else_stateless_, t_combinational_block* else_trail_,
+                         t_combinational_block *after_)
+        : test(test_), 
+          if_next(if_next_), if_stateless(if_stateless_), if_trail(if_trail_),
+          else_next(else_next_), else_stateless(else_stateless_), else_trail(else_trail_),
+          after(after_) {}
       void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(if_next); _ch.push_back(else_next); _ch.push_back(after); }
       std::string name() const override { return "end_action_if_else";}
     };
@@ -530,7 +540,7 @@ private:
       std::string                          block_name;           // internal block name (state name from source when applicable)
       Utils::t_source_loc                  srcloc;               // localization in source code
       bool                                 is_state = false;     // true if block has to be a state, false otherwise
-      bool                                 no_skip = false;      // true the state cannot be skipped, even if empty
+      bool                                 no_skip  = false;     // true the state cannot be skipped, even if empty
       int                                  state_id = -1;        // state id, when assigned, -1 otherwise
       int                                  parent_state_id = -1; // parent state id (closest state before)
       std::vector<t_instr_nfo>             decltrackers;            // list of declaration expressions within block (typically bound exprs, aka wires)
@@ -553,9 +563,12 @@ private:
       }
       const end_action_goto_next *next() const { return dynamic_cast<const end_action_goto_next*>(end_action); }
 
-      void if_then_else(t_instr_nfo test, t_combinational_block *if_next, t_combinational_block *else_next, t_combinational_block *after)
+      void if_then_else(t_instr_nfo test, 
+                        t_combinational_block *if_next, bool if_nocombex, t_combinational_block *if_trail,
+                        t_combinational_block *else_next, bool else_nocombex, t_combinational_block* else_trail,
+                        t_combinational_block *after)
       {
-        swap_end(new end_action_if_else(test, if_next, else_next, after));
+        swap_end(new end_action_if_else(test, if_next, if_nocombex, if_trail, else_next, else_nocombex, else_trail, after));
       }
       const end_action_if_else *if_then_else() const { return dynamic_cast<const end_action_if_else*>(end_action); }
 
@@ -808,8 +821,8 @@ private:
     t_combinational_block *gatherJoinExec(siliceParser::JoinExecContext* join, t_combinational_block *_current, t_gather_context *_context);
     /// \brief tests whether a graph of block is stateless
     bool isStateLessGraph(const t_combinational_block *head) const;
-    /// \brief find all non-combination leaves from this block
-    void findNonCombinationalLeaves(const t_combinational_block *head,std::set<t_combinational_block*>& _leaves) const;
+    /// \brief returns true if the graph has a combinational exit (one path that does not jump to an actual state)
+    bool hasCombinationalExit(const t_combinational_block *head) const;
     /// \brief gather an if-then-else
     t_combinational_block *gatherIfElse(siliceParser::IfThenElseContext* ifelse, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather an if-then
@@ -862,7 +875,11 @@ private:
     void resolveForwardJumpRefs(const t_fsm_nfo *);
     /// \brief resolves forward references for jumps
     void resolveForwardJumpRefs();
-    /// \brief generates the states for the entire algorithm
+    /// \brief performs a pass on all ifelse to prevent code duplication of after, returns true if states where changed
+    bool preventIfElseCodeDup(t_fsm_nfo* fsm);
+    /// \brief performs a numbering pass on the fsm states
+    void renumberStates(t_fsm_nfo*);
+    /// \brief generates the states of an fsm
     void generateStates(t_fsm_nfo *);
     /// \brief gets all the blocks belonging to the fsm
     void fsmGetBlocks(t_fsm_nfo *fsm, std::unordered_set<t_combinational_block *>& _blocks) const;
@@ -1202,9 +1219,6 @@ private:
 
     /// \brief asks reports to be generated
     void enableReporting(std::string reportname);
-
-    /// \brief outputs the FSM graph in a file (graphviz dot format)
-    void outputFSMGraph(std::string dotFile) const;
 
     /// \brief ExpressionLinter is a friend
     friend class ExpressionLinter;

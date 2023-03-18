@@ -1,0 +1,11 @@
+algorithm main(output uint8 leds)
+{
+  uint1 C = 0;
+
+	__display("before");
+	while (C) {
+		__display("in loop");
+	}
+	__display("after");
+
+}

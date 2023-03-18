@@ -23,15 +23,9 @@ algorithm main(output uint8 leds)
 	}
 
 
-  while (1) {
-	  if (test == 0) {
-			__display("after2");
-			test = 8;
-		  break;
-		} else {
-			__display("test2:%d",test);
-			test = test - 1;
-		}
+  while (test != 0) {
+		__display("test2:%d",test);
+	  test = test - 1;
 	}
 	__display("done");
 
