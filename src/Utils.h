@@ -27,6 +27,8 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "siliceLexer.h"
 #include "siliceParser.h"
 
+#include <LibSL.h>
+
 namespace Silice
 {
   class LuaPreProcessor;
@@ -59,7 +61,9 @@ namespace Silice
     antlr4::Token *getToken(antlr4::tree::ParseTree *node, antlr4::misc::Interval interval, bool last_else_first = false);
     /// \brief returns the source file and line for the given token (helper)
     std::pair<std::string, int> getTokenSourceFileAndLine(antlr4::tree::ParseTree *node, antlr4::Token *tk);
-    /// \brief Returns a line in source code from an interval
+    /// \brief return the lines covered by an instruction
+    v2i instructionLines(antlr4::tree::ParseTree* instr);
+    /// \brief returns a line in source code from an interval
     int lineFromInterval(antlr4::TokenStream *tk_stream, antlr4::misc::Interval interval);
     /// \brief extracts a piece of source code around a given token
     std::string extractCodeAroundToken(std::string file, antlr4::Token* tk, antlr4::TokenStream* tk_stream, int& _offset);

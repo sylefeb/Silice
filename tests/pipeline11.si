@@ -3,8 +3,9 @@ unit main(output uint8 leds)
 {
   uint32 cycle(0);
 
-  algorithm {  while (1) {
+  algorithm {
 
+    while (1) {
     { // we make a pipeline inside this block
 
       uint8 v(0);

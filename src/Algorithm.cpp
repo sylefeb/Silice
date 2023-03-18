@@ -7795,13 +7795,11 @@ void Algorithm::writeCombinationalStates(
     if (m_ReportingEnabled) {
       std::ofstream freport(fsmReportName(), std::ios_base::app);
       freport << (ictx.instance_name.empty() ? ictx.top_name : ictx.instance_name) << " ";
+      freport << fsm->name << " ";
       freport << toFSMState(fsm,b->state_id) << " ";
-      freport << ' ' << lines.size() << ' ';
-      for (auto l : lines) {
-        if (l[0] == l[1]) {
-          freport << l[0] << " ";
-        } else {
-          freport << l[0] << ',' << l[1] << " ";
+      for (const auto& l : lines) {
+        for (int i=l[0]; i <= l[1] ; ++i) {
+          freport << 1+i << " ";
         }
       }
       freport << nxl;
@@ -7829,20 +7827,6 @@ void Algorithm::writeCombinationalStates(
         << " end" << nxl;
   }
   w.out << "endcase" << nxl;
-}
-
-// -------------------------------------------------
-
-v2i Algorithm::instructionLines(antlr4::tree::ParseTree *instr, const t_instantiation_context &ictx) const
-{
-  auto tk_start = getToken(instr, instr->getSourceInterval(), false);
-  auto tk_end   = getToken(instr, instr->getSourceInterval(), true);
-  if (tk_start && tk_end) {
-    std::pair<std::string, int> fl_start = getTokenSourceFileAndLine(instr, tk_start);
-    std::pair<std::string, int> fl_end = getTokenSourceFileAndLine(instr, tk_end);
-    return v2i(fl_start.second, fl_end.second);
-  }
-  return v2i(-1);
 }
 
 // -------------------------------------------------
@@ -7917,7 +7901,7 @@ void Algorithm::writeBlock(std::string prefix, t_writer_context &w, const t_inst
   for (const auto &a : block->instructions) {
     // add to lines
     if (m_ReportingEnabled) {
-      v2i lns = instructionLines(a.instr, ictx);
+      v2i lns = instructionLines(a.instr);
       if (lns != v2i(-1)) {
         _lines.insert(lns);
       }
@@ -8253,7 +8237,7 @@ void Algorithm::writeStatelessBlockGraph(
       w.out << "if (" << rewriteExpression(prefix, current->if_then_else()->test.instr, current->if_then_else()->test.__id, &current->context, ictx, FF_Q, true, _dependencies, _ff_usage) << ") begin" << nxl;
       // add to lines
       if (m_ReportingEnabled) {
-        v2i lns = instructionLines(current->if_then_else()->test.instr, ictx);
+        v2i lns = instructionLines(current->if_then_else()->test.instr);
         if (lns != v2i(-1)) {
           _lines.insert(lns);
         }
@@ -8330,7 +8314,7 @@ void Algorithm::writeStatelessBlockGraph(
       }
       // add to lines
       if (m_ReportingEnabled) {
-        v2i lns = instructionLines(current->switch_case()->test.instr, ictx);
+        v2i lns = instructionLines(current->switch_case()->test.instr);
         if (lns != v2i(-1)) {
           _lines.insert(lns);
         }
@@ -8408,7 +8392,7 @@ void Algorithm::writeStatelessBlockGraph(
         disableStartingPipelines(prefix, w, ictx, current->while_loop()->iteration);
         // inform change log
         if (!emptyUntilNextStates(current->while_loop()->after)) {
-          CHANGELOG.addPointOfInterest("CL0004", current->while_loop()->after->srcloc);
+          CHANGELOG.addPointOfInterest("CL0004", current->srcloc);
         }
       } else {
         // after is a state, push it on the queue
@@ -8424,7 +8408,7 @@ void Algorithm::writeStatelessBlockGraph(
       combineFFUsageInto(current, _ff_usage, usage_branches, _ff_usage);
       // add to lines
       if (m_ReportingEnabled) {
-        v2i lns = instructionLines(current->while_loop()->test.instr, ictx);
+        v2i lns = instructionLines(current->while_loop()->test.instr);
         if (lns != v2i(-1)) {
           _lines.insert(lns);
         }
@@ -8920,12 +8904,6 @@ void Algorithm::writeModuleMemory(std::string instance_name, std::ostream& out, 
 void Algorithm::setAsTopMost()
 {
   m_TopMost = true; // this is the topmost
-  if (!m_ReportBaseName.empty() && !m_hasHash) {
-    // create report files, will delete if existing
-    std::ofstream freport_a(algReportName());
-    std::ofstream freport_v(vioReportName());
-    std::ofstream freport_f(fsmReportName());
-  }
 }
 
 // -------------------------------------------------

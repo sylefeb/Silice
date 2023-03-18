@@ -130,11 +130,25 @@ std::pair<std::string, int> Utils::getTokenSourceFileAndLine(antlr4::tree::Parse
   }
   int line = (int)tk->getLine();
   if (pctx != nullptr) {
-    auto fl = pctx->lpp->lineAfterToFileAndLineBefore(pctx,line);
+    auto fl = pctx->lpp->lineAfterToFileAndLineBefore(pctx,line-1);
     return fl;
   } else {
     return std::make_pair("", line);
   }
+}
+
+// -------------------------------------------------
+
+v2i Utils::instructionLines(antlr4::tree::ParseTree* instr)
+{
+  auto tk_start = getToken(instr, instr->getSourceInterval(), false);
+  auto tk_end   = getToken(instr, instr->getSourceInterval(), true);
+  if (tk_start && tk_end) {
+    std::pair<std::string, int> fl_start = getTokenSourceFileAndLine(instr, tk_start);
+    std::pair<std::string, int> fl_end   = getTokenSourceFileAndLine(instr, tk_end);
+    return v2i(fl_start.second, fl_end.second);
+  }
+  return v2i(-1,-1);
 }
 
 // -------------------------------------------------

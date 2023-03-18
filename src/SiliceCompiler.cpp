@@ -696,6 +696,12 @@ void SiliceCompiler::run(
         ictx.params[p.substr(0, eq)] = p.substr(eq + 1); // side-effects compared to a std instantiation since autos are for types only ...
       }
     }
+    // create report files, delete them if existing
+    {
+      std::ofstream freport_f(fresult + ".fsm.log");
+      std::ofstream freport_v(fresult + ".vio.log");
+      std::ofstream freport_a(fresult + ".alg.log");
+    }
     // begin parsing
     beginParsing(fsource, fresult, fframework, frameworks_dir, defines, ictx);
     // apply command line config options

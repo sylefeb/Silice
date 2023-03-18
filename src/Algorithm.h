@@ -670,7 +670,7 @@ private:
     /// \brief recalls whether the algorithm is already optimized
     bool        m_Optimized = false;
 
-    std::string fsmReportName() const { return m_ReportBaseName  + ".fsm.log"; }
+    std::string fsmReportName() const { return m_ReportBaseName + ".fsm.log"; }
     std::string vioReportName() const { return m_ReportBaseName + ".vio.log"; }
     std::string algReportName() const { return m_ReportBaseName + ".alg.log"; }
 
@@ -1037,8 +1037,6 @@ private:
     const t_binding_nfo &findBindingLeft(std::string left, const std::vector<t_binding_nfo> &bndgs, bool &_found) const;
     /// \brief finds the binding on var
     const t_binding_nfo &findBindingRight(std::string right, const std::vector<t_binding_nfo> &bndgs, bool &_found) const;
-    /// \brief returns the line range of an instruction
-    v2i instructionLines(antlr4::tree::ParseTree *instr, const t_instantiation_context &ictx) const;
 
   public:
 

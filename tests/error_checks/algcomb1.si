@@ -5,7 +5,7 @@ algorithm foo(
   o = i;
 }
 
-algorithm main()
+algorithm main(output uint8 leds)
 {
 
   uint1 a = 0;

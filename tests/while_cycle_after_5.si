@@ -2,12 +2,17 @@ algorithm main(output uint8 leds)
 {
   uint1 C = 0;
 
-	__display("before");
-	if (~C) {
-	  __display("thing done after (dup)");
-	} else {
-		while (C) { __display("waiting"); }
-		__display("thing done after (dup)");
-	}
+  if (C) {
+    while (1) {
+      if (C) {
+        __display("A");
+      } else {
+        __display("B"); break;
+      }
+    }
+  } else {
+    __display("B");
+  }
 
+  // if (C) { while (1) { if (C) { A } else { B break; } } } else { B }
 }

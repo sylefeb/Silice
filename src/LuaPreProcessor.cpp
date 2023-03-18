@@ -794,6 +794,9 @@ std::string LuaPreProcessor::assembleSource(
       code += " " + w;
     }
   }
+  // remove any \r
+  std::replace(code.begin(), code.end(), '\r', ' ');
+  // done
   return code;
 }
 
@@ -1289,7 +1292,7 @@ void LuaPreProcessor::generateBody(
   source_code += assembleSource("", src_file, inclusions, output_line_count);
 
   if (0) {
-    ofstream dbg(extractFileName(fileAbsolutePath(src_file) + ".pre.si"));
+    ofstream dbg(extractFileName(fileAbsolutePath(src_file) + ".pre.si"), std::ios::binary);
     dbg << source_code;
   }
 
@@ -1299,7 +1302,7 @@ void LuaPreProcessor::generateBody(
   std::string lua_code = prepareCode(lua_header_code, source_code, m_Units);
 
   if (0) {
-    ofstream dbg(extractFileName(fileAbsolutePath(src_file) + ".pre.lua"));
+    ofstream dbg(extractFileName(fileAbsolutePath(src_file) + ".pre.lua"), std::ios::binary);
     dbg << lua_code;
   }
 
