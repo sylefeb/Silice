@@ -110,13 +110,6 @@ namespace Silice {
       std::ostream&                            _out,
       bool                                      first_pass);
 
-    /// \brief writes a static unit in the output stream
-    void writeStaticUnit(
-      AutoPtr<Blueprint>                        bp,
-      const Blueprint::t_instantiation_context& ictx,
-      std::ostream&                            _out,
-      bool                                      first_pass);
-
     /// \brief begin parsing
     void beginParsing(
       std::string fsource,

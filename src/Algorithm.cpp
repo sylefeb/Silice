@@ -7794,7 +7794,7 @@ void Algorithm::writeCombinationalStates(
     // FSM report
     if (m_ReportingEnabled) {
       std::ofstream freport(fsmReportName(), std::ios_base::app);
-      freport << (ictx.instance_name.empty() ? "__main" : ictx.instance_name) << " ";
+      freport << (ictx.instance_name.empty() ? ictx.top_name : ictx.instance_name) << " ";
       freport << toFSMState(fsm,b->state_id) << " ";
       freport << ' ' << lines.size() << ' ';
       for (auto l : lines) {
@@ -8955,8 +8955,8 @@ void Algorithm::writeAsModule(std::ostream& out, const t_instantiation_context &
       if (tk) {
         std::pair<std::string, int> fl = getTokenSourceFileAndLine(m_Blocks.front()->srcloc.root, tk);
         freport
-          << (ictx.instance_name.empty()       ? "__main" : ictx.instance_name) << " "
-          << (ictx.local_instance_name.empty() ? "main"   : ictx.local_instance_name) << " "
+          << (ictx.instance_name.empty() ? ictx.top_name : ictx.instance_name) << " "
+          << (ictx.instance_name.empty() ? ictx.top_name : ictx.instance_name) << " "
           << m_Name << " " << fl.first << " "
           << (m_FormalDepth.empty()   ? "30"  : m_FormalDepth) << " "
           << (m_FormalTimeout.empty() ? "120" : m_FormalTimeout) << " ";
@@ -9168,8 +9168,7 @@ void Algorithm::makeBlueprintInstantiationContext(const t_instanced_nfo& nfo, co
     }
   }
   // instance context
-  _local_ictx.instance_name = ictx.instance_name + "_" + nfo.instance_name;
-  _local_ictx.local_instance_name = nfo.instance_name;
+  _local_ictx.instance_name = (ictx.instance_name.empty() ? ictx.top_name : ictx.instance_name) + "_" + nfo.instance_name;
 }
 
 // -------------------------------------------------
@@ -9208,7 +9207,11 @@ void Algorithm::writeAsModule(std::ostream& out, const t_instantiation_context& 
   }
 
   // module header
-  out << "module M_" << m_Name + (ictx.instance_name.empty() ? "" : ("_" + ictx.instance_name)) + ' ';
+  if (ictx.instance_name.empty()) {
+    out << "module " << ictx.top_name << ' ';
+  } else {
+    out << "module M_" << m_Name + '_' + ictx.instance_name + ' ';
+  }
 
   // list ports names
   out << '(' << nxl;
@@ -9367,7 +9370,7 @@ void Algorithm::writeAsModule(std::ostream& out, const t_instantiation_context& 
     const auto &nfo = m_InstancedBlueprints.at(ibiordr);
     // module name
     if (ictx.compiler->isStaticBlueprint(nfo.blueprint_name).isNull()) {
-      out << nfo.blueprint->moduleName(nfo.blueprint_name, ictx.instance_name + '_' + nfo.instance_name) << ' ';
+      out << nfo.blueprint->moduleName(nfo.blueprint_name, (ictx.instance_name.empty() ? ictx.top_name : ictx.instance_name) + '_' + nfo.instance_name) << ' ';
     } else {
       out << nfo.blueprint->moduleName(nfo.blueprint_name, "") << ' ';
     }

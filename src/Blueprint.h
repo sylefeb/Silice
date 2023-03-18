@@ -99,7 +99,7 @@ namespace Silice
     typedef struct {
       SiliceCompiler                              *compiler = nullptr;
       std::string                                  instance_name;
-      std::string                                  local_instance_name;
+      std::string                                  top_name;
       std::unordered_map<std::string, std::string> autos;
       std::unordered_map<std::string, std::string> params;
     } t_instantiation_context;

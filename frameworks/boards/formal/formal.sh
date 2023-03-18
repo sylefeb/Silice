@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 case "$(uname -s)" in
-MINGW*|CYGWIN*) 
+MINGW*|CYGWIN*)
 SILICE_DIR=`cygpath $SILICE_DIR`
 BUILD_DIR=`cygpath $BUILD_DIR`
 FRAMEWORKS_DIR=`cygpath $FRAMEWORKS_DIR`
@@ -154,7 +154,7 @@ $2 ~ /^formal(.*?)\$$/ && $8 != "" {
   split($8, modes, /,/)
 
   for (mode in modes) {
-    print "task-" $1 "-" mode ": prep -top M_" $4 "_" $2
+    print "task-" $1 "-" mode ": prep -top " $2
   }
 }' <<< "$I $LOG" >> formal.sby
     I=$((I + 1))
@@ -341,4 +341,3 @@ match($0, /(ERROR: sby file syntax error: \[tasks\])$/, gr) {
     awk -v LEN=$MAX_LENGTH -v PWD="$PWD" "$AWKSCRIPT" < logfile.txt
     exit 1
 fi
-

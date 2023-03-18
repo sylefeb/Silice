@@ -2,15 +2,15 @@ $$div_width=8
 $$div_unsigned=1
 $include('../../projects/common/divint_std.si')
 
-// Having no `main` algorithm somehow breaks the compiler...
-algorithm main(output uint8 leds) {}
-
+// empty `main` algorithm
+algorithm main(output uint8 leds) {  }
 
 $$if FORMAL then
 
-algorithm# x_div_x_eq_1(input uint$div_width$ x) <#depth=20, #mode=bmc & tind> {
-  div$div_width$ div;
-  uint$div_width$ result = uninitialized;
+algorithm# x_div_x_eq_1(input uint8 x) <#depth=20, #mode=bmc & tind>
+{
+  div8 div;
+  uint8 result = uninitialized;
 
   #stableinput(x);
   #assume(x != 0);
