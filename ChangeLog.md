@@ -151,3 +151,35 @@ while (C) {
 ++: // added
 B
 ```
+
+## [CL0005] If-else cycle rules
+
+Some if/else constructs are such that when taking one branch
+what comes after the if/else is not reached.
+
+For instance in a loop body:
+```c
+  if (C) {
+    break;
+  }
+  N
+```
+If `C` is true, `N` is never reached. Before this was introducing a cycle
+before `N`, which can actually be skipped by pulling `N` in the `else` part:
+```c
+  if (C) {
+    break;
+  } else {
+    N
+  }
+```
+This is now done automatically.
+These optimizations cascade to successive if-s, for instance:
+```c
+  if (C1) { break; }
+  if (C2) { break; }
+  if (C3) { break; }
+  N
+```
+Takes now only one cycle as the if-s and `N` are automatically nested
+(versus 3 cycles before).
