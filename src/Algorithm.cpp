@@ -48,6 +48,12 @@ LuaPreProcessor *Algorithm::s_LuaPreProcessor = nullptr;
 
 // -------------------------------------------------
 
+/// These controls are provided as a convenience to illustrate the impact of CL0004 and CL0005
+bool g_Disable_CL0004 = false;
+bool g_Disable_CL0005 = false;
+
+// -------------------------------------------------
+
 const std::vector<std::string> c_InOutmembers = {
   {"i"},{"o"},{"oenable"} // NOTE: first has to be the input
 };
@@ -1900,6 +1906,11 @@ Algorithm::t_combinational_block *Algorithm::gatherBreakLoop(siliceParser::Break
   }
   _current->next(_context->break_to);
   _context->break_to->is_state = true;
+  // track line for fsm reporting
+  {
+    auto lns = instructionLines(brk);
+    if (lns.second != v2i(-1)) { _current->lines[lns.first].insert(lns.second); }
+  }
   // start a new block after the break
   t_combinational_block *block = addBlock(generateBlockName(), _current, nullptr, sourceloc(brk));
   // return block
@@ -1938,6 +1949,9 @@ Algorithm::t_combinational_block *Algorithm::gatherWhile(siliceParser::WhileLoop
   while_header->is_state = true; // header has to be a state
   // NOTE: We do not tag 'after' as being a state: if it ends up not beeing tagged later 
   // no other state jumps to it and we can collapse 'after' into the loop conditional.
+  if (g_Disable_CL0004) { // convenience for visualization of the impact of CL0004
+    after->is_state = true;
+  }
   return after;
 }
 
@@ -2925,6 +2939,11 @@ Algorithm::t_combinational_block *Algorithm::gatherIfElse(siliceParser::IfThenEl
   // blocks for both sides
   t_combinational_block *if_block = addBlock(generateBlockName(), _current, nullptr, sourceloc(ifelse->if_block));
   t_combinational_block *else_block = addBlock(generateBlockName(), _current, nullptr, sourceloc(ifelse->else_block));
+  // track line of 'else' for fsm reporting
+  {
+    auto lns = tokenLines(ifelse, ifelse->else_keyword);
+    if (lns.second != v2i(-1)) { else_block->lines[lns.first].insert(lns.second); }
+  }
   // parse the blocks
   t_combinational_block *if_block_after = gather(ifelse->if_block, if_block, _context);
   t_combinational_block *else_block_after = gather(ifelse->else_block, else_block, _context);
@@ -2937,6 +2956,9 @@ Algorithm::t_combinational_block *Algorithm::gatherIfElse(siliceParser::IfThenEl
                          if_block, isStateLessGraph(if_block), if_block_after,
                          else_block, isStateLessGraph(else_block), else_block_after,
                          after);
+  if (g_Disable_CL0005) { // convenience for visualization of the impact of CL0005
+    after->is_state = !isStateLessGraph(if_block) || !isStateLessGraph(else_block);
+  }
   // NOTE: We do not tag 'after' as being a state right now, so that we can then consider 
   // whether to collapse it into the 'else' of the conditional in case the 'if' jumps over it.
   // NOTE: This prevent a special mechanism to avoid code duplication is preventIfElseCodeDup()
@@ -2967,6 +2989,9 @@ Algorithm::t_combinational_block *Algorithm::gatherIfThen(siliceParser::IfThenCo
                          if_block, isStateLessGraph(if_block), if_block_after,
                          else_block, true /*isStateLessGraph*/, else_block,
                          after);
+  if (g_Disable_CL0005) { // convenience for visualization of the impact of CL0005
+    after->is_state = !isStateLessGraph(if_block);
+  }
   // NOTE: We do not tag 'after' as being a state right now, so that we can then consider 
   // whether to collapse it into the 'else' of the conditional in case the 'if' jumps over it.
   // NOTE: This prevent a special mechanism to avoid code duplication is preventIfElseCodeDup()
@@ -7679,7 +7704,7 @@ void Algorithm::writeCombinationalAlwaysPre(
   }
   // always before block
   std::queue<size_t> q;
-  std::set<v2i>      lines;
+  t_lines_nfo        lines;
   ostringstream      ostr;
   t_writer_context   wtmp(ostr,w.pipes,w.wires);
   writeStatelessBlockGraph(prefix, wtmp, ictx, &m_AlwaysPre, nullptr, q, _always_dependencies, _ff_usage, _post_dependencies, lines);
@@ -7770,7 +7795,7 @@ void Algorithm::writeCombinationalStates(
       w.out << FF_Q << prefix << fsmIndex(fsm) << '[' << b->state_id << "]: begin" << nxl;
     }
     // track source code lines for reporting
-    set<v2i> lines;
+    t_lines_nfo lines;
     // track dependencies, starting with those of always block
     t_vio_dependencies depds = always_dependencies;
     // write block instructions
@@ -7792,17 +7817,20 @@ void Algorithm::writeCombinationalStates(
 #endif
     w.out << "end" << nxl;
     // FSM report
-    if (m_ReportingEnabled) {
-      std::ofstream freport(fsmReportName(), std::ios_base::app);
-      freport << (ictx.instance_name.empty() ? ictx.top_name : ictx.instance_name) << " ";
-      freport << fsm->name << " ";
-      freport << toFSMState(fsm,b->state_id) << " ";
+    if (m_ReportingEnabled) 
+    {
       for (const auto& l : lines) {
-        for (int i=l[0]; i <= l[1] ; ++i) {
-          freport << 1+i << " ";
+        std::ofstream freport(fsmReportName(l.first), std::ios_base::app);
+        freport << (ictx.instance_name.empty() ? ictx.top_name : ictx.instance_name) << " ";
+        freport << fsm->name << " ";
+        freport << toFSMState(fsm, b->state_id) << " ";
+        for (const auto& ls : l.second) {
+          for (int i = ls[0]; i <= ls[1]; ++i) {
+            freport << 1 + i << " ";
+          }
         }
+        freport << nxl;
       }
-      freport << nxl;
     }
   }
   // combine all ff usages
@@ -7885,7 +7913,10 @@ void Algorithm::findAllStartingPipelines(const t_combinational_block *block, std
 
 // -------------------------------------------------
 
-void Algorithm::writeBlock(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_combinational_block *block, t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage, std::set<v2i>& _lines) const
+void Algorithm::writeBlock(std::string prefix, t_writer_context &w, 
+  const t_instantiation_context &ictx, const t_combinational_block *block, 
+  t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage, 
+  t_lines_nfo& _lines) const
 {
   w.out << "// " << block->block_name;
   if (block->context.subroutine) {
@@ -7898,13 +7929,18 @@ void Algorithm::writeBlock(std::string prefix, t_writer_context &w, const t_inst
     writeVarInits(prefix, w.out, ictx, block->initialized_vars, _dependencies, _ff_usage);
     w.out << "// --" << nxl;
   }
+  // add lines for reporting
+  if (m_ReportingEnabled) {
+    for (const auto& l : block->lines) {
+      _lines[l.first].insert(l.second.begin(), l.second.end());
+    }
+  }
+  // go through each instruction
   for (const auto &a : block->instructions) {
     // add to lines
     if (m_ReportingEnabled) {
-      v2i lns = instructionLines(a.instr);
-      if (lns != v2i(-1)) {
-        _lines.insert(lns);
-      }
+      auto lns = instructionLines(a.instr);
+      if (lns.second != v2i(-1)) { _lines[lns.first].insert(lns.second); }
     }
     // write instruction
     {
@@ -8179,7 +8215,7 @@ void Algorithm::writeStatelessBlockGraph(
   t_vio_dependencies&                        _dependencies,
   t_vio_ff_usage&                            _ff_usage,
   t_vio_dependencies&                        _post_dependencies,
-  std::set<v2i>&                             _lines) const
+  t_lines_nfo&                               _lines) const
 {
   const t_fsm_nfo *fsm = block->context.fsm;
   bool enclosed_in_conditional = false;
@@ -8237,9 +8273,9 @@ void Algorithm::writeStatelessBlockGraph(
       w.out << "if (" << rewriteExpression(prefix, current->if_then_else()->test.instr, current->if_then_else()->test.__id, &current->context, ictx, FF_Q, true, _dependencies, _ff_usage) << ") begin" << nxl;
       // add to lines
       if (m_ReportingEnabled) {
-        v2i lns = instructionLines(current->if_then_else()->test.instr);
-        if (lns != v2i(-1)) {
-          _lines.insert(lns);
+        auto lns = instructionLines(current->if_then_else()->test.instr);
+        if (lns.second != v2i(-1)) {
+          _lines[lns.first].insert(lns.second);
         }
       }
       bool after_was_collapsed = false;
@@ -8314,9 +8350,9 @@ void Algorithm::writeStatelessBlockGraph(
       }
       // add to lines
       if (m_ReportingEnabled) {
-        v2i lns = instructionLines(current->switch_case()->test.instr);
-        if (lns != v2i(-1)) {
-          _lines.insert(lns);
+        auto lns = instructionLines(current->switch_case()->test.instr);
+        if (lns.second != v2i(-1)) {
+          _lines[lns.first].insert(lns.second);
         }
       }
       // recurse block
@@ -8408,9 +8444,9 @@ void Algorithm::writeStatelessBlockGraph(
       combineFFUsageInto(current, _ff_usage, usage_branches, _ff_usage);
       // add to lines
       if (m_ReportingEnabled) {
-        v2i lns = instructionLines(current->while_loop()->test.instr);
-        if (lns != v2i(-1)) {
-          _lines.insert(lns);
+        auto lns = instructionLines(current->while_loop()->test.instr);
+        if (lns.second != v2i(-1)) {
+          _lines[lns.first].insert(lns.second);
         }
       }
       mergeDependenciesInto(_dependencies, _post_dependencies);
@@ -8652,7 +8688,7 @@ const Algorithm::t_combinational_block *Algorithm::writeStatelessPipeline(
   t_vio_dependencies& _dependencies,
   t_vio_ff_usage&     _ff_usage,
   t_vio_dependencies& _post_dependencies,
-  std::set<v2i>&      _lines) const
+  t_lines_nfo&        _lines) const
 {
   // follow the chain
   w.out << "// pipeline" << nxl;
@@ -9689,10 +9725,10 @@ void Algorithm::writeAsModule(std::ostream& out, const t_instantiation_context& 
   // always after block
   {
     std::queue<size_t> q;
-    std::set<v2i>      lines;
+    t_lines_nfo        lines;
     t_vio_dependencies _; // unusued
     std::ostringstream out_pipes;
-    t_writer_context  w(out, out_pipes, out_wires);
+    t_writer_context   w(out, out_pipes, out_wires);
     writeStatelessBlockGraph("_", w, ictx, &m_AlwaysPost, nullptr, q, post_dependencies, _ff_usage, _, lines);
     clearNoLatchFFUsage(_ff_usage);
     // write pipelines

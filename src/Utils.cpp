@@ -139,16 +139,52 @@ std::pair<std::string, int> Utils::getTokenSourceFileAndLine(antlr4::tree::Parse
 
 // -------------------------------------------------
 
-v2i Utils::instructionLines(antlr4::tree::ParseTree* instr)
+std::string Utils::sourceFile(const t_source_loc& srcloc)
+{
+  antlr4::TokenStream* tks = nullptr;
+  ParsingContext* pctx = nullptr;
+  if (srcloc.root) {
+    pctx = ParsingContext::rootContext(Utils::root(srcloc.root));
+  }
+  if (pctx) {
+    tks = pctx->parser->getTokenStream();
+  }
+  if (tks != nullptr) {
+    return tks->getTokenSource()->getInputStream()->getSourceName();
+  }
+}
+
+// -------------------------------------------------
+
+std::pair<std::string, v2i> Utils::tokenLines(antlr4::tree::ParseTree* tree,antlr4::Token* tk)
+{
+  antlr4::TokenStream* tks = nullptr;
+  ParsingContext* pctx = nullptr;
+  if (tree) {
+    pctx = ParsingContext::rootContext(Utils::root(tree));
+  }
+  if (pctx) {
+    tks = pctx->parser->getTokenStream();
+  }
+  if (tks != nullptr && tk != nullptr) {
+    auto fl = pctx->lpp->lineAfterToFileAndLineBefore(pctx, (int)tk->getLine()-1);
+    return std::make_pair(fl.first, v2i(fl.second, fl.second));
+  }
+  return std::make_pair("",v2i(-1, -1));
+}
+
+// -------------------------------------------------
+
+std::pair<std::string, v2i> Utils::instructionLines(antlr4::tree::ParseTree* instr)
 {
   auto tk_start = getToken(instr, instr->getSourceInterval(), false);
   auto tk_end   = getToken(instr, instr->getSourceInterval(), true);
   if (tk_start && tk_end) {
     std::pair<std::string, int> fl_start = getTokenSourceFileAndLine(instr, tk_start);
     std::pair<std::string, int> fl_end   = getTokenSourceFileAndLine(instr, tk_end);
-    return v2i(fl_start.second, fl_end.second);
+    return std::make_pair(fl_start.first, v2i(fl_start.second, fl_end.second));
   }
-  return v2i(-1,-1);
+  return std::make_pair("",v2i(-1, -1));
 }
 
 // -------------------------------------------------

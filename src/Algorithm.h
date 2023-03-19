@@ -521,6 +521,9 @@ private:
     /// \brief subroutine calls: which states subroutine are going back to
     t_SubroutinesCallerReturnStates                                 m_SubroutinesCallerReturnStates;
 
+    /// \brief records information about source lines being used
+    typedef std::map<std::string, std::set<v2i>> t_lines_nfo;
+
     /// \brief combinational block context
     typedef struct s_combinational_block_context {
       t_fsm_nfo                   *fsm            = nullptr; // FSM the block belongs to (never null, top blocks belong to m_RootFSM)
@@ -551,6 +554,8 @@ private:
       std::unordered_map<std::string, int> initialized_vars;     // variables to initialize at block start
       std::unordered_set<std::string>      in_vars_read;         // which variables are read from before
       std::unordered_set<std::string>      out_vars_written;     // which variables have been written after
+      t_lines_nfo                          lines;                // additional lines used by the block for fsm report
+
       ~t_combinational_block() { swap_end(nullptr); }
 
       bool        has_end_action()  const { return end_action != nullptr; }
@@ -670,7 +675,7 @@ private:
     /// \brief recalls whether the algorithm is already optimized
     bool        m_Optimized = false;
 
-    std::string fsmReportName() const { return m_ReportBaseName + ".fsm.log"; }
+    std::string fsmReportName(std::string sourceFile) const { return LibSL::StlHelpers::extractFileName(sourceFile) + ".fsm.log"; }
     std::string vioReportName() const { return m_ReportBaseName + ".vio.log"; }
     std::string algReportName() const { return m_ReportBaseName + ".alg.log"; }
 
@@ -1179,11 +1184,11 @@ private:
     /// \brief disable starting pipelines (used to disable pipeline first stages when they are on the 'false' side of a conditional)
     void disableStartingPipelines(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_combinational_block* block) const;
     /// \brief writes a graph of stateless blocks to the output, until a jump to other states is reached
-    void writeStatelessBlockGraph(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_combinational_block* block, const t_combinational_block* stop_at, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies, std::set<v2i> &_lines) const;
+    void writeStatelessBlockGraph(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_combinational_block* block, const t_combinational_block* stop_at, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies, t_lines_nfo& _lines) const;
     /// \brief order pipeline stages based on pipeline specific assignments
     bool orderPipelineStages(std::vector< t_pipeline_stage_range >& _stages) const;
     /// \brief writes a stateless pipeline to the output, returns zhere to resume from
-    const t_combinational_block *writeStatelessPipeline(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_combinational_block* block_before, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies, std::set<v2i> &_lines) const;
+    const t_combinational_block *writeStatelessPipeline(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_combinational_block* block_before, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies, t_lines_nfo& _lines) const;
     /// \brief returns whether the combinational chain until next state is empty, i.e. it will not produce code
     bool emptyUntilNextStates(const t_combinational_block *block) const;
     /// \brief returns all pipelines starting within the combinational chain
@@ -1191,7 +1196,7 @@ private:
     /// \brief returns whether the block is empty, i.e. writeBlock will not produce code
     bool blockIsEmpty(const t_combinational_block *block) const;
     /// \brief writes a single block to the output
-    void writeBlock(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_combinational_block *block, t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage, std::set<v2i>& _lines) const;
+    void writeBlock(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_combinational_block *block, t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage, t_lines_nfo& _lines) const;
     /// \brief writes variable inits
     void writeVarInits(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, const std::unordered_map<std::string, int >& varnames, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage) const;
     /// \brief writes a memory module

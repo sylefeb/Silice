@@ -698,7 +698,6 @@ void SiliceCompiler::run(
     }
     // create report files, delete them if existing
     {
-      std::ofstream freport_f(fresult + ".fsm.log");
       std::ofstream freport_v(fresult + ".vio.log");
       std::ofstream freport_a(fresult + ".alg.log");
     }

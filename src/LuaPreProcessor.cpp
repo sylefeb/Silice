@@ -736,6 +736,8 @@ std::string LuaPreProcessor::assembleSource(
   if (!m_FilesReportName.empty()) {
     std::ofstream freport(m_FilesReportName, std::ios_base::app);
     freport << std::filesystem::absolute(src_file).string() << '\n';
+    // clear the fsm report for this source file
+    std::ofstream freport_f(LibSL::StlHelpers::extractFileName(src_file) + ".fsm.log");
   }
   // add to already included
   alreadyIncluded.insert(src_file);

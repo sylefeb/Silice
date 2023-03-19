@@ -62,7 +62,11 @@ namespace Silice
     /// \brief returns the source file and line for the given token (helper)
     std::pair<std::string, int> getTokenSourceFileAndLine(antlr4::tree::ParseTree *node, antlr4::Token *tk);
     /// \brief return the lines covered by an instruction
-    v2i instructionLines(antlr4::tree::ParseTree* instr);
+    std::pair<std::string,v2i> instructionLines(antlr4::tree::ParseTree* instr);
+    /// \brief return the lines covered by a token
+    std::pair<std::string, v2i> tokenLines(antlr4::tree::ParseTree *tree, antlr4::Token *tk);
+    /// \brief return the source file of a source locator
+    std::string sourceFile(const t_source_loc& srcloc);
     /// \brief returns a line in source code from an interval
     int lineFromInterval(antlr4::TokenStream *tk_stream, antlr4::misc::Interval interval);
     /// \brief extracts a piece of source code around a given token
