@@ -439,9 +439,9 @@ inOutList           :  inOrOut (',' inOrOut)* ','? | ;
 
 /* -- Declarations, subroutines, instruction lists -- */
 
-instructionList     :
+instructionListItem :
                       (
-                        instruction (';' instruction) * ';'
+                        (instruction ';')
                       | declaration
                       | block
                       | alwaysBlock
@@ -453,12 +453,12 @@ instructionList     :
                       | ifThen
                       | whileLoop
                       | switchCase
-                      ) instructionList
-                      | ;
+                      );
+instructionList     : instructionListItem +;
 
 pipeline             : instructionList ('->' instructionList) * ;
 
-instructionSequence  : pipeline ;
+instructionSequence  : pipeline | ;
 
 subroutineParam     : ( READ | WRITE | READWRITE | CALLS ) IDENTIFIER
 					  | input | output ;
@@ -514,8 +514,8 @@ riscv               : RISCV IDENTIFIER '(' inOutList ')' riscvModifiers? ('=' in
 topList             :  (unit | algorithm  | riscv     | importv | appendv
                              | subroutine | circuitry | group   | bitfield
                              | intrface
-                       ) topList
-                    | ;
+                       ) *
+                    ;
 
 root                : topList EOF ;
 

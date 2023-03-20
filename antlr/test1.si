@@ -1,18 +1,17 @@
-algorithm a1(input uint8 i,output uint8 o)
+
+algorithm alg(input uint8 num,output uint8 ret)
 {
-  o = i;
+  ret = num;
 }
 
-algorithm main(output uint8 leds)
+algorithm main(
+  output int8 leds
+)
 {
-  a1 a;
+  uint8 val = 231;
 
-  subroutine s(input uint8 i,output uint8 o,calls a)
-  //                                        ^^^^^ allows sub to call instance a
-  {
-    (o) <- a <- (i);
-  }
+  alg alg0;
 
-  (leds) <- s <- (8);
-
+  (leds) <- alg0 <- (val);
 }
+

@@ -152,6 +152,7 @@ std::string Utils::sourceFile(const t_source_loc& srcloc)
   if (tks != nullptr) {
     return tks->getTokenSource()->getInputStream()->getSourceName();
   }
+  return "";
 }
 
 // -------------------------------------------------

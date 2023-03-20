@@ -1864,7 +1864,7 @@ Algorithm::t_combinational_block *Algorithm::gatherBlock(siliceParser::BlockCont
 
 // -------------------------------------------------
 
-Algorithm::t_combinational_block *Algorithm::splitOrContinueBlock(siliceParser::InstructionListContext* ilist, t_combinational_block *_current, t_gather_context *_context)
+Algorithm::t_combinational_block *Algorithm::splitOrContinueBlock(siliceParser::InstructionListItemContext* ilist, t_combinational_block *_current, t_gather_context *_context)
 {
   if (ilist->state() != nullptr) {
     // start a new block
@@ -3733,7 +3733,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
   auto algblock     = dynamic_cast<siliceParser::AlgorithmBlockContext*>(tree);
   auto algcontent   = dynamic_cast<siliceParser::AlgorithmBlockContentContext*>(tree);
   auto decl         = dynamic_cast<siliceParser::DeclarationContext*>(tree);
-  auto ilist        = dynamic_cast<siliceParser::InstructionListContext*>(tree);
+  auto iitem        = dynamic_cast<siliceParser::InstructionListItemContext*>(tree);
   auto ifelse       = dynamic_cast<siliceParser::IfThenElseContext*>(tree);
   auto ifthen       = dynamic_cast<siliceParser::IfThenContext*>(tree);
   auto switchC      = dynamic_cast<siliceParser::SwitchCaseContext*>(tree);
@@ -3771,8 +3771,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
   // ignore it as a pipeline (this is to simplify grammar parsing)
   if (pip) {
     if (pip->instructionList().size() == 1) {
-      ilist    = pip->instructionList().front();
-      tree     = ilist;
+      tree     = pip;
       pip      = nullptr;
     }
   }
@@ -3956,7 +3955,7 @@ Algorithm::t_combinational_block *Algorithm::gather(
   } else if (assumestable) { gatherStableCheck(assumestable, _current, _context);          recurse = false;
   } else if (always)       { gatherAlwaysAssigned(always, &m_AlwaysPre);                   recurse = false;
   } else if (block)        { _current = gatherBlock(block, _current, _context);            recurse = false; _context->in_algorithm_preamble = false;
-  } else if (ilist)        { _current = splitOrContinueBlock(ilist, _current, _context);
+  } else if (iitem)        { _current = splitOrContinueBlock(iitem, _current, _context);
   }
   // recurse
   if (recurse) {

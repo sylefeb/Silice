@@ -801,7 +801,7 @@ private:
     /// \brief returns true if a tree contains a pipeline
     bool hasPipeline(antlr4::tree::ParseTree* tree) const;
     /// \brief split current block (state present) or continue current with the next instruction list
-    t_combinational_block *splitOrContinueBlock(siliceParser::InstructionListContext* ilist, t_combinational_block *_current, t_gather_context *_context);
+    t_combinational_block *splitOrContinueBlock(siliceParser::InstructionListItemContext* ilist, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather a break from loop
     t_combinational_block *gatherBreakLoop(siliceParser::BreakLoopContext* brk, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather a while block
