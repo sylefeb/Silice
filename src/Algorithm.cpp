@@ -8291,7 +8291,9 @@ void Algorithm::writeStatelessBlockGraph(
         w.out << "// collapsed 'after'\n";
         writeStatelessBlockGraph(prefix, w, ictx, current->if_then_else()->after, stop_at, _q, depds_if, usage_branches.back(), _post_dependencies, _lines);
         after_was_collapsed = true;
-        CHANGELOG.addPointOfInterest("CL0005", sourceloc(current->if_then_else()->test.instr));
+        if (!emptyUntilNextStates(current->if_then_else()->after)) {
+          CHANGELOG.addPointOfInterest("CL0005", sourceloc(current->if_then_else()->test.instr));
+        }
       }
       w.out << "end else begin" << nxl;
       // recurse else
@@ -8308,7 +8310,9 @@ void Algorithm::writeStatelessBlockGraph(
         sl_assert(!after_was_collapsed); // check: not already collapsed in if!
         writeStatelessBlockGraph(prefix, w, ictx, current->if_then_else()->after, stop_at, _q, depds_else, usage_branches.back(), _post_dependencies, _lines);
         after_was_collapsed = true;
-        CHANGELOG.addPointOfInterest("CL0005", sourceloc(current->if_then_else()->test.instr));
+        if (!emptyUntilNextStates(current->if_then_else()->after)) {
+          CHANGELOG.addPointOfInterest("CL0005", sourceloc(current->if_then_else()->test.instr));
+        }
       }
       w.out << "end" << nxl;
       // merge dependencies

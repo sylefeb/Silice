@@ -454,7 +454,7 @@ instructionListItem :
                       | whileLoop
                       | switchCase
                       );
-instructionList     : instructionListItem +;
+instructionList     : instructionListItem *;
 
 pipeline             : instructionList ('->' instructionList) * ;
 
