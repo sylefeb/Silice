@@ -2008,6 +2008,11 @@ void Algorithm::gatherDeclaration(siliceParser::DeclarationContext *decl, t_comb
       reportError(sourceloc(subroutine), "subroutines cannot be declared here");
     }
   }
+  // track line for fsm reporting
+  if (declvar || declwire || decltbl || declmem) {
+    auto lns = instructionLines(decl);
+    if (lns.second != v2i(-1)) { _current->lines[lns.first].insert(lns.second); }
+  }
   // gather
   if (declvar)        { gatherDeclarationVar(declvar, _current, _context, (allowed & dVARNOEXPR)); }
   else if (declwire)  { gatherDeclarationWire(declwire, _current); }
