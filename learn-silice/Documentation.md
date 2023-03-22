@@ -1293,7 +1293,8 @@ to minimize the number of states in the FSM. That is because going from one
 state to the next requires one clock cycle, delaying further computations.
 Of course, longer combinational chains also lead to reduced clock frequency,
 so there is a tradeoff. This is why Silice lets you explicitly specify
-where to cut a combinational chain using the step operator `++:`
+where to cut a combinational chain using the step operator `++:` or create
+pipelines with the pipelining operator `->`.
 
 Note that if a state contains several independent combinational chain,
 they will execute as parallel circuits (e.g. two computations regarding
@@ -1301,9 +1302,26 @@ different sets of variables). Grouping such computations in a same state
 increases parallelism, without deepening the combinational chains.
 
 The use of control flow structures such as `while` (or `goto`), as well
-as synchronization with other algorithm also require introducing states.
+as synchronization with other algorithms also require introducing states.
 This results in additional cycles being introduced. Silice follows a set
 of precise rules to do this, so you always know what to expect.
+
+> Rarely, additional optimizations may be introduced that change the behavior
+of your code. To mitigate the impact of such changes, Silice outputs a detailed
+change log report after compilation.
+All changes are also [documented here](../ChangeLog.md).
+
+## Cycle report
+
+Silice now has the ability to show how a design is split into cycles. The
+report outputs in the console the source code, with each line colored based
+on the state it belongs to.
+
+Let's try it on a simple example. Enter `projects/vga_demo` and run
+`make verilator`. Close the simulation window. From the command line enter
+`report-cycles.py verilator vga_rototexture.si`. The output is the source
+code color coded by how each line maps to a cycle.
+
 
 ## Control flow
 
@@ -1315,7 +1333,7 @@ and Silice is happy to expose them for your enjoyment!
 
 Goto labels are added with the `<LABEL_NAME>:` syntax at the
 beginning of a line, for instance:
-``` c
+```c
   a = b + 1;
   if (a == 0) {
     goto error;
@@ -1324,63 +1342,92 @@ beginning of a line, for instance:
 error:
   leds = 255;
 done:
-}
 ```
 
 `goto` always requires one cycle to ’jump’: this is a change of state in
-the FSM. Entering a `while` takes one cycle and then, if the block inside is
+the FSM. It also introduces a label at the jump destination, since control flow
+has to start at this location.
+
+> **Note:** If a user label is never jumped to from a goto, no additional cycle
+is introduced and the label has no effect. However, `++:` always introduces
+a cycle.
+
+Entering a `while` takes one cycle and then, if the block inside is
 a single combinational chain, it takes exactly one cycle per iteration.
-Exiting a `while` takes one cycle ; however when chaining
-loops only one cycle is required to enter the next loop. So the first
-loop takes one cycle to enter, any additional loop afterwards adds a single
-cycle if there is nothing in between them, the last loop takes one cycle to
-exit.
+Exiting a `while` does *not* take a cycle, the combinational chain located after
+is reached as soon as the `while` condition becomes false.
 
-> **Note:** When a label is jumped to, a cycle is introduced at the label
-location as if the step operator `++:` had been used, unless it is
-directly following an existing state (e.g. after a while). If the label is never
-jumped to from a goto, no additional cycle is introduced and the label has
-no effect.
+When chaining loops only one cycle is required to enter the next loop. So the
+first loop takes one cycle to enter, any additional loop afterwards adds a
+single cycle.
 
-Now, `if-then-else` is slightly more subtle. When applied to sequences
-of operations not requiring any control flow, an `if-then-else`
-synthesizes to a combinational `if-then-else`. This means that both the
-’if’ and ’else’ code are evaluated in parallel as combinational chains,
-and a multiplexer selects which one is the result based on the
-condition. This applies recursively, so combinational `if-then-else` may
-be nested.
+Let us now consider `if-then-else`. Under most circumstances, no other cycles
+are introduced than those required within the branches themselves (`if`/`else`),
+for instance when a branch contains a subroutine call, a `while`, a `++:`,
+a `break`. If the branches do not require any cycles, then the `if-then-else`
+does not require any additional cycle itself (and this is recursively true for
+nested `if-then-else` of course).
 
-When the `if-then-else` contains additional control flow (e.g. a
-subroutine call, a `while`, a `++:`, a `goto`, etc.) it is automatically
-split into several states. It then takes one cycle to exit the ’if’ or
-’else’ part and resume operations. If only the ’if’ or the ’else’
-requires additional states while the other is a one-cycle block (possibly empty),
-an additional state is still required to ’jump’
-to what comes after the `if-then-else`. So in general this will cost one
-cycle. However, in cases where this next state already exists, for
-instance when the `if-then-else` is at the end of a `while` loop, this
-existing state is reused resulting in no overhead.
+When one or both branches of the `if-then-else` require additional cycles, and
+both control flow branches (`if` and `else`) reach after the `if-then-else`,
+a cycle *will* be introduced. If only one branch reaches after, no additional
+cycle is required.
 
-This has interesting implications. Consider the following code:
-
-``` c
-while(...) {
+Let us take some example to understand the implication of that. The loops
+below iterate in one cycle unless the `if` is taken:
+```c
+while (...) {
   if (condition) {
     ...
-++:
+    ++:
     ...
+    goto exit:
+  } else {
+    a = a + 1;
   }
-  a = b + 1; // line 7
+  // no extra cycle here
+  b = b + 1;
+}
+exit:
+```
+Here, the `if` branch requires multiple cycles, but never reaches after the
+`if-then-else` since it jumps directly to `exit`.
+
+```c
+while (...) {
+  if (condition) {
+    ...
+    break;
+  }
+  // no extra cycle here
+  a = a + 1;
 }
 ```
+Likewise, the `if` breaks out of the loop and does not reach after the
+`if-then-else`. No extra cycle is introduced.
 
-When the `if` is not taken, we still have to pay one cycle to reach line
-7. That is because it has been placed into a separate state to jump to
-it since the `if` is *not* a one-cycle block (due to `++:`). Hence, the
-while loop will always take at least two cycles.
+Let's now see one case where an extra cycle is introduced:
+```c
+while (...) {
+  if (condition) {
+    ...
+++:
+    ...
+  } else {
+    ...
+  }
+  // extra cycle here
+  b = b + 1; // bookmark [1]
+}
+```
+Here both the `if` and `else` reach after the `if-then-else` (`bookmark [1]`),
+while the `if` requires multiple cycles. In such a case a cycle is introduced
+just after the `if-then-else`.
+That is because control has to return from the `if` to `bookmark [1]`, and thus
+introduces a state before this location.
 
 However, you may choose to duplicate some code (and hence some
-circuitry!) to avoid the extra cycle, rewriting as:
+circuitry) to avoid the extra cycle, rewriting as:
 
 ``` c
 while(...) {
@@ -1388,18 +1435,23 @@ while(...) {
     ...
 ++:
     ...
-    a = b + 1;
+    b = b + 1;
   } else {
-    a = b + 1;
+    ...
+    b = b + 1;
   }
 }
 ```
 
 This works because when the `if` is taken the execution simply goes back
-to the start of the `while`, a state that already exists. The `else`
-being a one-cycle block followed by the start of the `while` no extra
-cycle is necessary! We just tradeoff a bit of circuit size for extra
-performance.
+to the start of the `while`, a state that already exists. This trades-off a
+bit of circuit size for extra performance.
+
+> **Couldn't Silice duplicate the code automatically to remove this cycle?**
+Yes it could, however such an automation would potentially result in large
+chunks of codes being duplicated, possibly multiple times. As the cost-benefit
+is hard to automatically assess, the rule in Silice is to not duplicate code
+as an implicit optimization.
 
 ### Switches
 
