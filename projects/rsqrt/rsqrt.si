@@ -1,0 +1,50 @@
+/*
+@sylefeb, MIT license, see LICENSE_MIT in repo root
+Inspired by https://rusteddreams.bitbucket.io/2017/03/05/sqrt.html
+*/
+
+$include('clz.si')
+
+unit rsqrt(input auto x,output sameas(x) result) 
+{
+  $$if not Fp then
+  $$ print('rsqrt expects a Fp parameter that is the fractional number of bits')
+  $$ print('instantiate as rsqrt rs<Fp=...>( ... );')
+  $$ error('rsqrt: missing pre-processor parameter, see above')
+  $$end
+
+  clog       lx<v:uint$widthof('x')$>;
+  sameas(x)  v(0);
+  sameas(x)  b(0);
+  sameas(x)  t(0);
+  sameas(x)  l(0);
+  uint$Fp+1$ ff(0);
+  
+  //uint32 cycle(0);
+  
+  algorithm {
+
+    lx.v = x;
+    v    = x;
+    //__display("[%d] [rsqrt] IN x=%d",cycle,x);
+    
+->
+    t  = 1 << (($3*Fp$ - lx.result + 2)>>1);
+    b  = 1 << (($3*Fp$ - lx.result    )>>1);
+    l  = (((lx.result - 3)>>1)<<1)+1;
+    ff = ($math.floor(math.sqrt(2.0)*(1<<Fp))$ 
+         * ( (v>>1) - (1<<l) )
+         ) >> (2+l)
+    ;
+->
+    if (ff>$1<<Fp$) { ff=$1<<Fp$; }
+    result = (t * ($1<<Fp$ - ff) + b * ff) >> $Fp$;
+    //__display("[%d] [rsqrt] x=%d result=%d",cycle,v,result);
+    
+    // __display("[rsqrt] x=%d b=%d t=%d lx=%d l=%d ff=%d",v,b,t,lx.result-2,l,ff);
+    
+  }
+
+  //always_after { cycle = cycle + 1; }
+    
+}
