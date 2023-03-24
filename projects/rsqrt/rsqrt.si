@@ -41,7 +41,8 @@ $$w = 1 << clog2(widthof('x'))
 
 ->
 
-  if (ff>$1<<Fp$) { ff=$1<<Fp$; }
+//  if (ff>$1<<Fp$) { ff=$1<<Fp$; }
+  //bilinear init
   sameas(result) y = (t * ($1<<Fp$ - ff) + b * ff) >> $Fp$;
 
 $$if not newton_iters then newton_iters = 2 end

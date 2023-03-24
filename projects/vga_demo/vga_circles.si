@@ -70,17 +70,20 @@ unit frame_display(
 
     ->  // --- next pipeline stage
 
-      uint24 lsq = (view_x*view_x + view_y*view_y);
+      uint24 lsq = (view_x*view_x + view_y*view_y) >> 2;
       uint24 inv_l(0);
 
-    (inv_l) = c_rsqrt<Fp=12>(lsq);
+      // instantiates pipelined rsqrt
+    (inv_l) = c_rsqrt<Fp=12,newton_iters=5>(lsq);
+      //                                ^^ more iterations for quality
+      //                                   (adds latency, we can afford it!)
 
        uint24 invd = (inv_l >> 4) + frame;
 
     ->
 
 $$if SIMULATION then
-        // to verify/adjust pixel synch [1]
+        // to verify/adjust pixel synch, see vga_msponge [1]
         //if (pix_y == 0) {
         //  __display("x = %d  pix_x = %d (diff: %d)",x,pix_x,__signed(x-pix_x));
         //  __display("y = %d  pix_y = %d (diff: %d)",y,pix_y,__signed(y-pix_y));
