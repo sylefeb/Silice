@@ -1,48 +1,41 @@
 $include('rsqrt.si')
 
-$$Fp = 8
+$$Fp = 12
 
-$$ -- dofile('rsqrt.lua')
+$$dofile('rsqrt.lua')
 
 $$for i=1,512,1 do
-$$  -- print('********************* x=' .. i .. ' result=' .. rsqrt_int(i))
-$$  print('********************* x=' .. i .. ' exact='
-$$         .. math.floor( (1<<Fp) / math.sqrt(i/(1<<Fp)) ) )
+$$ -- print('********************* x=' .. i .. ' exact =' .. math.floor( (1<<Fp) / math.sqrt(i/(1<<Fp)) ) )
+$$  print('********************* x=' .. i .. ' approx=' .. rsqrt_int(i))
 $$end
 
-$$-- error('stop')
+$$ -- error('stop')
 
 unit main(output uint8 leds)
 {
-  uint11 t(31);
-  uint4  ct(0);
-  clz   c(v <: t);
-  clog  l(v <: t);
-  
-  rsqrt  r<Fp=$Fp$,x:uint16>;
-  
+
+  // rsqrt  r<Fp=$Fp$,x:uint24>;
+
   uint32 cycle(0);
-  
+
   algorithm {
-    uint16 i = 1;
+    uint24 i = 1;
+    uint24 v = 0;
 
     while (i != 512) {
-      // r.x = i;
-      r <- (i);
-      __display("[%d] feeding %d",cycle,i);
+
+      __display("[%d] feeding %d",cycle,i,v);
+      uint24 j = i;
       i   = i + 1;
--> // reg on input
--> // rsqrt stage 0
--> // rsqrt stage 1
--> // rsqrt stage 2
--> // reg on output
-      __display("[%d] rsqrt(%d) = %d",cycle,i,r.result);
+
+  ->
+  (v) = c_rsqrt<Fp=$Fp$>(i);
+
+      __display("[%d] rsqrt(%d) = %d",cycle,i,v);
+
     }
   }
-  
-  
-  always_after { cycle = cycle + 1; }
-  
-  
-}
 
+  always_after { cycle = cycle + 1; }
+
+}
