@@ -1,0 +1,109 @@
+// SL 2022-10-14
+//
+// MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+
+// Implements a pipeline rendering a tunnel with a pilelined
+// inverse square root.
+//
+
+$$if ECPIX5 then
+$$  VGA_1024_768  = 1
+$$elseif DE10NANO then
+$$  VGA_1920_1080 = 1
+$$elseif VERILATOR then
+$$  delay         = 26400+95+61+800
+$$else
+$$  error('sorry, this design is currently only for the ECPIX5 and de10-nano')
+$$end
+
+$include('vga_demo_main.si')
+
+$include('../rsqrt/rsqrt.si')
+
+// ----------------------------------------------------------------------------
+// display unit
+// ----------------------------------------------------------------------------
+
+unit frame_display(
+  input   uint11 pix_x,       input   uint11 pix_y,
+  input   uint1  pix_active,  input   uint1  pix_vblank,
+  input   uint1  vga_hs,      input   uint1  vga_vs,
+  output! uint$color_depth$ pix_r,
+  output! uint$color_depth$ pix_g,
+  output! uint$color_depth$ pix_b
+) {
+
+  // --- always_before block, performed every cycle before anything else
+  always_before {
+    pix_r = 0; pix_g = 0; pix_b = 0; // maintain RGB at zero, important during
+  }                                  // vga blanking for screen to adjust
+
+  // --- algorithm containing the pipeline
+  algorithm <autorun> {
+
+    uint24 frame(0);
+
+    while (1) { // forever
+
+      // ===== Here we synch the pipeline with the vertical sync.
+      //       The pipeline starts during vblank so latency is hidden and
+      //       the first pixel is ready exactly at the right moment.
+      while (~vga_vs) {}
+      while ( vga_vs) {}
+
+      // Wait the 'perfect' delay (obtained in simulation, see marker [1] below)
+      // (adjust delay if number of steps is changed).
+      uint17 wait = 0; while (wait != $delay$) { wait = wait + 1; }
+
+      uint12 x = -1; uint12 y = -1;
+      while ( ! (x == $H_END-1$ && y == $V_RES-1$) ) {
+
+        // ----- pipeline starts here -----
+
+        int24 view_x = ((__signed(x) - __signed(24d$H_RES>>1$)));
+        int24 view_y = ((__signed(y) - __signed(24d$V_RES>>1$)));
+
+        // increment pixel coordinates
+        y = x == $H_END-1$ ? (y + 1) : y;
+        x = x == $H_END-1$ ? 0 : (x + 1);
+
+    ->  // --- next pipeline stage
+
+      uint24 lsq = (view_x*view_x + view_y*view_y);
+      uint24 inv_l(0);
+
+    (inv_l) = c_rsqrt<Fp=12>(lsq);
+
+       uint24 invd = (inv_l >> 4) + frame;
+
+    ->
+
+$$if SIMULATION then
+        // to verify/adjust pixel synch [1]
+        //if (pix_y == 0) {
+        //  __display("x = %d  pix_x = %d (diff: %d)",x,pix_x,__signed(x-pix_x));
+        //  __display("y = %d  pix_y = %d (diff: %d)",y,pix_y,__signed(y-pix_y));
+        //}
+$$end
+
+        if (x < $H_RES$) { // do not produce color out of bound, screen may
+                          // otherwise produce weird color artifacts
+          uint1 in_circ = (invd >> 6);
+          uint8 comp    = in_circ ? 255 : 0;
+
+          pix_r = comp;
+          pix_g = comp;
+          pix_b = comp;
+        }
+
+        // ----- pipeline ends here -----
+
+      } // while x,y
+
+      frame = frame + 1;
+
+    } // while (1)
+
+  }
+}
