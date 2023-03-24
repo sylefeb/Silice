@@ -1947,7 +1947,7 @@ Algorithm::t_combinational_block *Algorithm::gatherWhile(siliceParser::WhileLoop
   while_header->while_loop(t_instr_nfo(loop->expression_0(), _current, _context->__id), iter, after);
   // set states
   while_header->is_state = true; // header has to be a state
-  // NOTE: We do not tag 'after' as being a state: if it ends up not beeing tagged later 
+  // NOTE: We do not tag 'after' as being a state: if it ends up not beeing tagged later
   // no other state jumps to it and we can collapse 'after' into the loop conditional.
   if (g_Disable_CL0004) { // convenience for visualization of the impact of CL0004
     after->is_state = true;
@@ -2348,17 +2348,16 @@ Algorithm::t_combinational_block *Algorithm::concatenatePipeline(siliceParser::P
   // go through the pipeline
   // -> for each stage block
   t_combinational_block *prev = _current;
-  bool first = (_current->context.pipeline_stage != nullptr); // if in an existing pipeline, start by adding to the last stage
+  bool resume = (_current->context.pipeline_stage != nullptr); // if in an existing pipeline, start by adding to the last stage
   for (auto b : pip->instructionList()) {
     t_fsm_nfo*             fsm  = nullptr;
     t_pipeline_stage_nfo*  snfo = nullptr;
     t_combinational_block* from = nullptr;
-    if (first) {
+    if (resume) {
       // resume from previous
-      fsm   = _current->context.pipeline_stage->fsm;
-      snfo  = _current->context.pipeline_stage;
-      from  = _current;
-      first = false;
+      fsm    = _current->context.pipeline_stage->fsm;
+      snfo   = _current->context.pipeline_stage;
+      from   = _current;
     } else {
       // create a fsm for the pipeline stage
       fsm = new t_fsm_nfo;
@@ -2397,8 +2396,13 @@ Algorithm::t_combinational_block *Algorithm::concatenatePipeline(siliceParser::P
     } else {
       fsm->firstBlock->is_state = true; // make them all FSMs
     }
-    // set next stage
-    prev->pipeline_next(from, stage_end);
+    if (resume) {
+      // no need to update end action (in recursion, caller will do it)
+      resume = false; // no longer resuming
+    } else {
+      // set next stage
+      prev->pipeline_next(from, stage_end);
+    }
     // advance
     prev = nfo->stages.back()->fsm->lastBlock;
   }
@@ -2964,7 +2968,7 @@ Algorithm::t_combinational_block *Algorithm::gatherIfElse(siliceParser::IfThenEl
   if (g_Disable_CL0005) { // convenience for visualization of the impact of CL0005
     after->is_state = !isStateLessGraph(if_block) || !isStateLessGraph(else_block);
   }
-  // NOTE: We do not tag 'after' as being a state right now, so that we can then consider 
+  // NOTE: We do not tag 'after' as being a state right now, so that we can then consider
   // whether to collapse it into the 'else' of the conditional in case the 'if' jumps over it.
   // NOTE: This prevent a special mechanism to avoid code duplication is preventIfElseCodeDup()
   return after;
@@ -2990,14 +2994,14 @@ Algorithm::t_combinational_block *Algorithm::gatherIfThen(siliceParser::IfThenCo
   if_block_after->next(after);
   else_block->next(after);
   // add if_then_else to current
-  _current->if_then_else(t_instr_nfo(ifthen->expression_0(), _current, _context->__id), 
+  _current->if_then_else(t_instr_nfo(ifthen->expression_0(), _current, _context->__id),
                          if_block, isStateLessGraph(if_block), if_block_after,
                          else_block, true /*isStateLessGraph*/, else_block,
                          after);
   if (g_Disable_CL0005) { // convenience for visualization of the impact of CL0005
     after->is_state = !isStateLessGraph(if_block);
   }
-  // NOTE: We do not tag 'after' as being a state right now, so that we can then consider 
+  // NOTE: We do not tag 'after' as being a state right now, so that we can then consider
   // whether to collapse it into the 'else' of the conditional in case the 'if' jumps over it.
   // NOTE: This prevent a special mechanism to avoid code duplication is preventIfElseCodeDup()
   return after;
@@ -3772,6 +3776,9 @@ Algorithm::t_combinational_block *Algorithm::gather(
 
   bool recurse      = true;
 
+  // for readability
+  #define EXIT_PRE _context->in_algorithm_preamble = false
+
   // if this is a pipeline check whether it has a unique stage, and if yes,
   // ignore it as a pipeline (this is to simplify grammar parsing)
   if (pip) {
@@ -3908,7 +3915,8 @@ Algorithm::t_combinational_block *Algorithm::gather(
         reportError(sourceloc(tree), "the always block can only be declared in the algorithm top block");
       }
     }
-    gather(alw_block->block(), &m_AlwaysPre, _context);  recurse = false;
+    gather(alw_block->block(), &m_AlwaysPre, _context);
+    recurse = false;
   } else if (alw_before) {
     if (!m_UsesLegacySnytax) {
       if (_context->in_algorithm) {
@@ -3920,7 +3928,8 @@ Algorithm::t_combinational_block *Algorithm::gather(
         reportError(sourceloc(tree), "the always before block can only be declared in the algorithm top block");
       }
     }
-    gather(alw_before->block(), &m_AlwaysPre, _context);  recurse = false;
+    gather(alw_before->block(), &m_AlwaysPre, _context);
+    recurse = false;
   } else if (alw_after) {
     if (!m_UsesLegacySnytax) {
       if (_context->in_algorithm) {
@@ -3932,34 +3941,35 @@ Algorithm::t_combinational_block *Algorithm::gather(
         reportError(sourceloc(tree), "the always after block can only be declared in the algorithm top block");
       }
     }
-    gather(alw_after->block(), &m_AlwaysPost, _context);  recurse = false;
-  } else if (ifelse)       { _current = gatherIfElse(ifelse, _current, _context);          recurse = false; _context->in_algorithm_preamble = false;
-  } else if (ifthen)       { _current = gatherIfThen(ifthen, _current, _context);          recurse = false; _context->in_algorithm_preamble = false;
-  } else if (switchC)      { _current = gatherSwitchCase(switchC, _current, _context);     recurse = false; _context->in_algorithm_preamble = false;
-  } else if (loop)         { _current = gatherWhile(loop, _current, _context);             recurse = false; _context->in_algorithm_preamble = false;
-  } else if (repeat)       { _current = gatherRepeatBlock(repeat, _current, _context);     recurse = false; _context->in_algorithm_preamble = false;
-  } else if (pip)          { _current = gatherPipeline(pip, _current, _context);           recurse = false; _context->in_algorithm_preamble = false;
-  } else if (sync)         { _current = gatherSyncExec(sync, _current, _context);          recurse = false; _context->in_algorithm_preamble = false;
-  } else if (join)         { _current = gatherJoinExec(join, _current, _context);          recurse = false; _context->in_algorithm_preamble = false;
-  } else if (circinst)     { _current = gatherCircuitryInst(circinst, _current, _context); recurse = false; _context->in_algorithm_preamble = false;
-  } else if (jump)         { _current = gatherJump(jump, _current, _context);              recurse = false; _context->in_algorithm_preamble = false;
-  } else if (ret)          { _current = gatherReturnFrom(ret, _current, _context);         recurse = false; _context->in_algorithm_preamble = false;
-  } else if (breakL)       { _current = gatherBreakLoop(breakL, _current, _context);       recurse = false; _context->in_algorithm_preamble = false;
-  } else if (async)        { _current->instructions.push_back(t_instr_nfo(async, _current, _context->__id));    recurse = false;  _context->in_algorithm_preamble = false;
-  } else if (assign)       { _current->instructions.push_back(t_instr_nfo(assign, _current, _context->__id));   recurse = false; _context->in_algorithm_preamble = false;
-  } else if (display)      { _current->instructions.push_back(t_instr_nfo(display, _current, _context->__id));  recurse = false; _context->in_algorithm_preamble = false;
-  } else if (stall)        { _current->instructions.push_back(t_instr_nfo(stall, _current, _context->__id));    recurse = false; _context->in_algorithm_preamble = false;
-  } else if (inline_v)     { _current->instructions.push_back(t_instr_nfo(inline_v, _current, _context->__id)); recurse = false; _context->in_algorithm_preamble = false;
-  } else if (finish)       { _current->instructions.push_back(t_instr_nfo(finish, _current, _context->__id));   recurse = false; _context->in_algorithm_preamble = false;
-  } else if (assert_)      { _current->instructions.push_back(t_instr_nfo(assert_, _current, _context->__id));  recurse = false; _context->in_algorithm_preamble = false;
-  } else if (assume)       { _current->instructions.push_back(t_instr_nfo(assume, _current, _context->__id));   recurse = false; _context->in_algorithm_preamble = false;
-  } else if (restrict)     { _current->instructions.push_back(t_instr_nfo(restrict, _current, _context->__id)); recurse = false; _context->in_algorithm_preamble = false;
-  } else if (cover)        { _current->instructions.push_back(t_instr_nfo(cover, _current, _context->__id));    recurse = false; _context->in_algorithm_preamble = false;
+    gather(alw_after->block(), &m_AlwaysPost, _context);
+    recurse = false;
+  } else if (ifelse)       { EXIT_PRE; _current = gatherIfElse(ifelse, _current, _context);          recurse = false;
+  } else if (ifthen)       { EXIT_PRE; _current = gatherIfThen(ifthen, _current, _context);          recurse = false;
+  } else if (switchC)      { EXIT_PRE; _current = gatherSwitchCase(switchC, _current, _context);     recurse = false;
+  } else if (loop)         { EXIT_PRE; _current = gatherWhile(loop, _current, _context);             recurse = false;
+  } else if (repeat)       { EXIT_PRE; _current = gatherRepeatBlock(repeat, _current, _context);     recurse = false;
+  } else if (pip)          { EXIT_PRE; _current = gatherPipeline(pip, _current, _context);           recurse = false;
+  } else if (sync)         { EXIT_PRE; _current = gatherSyncExec(sync, _current, _context);          recurse = false;
+  } else if (join)         { EXIT_PRE; _current = gatherJoinExec(join, _current, _context);          recurse = false;
+  } else if (circinst)     { EXIT_PRE; _current = gatherCircuitryInst(circinst, _current, _context); recurse = false;
+  } else if (jump)         { EXIT_PRE; _current = gatherJump(jump, _current, _context);              recurse = false;
+  } else if (ret)          { EXIT_PRE; _current = gatherReturnFrom(ret, _current, _context);         recurse = false;
+  } else if (breakL)       { EXIT_PRE; _current = gatherBreakLoop(breakL, _current, _context);       recurse = false;
+  } else if (async)        { EXIT_PRE; _current->instructions.push_back(t_instr_nfo(async, _current, _context->__id));    recurse = false;
+  } else if (assign)       { EXIT_PRE; _current->instructions.push_back(t_instr_nfo(assign, _current, _context->__id));   recurse = false;
+  } else if (display)      { EXIT_PRE; _current->instructions.push_back(t_instr_nfo(display, _current, _context->__id));  recurse = false;
+  } else if (stall)        { EXIT_PRE; _current->instructions.push_back(t_instr_nfo(stall, _current, _context->__id));    recurse = false;
+  } else if (inline_v)     { EXIT_PRE; _current->instructions.push_back(t_instr_nfo(inline_v, _current, _context->__id)); recurse = false;
+  } else if (finish)       { EXIT_PRE; _current->instructions.push_back(t_instr_nfo(finish, _current, _context->__id));   recurse = false;
+  } else if (assert_)      { EXIT_PRE; _current->instructions.push_back(t_instr_nfo(assert_, _current, _context->__id));  recurse = false;
+  } else if (assume)       { EXIT_PRE; _current->instructions.push_back(t_instr_nfo(assume, _current, _context->__id));   recurse = false;
+  } else if (restrict)     { EXIT_PRE; _current->instructions.push_back(t_instr_nfo(restrict, _current, _context->__id)); recurse = false;
+  } else if (cover)        { EXIT_PRE; _current->instructions.push_back(t_instr_nfo(cover, _current, _context->__id));    recurse = false;
   } else if (was_at)       { gatherPastCheck(was_at, _current, _context);                  recurse = false;
   } else if (assertstable) { gatherStableCheck(assertstable, _current, _context);          recurse = false;
   } else if (assumestable) { gatherStableCheck(assumestable, _current, _context);          recurse = false;
   } else if (always)       { gatherAlwaysAssigned(always, &m_AlwaysPre);                   recurse = false;
-  } else if (block)        { _current = gatherBlock(block, _current, _context);            recurse = false; _context->in_algorithm_preamble = false;
+  } else if (block)        { EXIT_PRE; _current = gatherBlock(block, _current, _context);            recurse = false;
   } else if (iitem)        { _current = splitOrContinueBlock(iitem, _current, _context);
   }
   // recurse
@@ -7821,7 +7831,7 @@ void Algorithm::writeCombinationalStates(
 #endif
     w.out << "end" << nxl;
     // FSM report
-    if (m_ReportingEnabled) 
+    if (m_ReportingEnabled)
     {
       for (const auto& l : lines) {
         std::ofstream freport(fsmReportName(l.first), std::ios_base::app);
@@ -7917,9 +7927,9 @@ void Algorithm::findAllStartingPipelines(const t_combinational_block *block, std
 
 // -------------------------------------------------
 
-void Algorithm::writeBlock(std::string prefix, t_writer_context &w, 
-  const t_instantiation_context &ictx, const t_combinational_block *block, 
-  t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage, 
+void Algorithm::writeBlock(std::string prefix, t_writer_context &w,
+  const t_instantiation_context &ictx, const t_combinational_block *block,
+  t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage,
   t_lines_nfo& _lines) const
 {
   w.out << "// " << block->block_name;
