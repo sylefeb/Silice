@@ -8,14 +8,15 @@
 //
 
 $$if ECPIX5 then
-$$  VGA_1024_768  = 1
+$$  -- VGA_1024_768  = 1
 $$elseif DE10NANO then
-$$  VGA_1920_1080 = 1
+$$  -- VGA_1920_1080 = 1
 $$elseif VERILATOR then
-$$  delay         = 26400+95+61+800
 $$else
 $$  error('sorry, this design is currently only for the ECPIX5 and de10-nano')
 $$end
+
+$$  delay         = 26400+95+61+800-10
 
 $include('vga_demo_main.si')
 
@@ -92,19 +93,19 @@ $$end
 
         if (x < $H_RES$) { // do not produce color out of bound, screen may
                           // otherwise produce weird color artifacts
-          uint1 in_circ = (invd >> 6);
-          uint8 comp    = in_circ ? 255 : 0;
-
-          pix_r = comp;
-          pix_g = comp;
-          pix_b = comp;
+          uint1  in_circ = (invd >> 6);
+          uint8  comp    = in_circ ? 255 : 0;
+          uint8 shaded   = inv_l > 16383 || in_circ ? 0 : (255-inv_l[8,8]);
+          pix_r = shaded;
+          pix_g = shaded;
+          pix_b = shaded;
         }
 
         // ----- pipeline ends here -----
 
       } // while x,y
 
-      frame = frame + 1;
+      frame = frame + 3;
 
     } // while (1)
 

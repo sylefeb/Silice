@@ -29,3 +29,6 @@ Available demos:
   <img width="300" src="vga_demo_flyover3d.png">
   <img width="300" src="vga_demo_rototex.png">
 </p>
+
+## Credits
+- Ring oscillator for the ECP5 from https://github.com/dpiegdon/verilog-buildingblocks, by David R. Piegdon (GPLv3)
