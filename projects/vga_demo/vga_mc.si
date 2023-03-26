@@ -2,19 +2,6 @@
 //
 // MIT license, see LICENSE_MIT in Silice repo root
 // https://github.com/sylefeb/Silice
-
-// Implements a pipeline ray-marching a fractal while racing the beam.
-// The marching algorithm is the classical "Fast voxel traversal"
-// by Amanatides and Woo 1987 (a dda traversal, ala Wolfenstein3D)
-// http://www.cse.yorku.ca/~amana/research/grid.pdf
-//
-// The fractal is a Menger sponge https://en.wikipedia.org/wiki/Menger_sponge
-// with three levels. It is produced by looking up a 64 bits constant defining
-// which of the 4x4x4 (=64) voxels are solid.
-//
-// See also the reference version on shadertoy, used during development
-// to check the algorithm fixed point precision:
-// https://www.shadertoy.com/view/DdB3zR
 //
 
 $$if ECPIX5 then
