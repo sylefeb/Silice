@@ -28,3 +28,8 @@ int data(int addr)
     return 0;
   }
 }
+
+int  random()
+{
+  return rand() ^ (rand()<<8) ^ (rand()<<16) ^ (rand()<<24);
+}
