@@ -5524,7 +5524,7 @@ void Algorithm::determineBlockVIOAccess(
   // determine access
   for (const auto& i : instrs) {
     determineVIOAccess(i.instr, vios, block, _read, _written);
-    // check for declared vars and temporaries
+    // check for vars and temporaries declared as expressions
     auto expr = dynamic_cast<siliceParser::Expression_0Context*>(i.instr);
     if (expr) {
       auto C = m_ExpressionCatchers.find(std::make_pair(expr, block));
@@ -5535,6 +5535,10 @@ void Algorithm::determineBlockVIOAccess(
         }
       }
     }
+  }
+  // also add initialized vars
+  for (const auto& iv : block->initialized_vars) {
+    if (vios.count(iv.first) > 0) { _declared.insert(iv.first); }
   }
 }
 
