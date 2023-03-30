@@ -5,23 +5,14 @@
 //
 
 $$if ECPIX5 then
-$$  -- VGA_1024_768  = 1
 $$elseif DE10NANO then
-$$  -- VGA_1920_1080 = 1
 $$elseif VERILATOR then
-$$  -- VGA_1920_1080 = 1
 $$else
 $$  error('sorry, this design is currently only for the ECPIX5 and de10-nano')
 $$end
 
-$$delay  = 26400+95+61+800-32+8-22
+$$delay  = 27310 -- 'perfect' delay before triggering the pipeline for a frame
 $$Nsteps = 46
-
-// (old) 32, no split,   41MHz
-// (old) 32, split, 81%, 47MHz
-
-//_ 42, no split, 82%, 36.6MHz
-//_ 46, no split, 91%, 35.7MHz
 
 $$if SIMULATION then
 import('../common/verilator_random.v')
@@ -53,12 +44,15 @@ $$else
 $$end
 $$end
 
+  // table for 1/y (to average contributions from random walks)
   brom uint16 inv[1024] = {
     65535,65535,
 $$for i=2,1023 do
     $65536//i$,
 $$end
   };
+
+  // a cosine table for animating things
   bram int12 cos[512] = {
 $$for i=0,511 do
     $math.floor(1200.0 * math.cos(2*math.pi*i/512))$,
@@ -75,7 +69,7 @@ $$end
 
   algorithm <autorun> {
 
-    uint9 cursor(0);
+    uint9 cursor(0); // animation
 
     while (1) { // forever
 
@@ -100,10 +94,10 @@ $$end
         // increment pixel coordinates
         y = x == $H_END-1$ ? (y + 1) : y;
         x = x == $H_END-1$ ? 0 : (x + 1);
-
+        // walk start point
         int24  p_x     = q_x;
         int24  p_y     = q_y;
-
+        // accumulate r,g,b during per-pixel walks
         uint20 accum_r = 0;
         uint20 accum_g = 0;
         uint20 accum_b = 0;
@@ -115,16 +109,20 @@ $$for n=1,Nsteps do
         // current distance
         int24 a_x     = p_x < 0 ? -p_x : p_x;
         int24 a_y     = p_y < 0 ? -p_y : p_y;
+        // distance to inner square
         int24 len_sq  = __signed( a_y > a_x ? a_y : a_x ) - __signed(24d128);
+        // distance to border
         int24 len_brd = 24d260 - __signed( a_y > a_x ? a_y : a_x );
+        // combine
         uint1 onsq    = len_sq < len_brd;
         int24 len     = onsq ? len_sq : len_brd;
-
+        // a random number (one generator per stage to avoid bias)
         uint24 rnd    = rng$n$.rnd;
-
+        // delta for random walk
         int24  d_x    = 0;
         int24  d_y    = 0;
-
+        // random walk (on a square! this is a hack, should be a circle :) )
+        // (induced bias is visible to the trained eye)
         if (rnd[11,1]) { // decide along x or y
           d_x =  rnd[10,1] ? -len+1 : len-1;
           d_y =  rnd[ 9,1] ?   ((__signed(rnd[ 0,8]) * len) >>> 8)
@@ -134,13 +132,12 @@ $$for n=1,Nsteps do
           d_x =  rnd[ 9,1] ?   ((__signed(rnd[ 0,8]) * len) >>> 8)
                            : - ((__signed(rnd[ 0,8]) * len) >>> 8);
         }
-
- // ->
+        // decide whether we reached the contour
         uint1 side    = (p_x+p_y) < (__signed(cos.rdata)>>>2);
         uint1 checker = (p_x[6,1] ^ p_y[6,1]);
-        // int8 light    = cos.rdata[17,1] ? 0 : (__signed(cos.rdata) >>> 8);
-        if (len > -2 && len < 2) {
-// __display("[%d|%d] len:%d q_x:%d a_x:%d num:%d",cycle,$n$,len,q_x,a_x,num);
+        if (len > -2 && len < 2) { // yes!
+          // __display("[%d|%d] len:%d q_x:%d a_x:%d num:%d",cycle,$n$,len,q_x,a_x,num);
+          // decide on a color (that's the fun part producing the patterns)
           // accumulate
           num          = num + 1;
           if (onsq) {
@@ -156,6 +153,7 @@ $$for n=1,Nsteps do
           p_x = q_x;
           p_y = q_y;
         } else {
+          // keep walking!
           p_x = p_x + d_x;
           p_y = p_y + d_y;
         }
@@ -164,21 +162,22 @@ $$end
 
     ->
 
-        // __write("%d,",num);
+        // setup 1/y lookup
         inv.addr = num;
 
     ->
 
+        // compute averages
         uint24 r = (inv.rdata * accum_r) >> 14;
         uint24 g = (inv.rdata * accum_g) >> 14;
         uint24 b = (inv.rdata * accum_b) >> 14;
 
 $$if SIMULATION then
         // to verify/adjust pixel synch [1]
-        if (pix_y == 0) {
-          __display("x = %d  pix_x = %d (diff: %d)",x,pix_x,__signed(x-pix_x));
-          __display("y = %d  pix_y = %d (diff: %d)",y,pix_y,__signed(y-pix_y));
-        }
+        //if (pix_y == 0) {
+        //  __display("x = %d  pix_x = %d (diff: %d)",x,pix_x,__signed(x-pix_x));
+        //  __display("y = %d  pix_y = %d (diff: %d)",y,pix_y,__signed(y-pix_y));
+        //}
 $$end
 
         if (x < $H_RES$) { // do not produce color out of bound, screen may
