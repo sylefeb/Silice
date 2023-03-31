@@ -1,4 +1,3 @@
-
 // integer division
 $include('../common/divint_std_auto.si')
 

@@ -1,6 +1,6 @@
 algorithm main( 
   input  uint1 btn,
-  output uint8 led
+  output uint8 leds
   )
 {
 
@@ -30,5 +30,5 @@ algorithm main(
   {
     v = v + 1;
   }
-  led = v;
+  leds = v;
 }

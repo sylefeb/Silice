@@ -1,0 +1,41 @@
+$include('rsqrt.si')
+
+$$Fp = 12
+
+$$dofile('rsqrt.lua')
+
+$$for i=1,512,1 do
+$$ -- print('********************* x=' .. i .. ' exact =' .. math.floor( (1<<Fp) / math.sqrt(i/(1<<Fp)) ) )
+$$  print('********************* x=' .. i .. ' approx=' .. rsqrt_int(i))
+$$end
+
+$$ -- error('stop')
+
+unit main(output uint8 leds)
+{
+
+  // rsqrt  r<Fp=$Fp$,x:uint24>;
+
+  uint32 cycle(0);
+
+  algorithm {
+    uint24 i = 1;
+    uint24 v = 0;
+
+    while (i != 512) {
+
+      __display("[%d] feeding %d",cycle,i,v);
+      uint24 j = i;
+      i   = i + 1;
+
+  ->
+  (v) = c_rsqrt<Fp=$Fp$>(i);
+
+      __display("[%d] rsqrt(%d) = %d",cycle,i,v);
+
+    }
+  }
+
+  always_after { cycle = cycle + 1; }
+
+}

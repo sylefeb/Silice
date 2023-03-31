@@ -365,7 +365,7 @@ syncExec            : joinExec LARROW '(' callParamList ')' ;
 
 /* -- Circuitry instantiation -- */
 
-circuitryInst       : '(' outs=callParamList ')' '='  IDENTIFIER ('<' sparam+ '>')? '(' ins=callParamList ')';
+circuitryInst       : '(' outs=callParamList ')' '='  IDENTIFIER ('<' sparam (',' sparam)* '>')? '(' ins=callParamList ')';
 
 /* -- Control flow -- */
 
@@ -386,7 +386,7 @@ cover               : COVER '(' expression_0 ')';
 
 block               : '{' instructionSequence '}';
 ifThen              : 'if' '(' expression_0 ')' if_block=block ;
-ifThenElse          : 'if' '(' expression_0 ')' if_block=block 'else' else_block=block ;
+ifThenElse          : 'if' '(' expression_0 ')' if_block=block else_keyword='else' else_block=block ;
 switchCase          : (SWITCH | ONEHOT) '(' expression_0 ')' '{' caseBlock * '}' ;
 caseBlock           : ('case' case_value=value ':' | DEFAULT ) case_block=block;
 whileLoop           : 'while' '(' expression_0 ')' while_block=block ;
@@ -439,9 +439,9 @@ inOutList           :  inOrOut (',' inOrOut)* ','? | ;
 
 /* -- Declarations, subroutines, instruction lists -- */
 
-instructionList     :
+instructionListItem :
                       (
-                        (instruction ';') +
+                        (instruction ';')
                       | declaration
                       | block
                       | alwaysBlock
@@ -453,13 +453,12 @@ instructionList     :
                       | ifThen
                       | whileLoop
                       | switchCase
-                      ) instructionList
-                      | ;
+                      );
+instructionList     : instructionListItem *;
 
-pipeline             : instructionList ('->' instructionList) +
-                     | ;
+pipeline             : instructionList ('->' instructionList) * ;
 
-instructionSequence  : pipeline | instructionList ;
+instructionSequence  : pipeline | ;
 
 subroutineParam     : ( READ | WRITE | READWRITE | CALLS ) IDENTIFIER
 					  | input | output ;
@@ -515,8 +514,8 @@ riscv               : RISCV IDENTIFIER '(' inOutList ')' riscvModifiers? ('=' in
 topList             :  (unit | algorithm  | riscv     | importv | appendv
                              | subroutine | circuitry | group   | bitfield
                              | intrface
-                       ) topList
-                    | ;
+                       ) *
+                    ;
 
 root                : topList EOF ;
 

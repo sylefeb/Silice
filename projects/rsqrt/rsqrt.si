@@ -1,0 +1,59 @@
+/*
+@sylefeb, MIT license, see LICENSE_MIT in repo root
+Inspired by https://rusteddreams.bitbucket.io/2017/03/05/sqrt.html
+*/
+
+$include('clz.si')
+
+circuitry c_rsqrt(input x,output result)
+{
+  $$ print('[c_rsqrt] Fp:' .. Fp)
+  $$if not Fp then
+  $$ print('')
+  $$ print('c_rsqrt expects a Fp parameter that is the fractional number of bits')
+  $$ print('instantiate as ( ... ) = c_rsqrt<Fp=...>( ... )')
+  $$ error('c_rsqrt: missing pre-processor parameter')
+  $$end
+
+  sameas(x)  v(0);
+  sameas(x)  b(0);
+  sameas(x)  t(0);
+  sameas(x)  l(0);
+  uint$Fp+1$ ff(0);
+
+  // ensure width is a power of 2 for counting leading zeros
+$$w = 1 << clog2(widthof('x'))
+
+  uint$clog2(widthof('x'))$ lx(0);
+  uint$w$ xx = x;
+  (lx)       = clog(xx);
+  v          = x;
+
+->
+
+  t  = 1 << (($3*Fp$ - lx + 2)>>1);
+  b  = 1 << (($3*Fp$ - lx    )>>1);
+  l  = (((lx - 3)>>1)<<1)+1;
+  ff = ($math.floor(math.sqrt(2.0)*(1<<Fp))$
+      * ( (v>>1) - (1<<l) )
+       ) >> (2+l)
+  ;
+
+->
+
+//  if (ff>$1<<Fp$) { ff=$1<<Fp$; }
+  //bilinear init
+  sameas(result) y = (t * ($1<<Fp$ - ff) + b * ff) >> $Fp$;
+
+$$if not newton_iters then newton_iters = 2 end
+$$for n=1,newton_iters do
+->
+  // newton-raphson
+  y = ( 3 * y -
+             (( ( (x*y) >> $Fp$ ) * ( (y*y)  >> $Fp$ ) ) >> $Fp$ )
+           ) >> 1;
+$$end
+
+  result = y;
+
+}

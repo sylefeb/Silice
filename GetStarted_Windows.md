@@ -8,12 +8,12 @@ use Linux-style tools under Windows, and installs a self-contained environment e
 Please download and install MSYS2 (msys2-x86_64) from https://www.msys2.org/
 Be sure to follow the instructions on the download page to update your MSYS2 install to latest.
 
-From there, open a MinGW64 prompt, launching `c:\msys64\mingw64.exe` (assuming MSYS2 is 
+From there, open a MinGW64 prompt, launching `c:\msys64\mingw64.exe` (assuming MSYS2 is
 installed in its default location). Be sure to use MinGW**64**, *not* 32, *nor* a MSYS prompt.
 
 The prompt should look like this (note the MinGW64 label in purple):
 <p align="center">
-  <img width="512" src="docs/figures/mingw64_prompt.png">
+  <img width="512" src="learn-silice/figures/mingw64_prompt.png">
 </p>
 
 Then, from the prompt, enter the Silice directory and type: `./get_started_mingw64.sh`.

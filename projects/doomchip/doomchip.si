@@ -759,13 +759,13 @@ $$end
               // d  = y0 + (y0 - y1) * x0 / (x1 - x0)
               num    = x0_h <<< $FPm$;
               den    = (x1_h - x0_h);
-++: // relax timing
+
               (interp_m) <- divl <- (num,den);
 
               // d_h   = y0_h + (((y0_h - y1_h) >>> $FPm$) * interp_m);
               mula   = (y0_h - y1_h);
               mulb   = interp_m;
-++: // relax timing
+
               (mulr) <- mull <- (mula,mulb);
               d_h    = y0_h + (mulr >>> $FPm$);
 ++:
@@ -784,7 +784,7 @@ $$end
                 den     = d_h * sin_m.rdata;
                 // -> compute inverse distance
                 num     = $FPl$d$(1<<(FPl-2))$;
-++: // relax timing
+
                 (invd_w) <- divl <- (num,den); // (2^(FPl-2)) / d
                 d_c_h   = den >>> $FPm+4$; // record corrected distance for tex. mapping
 ++: // relax timing

@@ -1,0 +1,22 @@
+algorithm main( 
+  output uint8 leds
+  )
+{
+  uint1 btn=1;
+	
+  subroutine foo(input uint8 a)
+  {
+		__display("foo");
+    uint8 tmp1 = 3;
+    tmp1 = a;
+  }
+
+  uint8 v = 0;
+
+  if (btn) {
+    () <- foo <- (1);
+  }
+
+  v = v + 1;
+  leds = v;
+}

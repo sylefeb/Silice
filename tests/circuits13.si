@@ -7,38 +7,38 @@ $$ error('mul expects both inputs to have the same width')
 $$end
 $$local l = widthof('a')>>1
 $$local h = widthof('a')-l
-$$print('h = ' .. h)
+$$print('l = ' .. l .. ' h = ' .. h)
 $$if l < 1 then
-  result = 1;
+  result = a[0,1] && b[0,1];
 $$else
   sameas(a) albh(0); sameas(a) ahbl(0); sameas(a) albl(0); sameas(a) ahbh(0);
+ ->
   (ahbl) = mul( a[$l$,$h$] , b[  0,$l$] );
   (albh) = mul( a[  0,$h$] , b[$l$,$h$] );
   (albl) = mul( a[  0,$h$] , b[  0,$h$] );
   (ahbh) = mul( a[$l$,$h$] , b[$l$,$h$] );
  ->
   result = { {ahbh,$l$b0} + ahbl+albh+albl[$l$,$h$] , albl[0,$l$] };
- ->
 $$end
 }
 
 unit main(output uint8 leds)
 {
   uint16 t(0);
-  uint8 a($(1<<8)-1$);
-  uint8 b($(1<<8)-1$);
+  uint8 a(11); //$(1<<8)-1$);
+  uint8 b(22); //$(1<<8)-1$);
 
   uint32 cycle(0);
-  
+
   algorithm {
     __display("[%d] start",cycle);
-    (t) = mul(a,b);
+  (t) = mul(a,b);
   ->
     uint32 m = a*b;
     __display("[%d] %d %d",cycle,t,m);
     leds = t;
   }
-  
+
   always_after {
     cycle = cycle + 1;
   }

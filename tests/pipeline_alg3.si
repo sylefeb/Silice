@@ -1,0 +1,24 @@
+unit main(output uint8 leds)
+{
+  uint16 cycle = 0; // cycle counter
+  algorithm {
+    uint16 a = 0;
+    while (a<3) { // this pipeline has a middle stage that takes multiple cycles
+      // stage 0
+      uint16 b = a;
+      __display("cycle %d [stage 0] b = %d",cycle,b);
+      a = a + 1;
+  ->
+      // stage 1
+      b = b + 10;
+    ++: // step
+      b = b + 100;
+    ++: // step
+      b = b + 1000;
+  ->
+     // stage 2
+      __display("cycle %d [stage 2] b = %d",cycle,b);
+    }
+  }
+  always_after { cycle = cycle + 1; } // increment cycle
+}

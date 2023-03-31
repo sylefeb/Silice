@@ -77,6 +77,9 @@ set(SILICE_CORE
   src/Utils.h
   src/Blueprint.cpp
   src/Blueprint.h
+  src/ChangeLog.cpp
+  src/ChangeLog.h
+  src/ChangeLog_descriptions.inc
   antlr/siliceParser.cpp
   antlr/siliceParser.h
   antlr/siliceLexer.cpp

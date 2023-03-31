@@ -1,0 +1,14 @@
+circuitry msbs_to_one(output result)
+{
+  $$for i=widthof('result')>>1,widthof('result')-1 do
+    result[$i$,1] = 1;
+  $$end
+}
+
+algorithm main(output uint8 leds)
+{
+  uint12 a(0); uint20 b(0);
+  (a) = msbs_to_one();
+  (b) = msbs_to_one();
+  __display("a = %b, b = %b",a,b);
+}

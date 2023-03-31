@@ -1,0 +1,54 @@
+// SL 2022-10-17
+// count leading zeros
+// MIT license
+/**/
+
+// recursive divide and conquer zero count
+// works only on power of 2 width of v
+// https://electronics.stackexchange.com/questions/196914/verilog-synthesize-high-speed-leading-zero-count
+circuitry clz_r(input v,output result)
+{
+  $$print('[clz_r] widthof(v) = ' .. widthof('v'))
+$$if widthof('v') == 2 then
+  result = !v[1,1];
+$$else
+  $$ cnt_w = clog2(widthof('v'))-1
+  $$ hlf_w = widthof('v')>>1
+  uint$cnt_w$ half_count = uninitialized;
+  uint$hlf_w$         lhs        = v[$hlf_w$,$hlf_w$];
+  uint$hlf_w$         rhs        = v[      0,$hlf_w$];
+  uint$hlf_w$         half       = left_empty ? rhs : lhs;
+  uint1               left_empty = ~|lhs;
+  (half_count) = clz_r(half);
+  result = {left_empty, half_count};
+$$end
+}
+
+// count leading zeros, takes care of adjustments for calling the recursion
+circuitry clz(input v,output result)
+{
+  $$print('[clz] widthof(v) = ' .. widthof('v'))
+  // ensure width is a power of 2
+$$w = 1 << clog2(widthof('v'))
+$$if w ~= widthof('v') then error('[clz] input width has to be a power of 2') end
+  uint$clog2(widthof('v'))$ count = uninitialized;
+  (count) = clz_r( v );
+$$if w == widthof('v') then
+  result = count;
+$$else
+  // adjust result if width was changed
+  result = count - $w - widthof('v')$;
+$$end
+}
+
+// returns the clog2 of v, using leading zero count
+circuitry clog(input v,output result)
+//         ^^^^ not using 'clog2' taken by pre-processor   TODO FIXME: Silice should check for name collisions
+{
+  // ensure width is a power of 2
+$$w = 1 << clog2(widthof('v'))
+$$if w ~= widthof('v') then error('[clog] input width has to be a power of 2') end
+  uint$clog2(widthof('v'))$ count = uninitialized;
+  (count) = clz_r( v );
+  result  = $w$ - count;
+}

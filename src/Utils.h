@@ -27,6 +27,8 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "siliceLexer.h"
 #include "siliceParser.h"
 
+#include <LibSL.h>
+
 namespace Silice
 {
   class LuaPreProcessor;
@@ -59,8 +61,20 @@ namespace Silice
     antlr4::Token *getToken(antlr4::tree::ParseTree *node, antlr4::misc::Interval interval, bool last_else_first = false);
     /// \brief returns the source file and line for the given token (helper)
     std::pair<std::string, int> getTokenSourceFileAndLine(antlr4::tree::ParseTree *node, antlr4::Token *tk);
+    /// \brief return the lines covered by an instruction
+    std::pair<std::string,v2i> instructionLines(antlr4::tree::ParseTree* instr);
+    /// \brief return the lines covered by a token
+    std::pair<std::string, v2i> tokenLines(antlr4::tree::ParseTree *tree, antlr4::Token *tk);
+    /// \brief return the source file of a source locator
+    std::string sourceFile(const t_source_loc& srcloc);
+    /// \brief returns a line in source code from an interval
+    int lineFromInterval(antlr4::TokenStream *tk_stream, antlr4::misc::Interval interval);
+    /// \brief extracts a piece of source code around a given token
+    std::string extractCodeAroundToken(std::string file, antlr4::Token* tk, antlr4::TokenStream* tk_stream, int& _offset);
     /// \brief extracts a piece of source code in between given tokens
     std::string extractCodeBetweenTokens(std::string file, antlr4::TokenStream* tk_stream, int stk, int etk);
+    /// \brief fills in file name and code exerpt (code and positions) from token stream and offending token or interval
+    void getSourceInfo(antlr4::TokenStream* tk_stream, antlr4::Token* offender, antlr4::misc::Interval interval, std::string& _file, std::string& _code, int& _first, int& _last);
     /// \brief loads the content of file into a string
     std::string fileToString(const char* file);
     /// \brief returns a temporary filename (within temporary directory)

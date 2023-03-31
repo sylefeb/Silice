@@ -417,8 +417,18 @@ private:
       t_combinational_block        *if_next;
       t_combinational_block        *else_next;
       t_combinational_block        *after;
-      end_action_if_else(t_instr_nfo test_, t_combinational_block *if_next_, t_combinational_block *else_next_, t_combinational_block *after_)
-        : test(test_), if_next(if_next_), else_next(else_next_), after(after_) {}
+      bool                          if_stateless;      // if side is stateless
+      t_combinational_block        *if_trail;          // block ending the if branch
+      bool                          else_stateless;    // else side is stateless
+      t_combinational_block        *else_trail;        // block ending the else branch
+      end_action_if_else(t_instr_nfo test_, 
+                         t_combinational_block *if_next_, bool if_stateless_, t_combinational_block* if_trail_,
+                         t_combinational_block *else_next_, bool else_stateless_, t_combinational_block* else_trail_,
+                         t_combinational_block *after_)
+        : test(test_), 
+          if_next(if_next_), if_stateless(if_stateless_), if_trail(if_trail_),
+          else_next(else_next_), else_stateless(else_stateless_), else_trail(else_trail_),
+          after(after_) {}
       void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(if_next); _ch.push_back(else_next); _ch.push_back(after); }
       std::string name() const override { return "end_action_if_else";}
     };
@@ -511,6 +521,9 @@ private:
     /// \brief subroutine calls: which states subroutine are going back to
     t_SubroutinesCallerReturnStates                                 m_SubroutinesCallerReturnStates;
 
+    /// \brief records information about source lines being used
+    typedef std::map<std::string, std::set<v2i>> t_lines_nfo;
+
     /// \brief combinational block context
     typedef struct s_combinational_block_context {
       t_fsm_nfo                   *fsm            = nullptr; // FSM the block belongs to (never null, top blocks belong to m_RootFSM)
@@ -530,7 +543,7 @@ private:
       std::string                          block_name;           // internal block name (state name from source when applicable)
       Utils::t_source_loc                  srcloc;               // localization in source code
       bool                                 is_state = false;     // true if block has to be a state, false otherwise
-      bool                                 no_skip = false;      // true the state cannot be skipped, even if empty
+      bool                                 no_skip  = false;     // true the state cannot be skipped, even if empty
       int                                  state_id = -1;        // state id, when assigned, -1 otherwise
       int                                  parent_state_id = -1; // parent state id (closest state before)
       std::vector<t_instr_nfo>             decltrackers;            // list of declaration expressions within block (typically bound exprs, aka wires)
@@ -541,8 +554,11 @@ private:
       std::unordered_map<std::string, int> initialized_vars;     // variables to initialize at block start
       std::unordered_set<std::string>      in_vars_read;         // which variables are read from before
       std::unordered_set<std::string>      out_vars_written;     // which variables have been written after
+      t_lines_nfo                          lines;                // additional lines used by the block for fsm report
+
       ~t_combinational_block() { swap_end(nullptr); }
 
+      bool        has_end_action()  const { return end_action != nullptr; }
       std::string end_action_name() { if (end_action != nullptr) return end_action->name(); else return "<none>"; }
 
       void next(t_combinational_block *next)
@@ -552,9 +568,12 @@ private:
       }
       const end_action_goto_next *next() const { return dynamic_cast<const end_action_goto_next*>(end_action); }
 
-      void if_then_else(t_instr_nfo test, t_combinational_block *if_next, t_combinational_block *else_next, t_combinational_block *after)
+      void if_then_else(t_instr_nfo test, 
+                        t_combinational_block *if_next, bool if_nocombex, t_combinational_block *if_trail,
+                        t_combinational_block *else_next, bool else_nocombex, t_combinational_block* else_trail,
+                        t_combinational_block *after)
       {
-        swap_end(new end_action_if_else(test, if_next, else_next, after));
+        swap_end(new end_action_if_else(test, if_next, if_nocombex, if_trail, else_next, else_nocombex, else_trail, after));
       }
       const end_action_if_else *if_then_else() const { return dynamic_cast<const end_action_if_else*>(end_action); }
 
@@ -656,7 +675,7 @@ private:
     /// \brief recalls whether the algorithm is already optimized
     bool        m_Optimized = false;
 
-    std::string fsmReportName() const { return m_ReportBaseName  + ".fsm.log"; }
+    std::string fsmReportName(std::string sourceFile) const { return LibSL::StlHelpers::extractFileName(sourceFile) + ".fsm.log"; }
     std::string vioReportName() const { return m_ReportBaseName + ".vio.log"; }
     std::string algReportName() const { return m_ReportBaseName + ".alg.log"; }
 
@@ -782,7 +801,7 @@ private:
     /// \brief returns true if a tree contains a pipeline
     bool hasPipeline(antlr4::tree::ParseTree* tree) const;
     /// \brief split current block (state present) or continue current with the next instruction list
-    t_combinational_block *splitOrContinueBlock(siliceParser::InstructionListContext* ilist, t_combinational_block *_current, t_gather_context *_context);
+    t_combinational_block *splitOrContinueBlock(siliceParser::InstructionListItemContext* ilist, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather a break from loop
     t_combinational_block *gatherBreakLoop(siliceParser::BreakLoopContext* brk, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather a while block
@@ -807,8 +826,8 @@ private:
     t_combinational_block *gatherJoinExec(siliceParser::JoinExecContext* join, t_combinational_block *_current, t_gather_context *_context);
     /// \brief tests whether a graph of block is stateless
     bool isStateLessGraph(const t_combinational_block *head) const;
-    /// \brief find all non-combination leaves from this block
-    void findNonCombinationalLeaves(const t_combinational_block *head,std::set<t_combinational_block*>& _leaves) const;
+    /// \brief returns true if the graph has a combinational exit (one path that does not jump to an actual state)
+    bool hasCombinationalExit(const t_combinational_block *head) const;
     /// \brief gather an if-then-else
     t_combinational_block *gatherIfElse(siliceParser::IfThenElseContext* ifelse, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather an if-then
@@ -861,7 +880,11 @@ private:
     void resolveForwardJumpRefs(const t_fsm_nfo *);
     /// \brief resolves forward references for jumps
     void resolveForwardJumpRefs();
-    /// \brief generates the states for the entire algorithm
+    /// \brief performs a pass on all ifelse to prevent code duplication of after, returns true if states where changed
+    bool preventIfElseCodeDup(t_fsm_nfo* fsm);
+    /// \brief performs a numbering pass on the fsm states
+    void renumberStates(t_fsm_nfo*);
+    /// \brief generates the states of an fsm
     void generateStates(t_fsm_nfo *);
     /// \brief gets all the blocks belonging to the fsm
     void fsmGetBlocks(t_fsm_nfo *fsm, std::unordered_set<t_combinational_block *>& _blocks) const;
@@ -1013,12 +1036,12 @@ private:
     bool doesNotCallSubroutines() const;
     /// \brief converts an internal state into a FSM state
     int  toFSMState(const t_fsm_nfo *fsm, int state) const;
+    /// \brief return the FSM state of a block, does fastforward
+    int  fastForwardToFSMState(const t_fsm_nfo* fsm, const t_combinational_block* block) const;
     /// \brief finds the binding to var
     const t_binding_nfo &findBindingLeft(std::string left, const std::vector<t_binding_nfo> &bndgs, bool &_found) const;
     /// \brief finds the binding on var
     const t_binding_nfo &findBindingRight(std::string right, const std::vector<t_binding_nfo> &bndgs, bool &_found) const;
-    /// \brief returns the line range of an instruction
-    v2i instructionLines(antlr4::tree::ParseTree *instr, const t_instantiation_context &ictx) const;
 
   public:
 
@@ -1161,11 +1184,11 @@ private:
     /// \brief disable starting pipelines (used to disable pipeline first stages when they are on the 'false' side of a conditional)
     void disableStartingPipelines(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_combinational_block* block) const;
     /// \brief writes a graph of stateless blocks to the output, until a jump to other states is reached
-    void writeStatelessBlockGraph(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_combinational_block* block, const t_combinational_block* stop_at, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies, std::set<v2i> &_lines) const;
+    void writeStatelessBlockGraph(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_combinational_block* block, const t_combinational_block* stop_at, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies, t_lines_nfo& _lines) const;
     /// \brief order pipeline stages based on pipeline specific assignments
     bool orderPipelineStages(std::vector< t_pipeline_stage_range >& _stages) const;
     /// \brief writes a stateless pipeline to the output, returns zhere to resume from
-    const t_combinational_block *writeStatelessPipeline(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_combinational_block* block_before, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies, std::set<v2i> &_lines) const;
+    const t_combinational_block *writeStatelessPipeline(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_combinational_block* block_before, std::queue<size_t>& _q, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage, t_vio_dependencies &_post_dependencies, t_lines_nfo& _lines) const;
     /// \brief returns whether the combinational chain until next state is empty, i.e. it will not produce code
     bool emptyUntilNextStates(const t_combinational_block *block) const;
     /// \brief returns all pipelines starting within the combinational chain
@@ -1173,7 +1196,7 @@ private:
     /// \brief returns whether the block is empty, i.e. writeBlock will not produce code
     bool blockIsEmpty(const t_combinational_block *block) const;
     /// \brief writes a single block to the output
-    void writeBlock(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_combinational_block *block, t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage, std::set<v2i>& _lines) const;
+    void writeBlock(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx, const t_combinational_block *block, t_vio_dependencies &_dependencies, t_vio_ff_usage &_ff_usage, t_lines_nfo& _lines) const;
     /// \brief writes variable inits
     void writeVarInits(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, const std::unordered_map<std::string, int >& varnames, t_vio_dependencies& _dependencies, t_vio_ff_usage &_ff_usage) const;
     /// \brief writes a memory module
@@ -1199,9 +1222,6 @@ private:
 
     /// \brief asks reports to be generated
     void enableReporting(std::string reportname);
-
-    /// \brief outputs the FSM graph in a file (graphviz dot format)
-    void outputFSMGraph(std::string dotFile) const;
 
     /// \brief ExpressionLinter is a friend
     friend class ExpressionLinter;

@@ -2,23 +2,24 @@ unit main(output uint8 leds)
 {
   always {
 
-    uint16 a(0); uint16 b(0); uint16 c(0);
+    uint16 a(0); uint16 b(0); uint16 c(0); uint16 d(0);
     uint8  cycle(0);
 
     // pipeline
-    {{
-        __display("[%d, stage 0] a=%d b=%d c=%d",cycle,a,b,c);
+    {
         a = a + 1;
-    } -> {
+        __display("[%d, stage 0] a=%d b  =%d c   =%d  d   =%d",cycle,a,b,c,d);
+     ->
         a = a + 100;
-        b ^= a; // all stages see the new value of b within the same cycle.
-        c v= a; // stage 2 (and all after stage 1) see the new value of c within
-                // the same cycle (stage 0 does not, it will see the new value
-                //  of c only at the next cycle).
-        __display("[%d, stage 1] a=%d  b ^=%d  c v=%d",cycle,a,b,c);
-    } -> {
-        __display("[%d, stage 2] a=%d b=%d c=%d",cycle,a,b,c);
-    }}
+        b ^= a;  // all stages see the new value of b within the same cycle.
+        c v= a;  // stage 2 (and all after stage 1) see the new value of c within
+                 // the same cycle (stage 0 does not, it will see the new value
+                 //  of c only at the next cycle).
+        d vv= a; // other stages will see the update at next cycle
+        __display("[%d, stage 1] a=%d b ^=%d  c v=%d  d vv=%d",cycle,a,b,c,d);
+     ->
+        __display("[%d, stage 2] a=%d b  =%d c   =%d  d   =%d",cycle,a,b,c,d);
+    }
 
     cycle = cycle + 1;
     // stop after a number of cycles

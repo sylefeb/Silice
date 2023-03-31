@@ -130,11 +130,62 @@ std::pair<std::string, int> Utils::getTokenSourceFileAndLine(antlr4::tree::Parse
   }
   int line = (int)tk->getLine();
   if (pctx != nullptr) {
-    auto fl = pctx->lpp->lineAfterToFileAndLineBefore(pctx,line);
+    auto fl = pctx->lpp->lineAfterToFileAndLineBefore(pctx,line-1);
     return fl;
   } else {
     return std::make_pair("", line);
   }
+}
+
+// -------------------------------------------------
+
+std::string Utils::sourceFile(const t_source_loc& srcloc)
+{
+  antlr4::TokenStream* tks = nullptr;
+  ParsingContext* pctx = nullptr;
+  if (srcloc.root) {
+    pctx = ParsingContext::rootContext(Utils::root(srcloc.root));
+  }
+  if (pctx) {
+    tks = pctx->parser->getTokenStream();
+  }
+  if (tks != nullptr) {
+    return tks->getTokenSource()->getInputStream()->getSourceName();
+  }
+  return "";
+}
+
+// -------------------------------------------------
+
+std::pair<std::string, v2i> Utils::tokenLines(antlr4::tree::ParseTree* tree,antlr4::Token* tk)
+{
+  antlr4::TokenStream* tks = nullptr;
+  ParsingContext* pctx = nullptr;
+  if (tree) {
+    pctx = ParsingContext::rootContext(Utils::root(tree));
+  }
+  if (pctx) {
+    tks = pctx->parser->getTokenStream();
+  }
+  if (tks != nullptr && tk != nullptr) {
+    auto fl = pctx->lpp->lineAfterToFileAndLineBefore(pctx, (int)tk->getLine()-1);
+    return std::make_pair(fl.first, v2i(fl.second, fl.second));
+  }
+  return std::make_pair("",v2i(-1, -1));
+}
+
+// -------------------------------------------------
+
+std::pair<std::string, v2i> Utils::instructionLines(antlr4::tree::ParseTree* instr)
+{
+  auto tk_start = getToken(instr, instr->getSourceInterval(), false);
+  auto tk_end   = getToken(instr, instr->getSourceInterval(), true);
+  if (tk_start && tk_end) {
+    std::pair<std::string, int> fl_start = getTokenSourceFileAndLine(instr, tk_start);
+    std::pair<std::string, int> fl_end   = getTokenSourceFileAndLine(instr, tk_end);
+    return std::make_pair(fl_start.first, v2i(fl_start.second, fl_end.second));
+  }
+  return std::make_pair("",v2i(-1, -1));
 }
 
 // -------------------------------------------------
@@ -151,6 +202,48 @@ int Utils::justHigherPow2(int n)
     n = n >> 1;
   }
   return isp2 ? p2 - 1 : p2;
+}
+
+// -------------------------------------------------
+
+int Utils::lineFromInterval(antlr4::TokenStream *tk_stream, antlr4::misc::Interval interval)
+{
+  if (tk_stream != nullptr && !(interval == antlr4::misc::Interval::INVALID)) {
+    // attempt to recover source line from interval only
+    antlr4::Token *tk = tk_stream->get(interval.a);
+    return (int)tk->getLine();
+  } else {
+    return -1;
+  }
+}
+
+// -------------------------------------------------
+
+std::string Utils::extractCodeAroundToken(std::string file, antlr4::Token* tk, antlr4::TokenStream* tk_stream, int& _offset)
+{
+  antlr4::Token* first_tk = tk;
+  int index = (int)first_tk->getTokenIndex();
+  int tkline = (int)first_tk->getLine();
+  while (index > 0) {
+    first_tk = tk_stream->get(--index);
+    if (first_tk->getLine() < tkline) {
+      first_tk = tk_stream->get(index + 1);
+      break;
+    }
+  }
+  antlr4::Token* last_tk = tk;
+  index = (int)last_tk->getTokenIndex();
+  tkline = (int)last_tk->getLine();
+  while (index < (int)tk_stream->size() - 2) {
+    last_tk = tk_stream->get(++index);
+    if (last_tk->getLine() > tkline) {
+      last_tk = tk_stream->get(index - 1);
+      break;
+    }
+  }
+  _offset = (int)first_tk->getStartIndex();
+  // now extract from file
+  return extractCodeBetweenTokens(file, tk_stream, (int)first_tk->getTokenIndex(), (int)last_tk->getTokenIndex());
 }
 
 // -------------------------------------------------
@@ -174,6 +267,35 @@ std::string Utils::extractCodeBetweenTokens(std::string file, antlr4::TokenStrea
     return std::string(buffer.raw());
   }
   return tk_stream->getText(tk_stream->get(stk), tk_stream->get(etk));
+}
+
+// -------------------------------------------------
+
+void Utils::getSourceInfo(
+  antlr4::TokenStream* tk_stream, antlr4::Token* offender, antlr4::misc::Interval interval, 
+  std::string& _file, std::string& _code, int& _first, int& _last)
+{
+  sl_assert(tk_stream != nullptr);
+  sl_assert(offender != nullptr || !(interval == antlr4::misc::Interval::INVALID));
+  _file = tk_stream->getTokenSource()->getInputStream()->getSourceName();
+  int offset = 0;
+  if (offender != nullptr) {
+    tk_stream->getText(offender, offender); // this seems required to refresh the stream? TODO FIXME investigate
+    _code = extractCodeAroundToken(_file, offender, tk_stream, offset);
+  } else if (!(interval == antlr4::misc::Interval::INVALID)) {
+    if (interval.a > interval.b) {
+      std::swap(interval.a, interval.b);
+    }
+    _code = extractCodeBetweenTokens(_file, tk_stream, (int)interval.a, (int)interval.b);
+    offset = (int)tk_stream->get(interval.a)->getStartIndex();
+  }
+  if (offender != nullptr) {
+    _first = offender->getStartIndex() - offset;
+    _last  = offender->getStopIndex() - offset;
+  } else if (!(interval == antlr4::misc::Interval::INVALID)) {
+    _first = tk_stream->get(interval.a)->getStartIndex() - offset;
+    _last  = tk_stream->get(interval.b)->getStopIndex() - offset;
+  }
 }
 
 // -------------------------------------------------

@@ -1,0 +1,17 @@
+unit main(output uint8 leds)
+{
+  uint16 cycle=0; // cycle counter
+  algorithm {
+    uint16 a=0; uint16 b=0;
+    while (a < 3) { // six times
+        // stage 0
+        a = a + 1; // write to a, it will now trickle down the pipeline
+        __display("[stage 0] cycle %d, a = %d",cycle,a);
+      -> // stage 1
+        __display("[stage 1] cycle %d, a = %d",cycle,a);
+      -> // stage 2
+        __display("[stage 2] cycle %d, a = %d",cycle,a);
+    }
+  }
+  always_after { cycle = cycle + 1; } // increment cycle
+}

@@ -17,7 +17,7 @@
         "tool_options": [
           {
               "yosys_synth_options": ["-abc9 -top top"],
-              "nextpnr_options": ["--um5g-85k", "--freq 100", "--package CABGA554", "--timing-allow-fail"],
+              "nextpnr_options": ["--um5g-85k", "--freq 100", "--package CABGA554", "--timing-allow-fail", "--force"],
               "pnr": "next"
           }
         ],

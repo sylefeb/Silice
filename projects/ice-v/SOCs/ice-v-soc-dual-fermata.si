@@ -355,12 +355,12 @@ unit composite_memory(
   uint1            rom_client(0);
   //uint32 cycle(0);
   always {
-    uint1 io0_in_rom_now <: io0.addr[17,2] == 2b10;
-    uint1 io1_in_rom_now <: io1.addr[17,2] == 2b10;
-    uint1 io0_in_ram_now <: io0.addr[17,2] == 2b00;
-    uint1 io1_in_ram_now <: io1.addr[17,2] == 2b00;
-    uint1 io0_in_vrm_now <: io0.addr[17,2] == 2b01;
-    uint1 io1_in_vrm_now <: io1.addr[17,2] == 2b01;
+    uint1 io0_in_rom_now = io0.addr[17,2] == 2b10;
+    uint1 io1_in_rom_now = io1.addr[17,2] == 2b10;
+    uint1 io0_in_ram_now = io0.addr[17,2] == 2b00;
+    uint1 io1_in_ram_now = io1.addr[17,2] == 2b00;
+    uint1 io0_in_vrm_now = io0.addr[17,2] == 2b01;
+    uint1 io1_in_vrm_now = io1.addr[17,2] == 2b01;
 
     /// get request results
     io0.rdata = (rom.done & rom_client == 0) ? rom.rdata

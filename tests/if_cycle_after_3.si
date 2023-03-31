@@ -1,0 +1,41 @@
+algorithm main(output uint8 leds)
+{
+  uint8 test = 8;
+
+  while (test == 0) {
+
+    if (test > 1) {
+     
+			++:
+
+		} else {
+		
+			if (test > 3) {
+			
+				++:
+			
+			} else {
+			
+				if (test) {
+				
+				} else {
+				
+				}
+
+				switch (test) {
+				
+					case 0:  { ++: }
+					case 1:  { ++: }
+					default: { }
+				
+				}
+
+			}
+
+    }
+		
+		++:
+		
+	}
+	
+}

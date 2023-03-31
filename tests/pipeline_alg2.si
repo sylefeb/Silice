@@ -1,0 +1,14 @@
+unit main(output uint8 leds)
+{
+  uint16 cycle = 0; // cycle counter
+  algorithm {
+    uint8 a = 0;
+    // a first pipeline adding +4 every stage
+    { uint8 b=a+4; -> b=b+4; -> b=b+4; -> b=b+4; -> __display("cycle %d [end of pip0] b = %d",cycle,b); }
+    // a second pipeline adding +1 every stage
+    { uint8 b=a+1; -> b=b+1; -> b=b+1; -> b=b+1; -> __display("cycle %d [end of pip1] b = %d",cycle,b); }
+++:
+    __display("cycle %d [bottom of algorithm]",cycle);
+  }
+  always_after { cycle = cycle + 1; } // increment cycle
+}

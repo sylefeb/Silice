@@ -93,7 +93,7 @@ make mojov3
 
 ##### Enjoy!
 
-![First example in action on a Mojo v3](docs/figures/first_example.gif)
+![First example in action on a Mojo v3](learn-silice/figures/first_example.gif)
 
 ##### Explanations:
 

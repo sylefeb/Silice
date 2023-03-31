@@ -1,18 +1,19 @@
-algorithm a1(input uint8 i,output uint8 o)
+unit main(output uint8 leds)
 {
-  o = i;
-}
+  uint32 cycle(0);
+  uint32 v(0);
+  // uint32 vb(0);
 
-algorithm main(output uint8 leds)
-{
-  a1 a;
+  algorithm {  while (1) {
 
-  subroutine s(input uint8 i,output uint8 o,calls a)
-  //                                        ^^^^^ allows sub to call instance a
-  {
-    (o) <- a <- (i);
+    { v = cycle + 1000; -> -> -> __display("A:%d:%d",cycle,v); }
+    { v = cycle; -> -> -> __display("B:%d:%d",cycle,v); }
+
+  } }
+
+  always_after {
+    cycle = cycle + 1;
+    if (cycle == 200) { __finish(); }  
   }
-
-  (leds) <- s <- (8);
 
 }

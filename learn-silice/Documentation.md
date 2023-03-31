@@ -3,7 +3,7 @@
 
 This is the Silice main documentation.
 
-When designing with Silice your code describes circuits. If not done already, it is highly recommended to [watch the introductory video](https://www.youtube.com/watch?v=_OhxEY72qxI) (youtube) to get more familiar with this notion and what it entails.
+When designing with Silice your code describes circuits. If not done already, I recommended to [watch the introductory video](https://www.youtube.com/watch?v=_OhxEY72qxI) (youtube) to get more familiar with this notion and what it entails. The video is slightly outdated in terms of what Silice can do, but still useful when getting started.
 
 ## Table of content
 
@@ -27,8 +27,9 @@ When designing with Silice your code describes circuits. If not done already, it
     - [Concatenation](#concatenation)
     - [Bindings](#bindings)
     - [Expression trackers](#expression-trackers)
-    - [Control flow: the step operator](#control-flow-the-step-operator)
-    - [Control flow: the pipeline operator](#control-flow-the-pipeline-operator)
+  - [Control flow](#control-flow)
+    - [The step operator](#the-step-operator)
+    - [The pipeline operator](#the-pipeline-operator)
 - [Units and algorithms](#units-and-algorithms)
     - [main (design 'entry point').](#main-design-entry-point)
   - [Unit declaration](#unit-declaration)
@@ -41,20 +42,25 @@ When designing with Silice your code describes circuits. If not done already, it
   - [Call](#call)
   - [Subroutines](#subroutines)
   - [Circuitry](#circuitry)
+    - [Instantiation time specialization](#instantiation-time-specialization)
   - [Combinational loops](#combinational-loops)
   - [Always assignments](#always-assignments)
   - [Always blocks](#always-blocks)
   - [Clock and reset](#clock-and-reset)
   - [Modifiers](#modifiers)
 - [Execution flow and cycle utilization rules](#execution-flow-and-cycle-utilization-rules)
-  - [Control flow](#control-flow)
+  - [Control flow](#control-flow-1)
     - [Switches](#switches)
   - [Cycle costs of calls to algorithms and subroutines](#cycle-costs-of-calls-to-algorithms-and-subroutines)
 - [Pipelines](#pipelines)
   - [Special assignment operators](#special-assignment-operators)
   - [The `stall` keyword](#the-stall-keyword)
+  - [Pipelines in algorithm](#pipelines-in-algorithm)
+    - [Parallel pipelines](#parallel-pipelines)
+    - [Multiple steps in a stage](#multiple-steps-in-a-stage)
+    - [Pipelines and circuitries](#pipelines-and-circuitries)
   - [Pipelines in always blocks](#pipelines-in-always-blocks)
-- [Advanced language constructs](#advanced-language-constructs)
+- [Other language constructs](#other-language-constructs)
   - [Groups](#groups)
   - [Interfaces](#interfaces)
     - [Anonymous interfaces](#anonymous-interfaces)
@@ -437,10 +443,12 @@ This, however, produces deeper circuits and can reduce the max frequency of a de
 
 ### Expression trackers
 
-Variables can be defined to constantly track the value of an expression,
-hence *binding the variable* and the expression. This is done during the
-variable declaration, using either the *&lt;:* or *&lt;::* binding
-operators. Example:
+Outside of algorithms and always blocks, variables can be *bound* to expressions,
+thus tracking the value of the expression.
+This is done during the variable declaration, using either
+the `<:` or `<::` binding operators.
+
+Example:
 
 ```c
 algorithm adder(
@@ -457,15 +465,15 @@ algorithm adder(
 }
 ```
 
-In this case *o* gets assigned 15+3 on line 11, as it tracks immediate
-changes to the expression *a+b*. Note that the variable *a\_plus\_b*
-becomes read only (in Verilog terms, this is now a wire). We call *o* an
-expression tracker.
+In this case `o` gets assigned 15+3 on line 11, as it tracks
+the expression `a+b`. Note that the variable `a_plus_b`
+becomes read only (in Verilog terms, this is now a wire). We call `o` an
+expression tracker or bound expression.
 
 The second operator, `<::` tracks the expression with a one cycle latency. Thus, its value is the value of the expression at the previous cycle. If used
-in this example, o would be assigned 1+2.
+in this example, `o` would evaluate to `1+2`.
 
-> The `<::` operator is *very important*: it allows to relax timing constraints (reach higher frequencies), by accepting a one cycle latency. As a general rule, using delayed operators (indicated by `::`) is recommended whenever possible.
+> The `<::` operator is *very useful*. It allows to relax timing constraints (reach higher frequencies), by accepting a one cycle latency. As a general rule, using delayed operators (indicated by `::`) is recommended whenever possible.
 
 Expression trackers can refer to other trackers. Note that when mixing  `<:` and `<::` the second operator (`<::`) will not change the behavior of the first tracker. Silice will issue a warning in that situation, which can be silenced by adding a `:` in front of the first tracker, example:
 
@@ -493,7 +501,9 @@ To fix this warning we indicate explicitly that we understand the behavior, addi
 
 What happens now is that the value of `c_plus_a_plus_b` is using the immediate value of `a_plus_b` and the delayed value of `c` (from previous cycle).
 
-### Control flow: the step operator
+## Control flow
+
+### The step operator
 
 Placing a `++:` in the sequence of operations of an algorithm explicitly
 asks Silice to wait for exactly one cycle at this precise location in
@@ -503,7 +513,7 @@ This has several important applications such as waiting for a memory
 read/write, or breaking down long combinational chains that would
 violate timing.
 
-### Control flow: the pipeline operator
+### The pipeline operator
 
 Placing a `->` in the sequence of operations of an algorithm explicitly
 asks Silice to pipeline the one-cycle sequence before with the next.
@@ -619,7 +629,7 @@ Such a problem would typically result in simulation hanging (unable to stabilize
 #### *Declarations.*
 
 Variables, instanced algorithms and instanced modules have to be
-declared first (in any order). A simple example:
+declared (in any order). A simple example:
 
 ``` c
 algorithm main(output uint8 led)
@@ -630,6 +640,9 @@ algorithm main(output uint8 led)
   // ... btw this is a comment
 }
 ```
+
+Variables can also be declared as assigned expressions anywhere within an
+algorithm or always block.
 
 #### *Always assign.*
 
@@ -813,7 +826,7 @@ called by the algorithm multiple times. A subroutine takes parameters,
 and has access to the variables, instanced algorithms and instanced
 modules of the parent algorithm – however access permissions have to be
 explicitly given. Subroutines offer a simple mechanism to allow for the
-equivalent of local functions, without having to wire all the parent
+equivalent of local routines, without having to wire all the parent
 algorithm context into another module/algorithm. Subroutines can also
 declare local variables, visible only to their scope. Subroutines avoid
 duplicating a same functionality over and over, as their code is
@@ -919,9 +932,14 @@ other subroutines) are not possible.
 
 ## Circuitry
 
+> Circuitries have become a powerful tool in Silice.
+> They define pieces of algorithms and pipelines that can be later
+> assembled together, with mechanisms for genericity.
+> Intuitively they are similar to inline, templated functions.
+
 Sometimes, it is useful to write a generic piece of code that can be
-instantiated within a design. Such an example is a piece of circuitry to
-write into an SDRAM, which bit width may not ne known in advance.
+instantiated repeatedly within a design. Such an example is a piece of
+circuitry to write into an SDRAM, which bit width may not ne known in advance.
 
 A circuitry offers exactly this mechanism in Silice. It is declared as:
 
@@ -938,7 +956,7 @@ INSTRUCTIONS
 Note that there is no type specification on inputs/outputs as these are
 resolved during instantiation. Here is an example of circuitry:
 
-``` verilog
+```verilog
 circuitry writeData(inout sd,input addr,input data) {
   // wait for sdram to not be busy
   while (sd.busy) { /*waiting*/ }
@@ -949,14 +967,14 @@ circuitry writeData(inout sd,input addr,input data) {
 }
 ```
 
-Note the use of inout for sd (which is a group, see
+Note the use of `inout` for sd (which is a group, see
 Section <a href="#groups">groups</a>).
 A circuitry is not called, it is instantiated. This means that every
 instantiation is indeed a duplication of the circuitry.
 
 Here is the syntax for instantiation:
 
-``` verilog
+```verilog
 (output_0,...,output_N) = ID(input_0,...input_N)
 ```
 
@@ -965,15 +983,99 @@ the order of declaration in the lists. An inout appears twice, both as
 output and input. Following the previous example here is the
 instantiation from an algorithm:
 
-``` verilog
+```verilog
 (sd) = writeData(sd,myaddr,abyte);
 ```
 
-> **Note:** currently circuitry instantiation can only be made on VIO identifiers
-(no expressions, no bit-select or part-select). This restriction will be removed
-at some point. In the meantime expression trackers provide a work around, first
-defining a tracker with an identifier then giving it to the circuitry
-(these can be defined in a block around the circuit instantiation).
+### Instantiation time specialization
+
+The exact shape of the circuitry is determined when it is instanced. Therefore
+it is possible, through the pre-processor, to adjust the circuitry to its exact
+context. Here is a [first example](../tests/circuits15.si) where the width of
+the result is used to generate a different code each time:
+
+```c
+circuitry msbs_to_one(output result)
+{
+  $$for i=widthof('result')>>1,widthof('result')-1 do
+    result[$i$,1] = 1;
+  $$end
+}
+
+algorithm main(output uint8 leds)
+{
+  uint12 a(0); uint20 b(0);
+  (a) = msbs_to_one();
+  (b) = msbs_to_one();
+  __display("a = %b, b = %b",a,b);
+}
+```
+
+Result is: ```a = 111111000000, b = 11111111110000000000```. Internally
+two different pieces of code have been generated when assembly the circuitry.
+
+A circuit being instantiated can receive other parameters, [for instance](circuits16.si):
+
+```c
+circuitry add_some(input a,output b)
+{
+  b = $N$ + a;
+	//  ^^^ this is how we get the value of instantiation-time parameter N
+	//  (pre-processor syntax)
+}
+
+unit main(output uint8 leds)
+{
+  uint8  m(123);
+  uint8  n(0);
+  algorithm {
+    (n) = add_some<N=50>(m);
+    __display("result = %d",n);
+    (n) = add_some<N=100>(m);
+    __display("result = %d",n);
+  }
+}
+```
+
+Result is:
+```
+result = 173
+result = 223
+```
+
+So indeed the first circuitry `add_some<N=50>` adds 50, the second
+`add_some<N=100>` adds 100.
+
+To conclude let's see a more advanced example of a [recursive circuitry
+definition](circuits17.si).
+
+```c
+circuitry rec(output v)
+{
+  $$if N > 1 then
+    sameas(v) t1(0); // t1 will be same type as v
+    sameas(v) t2(0); // t2 will be same type as v
+    (t1) = rec< N = $N>>1$ >(); // recursive instantiation with N/2
+    (t2) = rec< N = $N>>1$ >(); // recursive instantiation with N/2
+    v = t1 + t2;     // evaluates to sum of both half results
+  $$else
+    v = 1; // bottom of recursion: evaluates to 1
+  $$end
+}
+
+algorithm main(output uint8 leds)
+{
+  uint10  n(0);
+  (n) = rec<N=16>(); // instantiate for size 16
+  __display("result = %d",n);
+}
+```
+
+This toy example produces a tree of instantiations, instantiating two circuits
+using half the parameter value (N/2) until N is equal to 1. The leaves
+evaluate to 1, and for a top instantiation of size $N=2^p$ we expect the result
+to evaluate to $2^p$ (since there are $2^p$ leaves in a binary tree of
+depth $p$). We indeed get: ```result = 16```.
 
 ## Combinational loops
 
@@ -1191,7 +1293,8 @@ to minimize the number of states in the FSM. That is because going from one
 state to the next requires one clock cycle, delaying further computations.
 Of course, longer combinational chains also lead to reduced clock frequency,
 so there is a tradeoff. This is why Silice lets you explicitly specify
-where to cut a combinational chain using the step operator `++:`
+where to cut a combinational chain using the step operator `++:` or create
+pipelines with the pipelining operator `->`.
 
 Note that if a state contains several independent combinational chain,
 they will execute as parallel circuits (e.g. two computations regarding
@@ -1199,9 +1302,26 @@ different sets of variables). Grouping such computations in a same state
 increases parallelism, without deepening the combinational chains.
 
 The use of control flow structures such as `while` (or `goto`), as well
-as synchronization with other algorithm also require introducing states.
+as synchronization with other algorithms also require introducing states.
 This results in additional cycles being introduced. Silice follows a set
 of precise rules to do this, so you always know what to expect.
+
+> Rarely, additional optimizations may be introduced that change the behavior
+of your code. To mitigate the impact of such changes, Silice outputs a detailed
+change log report after compilation.
+All changes are also [documented here](../ChangeLog.md).
+
+## Cycle report
+
+Silice now has the ability to show how a design is split into cycles. The
+report outputs in the console the source code, with each line colored based
+on the state it belongs to.
+
+Let's try it on a simple example. Enter `projects/vga_demo` and run
+`make verilator`. Close the simulation window. From the command line enter
+`report-cycles.py verilator vga_rototexture.si`. The output is the source
+code color coded by how each line maps to a cycle.
+
 
 ## Control flow
 
@@ -1213,7 +1333,7 @@ and Silice is happy to expose them for your enjoyment!
 
 Goto labels are added with the `<LABEL_NAME>:` syntax at the
 beginning of a line, for instance:
-``` c
+```c
   a = b + 1;
   if (a == 0) {
     goto error;
@@ -1222,63 +1342,92 @@ beginning of a line, for instance:
 error:
   leds = 255;
 done:
-}
 ```
 
 `goto` always requires one cycle to ’jump’: this is a change of state in
-the FSM. Entering a `while` takes one cycle and then, if the block inside is
+the FSM. It also introduces a label at the jump destination, since control flow
+has to start at this location.
+
+> **Note:** If a user label is never jumped to from a goto, no additional cycle
+is introduced and the label has no effect. However, `++:` always introduces
+a cycle.
+
+Entering a `while` takes one cycle and then, if the block inside is
 a single combinational chain, it takes exactly one cycle per iteration.
-Exiting a `while` takes one cycle ; however when chaining
-loops only one cycle is required to enter the next loop. So the first
-loop takes one cycle to enter, any additional loop afterwards adds a single
-cycle if there is nothing in between them, the last loop takes one cycle to
-exit.
+Exiting a `while` does *not* take a cycle, the combinational chain located after
+is reached as soon as the `while` condition becomes false.
 
-> **Note:** When a label is jumped to, a cycle is introduced at the label
-location as if the step operator `++:` had been used, unless it is
-directly following an existing state (e.g. after a while). If the label is never
-jumped to from a goto, no additional cycle is introduced and the label has
-no effect.
+When chaining loops only one cycle is required to enter the next loop. So the
+first loop takes one cycle to enter, any additional loop afterwards adds a
+single cycle.
 
-Now, `if-then-else` is slightly more subtle. When applied to sequences
-of operations not requiring any control flow, an `if-then-else`
-synthesizes to a combinational `if-then-else`. This means that both the
-’if’ and ’else’ code are evaluated in parallel as combinational chains,
-and a multiplexer selects which one is the result based on the
-condition. This applies recursively, so combinational `if-then-else` may
-be nested.
+Let us now consider `if-then-else`. Under most circumstances, no other cycles
+are introduced than those required within the branches themselves (`if`/`else`),
+for instance when a branch contains a subroutine call, a `while`, a `++:`,
+a `break`. If the branches do not require any cycles, then the `if-then-else`
+does not require any additional cycle itself (and this is recursively true for
+nested `if-then-else` of course).
 
-When the `if-then-else` contains additional control flow (e.g. a
-subroutine call, a `while`, a `++:`, a `goto`, etc.) it is automatically
-split into several states. It then takes one cycle to exit the ’if’ or
-’else’ part and resume operations. If only the ’if’ or the ’else’
-requires additional states while the other is a one-cycle block (possibly empty),
-an additional state is still required to ’jump’
-to what comes after the `if-then-else`. So in general this will cost one
-cycle. However, in cases where this next state already exists, for
-instance when the `if-then-else` is at the end of a `while` loop, this
-existing state is reused resulting in no overhead.
+When one or both branches of the `if-then-else` require additional cycles, and
+both control flow branches (`if` and `else`) reach after the `if-then-else`,
+a cycle *will* be introduced. If only one branch reaches after, no additional
+cycle is required.
 
-This has interesting implications. Consider the following code:
-
-``` c
-while(...) {
+Let us take some example to understand the implication of that. The loops
+below iterate in one cycle unless the `if` is taken:
+```c
+while (...) {
   if (condition) {
     ...
-++:
+    ++:
     ...
+    goto exit:
+  } else {
+    a = a + 1;
   }
-  a = b + 1; // line 7
+  // no extra cycle here
+  b = b + 1;
+}
+exit:
+```
+Here, the `if` branch requires multiple cycles, but never reaches after the
+`if-then-else` since it jumps directly to `exit`.
+
+```c
+while (...) {
+  if (condition) {
+    ...
+    break;
+  }
+  // no extra cycle here
+  a = a + 1;
 }
 ```
+Likewise, the `if` breaks out of the loop and does not reach after the
+`if-then-else`. No extra cycle is introduced.
 
-When the `if` is not taken, we still have to pay one cycle to reach line
-7. That is because it has been placed into a separate state to jump to
-it since the `if` is *not* a one-cycle block (due to `++:`). Hence, the
-while loop will always take at least two cycles.
+Let's now see one case where an extra cycle is introduced:
+```c
+while (...) {
+  if (condition) {
+    ...
+++:
+    ...
+  } else {
+    ...
+  }
+  // extra cycle here
+  b = b + 1; // bookmark [1]
+}
+```
+Here both the `if` and `else` reach after the `if-then-else` (`bookmark [1]`),
+while the `if` requires multiple cycles. In such a case a cycle is introduced
+just after the `if-then-else`.
+That is because control has to return from the `if` to `bookmark [1]`, and thus
+introduces a state before this location.
 
 However, you may choose to duplicate some code (and hence some
-circuitry!) to avoid the extra cycle, rewriting as:
+circuitry) to avoid the extra cycle, rewriting as:
 
 ``` c
 while(...) {
@@ -1286,18 +1435,23 @@ while(...) {
     ...
 ++:
     ...
-    a = b + 1;
+    b = b + 1;
   } else {
-    a = b + 1;
+    ...
+    b = b + 1;
   }
 }
 ```
 
 This works because when the `if` is taken the execution simply goes back
-to the start of the `while`, a state that already exists. The `else`
-being a one-cycle block followed by the start of the `while` no extra
-cycle is necessary! We just tradeoff a bit of circuit size for extra
-performance.
+to the start of the `while`, a state that already exists. This trades-off a
+bit of circuit size for extra performance.
+
+> **Couldn't Silice duplicate the code automatically to remove this cycle?**
+Yes it could, however such an automation would potentially result in large
+chunks of codes being duplicated, possibly multiple times. As the cost-benefit
+is hard to automatically assess, the rule in Silice is to not duplicate code
+as an implicit optimization.
 
 ### Switches
 
@@ -1345,7 +1499,11 @@ to jump to the subroutine initial state, and one cycle to jump back.
 
 # Pipelines
 
-> Several projects in the repo use pipelines and can provide a good practical introduction: [pipeline_sort](../projects/pipeline_sort/README.md) (has detailed explanations), [divstd_pipe](../projects/divstd_pipe/README.md) (uses the pre-processor to produce a pipeline for division when instantiated) and the [ice-v conveyor and swirl CPUs](../projects/ice-v/README.md).
+> Several projects in the repo use pipelines and can provide a good practical introduction:
+> [pipeline_sort](../projects/pipeline_sort/README.md) has detailed explanations,
+> [divstd_pipe](../projects/divstd_pipe/README.md) uses the pre-processor to produce a pipeline for division when instantiated,
+> [Menger sponge](../projects/vga_demo/vga_msponge.si) is a long pipeline rendering a 3D fractal racing the beam in full HD,
+> and the [ice-v conveyor and swirl CPUs](../projects/ice-v/README.md) are pipelined CPUs.
 
 The pipeline syntax is:
 ```c
@@ -1397,12 +1555,11 @@ stage producing a useful result during a cycle.
 
 How do we tell Silice to pass data around in a pipeline? Well, in fact there is
 nothing special to do, simply assign a variable and it will be passed to the subsequent
-stages. Let's see a simple example:
+stages. Let's see a <a id="simple-pipeline"></a>simple example:
 ```verilog
 unit main(output uint8 leds)
 {
   uint16 cycle=0; // cycle counter
-  always_before { cycle = cycle + 1; } // always increment cycle
   algorithm {
     uint16 a=0; uint16 b=0;
     while (a < 3) { // six times
@@ -1415,41 +1572,48 @@ unit main(output uint8 leds)
         __display("[stage 2] cycle %d, a = %d",cycle,a);
     }
   }
+  always_after { cycle = cycle + 1; } // increment cycle
 }
 ```
 
 The result is (grouped by cycle):
 ```
-[stage 0] cycle     3, a =     1
+[stage 0] cycle     2, a =     1
 
-[stage 0] cycle     4, a =     2
-[stage 1] cycle     4, a =     1
+[stage 0] cycle     3, a =     2
+[stage 1] cycle     3, a =     1
 
-[stage 0] cycle     5, a =     3
-[stage 1] cycle     5, a =     2
-[stage 2] cycle     5, a =     1
+[stage 0] cycle     4, a =     3
+[stage 1] cycle     4, a =     2
+[stage 2] cycle     4, a =     1
 
-[stage 1] cycle     6, a =     3
-[stage 2] cycle     6, a =     2
+[stage 1] cycle     5, a =     3
+[stage 2] cycle     5, a =     2
 
-[stage 2] cycle     7, a =     3
+[stage 2] cycle     6, a =     3
 ```
-First, note the pipeline pattern where at cycle 3 only stage 0 is active,
-then stages 0 and 1 at cycle 4, and then all three stages at cycle 5. At this
+First, note the pipeline pattern where at cycle 2 only stage 0 is active,
+then stages 0 and 1 at cycle 3, and then all three stages at cycle 4. At this
 point all three value of `a` are in the pipeline (one in each of the stages).
 Since no new values are produced at stage 0, the pipeline starts to empty at
-cycle 6, and terminates at cycle 7.
+cycle 5, and terminates at cycle 6.
 
 > Why do we not start at cycle 0? This is due to the way the simulation
-> framework is written, with a reset sequence taking three cycles.
+> framework is written, with a reset sequence taking two cycles.
 
-At cycle 5, note how each stage sees a different value of `a`. (e.g. `stage 0`
+At cycle 4, note how each stage sees a different value of `a`. (e.g. `stage 0`
 sees `a=3`, `stage 1` sees `a=2`, `stage 2` sees `a=1`). Note also that the
 oldest value of `a` (the first produced) is in the latest stage (`stage 2`).
 As you can see, Silice took care of passing `a` through the pipeline.
 In Silice terminology, `a` has been *captured* at stage 0 and *trickles down*
 the pipeline between stages.
 
+**Wait, how does the pipeline interact with the while loop?**
+Excellent question! Think of it this way: the pipeline is always there waiting
+for data to enter. The while loop is actually *feeding* stage 0 of the pipeline.
+When the while loop terminates the pipeline keeps going until done. The
+algorithm does not terminate until all of its pipelines are done. We discuss
+this in [more details later](#pipelines-in-algorithm).
 
 ## Special assignment operators
 
@@ -1457,22 +1621,81 @@ By default, any variable assigned at a given stage immediately starts trickling
 down. In many cases nothing else is needed. But of course there are ways to
 control that behavior. In a pipeline, there are three
 special assignement operators:
-- The 'backward assign' operator `^=`
-- The 'forward assign' operator `v=`
-- The 'after pipeline' assign operator `vv=`
+- The *backward assign* operator `^=`
+- The *forward assign* operator `v=`
+- The *after pipeline* assign operator `vv=`
 
-> **TODO** expand this section. Meanwhile please refer
-> to [this example](../tests/pipeline_ops.si)
+Let's consider [this example](../tests/pipeline_ops.si):
+```c
+    // pipeline
+    {
+        a = a + 1;
+        __display("[%d, stage 0] a=%d b  =%d c   =%d  d   =%d",cycle,a,b,c,d);
+     ->
+        a = a + 100;
+        b ^= a;  // all stages see the new value of b within the same cycle.
+        c v= a;  // stage 2 (and all after stage 1) see the new value of c within
+                 // the same cycle (stage 0 does not, it will see the new value
+                 //  of c only at the next cycle).
+        d vv= a; // other stages will see the update at next cycle
+        __display("[%d, stage 1] a=%d b ^=%d  c v=%d  d vv=%d",cycle,a,b,c,d);
+     ->
+        __display("[%d, stage 2] a=%d b  =%d c   =%d  d   =%d",cycle,a,b,c,d);
+    }
+```
+
+The output (formatted for clarity) is:
+```
+[  0, stage 0] a=    1 b  =  100 c  =    0 d   =    0
+[  0, stage 1] a=  100 b ^=  100 c v=  100 d vv=  100
+[  0, stage 2] a=    0 b  =  100 c  =  100 d   =    0
+
+[  1, stage 0] a=    2 b  =  101 c  =  100 d   =  100
+[  1, stage 1] a=  101 b ^=  101 c v=  101 d vv=  101
+[  1, stage 2] a=  100 b  =  101 c  =  101 d   =  100
+
+[  2, stage 0] a=    3 b  =  102 c  =  101 d   =  101
+[  2, stage 1] a=  102 b ^=  102 c v=  102 d vv=  102
+[  2, stage 2] a=  101 b  =  102 c  =  102 d   =  101
+
+[  3, stage 0] a=    4 b  =  103 c  =  102 d   =  102
+[  3, stage 1] a=  103 b ^=  103 c v=  103 d vv=  103
+[  3, stage 2] a=  102 b  =  103 c  =  103 d   =  102
+
+[  4, stage 0] a=    5 b  =  104 c  =  103 d   =  103
+[  4, stage 1] a=  104 b ^=  104 c v=  104 d vv=  104
+[  4, stage 2] a=  103 b  =  104 c  =  104 d   =  103
+```
+
+Let's first consider `b`. It is assigned in stage 1 with `^=`. This means the
+change will be immediately visible to all stages. And indeed, `b` has the same
+value every cycle in all stages (`100`, `101`, ..., `104`).
+
+Let's now consider `c`. It is assigned in stage 1 with `v=`. This means stages
+located *on and after* stage 1 (here, stages 1 and 2) will see this change immediately. And indeed, in the
+output we can see that `c` has the same value in stages 1 and 2, but a different
+value (the previous one) in stage 0.
+
+Let's now consider `d`. It is assigned in stage 1 with `vv=`. Stages 0 and 2
+will see this change only *at the next cycle*. And indeed, each cycle the value
+of `d` in stages 0 and 2 is one cycle behind that of stage 1.
+
+`a` itself behaves normally, trickling down the pipeline every cycle.
+
+Taken together, these operators afford for a lot of flexibility in pipelines.
+One typical use is to deal with data hazards (see the [ice-v conveyor and swirl CPUs](../projects/ice-v/README.md)).
+Note however that the assignments could contradict each other and lead to
+impossible cyclic constraints. Silice will issue an error in such cases.
 
 ## The `stall` keyword
 
 In some cases a pipeline stage cannot immediately deal with the received value:
 it has to pause for a cycle before reconsidering. A pipeline stage can indicate
-it needs to pause the pipeline by calling `stall;`. This will pause all stages
-located before. Stages located after will continue processing their valid input,
-but a *bubble* is introduced in the pipeline at the next stage: the bubble
-is a non valid input, meaning subsequent stages will do nothing as they receive
-this invalid input.
+that it needs to pause the pipeline by calling `stall;`. This will pause all
+stages located before. Stages located after will continue processing their valid
+input, but a *bubble* is introduced in the pipeline at the next stage: the
+bubble is a non valid input, meaning subsequent stages will do nothing as they
+receive this invalid input.
 
 For instance, in the example below stage 1 decided to stall at cycle `i+2`. See
 how stage 2 was subsequently empty at `i+3` (this is the *bubble*) while the
@@ -1489,6 +1712,180 @@ that the pipeline resumes as normal.
 > negatively impact maximum frequency on pipelines with many stages, since
 > it introduces a feedback from later stages to earlier stages.
 
+## Pipelines in algorithm
+
+A powerful feature of Silice is to enable pipelines to be started from within
+algorithms, and pipelines stages can also have multiple steps using the `++:`
+operator.
+
+### Parallel pipelines
+
+We have seen a [first example](#simple-pipeline) where the pipeline is fed from
+the while loop. It is possible to define and feed pipelines from anywhere,
+[for instance](../tests/pipeline_alg2.si):
+
+```c
+unit main(output uint8 leds)
+{
+  uint16 cycle = 0; // cycle counter
+  algorithm {
+    uint8 a = 0;
+    // a first pipeline adding +4 every stage
+    { uint8 b=a+4; -> b=b+4; -> b=b+4; -> b=b+4; -> __display("cycle %d [end of pip0] b = %d",cycle,b); }
+    // a second pipeline adding +1 every stage
+    { uint8 b=a+1; -> b=b+1; -> b=b+1; -> b=b+1; -> __display("cycle %d [end of pip1] b = %d",cycle,b); }
+++:
+    __display("cycle %d [bottom of algorithm]",cycle);
+  }
+  always_after { cycle = cycle + 1; } // increment cycle
+}
+```
+The result is:
+```
+cycle     2 [bottom of algorithm]
+cycle     5 [end of pip0] b =  16
+cycle     5 [end of pip1] b =   4
+```
+Note how both pipelines end exactly at the same cycle (cycle 5). That is because
+they were fed together at the same step of the algorithm. They effectively
+operate in parallel!
+
+Note also how we reach the 'bottom' of the algorithm *before* the pipelines end.
+This is an important rule: an algorithm does not return until all of its
+pipelines are done, which is why the pipelines properly terminate even though
+the algorithm bottom was reached.
+
+> **Note:** Pipelines cannot be nested (for now at least...).
+
+### Multiple steps in a stage
+
+Let's see how each stage can have a different number of steps.
+Consider [this example](../tests/pipeline_alg3.si):
+
+```c
+unit main(output uint8 leds)
+{
+  uint16 cycle = 0; // cycle counter
+  algorithm {
+    uint16 a = 0;
+    while (a<3) { // this pipeline has a middle stage that takes multiple cycles
+      // stage 0
+      uint16 b = a;
+      __display("cycle %d [stage 0] b = %d",cycle,b);
+      a = a + 1;
+  ->
+      // stage 1
+      b = b + 10;
+    ++: // step
+      b = b + 100;
+    ++: // step
+      b = b + 1000;
+  ->
+     // stage 2
+      __display("cycle %d [stage 2] b = %d",cycle,b);
+    }
+  }
+  always_after { cycle = cycle + 1; } // increment cycle
+}
+```
+
+The result is:
+
+```
+cycle     2 [stage 0] b =     0
+cycle     3 [stage 0] b =     1
+cycle     6 [stage 0] b =     2
+cycle     6 [stage 2] b =  1110
+cycle     9 [stage 2] b =  1111
+cycle    12 [stage 2] b =  1112
+```
+
+First let's check that we get the expected result. Stage 1 adds 1110 in total
+to the value coming from stage 0, while stage 2 simply displays the value
+it receives. We can see that stage 0 receives `0`,`1`,`2` and stage 2
+reports `1110`,`1111`,`1112`. Correct!
+
+Now let's look at the cycles. The pipeline is first fed on cycle 2 (value `0`
+enters stage 0) and then on cycle 3 (value `1`). However, nothing happens until cycle *6* where `2` enters. The reason is simple: stage 1 is taking three steps, so the pipeline
+earlier stages (here only stage 0) are stalled. Meanwhile stage 2 is still
+waiting for data. Thus, at cycle 4 stage 1 is
+doing `b = b + 100` and at cycle 5 `b = b + 1000`. At cycle 6 stage 1 can take
+the next value (`1`), while stage 0 now can consider `2` and stage 2 displays
+the result `1110`.
+
+Another interesting thing to note is that stage 2 is active every three cycles
+(cycles 6,9,12). So this pipeline takes three cycles to produce an output.
+
+Pipeline stages can also use data-dependent while loops. They can even call algorithms!
+Of course, favor simple, stateless pipelines whenever possible, but this can
+come in handy.
+
+> **Note:** Pipeline stages cannot call subroutines.
+
+### Pipelines and circuitries
+
+A powerful construct is to define pipelines in [circuitries](#circuitry), which
+can then be *concatenated* to a current pipeline.
+
+Here is [an example](../tests/circuits18.si):
+
+```c
+circuitry add_two(input i,output o)
+{ // stage 1
+  uint8 v = i + 1;
+->
+  // stage 2
+  o = v + 1;
+->
+}
+
+unit main(output uint8 leds)
+{
+  uint32 cycle=0;
+  uint8  a    =0;
+  algorithm {
+    while (a<3) {
+      // stage 0
+      uint8 v = a;
+      __display("cycle %d, first stage, v=%d",cycle,v);
+      a = a + 1;
+  ->
+  (v) = add_two(v); // adds two stages
+      // stage 3
+      v = v + 100;
+  ->
+      // stage 4
+      __display("cycle %d, last stage, v=%d",cycle,v);
+    }
+  }
+  always_after { cycle = cycle + 1; }
+}
+```
+The output is:
+```
+cycle 2, first stage, v=  0
+cycle 3, first stage, v=  1
+cycle 4, first stage, v=  2
+cycle 6, last stage,  v=102
+cycle 7, last stage,  v=103
+cycle 8, last stage,  v=104
+```
+Everything happens as if the content of the `add_two` circuitry had been cut and
+pasted where it is instantiated, with two stage being added to the pipeline.
+This is very convenient to defined pieces of pipelines to be added, for instance
+a pipelined multiplier.
+
+More advanced examples are in the raymarching pipeline
+available in the [demo projects](../projects/vga_demo/vga_msponge.si).
+
+> **Note:** As a good practice suggestion, see how I indented the circuitry
+instantiation to align with the pipelining arrows, indicating it does change the
+pipeline.
+
+> **Note:** A limitation of the current implementation is that a circuitry
+containing a pipeline can only be instantiated within a parent pipeline using
+at least one `->`. This will be fixed in the future.
+
 ## Pipelines in always blocks
 
 Pipelines in always blocks behave slightly differently. In an always block, all
@@ -1496,7 +1893,7 @@ pipeline stages are active at all times: there are no automatic triggers
 enabling/disabling stages as the stages are *always* active,
 and the `stall` keyword cannot be used. Special assignment operators are available.
 
-# Advanced language constructs
+# Other language constructs
 
 ## Groups
 

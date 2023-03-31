@@ -1,0 +1,19 @@
+circuitry rec(output v)
+{
+  $$if N > 1 then
+    sameas(v) t1(0); // t1 will be same type as v
+    sameas(v) t2(0); // t2 will be same type as v
+    (t1) = rec< N = $N>>1$ >(); // recursive instantiation with N/2
+    (t2) = rec< N = $N>>1$ >(); // recursive instantiation with N/2
+    v = t1 + t2;     // evaluates to sum of both half results
+  $$else
+    v = 1; // bottom of recursion: evaluates to 1
+  $$end
+}
+
+algorithm main(output uint8 leds)
+{
+  uint10  n(0);
+  (n) = rec<N=16>(); // instantiate for size 16
+  __display("result = %d",n);
+}

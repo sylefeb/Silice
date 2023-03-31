@@ -1,0 +1,207 @@
+// SL 2022-10-14
+//
+// MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+//
+
+$$if ECPIX5 then
+$$elseif DE10NANO then
+$$elseif VERILATOR then
+$$else
+$$  error('sorry, this design is currently only for the ECPIX5 and de10-nano')
+$$end
+
+$$delay  = 27310 -- 'perfect' delay before triggering the pipeline for a frame
+$$Nsteps = 46
+
+$$if SIMULATION then
+import('../common/verilator_random.v')
+$$else
+append('ringosc.v')
+import('random.v')
+$$end
+
+$include('vga_demo_main.si')
+
+// ----------------------------------------------------------------------------
+// display unit
+// ----------------------------------------------------------------------------
+
+unit frame_display(
+  input   uint11 pix_x,       input   uint11 pix_y,
+  input   uint1  pix_active,  input   uint1  pix_vblank,
+  input   uint1  vga_hs,      input   uint1  vga_vs,
+  output! uint$color_depth$ pix_r,
+  output! uint$color_depth$ pix_g,
+  output! uint$color_depth$ pix_b
+) {
+  uint32 cycle(0);
+$$for n=1,Nsteps do
+$$if SIMULATION then
+  verilator_random rng$n$(clock <: clock);
+$$else
+  random rng$n$(clock <: clock);
+$$end
+$$end
+
+  // table for 1/y (to average contributions from random walks)
+  brom uint16 inv[1024] = {
+    65535,65535,
+$$for i=2,1023 do
+    $65536//i$,
+$$end
+  };
+
+  // a cosine table for animating things
+  bram int12 cos[512] = {
+$$for i=0,511 do
+    $math.floor(1200.0 * math.cos(2*math.pi*i/512))$,
+$$end
+    //          ^^^^^ fine grain control on magnitude
+  };
+
+  // --- always_before block, performed every cycle before anything else
+  always_before {
+    pix_r = 0; pix_g = 0; pix_b = 0; // maintain RGB at zero, important during
+  }                                  // vga blanking for screen to adjust
+
+  // --- algorithm containing the pipeline
+
+  algorithm <autorun> {
+
+    uint9 cursor(0); // animation
+
+    while (1) { // forever
+
+      // ===== Here we synch the pipeline with the vertical sync.
+      //       The pipeline starts during vblank so latency is hidden and
+      //       the first pixel is ready exactly at the right moment.
+      while (~vga_vs) {}
+      while ( vga_vs) {}
+
+      // Wait the 'perfect' delay (obtained in simulation, see marker [1] below)
+      // (adjust delay if number of steps is changed).
+      uint17 wait = 0; while (wait != $delay$) { wait = wait + 1; }
+
+      uint12 x = -1; uint12 y = -1;
+      while ( ! (x == $H_END-1$ && y == $V_RES-1$) ) {
+
+        // ----- pipeline starts here -----
+
+        int24 q_x = ((__signed(x) - __signed(24d$H_RES>>1$)));
+        int24 q_y = ((__signed(y) - __signed(24d$V_RES>>1$)));
+
+        // increment pixel coordinates
+        y = x == $H_END-1$ ? (y + 1) : y;
+        x = x == $H_END-1$ ? 0 : (x + 1);
+        // walk start point
+        int24  p_x     = q_x;
+        int24  p_y     = q_y;
+        // accumulate r,g,b during per-pixel walks
+        uint20 accum_r = 0;
+        uint20 accum_g = 0;
+        uint20 accum_b = 0;
+        uint10 num     = 0;
+
+$$for n=1,Nsteps do
+    ->  // --- next pipeline stage
+
+        // current distance
+        int24 a_x     = p_x < 0 ? -p_x : p_x;
+        int24 a_y     = p_y < 0 ? -p_y : p_y;
+        // distance to inner square
+        int24 len_sq  = __signed( a_y > a_x ? a_y : a_x ) - __signed(24d128);
+        // distance to border
+        int24 len_brd = 24d260 - __signed( a_y > a_x ? a_y : a_x );
+        // combine
+        uint1 onsq    = len_sq < len_brd;
+        int24 len     = onsq ? len_sq : len_brd;
+        // a random number (one generator per stage to avoid bias)
+        uint24 rnd    = rng$n$.rnd;
+        // delta for random walk
+        int24  d_x    = 0;
+        int24  d_y    = 0;
+        // random walk (on a square! this is a hack, should be a circle :) )
+        // (induced bias is visible to the trained eye)
+        if (rnd[11,1]) { // decide along x or y
+          d_x =  rnd[10,1] ? -len+1 : len-1;
+          d_y =  rnd[ 9,1] ?   ((__signed(rnd[ 0,8]) * len) >>> 8)
+                           : - ((__signed(rnd[ 0,8]) * len) >>> 8);
+        } else {
+          d_y =  rnd[10,1] ? -len+1 : len-1;
+          d_x =  rnd[ 9,1] ?   ((__signed(rnd[ 0,8]) * len) >>> 8)
+                           : - ((__signed(rnd[ 0,8]) * len) >>> 8);
+        }
+        // decide whether we reached the contour
+        uint1 side    = (p_x+p_y) < (__signed(cos.rdata)>>>2);
+        uint1 checker = (p_x[6,1] ^ p_y[6,1]);
+        if (len > -2 && len < 2) { // yes!
+          // __display("[%d|%d] len:%d q_x:%d a_x:%d num:%d",cycle,$n$,len,q_x,a_x,num);
+          // decide on a color (that's the fun part producing the patterns)
+          // accumulate
+          num          = num + 1;
+          if (onsq) {
+            accum_r    = accum_r + 3;
+            accum_g    = accum_g + ( side ? 3 : 0 );
+            accum_b    = accum_b + ( side ? 3 : 0 );
+          } else {
+            accum_r    = accum_r + ( checker ? 1 : 0 );
+            accum_g    = accum_g + ( checker ? 1 : 0 );
+            accum_b    = accum_b + ( checker ? 1 : 0 );
+          }
+          // restart
+          p_x = q_x;
+          p_y = q_y;
+        } else {
+          // keep walking!
+          p_x = p_x + d_x;
+          p_y = p_y + d_y;
+        }
+
+$$end
+
+    ->
+
+        // setup 1/y lookup
+        inv.addr = num;
+
+    ->
+
+        // compute averages
+        uint24 r = (inv.rdata * accum_r) >> 14;
+        uint24 g = (inv.rdata * accum_g) >> 14;
+        uint24 b = (inv.rdata * accum_b) >> 14;
+
+$$if SIMULATION then
+        // to verify/adjust pixel synch [1]
+        //if (pix_y == 0) {
+        //  __display("x = %d  pix_x = %d (diff: %d)",x,pix_x,__signed(x-pix_x));
+        //  __display("y = %d  pix_y = %d (diff: %d)",y,pix_y,__signed(y-pix_y));
+        //}
+$$end
+
+        if (x < $H_RES$) { // do not produce color out of bound, screen may
+                          // otherwise produce weird color artifacts
+          pix_r = { r, 2b00};
+          pix_g = { g, 2b00};
+          pix_b = { b, 2b00};
+        }
+
+        // ----- pipeline ends here -----
+
+      } // while x,y
+
+      cos.addr = cursor;
+$$if SIMULATION then
+      cursor   = cursor + 35;
+$$else
+      cursor   = cursor + 3;
+$$end
+    } // while (1)
+
+  }
+
+  always_after {
+    cycle = cycle + 1;
+  }
+}

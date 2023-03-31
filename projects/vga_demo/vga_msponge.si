@@ -19,15 +19,15 @@
 
 $$if ECPIX5 then
 $$  N_steps       = 128
-$$  delay         = 45751
+$$  delay         = 45792
 $$  VGA_1024_768  = 1
 $$elseif DE10NANO then
 $$  N_steps       = 190
-$$  delay         = 93065
+$$  delay         = 93106
 $$  VGA_1920_1080 = 1
 $$elseif VERILATOR then
 $$  N_steps       = 64
-$$  delay         = 93191
+$$  delay         = 93232
 $$  VGA_1920_1080 = 1
 $$else
 $$  error('sorry, this design is currently only for the ECPIX5 and de10-nano')

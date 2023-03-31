@@ -30,6 +30,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "ExpressionLinter.h"
 #include "RISCVSynthesizer.h"
 #include "Utils.h"
+#include "ChangeLog.h"
 
 // -------------------------------------------------
 
@@ -116,7 +117,9 @@ void SiliceCompiler::gatherBody(antlr4::tree::ParseTree* tree, const Blueprint::
     std::cerr << "found static unit " << name << nxl;
     AutoPtr<Algorithm> unit(new Algorithm(m_Subroutines, m_Circuitries, m_Groups, m_Interfaces, m_BitFields));
     unit->gatherIOs(inout);
-    gatherUnitBody(unit,tree,ictx);
+    Blueprint::t_instantiation_context local_ictx = ictx;
+    local_ictx.top_name = "M_" + name;
+    gatherUnitBody(unit,tree, local_ictx);
     m_Blueprints.insert(std::make_pair(name, unit));
     m_BlueprintsInDeclOrder.push_back(name);
 
@@ -564,8 +567,10 @@ void SiliceCompiler::writeBody(std::ostream& _out, const Blueprint::t_instantiat
         t_parsed_unit pu;
         pu.body_parser = m_BodyContext;
         pu.unit        = m_Blueprints.at(miordr);
-        writeUnit(pu, ictx, _out, true);
-        writeUnit(pu, ictx, _out, false);
+        Blueprint::t_instantiation_context local_ictx = ictx;
+        local_ictx.top_name = "M_" + alg->name();
+        writeUnit(pu, local_ictx, _out, true);
+        writeUnit(pu, local_ictx, _out, false);
       }
     }
     // done
@@ -578,28 +583,6 @@ void SiliceCompiler::writeBody(std::ostream& _out, const Blueprint::t_instantiat
 
   }
 
-}
-
-// -------------------------------------------------
-
-void SiliceCompiler::writeFormalTests(std::ostream& _out, const Blueprint::t_instantiation_context& ictx)
-{
-  if (m_BodyContext.isNull()) {
-    throw Fatal("[SiliceCompiler::writeFormalTests] body context not ready");
-  }
-  // write formal unit tests
-  for (auto name : m_BodyContext->lpp->formalUnits()) {
-    // parse and write unit
-    auto bp = parseUnitIOs(name);
-    parseUnitBody(bp, ictx);
-    bp.unit->setAsTopMost();
-    Blueprint::t_instantiation_context local_ictx = ictx;
-    local_ictx.instance_name = "formal_" + name + "$";
-    // -> first pass
-    writeUnit(bp, local_ictx, _out, true);
-    // -> second pass
-    writeUnit(bp, local_ictx, _out, false);
-  }
 }
 
 // -------------------------------------------------
@@ -643,17 +626,25 @@ void SiliceCompiler::writeUnit(
 
 // -------------------------------------------------
 
-/// \brief writes a static unit in the output stream
-void SiliceCompiler::writeStaticUnit(
-  AutoPtr<Blueprint>                        bp,
-  const Blueprint::t_instantiation_context& ictx,
-  std::ostream&                            _out,
-  bool                                      first_pass)
+/// \brief write formal units in the output stream
+void SiliceCompiler::writeFormalTests(std::ostream& _out, const Blueprint::t_instantiation_context& ictx)
 {
-  t_parsed_unit pu;
-  pu.body_parser = m_BodyContext;
-  pu.unit        = bp;
-  writeUnit(pu, ictx, _out, first_pass);
+  if (m_BodyContext.isNull()) {
+    throw Fatal("[SiliceCompiler::writeFormalTests] body context not ready");
+  }
+  // write formal unit tests
+  for (auto name : m_BodyContext->lpp->formalUnits()) {
+    Blueprint::t_instantiation_context local_ictx = ictx;
+    local_ictx.top_name = "formal_" + name + "$";
+    // parse and write unit
+    auto bp = parseUnitIOs(name);
+    parseUnitBody(bp, local_ictx);
+    bp.unit->setAsTopMost();
+    // -> first pass
+    writeUnit(bp, local_ictx, _out, true);
+    // -> second pass
+    writeUnit(bp, local_ictx, _out, false);
+  }
 }
 
 // -------------------------------------------------
@@ -705,6 +696,11 @@ void SiliceCompiler::run(
         ictx.params[p.substr(0, eq)] = p.substr(eq + 1); // side-effects compared to a std instantiation since autos are for types only ...
       }
     }
+    // create report files, delete them if existing
+    {
+      std::ofstream freport_v(fresult + ".vio.log");
+      std::ofstream freport_a(fresult + ".alg.log");
+    }
     // begin parsing
     beginParsing(fsource, fresult, fframework, frameworks_dir, defines, ictx);
     // apply command line config options
@@ -720,25 +716,31 @@ void SiliceCompiler::run(
     std::ofstream out(m_BodyContext->fresult);
     // write body
     writeBody(out, ictx);
-    // write any formal test
-    writeFormalTests(out, ictx);
     // which algorithm to export?
     if (to_export.empty()) {
       to_export = "main"; // export main by default
     }
+    ictx.top_name = "M_" + to_export;
     // parse and write top unit
     auto bp = parseUnitIOs(to_export);
     parseUnitBody(bp, ictx);
     bp.unit->setAsTopMost();
-    ictx.instance_name = "";
     // -> first pass
     writeUnit(bp, ictx, out, true);
     // -> second pass
     writeUnit(bp, ictx, out, false);
+    // write any formal test
+    writeFormalTests(out, ictx);
     // stop parsing
     endParsing();
 
+    // change log report
+    CHANGELOG.printReport(std::cout);
+
   } catch (ReportError&) {
+
+    // change log report
+    CHANGELOG.printReport(std::cerr);
 
     m_BodyContext->unbind();
     throw Fatal("[SiliceCompiler] writer stopped");
