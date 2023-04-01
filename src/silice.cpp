@@ -48,7 +48,7 @@ int main(int argc, char **argv)
 {
   try {
 
-    const std::string version_string = std::string(" 0.1.3") + " " + c_GitHash;
+    const std::string version_string = std::string(" 0.2.0") + " " + c_GitHash;
     //                                               ^ ^ ^
     //                                               | | |
     //                                               | | \_ increments with features in wip/draft (x.x.x)
