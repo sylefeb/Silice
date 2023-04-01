@@ -1,0 +1,17 @@
+algorithm foo()
+{
+
+}
+
+unit main(output uint8 leds)
+{
+  foo a;
+
+  algorithm
+  {
+    {
+      uint10 a = 20;
+      __display("a = %d",a);
+    }
+  }
+}

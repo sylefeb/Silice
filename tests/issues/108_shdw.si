@@ -1,0 +1,28 @@
+unit main(output uint5 leds, inout uint8 pmod)
+{
+   uint3 ctr = 0;
+
+   algorithm
+   {
+      subroutine delay(input uint24 cycle_counter)
+      {
+         uint24 ctr = 0;   // <----- Line 9: variable 'ctr': this name is already used by a prior declaration
+
+         ctr = cycle_counter;
+         while (ctr > 0) {
+            ctr = ctr - 1;
+         }
+      }
+
+      while (1) {
+         leds = leds + 1;
+         ctr = ctr + 1;
+         () <- delay <- (2000000);
+         if (ctr == 0) {
+            leds = 0;
+         }
+      }
+   }
+
+}
+ 

@@ -1,0 +1,5 @@
+unit main(output uint8 leds)
+{
+  uint8  a(0);
+  uint10 a = 0;
+}

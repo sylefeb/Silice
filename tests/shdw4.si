@@ -1,0 +1,19 @@
+unit main(output uint8 leds)
+{
+
+  algorithm
+  {
+    subroutine test()
+    {
+      uint10 a = 10;
+      __display("a1 = %d",a);
+
+
+    }
+
+    uint10 a = 20;
+    __display("a2 = %d",a);
+    () <- test <- ();
+
+  }
+}

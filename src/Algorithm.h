@@ -99,6 +99,9 @@ namespace Silice
       dSUBROUTINE = 128, dSTABLEINPUT = 256
     };
 
+    /// \brief identifier availability
+    enum e_IdentifierAvailability { e_Available=0, e_Shadowing=1, e_Collision=2};
+
     /// \brief algorithm name
     std::string m_Name;
 
@@ -722,7 +725,7 @@ private:
     /// \brief add a variable from its definition (_var may be modified with an updated name)
     void addVar(t_var_nfo& _var, t_combinational_block *_current, const Utils::t_source_loc& srcloc);
     /// \brief check if an identifier is available
-    bool isIdentifierAvailable(t_combinational_block* _current, std::string name) const;
+    e_IdentifierAvailability isIdentifierAvailable(t_combinational_block* _current, std::string base_name, std::string name = std::string()) const;
     /// \brief returns the name of a delayed assignment temporary variable
     std::string delayedName(siliceParser::AlwaysAssignedContext* alw) const;
     /// \brief returns the name of a temporary from the expression and its context

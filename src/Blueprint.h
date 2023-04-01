@@ -71,7 +71,8 @@ namespace Silice
     /// \brief base info about variables, inputs, outputs
     class t_var_nfo { // NOTE: if changed, remember to check var_nfo_copy
     public:
-      std::string  name;
+      std::string  base_name; // user given name (may be empty if internal var)
+      std::string  name;      // internal name
       t_type_nfo   type_nfo;
       std::vector<std::string> init_values;
       int          table_size        = 0; // 0: not a table, otherwise size

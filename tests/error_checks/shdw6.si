@@ -1,0 +1,12 @@
+unit main(output uint8 leds)
+{
+
+  algorithm
+  {
+    uint10 a = 20;
+    uint10 a = 33;
+
+    __display("a = %d",a);
+
+  }
+}

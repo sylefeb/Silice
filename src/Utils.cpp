@@ -70,11 +70,12 @@ void Utils::warn(e_WarningType type, const t_source_loc& srcloc, const char *msg
   va_start(args, msg);
   vsprintf_s(message, messageBufferSize, msg, args);
   va_end(args);
-
+  std::cerr << Console::bold;
   switch (type) {
   case Standard:    std::cerr << Console::yellow << "[warning]    " << Console::gray; break;
   case Deprecation: std::cerr << Console::cyan << "[deprecated] " << Console::gray; break;
   }
+  std::cerr << Console::normal;
   antlr4::TokenStream *tks = nullptr;
   ParsingContext *pctx = nullptr;
   if (srcloc.root) {

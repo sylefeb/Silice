@@ -1,0 +1,15 @@
+unit main(output uint8 leds)
+{
+
+  uint8  a(5);
+
+  algorithm
+  {
+    uint10 a = 10;
+    __display("a1 = %d",a);
+  }
+
+  always_after {
+    __display("a2 = %d",a);
+  }
+}
