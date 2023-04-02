@@ -1,7 +1,7 @@
-/*
-@sylefeb, MIT license, see LICENSE_MIT in repo root
-Inspired by https://rusteddreams.bitbucket.io/2017/03/05/sqrt.html
-*/
+//
+// @sylefeb, MIT license, see LICENSE_MIT in repo root
+// Inspired by https://rusteddreams.bitbucket.io/2017/03/05/sqrt.html
+//
 
 $include('clz.si')
 
@@ -15,14 +15,14 @@ circuitry c_rsqrt(input x,output result)
   $$ error('c_rsqrt: missing pre-processor parameter')
   $$end
 
-  sameas(x)  v(0);
-  sameas(x)  b(0);
-  sameas(x)  t(0);
-  sameas(x)  l(0);
-  uint$Fp+1$ ff(0);
+  $$w = 1 << clog2(widthof('x'))
 
-  // ensure width is a power of 2 for counting leading zeros
-$$w = 1 << clog2(widthof('x'))
+  sameas(x)  v(0);
+  uint$Fp+(Fp>>1)+1$ b(0);
+  uint$Fp+(Fp>>1)+1$ t(0);
+  uint$w$            l(0);
+  uint$Fp+(Fp>>1)+1$ ff(0);
+
 
   uint$clog2(widthof('x'))$ lx(0);
   uint$w$ xx = x;
@@ -41,9 +41,9 @@ $$w = 1 << clog2(widthof('x'))
 
 ->
 
-//  if (ff>$1<<Fp$) { ff=$1<<Fp$; }
-  //bilinear init
-  sameas(result) y = (t * ($1<<Fp$ - ff) + b * ff) >> $Fp$;
+  // if (ff>$1<<Fp$) { ff=$1<<Fp$; }
+  // bilinear init
+  uint$Fp*3$ y = (t * ($1<<Fp$ - ff) + b * ff) >> $Fp$;
 
 $$if not newton_iters then newton_iters = 2 end
 $$for n=1,newton_iters do
