@@ -108,6 +108,16 @@ module top(
   inout  FLASH_IO2,
   inout  FLASH_IO3,
 `endif
+`ifdef PMOD_QQSPI
+  output P1A1,
+  inout  P1A2,
+  inout  P1A3,
+  output P1A4,
+  inout  P1A7,
+  inout  P1A8,
+  output P1A9,
+  output P1A10,
+`endif
 `ifdef EXTRAS
   inout RGB_R,
   inout RGB_G,
@@ -220,11 +230,24 @@ M_main __main(
   .inout_sf_io2(FLASH_IO2),
   .inout_sf_io3(FLASH_IO3),
 `endif
+`ifdef PMOD_QQSPI
+  .inout_ram_io0(P1A2),
+  .inout_ram_io1(P1A3),
+  .inout_ram_io2(P1A7),
+  .inout_ram_io3(P1A8),
+  .out_ram_clk(P1A4),
+  .out_ram_csn(P1A1),
+`endif
 `ifdef EXTRAS
   .inout_extras({P1B10,P1B9,RGB_B,RGB_G,RGB_R}),
 `endif
   .in_run(run_main)
 );
+
+`ifdef PMOD_QQSPI
+  assign P1A9  = 1'b0;
+  assign P1A10 = 1'b0;
+`endif
 
 assign LED4 = __main_leds[0+:1];
 assign LED3 = __main_leds[1+:1];

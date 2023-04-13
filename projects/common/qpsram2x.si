@@ -1,0 +1,226 @@
+// @sylefeb 2022
+// MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+//
+// ========================================================
+// IMPORTANT: on the ice40, use icepack -s
+// ========================================================
+//
+// NOTE: this is largely based on Silice/projects/spiflash/spiflash2x.si
+//       see this design for more info and simulation
+
+import('ddr_clock.v')
+
+$$if not SIMULATION then
+import('ice40_sb_io_inout.v')
+import('ice40_sb_io.v')
+$$end
+
+$$if VERILATOR then
+import('verilator_data.v') // this is a feature supported by Silice
+                           // verilator framework to access raw data
+                           // stored in a 'data.raw' file
+$$end
+
+algorithm qpsram_qspi(
+  input  uint8 send,
+  input  uint1 trigger,
+  input  uint1 send_else_read,
+  output uint8 read,
+  output uint1 clk(0),
+  output uint1 csn(1),
+  inout  uint1 io0,
+  inout  uint1 io1,
+  inout  uint1 io2,
+  inout  uint1 io3,
+) {
+  uint1 dc(0);
+  uint8 sending(0);
+  uint1 osc(0);
+
+  uint1 enable(0);
+  ddr_clock _(clock <: clock, enable <:: enable, ddr_clock :> clk);
+
+$$if not ICE40 then
+$$if SIMULATION then
+  uint32 cycle(0);
+$$end
+  uint1 d_csn(1);
+  uint4 read_reg(0);
+  always {
+    // output enable on ios
+    io0.oenable = send_else_read;
+    io1.oenable = send_else_read;
+    io2.oenable = send_else_read;
+    io3.oenable = send_else_read;
+    // read current
+    read      = {read[0,4],read_reg};
+$$if SIMULATION then
+    read_reg  = cycle[0,4];
+$$else
+    read_reg  = {io3.i,io2.i,io1.i,io0.i};
+$$end
+    // update outputs
+    io0.o = ~osc ? sending[0,1] : sending[4,1];
+    io1.o = ~osc ? sending[1,1] : sending[5,1];
+    io2.o = ~osc ? sending[2,1] : sending[6,1];
+    io3.o = ~osc ? sending[3,1] : sending[7,1];
+    // start/keep sending?
+    sending   = (~osc | ~enable) ? send : sending;
+    osc       = ~trigger ? 1b0 : ~osc;
+    enable    = trigger;
+    csn       = d_csn;
+    d_csn     = ~enable;
+$$if SIMULATION then
+    cycle = cycle + 1;
+$$end
+  }
+$$else
+  // setup registered tristate ios
+  uint4 io_oe(0); uint4 io_i(0); uint4 io_o(0);
+  sb_io_inout sb_io0(clock <: clock, oe <: io_oe[0,1], in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
+  sb_io_inout sb_io1(clock <: clock, oe <: io_oe[1,1], in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
+  sb_io_inout sb_io2(clock <: clock, oe <: io_oe[2,1], in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
+  sb_io_inout sb_io3(clock <: clock, oe <: io_oe[3,1], in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
+  uint1 nenable <:: ~ enable;
+  // sb_io sb_csn(clock <: clock, out <: nenable, pin :> csn);
+  uint4 read_reg(0);
+  always {
+    csn       = nenable;
+    // output enable on ios
+    io_oe     = {4{send_else_read}};
+    // read current
+    read      = {read[0,4],io_i};
+    // update outputs
+    io_o      = ~osc ? sending[0,4] : sending[4,4];
+    // start/keep sending?
+    sending   = (~osc | ~enable) ? send : sending;
+    osc       = ~trigger ? 1b0 : ~osc;
+    enable    = trigger;
+  }
+$$end
+}
+
+
+// -------------------------------------------------------------
+
+unit qpsram_ram(
+  input   uint1  in_ready,
+  input   uint24 addr,
+  output  uint8  rdata,
+  input   uint8  wdata,
+  input   uint1  wenable,
+  output  uint1  busy(1),
+  output  uint1  rdata_available(0),
+  // QPSRAM io
+  output  uint1  ram_csn(1),
+  output  uint1  ram_clk,
+  inout   uint1  ram_io0,
+  inout   uint1  ram_io1,
+  inout   uint1  ram_io2,
+  inout   uint1  ram_io3,
+) {
+
+  uint40 sendvec(0);
+
+  qpsram_qspi spi<reginputs>(
+    clk     :> ram_clk,
+    csn     :> ram_csn,
+    io0    <:> ram_io0,
+    io1    <:> ram_io1,
+    io2    <:> ram_io2,
+    io3    <:> ram_io3,
+  );
+
+  uint5  wait(0);
+  uint5  sending(0);
+  uint3  stage(1);
+  uint3  after(0);
+  uint1  init(1);
+  uint1  send_else_read(0);
+  uint1  accept_in(0);
+  uint1  continue(0);
+
+$$if VERILATOR then
+  verilator_data vdta(clock <: clock);
+  uint32 cycle(0);
+$$end
+
+  always {
+
+    spi.send_else_read = send_else_read;
+    accept_in          = 0;
+    rdata_available    = 0;
+    // continue while in_ready stays high
+    continue           = continue & in_ready;
+
+    switch (stage)
+    {
+      case 0: {
+        stage = wait[4,1] ? after : 0; // counts up to 16 and goes to after
+        wait  = wait + 1;
+      }
+      case 1: {
+        accept_in = 1;
+      }
+      case 2: {
+        spi.trigger             = 1;
+        spi.send                = sendvec[32,8];
+        sendvec                 = sendvec << 8;
+        stage                   = 0; //  wait
+        wait                    = 16; //_ 2 cycles
+        after                   = sending[0,1] ? (wenable ? 4 : 3) : 2;
+        sending                 = sending >> 1;
+      }
+      case 3: {
+        spi.trigger             = ~init;
+        send_else_read          = 0;
+        spi.send                = 0;
+        stage                   = 0; //  wait
+        wait                    = 7; //_ 11 cycles
+        after                   = 4;
+$$if VERILATOR then
+        vdta.addr               = addr;
+$$end
+      }
+      case 4: {
+  $$if VERILATOR then
+        rdata                   = vdta.data;  // from 'data.raw'
+        vdta.addr               = vdta.addr + 1;
+  $$else
+        rdata                   = spi.read;
+  $$end
+        rdata_available         = 1;
+        spi.trigger             = continue;
+        busy                    = continue;
+        init                    = 0;
+        wait                    = 16; //_ 2 cycles
+        // return to start stage if no further reads, otherwise wait and ...
+        stage                   = ~continue ? 1 : 0;
+        after                   = 4; // ... keep reading
+        accept_in               = ~continue; // accept an input immediately
+$$if SIMULATION then
+        // __display("[%d](%d) qpsram [4] (%x) in_ready:%b accept_in:%b",cycle,cycle>>1,rdata,in_ready,accept_in);
+$$end
+      }
+    } // switch
+
+    // start sending?
+    if ((in_ready | init) & accept_in & ~reset) {
+      sending = wenable ? 5b10000 : 5b01000;
+      sendvec = init    ? {32b00000000000100010000000100000001,8b0}
+      //                   ^^^^^^^^^^ produces 35h when not in QPI
+                        : {wenable ? 8h02 : 8hEB,addr,wdata};
+      send_else_read = 1; // sending
+      busy           = 1;
+      stage          = 2;
+      continue       = 1; // reset continue
+      }
+
+$$if VERILATOR then
+      cycle = cycle + 1;
+$$end
+  }
+}
+
+// -------------------------------------------------------------

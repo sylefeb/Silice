@@ -1,0 +1,11 @@
+mch2022: read.si
+	silice-make.py -s read.si -b $@ -p basic,uart,psram -o BUILD_$(subst :,_,$@) $(ARGS)
+
+icebreaker: read.si
+	silice-make.py -s read.si -b $@ -p basic,uart,pmod_qqspi -o BUILD_$(subst :,_,$@) $(ARGS)
+
+icestick: read.si
+	silice-make.py -s read.si -b $@ -p basic,uart,pmod_qqspi -o BUILD_$(subst :,_,$@) $(ARGS)
+
+clean:
+	rm -rf BUILD_*

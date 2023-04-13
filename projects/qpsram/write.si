@@ -1,0 +1,101 @@
+// @sylefeb 2020
+// https://github.com/sylefeb/Silice
+// MIT license, see LICENSE_MIT in Silice repo root
+
+$include('../common/qpsram2x.si')
+
+$$if ICESTICK then
+import('../common/plls/icestick_50.v')
+$$elseif ICE40 then
+import('../common/plls/icebrkr_50.v')
+$$end
+
+$$uart_bauds = 500000
+$$uart_in_clock_freq_mhz = 50
+$include('../common/uart.si')
+
+unit main(
+  output uint3 leds,
+  input  uint1 uart_rx,
+  output uint1 uart_tx,
+  inout  uint1 ram_io0,
+  inout  uint1 ram_io1,
+  inout  uint1 ram_io2,
+  inout  uint1 ram_io3,
+  output uint1 ram_clk,
+  output uint1 ram_csn,
+)
+// clocking (pll) and reset
+$$if ICE40 then
+<@clock_pll> {
+  uint1 clock_pll = uninitialized;
+  pll pllgen(
+    clock_in  <: clock,
+    clock_out :> clock_pll,
+  );
+$$else
+{
+$$end
+
+  // QPSRAM RAM
+  qpsram_ram ram(
+    ram_csn  :> ram_csn,
+    ram_clk  :> ram_clk,
+    ram_io0 <:> ram_io0,
+    ram_io1 <:> ram_io1,
+    ram_io2 <:> ram_io2,
+    ram_io3 <:> ram_io3,
+  );
+
+  // UART receiver
+  uart_in ui;
+  uart_receiver urecv(io <:> ui,uart_rx <: uart_rx);
+
+  // UART sender
+  uart_out uo;
+  uart_sender usend(
+    io      <:> uo,
+    uart_tx :>  uart_tx
+  );
+
+  uint1  enabled(0);
+  uint1  writing(0);
+  uint24 addr(0);
+  uint3  get_addr(3b111);
+  uint32 blip(0);
+
+  always {
+
+    ram.in_ready = 0; // maintain low, pulse high to read/write
+    ram.addr     = addr;
+    ram.wenable  = 1; // we write
+
+    leds         = blip;
+    blip         = blip >> 1;
+
+    if (ui.data_out_ready) {
+      // write if enabled and addr received
+      ram.in_ready = enabled & ~get_addr[0,1];
+      ram.wdata    = ui.data_out;
+      writing      = ram.in_ready;
+      // read address if enabled
+      addr         = get_addr[0,1] ? {addr[0,16],ui.data_out} : addr;
+      get_addr     = enabled ? get_addr>>1 : get_addr;
+      blip         = enabled ? 32hffffffff : 0;
+      // send ack after receiving enable tag
+      uo.data_in       = 8h55;
+      uo.data_in_ready = ~enabled & (ui.data_out == 8hAA);
+      // enable on tag
+      enabled      = enabled | (ui.data_out == 8hAA);
+
+    } else {
+      if (writing & ~ram.busy) {
+        // done, increment address
+        addr    = addr + 1;
+        writing = 0;
+      }
+    }
+
+  }
+
+}

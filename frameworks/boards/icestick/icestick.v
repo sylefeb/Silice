@@ -26,8 +26,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 `define ICESTICK 1
+`define ICE40 1
 `default_nettype none
 $$ICESTICK=1
+$$ICE40=1
 $$HARDWARE=1
 $$NUM_LEDS=5
 $$VGA=1
@@ -107,6 +109,16 @@ module top(
   output FLASH_MOSI,
   input  FLASH_MISO,
   output FLASH_CSN,
+`endif
+`ifdef PMOD_QQSPI
+  output PMOD1,
+  inout  PMOD2,
+  inout  PMOD3,
+  output PMOD4,
+  inout  PMOD7,
+  inout  PMOD8,
+  output PMOD9,
+  output PMOD10,
 `endif
   input  CLK
   );
@@ -207,8 +219,21 @@ M_main __main(
   .out_sf_mosi(FLASH_MOSI),
   .in_sf_miso (FLASH_MISO),
 `endif
+`ifdef PMOD_QQSPI
+  .inout_ram_io0(PMOD2),
+  .inout_ram_io1(PMOD3),
+  .inout_ram_io2(PMOD7),
+  .inout_ram_io3(PMOD8),
+  .out_ram_clk(PMOD4),
+  .out_ram_csn(PMOD1),
+`endif
   .in_run(run_main)
 );
+
+`ifdef PMOD_QQSPI
+  assign PMOD9  = 1'b0;
+  assign PMOD10 = 1'b0;
+`endif
 
 assign D1 = __main_leds[0+:1];
 assign D2 = __main_leds[1+:1];

@@ -11,7 +11,8 @@
         {"set"    : "pmod", "define" : "PMOD=1"},
         {"set"    : "pmod_out", "define" : "PMOD_OUT=1"},
         {"set"    : "uart",   "define" : "UART=1"},
-				{"set"    : "spiflash", "define" : "SPIFLASH=1"}
+				{"set"    : "spiflash", "define" : "SPIFLASH=1"},
+        {"set"    : "pmod_qqspi", "define" : "PMOD_QQSPI=1"}
       ],
       "builders": [
         {
