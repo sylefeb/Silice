@@ -12,8 +12,7 @@ power, the written data should remain in SPRAM.
 > Prebuild bitstreams are in `bistreams`.
 
 <p align="center">
-  <img width="300" src="icestick_qqspi.jpg">&nbsp;&nbsp;&nbsp;&nbsp;
-  <img width="350" src="example.jpg">
+  <img width="300" src="icestick_qqspi.jpg">
 </p>
 
 ___
@@ -38,6 +37,10 @@ python xfer.py <uart port> r <offset> <size>
 where `<uart port>` is
 typically `/dev/ttyACM1` under Linux and e.g. `COM6` under Windows.
 `offset` is the address where to store in SPRAM and `size` is the number of byte to read. The received data is displayed in the console.
+
+<p align="center">
+  <img width="350" src="example.jpg">
+</p>
 
 ___
 
