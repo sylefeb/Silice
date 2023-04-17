@@ -7,7 +7,12 @@ design that expects this data to be there. As long as the board has
 power, the written data should remain in SPRAM.
 
 > Tested on the mch2022 badge (built-in SPRAM),
-> icebreaker and icestick ([QQSPI pmod](https://machdyne.com/product/qqspi-psram32/)).
+> icebreaker and icestick ([QQSPI pmod](https://machdyne.com/product/qqspi-psram32/) from @machdyne).
+
+
+<p align="center">
+  <img width="400" src="icestick_qqspi.jpg">
+</p>
 
 ___
 
