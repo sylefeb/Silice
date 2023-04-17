@@ -9,14 +9,14 @@ power, the written data should remain in SPRAM.
 > Tested on the mch2022 badge (built-in SPRAM),
 > icebreaker and icestick ([QQSPI pmod](https://machdyne.com/product/qqspi-psram32/) from @machdyne).
 
+> Prebuild bitstreams are in `bistreams`.
 
 <p align="center">
-  <img width="400" src="icestick_qqspi.jpg">
+  <img width="300" src="icestick_qqspi.jpg">&nbsp;&nbsp;&nbsp;&nbsp;
+  <img width="350" src="example.jpg">
 </p>
 
 ___
-
-> Prebuild bitstreams are in `bistreams`.
 
 To build, run
 ```

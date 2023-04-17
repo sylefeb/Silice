@@ -1,8 +1,10 @@
+# @sylefeb 2023
+# https://github.com/sylefeb/Silice
+# MIT license, see LICENSE_MIT in Silice repo root
+
 import serial
-import time
 import sys
 import os
-import glob
 
 if len(sys.argv) < 4:
   print("xfer.py <port> <r|w> <addr> <size|file>")
