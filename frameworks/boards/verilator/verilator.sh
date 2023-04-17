@@ -93,14 +93,14 @@ cp    $VERILATOR_LIB_DIR/verilator_callbacks.h .
 cp -R $SILICE_DIR/../src/libs/LibSL-small/src/LibSL .
 
 # TODO: this selection process could be more elegant ...
-if [[ -z "${VGA}" ]] && [[ -z "${SDRAM}" ]] && [[ -z "${OLED}" ]]; then
+if [[ -z "${VGA}" ]] && [[ -z "${SDRAM}" ]] && [[ -z "${OLED}" ]] && [[ -z "${SPISCREEN}" ]]; then
 # basic framework
 LDFLAGS=""
 VERILATOR_LIB="verilator_bare"
 VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_bare.cpp $VERILATOR_LIB_DIR/verilator_data.cpp"
 else
 if [[ -z "${SDRAM}" ]]; then
-if [[ -z "${OLED}" ]]; then
+if [[ -z "${OLED}" ]] && [[ -z "${SPISCREEN}" ]]; then
 # VGA only
 VERILATOR_LIB="verilator_vga"
 VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_vga.cpp $VERILATOR_LIB_DIR/verilator_data.cpp $VERILATOR_LIB_DIR/display.cpp $VERILATOR_LIB_DIR/VgaChip.cpp $LIBSL_DIR/Image/ImageFormat_TGA.cpp $LIBSL_DIR/Image/Image.cpp $LIBSL_DIR/Image/tga.cpp $LIBSL_DIR/Math/Vertex.cpp $LIBSL_DIR/Math/Math.cpp $LIBSL_DIR/StlHelpers/StlHelpers.cpp $LIBSL_DIR/CppHelpers/CppHelpers.cpp $LIBSL_DIR/System/System.cpp"

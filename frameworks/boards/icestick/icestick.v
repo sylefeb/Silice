@@ -120,6 +120,13 @@ module top(
   output PMOD9,
   output PMOD10,
 `endif
+`ifdef SPISCREEN_EXTRA
+  output TR3,
+  output TR4,
+  output TR5,
+  output TR6,
+  output TR7,
+`endif
   input  CLK
   );
 
@@ -226,14 +233,24 @@ M_main __main(
   .inout_ram_io3(PMOD8),
   .out_ram_clk(PMOD4),
   .out_ram_csn(PMOD1),
+  .out_ram_bank({PMOD10,PMOD9}),
+`endif
+`ifdef SPISCREEN_EXTRA
+  .out_spiscreen_mosi(TR3),
+  .out_spiscreen_clk(TR4),
+  .out_spiscreen_csn(TR5),
+  .out_spiscreen_dc(TR6),
+  .out_spiscreen_resn(TR7),
 `endif
   .in_run(run_main)
 );
 
+/*
 `ifdef PMOD_QQSPI
-  assign PMOD9  = 1'b0;
-  assign PMOD10 = 1'b0;
+  assign PMOD9  = 1'b1;
+  assign PMOD10 = 1'b1;
 `endif
+*/
 
 assign D1 = __main_leds[0+:1];
 assign D2 = __main_leds[1+:1];

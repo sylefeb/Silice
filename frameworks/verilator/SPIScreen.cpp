@@ -135,7 +135,7 @@ void SPIScreen::cmd_idle_ST7789_ILI9351()
 {
   m_step = 0;
   if (!m_dc) {
-    // fprintf(stdout,"command: %x\n", m_byte);
+    fprintf(stdout,"command: %x\n", m_byte);
     switch (m_byte) {
       case 0x2A:
         m_command = std::bind( &SPIScreen::cmd_start_end, this, &m_x_start, &m_x_end, 2);
@@ -166,6 +166,7 @@ void SPIScreen::cmd_mode_ST7789_ILI9351()
 
 void SPIScreen::cmd_start_end(int *p_start,int *p_end,int nbytes)
 {
+  fprintf(stdout,"cmd_start_end, byte: %x (step:%d)\n",m_byte,m_step);
   if (m_step == 0) {
     if (nbytes == 2) {
       *p_start  = m_byte << 8;
@@ -180,7 +181,7 @@ void SPIScreen::cmd_start_end(int *p_start,int *p_end,int nbytes)
     *p_end    = m_byte << 8;
   } else {
     *p_end   |= m_byte;
-    // fprintf(stdout,"start_end: %d => %d\n", *p_start, *p_end);
+    fprintf(stdout,"start_end: %d => %d\n", *p_start, *p_end);
     set_idle();
   }
   m_step = m_step + 1;

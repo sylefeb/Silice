@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static unsigned long  g_DataSz  = 0;
 static unsigned char *g_RawData = nullptr;
@@ -27,6 +28,29 @@ int data(int addr)
   } else {
     return 0;
   }
+}
+
+void data_write(int wenable,int addr,unsigned char byte)
+{
+  if (!wenable) {
+    return;
+  }
+  if (addr >= g_DataSz) {
+    // record previous
+    unsigned char *prev    = g_RawData;
+    unsigned long  prev_sz = g_DataSz;
+    // allocate new
+    g_DataSz  = addr + 1 + 8192 /*take some margin*/;
+    g_RawData = new unsigned char[g_DataSz];
+    // copy previous
+    if (prev != nullptr) {
+      memcpy(g_RawData,prev,prev_sz);
+      delete [](prev);
+    }
+  }
+  // fprintf(stdout,"[data_write] [%x] = %x\n",addr,byte);
+  // store value
+  g_RawData[addr] = byte;
 }
 
 int  random()

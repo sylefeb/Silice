@@ -1,0 +1,159 @@
+// @sylefeb 2023
+// https://github.com/sylefeb/Silice
+// MIT license, see LICENSE_MIT in Silice repo root
+// --------------------------------------------------------------
+//
+// QSPRAM communication firmware
+// ---
+//
+//
+//
+// --------------------------------------------------------------
+
+$$ bank_width = 23
+
+$include('../common/qpsram2x.si')
+
+$$if ICESTICK then
+import('../common/plls/icestick_50.v')
+$$elseif ICE40 then
+import('../common/plls/icebrkr_50.v')
+$$end
+
+$$uart_bauds = 500000
+$$uart_in_clock_freq_mhz = 50
+$include('../common/uart.si')
+
+unit main(
+  output  uint5 leds,
+  input   uint1 uart_rx,
+  output  uint1 uart_tx,
+  inout   uint1 ram_io0,
+  inout   uint1 ram_io1,
+  inout   uint1 ram_io2,
+  inout   uint1 ram_io3,
+  output  uint1 ram_clk,
+  output  uint1 ram_csn,
+  output  uint2 ram_bank(2b00),
+)
+// clocking (pll) and reset
+$$if ICE40 then
+<@clock_pll> {
+  uint1 clock_pll = uninitialized;
+  pll pllgen(
+    clock_in  <: clock,
+    clock_out :> clock_pll,
+  );
+$$else
+{
+$$end
+
+  // QPSRAM RAM
+  qpsram_ram ram(
+    ram_csn  :> ram_csn,
+    ram_clk  :> ram_clk,
+    ram_io0 <:> ram_io0,
+    ram_io1 <:> ram_io1,
+    ram_io2 <:> ram_io2,
+    ram_io3 <:> ram_io3,
+  );
+
+  // UART receiver
+  uart_in ui;
+  uart_receiver urecv(io <:> ui,uart_rx <: uart_rx);
+
+  // UART sender
+  uart_out uo;
+  uart_sender usend(
+    io      <:> uo,
+    uart_tx :>  uart_tx
+  );
+
+  uint1  enabled(0);
+  uint1  write(0);
+  uint1  restart(0);
+
+  uint32 addr(0);
+  uint4  get_addr(4b1111);
+
+  uint32 size_m1(0);
+  uint4  get_size(4b1111);
+
+  uint32 cur_addr(0);
+
+  uint32 blip(0);
+
+  always_before {
+    uo.data_in_ready = 0; // maintain low, pulse high to send
+    ram.in_ready     = 0; // maintain low, pulse high to read/write
+    ram.init         = 0; // maintain low, pulse high to init
+  }
+
+  algorithm {
+
+    // initialize all four banks
+$$for bank=0,3 do
+    ram_bank = $bank$;
+    ram.init = 1;
+    while (ram.busy) {}
+$$end
+
+    while (1) {
+      // wait for size and address
+      while (get_size[0,1]) { } // size arrives last
+      // do some work
+      int33 n      = size_m1;
+      ram.wenable  = write;
+      cur_addr     = addr;
+      while (~n[32,1]) { // stop on n negative
+        // receive from uart
+        while (write & ~ui.data_out_ready) { }
+        // read/write from psram
+        ram.addr     = {1b0,cur_addr[0,$bank_width$]};
+        ram_bank     = cur_addr[$bank_width$,2];
+        ram.in_ready = 1;
+        ram.wdata    = ui.data_out;
+        while (ram.busy) {}
+        // send over uart
+        uo.data_in       = ram.rdata;
+        uo.data_in_ready = ~write;
+        while (uo.busy) {}
+        // next
+        cur_addr = cur_addr + 1;
+        n        = n - 1;
+      }
+      restart = 1;
+    }
+  }
+
+  always_after {
+    leds         = {blip,write,0,ram_bank};
+    blip         = blip >> 1;
+    // receiving
+    if (ui.data_out_ready) {
+      // read size (if enabled and address received)
+      size_m1     = get_size[0,1] & ~get_addr[0,1]
+                  ? {size_m1[0,24],ui.data_out} : size_m1;
+      get_size    = enabled       & ~get_addr[0,1]
+                  ? get_size>>1 : get_size;
+      // read address (if enabled)
+      addr         = get_addr[0,1] ? {addr[0,24],ui.data_out} : addr;
+      get_addr     = enabled       ? get_addr>>1 : get_addr;
+      // pulse LEDs
+      blip         = enabled       ? 32hffffffff : 0;
+      // write? (top bit of enabling tag)
+      write        = ( ~enabled & (ui.data_out      == 8hD5) ) ? 1 : write;
+      // enable on tag
+      enabled      = ( enabled  | (ui.data_out[0,7] == 8h55));
+    } else {
+      if (restart) { // on restart
+        enabled  = 0;
+        get_size = 4b1111;
+        get_addr = 4b1111;
+        write    = 0;
+        restart  = 0;
+      }
+    }
+  }
+
+}

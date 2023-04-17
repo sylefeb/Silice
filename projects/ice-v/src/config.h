@@ -5,6 +5,10 @@
 #include "icestick/config.h"
 #endif
 
+#ifdef ICESTICK_RAM
+#include "icestick-ram/config.h"
+#endif
+
 #ifdef ICESTICK_CONVEYOR
 #include "icestick-conveyor/config.h"
 #endif

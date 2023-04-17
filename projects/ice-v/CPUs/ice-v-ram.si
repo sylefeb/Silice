@@ -1,14 +1,22 @@
-// SL 2022-03-16 @sylefeb
+// SL 2023-04-17 @sylefeb
+// ========================================================
 //
-// Compact dual core RV32I cpu, see IceVDual.md
+// Compact Risc-V RV32I CPU with RAM memory interface
+// Simple, compact, slow (4 cycles per instruction if on BRAM)
 //
-// NOTE: please get familiar with the ice-v first.
+// NOTE: Write byte memory interface
 //
+// NOTE: Please get familiar with the ice-v first.
+//
+// NOTE: Needs further clean-up, but works!
+//
+// ========================================================
 // https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
+// ========================================================
 
 $$if ICEV_FAST_SHIFT then
-$$print("Ice-V-dual-fermata configured for fast shift (barrel shifter)")
+$$print("Ice-V-ram configured for fast shift (barrel shifter)")
 $$end
 
 // --------------------------------------------------
@@ -19,24 +27,12 @@ $$if SIMULATION then
 $$VERBOSE = nil
 $$end
 
-$$CORE0 = 1   -- set to nil to disable debug output for core 0
-$$KILL0 = nil -- set to 1 to disable core 0
-
-$$CORE1 = 1   -- set to nil to disable debug output for core 1
-$$KILL1 = nil -- set to 1 to disable core 1
-
-$$if ICEV_RV32E then
-$$ print("Ice-V-dual configured for RV32E")
-$$ Nregs  = 16
-$$ cycleW = 32
-$$else
-$$ print("Ice-V-dual configured for RV32I")
+$$ print("--------------- Ice-V-ram ---------------")
 $$ Nregs  = 32
 $$ cycleW = 32
-$$end
 
 $$if ICEV_MULDIV then
-$$ print("Ice-V-dual configured with mul and div (*not* full RV32IM)")
+$$ print("Ice-V-ram configured with mul and div (*not* full RV32IM)")
 $$div_width  = 32
 $$div_signed = 1
 $include('../../common/divint_std.si')
@@ -54,14 +50,12 @@ bitfield Rtype { uint1 unused1, uint1 sign, uint4 unused2, uint1 muldiv,
 // execute: decoder + ALU
 // - decodes instructions
 // - performs all integer computations
-// - similar to ice-v, adds core_id and revised shifter
-// NOTE: same as ice-v dual, merge?
 
 algorithm execute(
   // instruction, program counter and registers
   input  uint32 instr,   input  uint$addrW$ pc, input int32 xa, input int32 xb,
   // trigger: pulsed high when the decoder + ALU should start
-  input  uint1  trigger, input   uint1  core_id,
+  input  uint1  trigger,
   // outputs all information the processor needs to decide what to do next
   output uint3  op,    output uint5  write_rd, output  uint1  no_rd,
   output uint1  jump,  output uint1  load,     output  uint1  store,
@@ -73,7 +67,7 @@ $$if ICEV_USERDATA then
 $$end
 ) {
   uint5        shamt(0); // shifter status
-  uint$cycleW$ cycle(0); // cycle counter
+  // uint$cycleW$ cycle(0); // cycle counter
 
   // ==== decode immediates
   int32 imm_u  <: {instr[12,20],12b0};
@@ -99,7 +93,7 @@ $$if ICEV_MULDIV then
 $$end
 
   // ==== select next address adder first input
-  int$addrW+3$ addr_a <: pcOrReg ? __signed({1b0,pc[0,$addrW-1$],2b0}) : xa;
+  int$addrW+3$ addr_a <: pcOrReg ? __signed({1b0,pc[0,$addrW$],2b0}) : xa;
   // ==== select ALU second input
   int32 b             <: regOrImm ? (xb) : imm_i;
 
@@ -132,11 +126,11 @@ $$end
   intop        := (IntImm | IntReg);   storeAddr    := AUIPC;
   // value to store directly
 $$if ICEV_USERDATA then
-  val          :=    (LUI                ? imm_u                 : 32b0)
-                |  ( (CSR &~instr[20,1]) ? {cycle[0,31],core_id} : 32b0)
-                |  ( (CSR & instr[20,1]) ? user_data             : 32b0);
+  val          :=    (LUI                ? imm_u      : 32b0)
+                |  ( (CSR &~instr[20,1]) ? cycle      : 32b0)
+                |  ( (CSR & instr[20,1]) ? user_data  : 32b0);
 $$else
-  val          := LUI ? imm_u : {cycle[0,31],core_id};
+  val          := LUI ? imm_u : 0; //cycle;
 $$end
   // store value?
   storeVal     := LUI | CSR;
@@ -222,7 +216,7 @@ $$end
 
 $$if VERBOSE then
     if (working) {
-      __display("[cycle %d] ALU busy",cycle);
+      // __display("[cycle %d] ALU busy",cycle);
     }
 $$end
 
@@ -238,7 +232,7 @@ $$end
     n = addr_a + addr_imm;
 
     // ==== increment cycle counter
-    cycle = cycle + 1;
+    // cycle = cycle + 1;
 
 $$if ICEV_ALU_LATCH then
     // ==== latch xa and b (fmax relief)
@@ -249,26 +243,26 @@ $$end
 }
 
 // --------------------------------------------------
-// Dual Risc-V RV32I CPU with dual memory interface
-// Ice-V dual fermata
-// ---- interleaved CPU stages ----
+// Risc-V RV32I CPU with RAM memory interface
+//
+// ---- CPU stages (same as dual on a single core) ----
+//
 // F:     instruction fetched
 // T:     trigger ALU+decode
 // LS1:   load/store stage 1
 // LS2/C: load/store stage 2, commit result to register
 //
 //  F  , T  , LS1, LS2/C
-//  0    x    1    x    // stage == 0  4b00
-//  x    0    x    1    // stage == 1  4b01
-//  1    x    0    x    // stage == 2  4b10
-//  x    1    x    0    // stage == 3  4b11
+//  0    _    _    _    // stage == 0  4b00
+//  _    0    _    _    // stage == 1  4b01
+//  _    _    0    _    // stage == 2  4b10
+//  _    _    _    0    // stage == 3  4b11
 //
-// At each cycle two states are active:
-// cycle i    F(0) + LS1  (1)
-// cycle i+1  T(0) + LS2/C(1)
-// cycle i+2  F(1) + LS1  (0)
-// cycle i+3  T(1) + LS2/C(0)
-// ...          ^          ^ active core
+// At each cycle a state is active:
+// cycle i    F    (0)
+// cycle i+1  T    (0)
+// cycle i+2  LS1  (0)
+// cycle i+3  LS2/C(0)
 //
 // RAM requests occur on
 // - LS1   in case of load/store
@@ -277,67 +271,52 @@ $$end
 
 // interface for ram user
 interface icev_ram_user {
-  output!  addr,      // memory address
-  output!  wenable,   // write enable
-  output!  wdata,     // data to be written
-  input    rdata,     // data read from memory
-  output!  req_valid, // pulses high when request is valid
-  input    done,      // pulses high when request is completed
+  output!  addr,        // memory address
+  output!  wenable,     // write enable
+  output!  byte_offset, // byte offset 0-3
+  output!  byte_size,   // byte size   1,2,4
+  output!  wdata,       // data to be written
+  input    rdata,       // data read from memory
+  output!  req_valid,   // pulses high when request is valid
+  input    done,        // pulses high when request is completed
 }
 
-algorithm icev_dual_fermata(
-  icev_ram_user mem0,
-  icev_ram_user mem1, // NOTE: both interface have to be the same widths
+unit icev_ram(
+  icev_ram_user mem,
 $$if ICEV_USERDATA then
   input uint32  user_data
 $$end
 ) {
 
   // register files, two BRAMs to fetch two registers at once
-  bram int32 xregsA_0[$Nregs$]={pad(0)}; bram int32 xregsB_0[$Nregs$]={pad(0)};
-  bram int32 xregsA_1[$Nregs$]={pad(0)}; bram int32 xregsB_1[$Nregs$]={pad(0)};
+  bram int32 xregsA[$Nregs$]={pad(0)}; bram int32 xregsB[$Nregs$]={pad(0)};
 
   // current instruction
-  uint32 instr_0($NOP$);
-  uint32 instr_1($NOP$);
+  uint32 instr($NOP$);
   uint1  instr_trigger(0);
 
-  // CPU dual stages
+  // CPU stages
   uint2  stage(0);
 
   // program counters
-  uint$addrW$ pc_0($Boot//4-1$);
-  uint$addrW$ pc_1($Boot//4-1$);
+  uint$addrW$ pc($Boot//4-1$);
   // next program counter
-  uint$addrW$ pc_plus1 <:: (stage[1,1] ? pc_0 : pc_1) + 1;
+  uint$addrW$ pc_plus1 <:: pc + 1;
 
   // value that has been loaded from memory
   int32 loaded = uninitialized;
 
   // decoder + ALU, executes the instruction and tells the processor what to do
-  uint32 instr <:: (stage[0,1]^stage[1,1]) ? instr_0 : instr_1;
-  uint32 pc    <:: (stage[0,1]^stage[1,1]) ? pc_0    : pc_1;
-  int32  xa    <:: (stage[0,1]^stage[1,1]) ? :xregsA_0.rdata : :xregsA_1.rdata;
-  int32  xb    <:: (stage[0,1]^stage[1,1]) ? :xregsB_0.rdata : :xregsB_1.rdata;
+  int32  xa    <:: :xregsA.rdata;
+  int32  xb    <:: :xregsB.rdata;
   execute exec(instr <: instr,pc <: pc, xa <: xa, xb <: xb);
 
-  // which memory interface is active?
-  uint1 i_mem_select <::   (stage[0,1]^stage[1,1]);
-  uint1 o_mem_select <:: ~ stage[1,1];
-  sameas(mem0.rdata)     i_mem_rdata(0);
-  sameas(mem0.addr)      i_mem_addr(0);
-  sameas(mem0.wdata)     o_mem_wdata(0);
-  sameas(mem0.wenable)   o_mem_wenable(0);
   // track received and pending requests
-  uint1                  reqmem0_instr(0);
-  uint1                  reqmem1_instr(0);
-  uint1                  reqmem0_ldst(0);
-  uint1                  reqmem1_ldst(0);
+  uint1                  reqmem_instr(0);
+  uint1                  reqmem_ldst(0);
   // did we receive new data?
-  uint1                  reqmem0_was_done(0);
-  uint1                  reqmem1_was_done(0);
-  uint1 reqmem0_done <:: reqmem0_was_done | :mem0.done;
-  uint1 reqmem1_done <:: reqmem1_was_done | :mem1.done;
+  uint1                  reqmem_was_done(0);
+  uint1 reqmem_done  <:: reqmem_was_done | :mem.done;
 
 $$if VERBOSE then
   uint32 cycle(0);
@@ -347,31 +326,23 @@ $$end
 
   // always block, done every cycle
   always {
-    uint32 aligned(0);
 $$if VERBOSE then
     if (~reset) {
-      __display("\n[cycle %d] ---------------- stage: %b ----- exec.working:%b mem0.done:%b(%b)=%h(@%h) mem1.done:%b(%d)=%h(@%h)",cycle,stage,exec.working,mem0.done,reqmem0_done,mem0.rdata,mem0.addr,mem1.done,reqmem1_done,mem1.rdata,mem1.addr);
+      //__display("\n[cycle %d] ---------------- stage: %b ----- exec.working:%b mem.done:%b(%b)=%h(@%h)",cycle,stage,exec.working,mem.done,reqmem_done,mem.rdata,mem.addr);
     }
 $$end
-    // read from selected memory
-    i_mem_rdata     = i_mem_select ? mem1.rdata : mem0.rdata;
-    i_mem_addr      = i_mem_select ? mem1.addr  : mem0.addr;
     // maintain request valid low
-    mem0.req_valid  = 0;
-    mem1.req_valid  = 0;
+    mem.req_valid   = 0;
+    mem.byte_offset = 0;
+    mem.byte_size   = 4;
 $$if VERBOSE then
-    if (i_mem_select) {
-      //__display("[cycle %d] IN  memory MEM 1, reqmem_done:%d, instr|load: %b|%b",cycle,reqmem1_done,reqmem1_instr,reqmem1_ldst);
-    } else {
-      //__display("[cycle %d] IN  memory MEM 0, reqmem_done:%d, instr|load: %b|%b",cycle,reqmem0_done,reqmem0_instr,reqmem0_ldst);
-    }
+    //__display("[cycle %d] IN  memory MEM, reqmem_done:%d, instr|load: %b|%b",cycle,reqmem_done,reqmem_instr,reqmem_ldst);
 $$end
     // decodes values loaded from memory (used when exec.load == 1)
-    aligned = i_mem_rdata >> {exec.n[0,2],3b000};
     switch ( exec.op[0,2] ) { // LB / LBU, LH / LHU, LW
-      case 2b00:{ loaded = {{24{(~exec.op[2,1])&aligned[ 7,1]}},aligned[ 0,8]}; }
-      case 2b01:{ loaded = {{16{(~exec.op[2,1])&aligned[15,1]}},aligned[ 0,16]};}
-      case 2b10:{ loaded = aligned;   }
+      case 2b00:{ loaded = {{24{(~exec.op[2,1])&mem.rdata[ 7,1]}},mem.rdata[ 0,8]}; }
+      case 2b01:{ loaded = {{16{(~exec.op[2,1])&mem.rdata[15,1]}},mem.rdata[ 0,16]};}
+      case 2b10:{ loaded = mem.rdata;   }
       default:  { loaded = {32{1bx}}; } // don't care
     }
     // what do we write in register? (pc, alu, val or load)
@@ -384,187 +355,118 @@ $$if ICEV_USERDATA then
     exec.user_data = user_data;
 $$end
     // what to write on a store (used when exec.store == 1)
-    o_mem_wdata    = stage[1,1] ? (xregsB_0.rdata << {exec.n[0,2],3b000})
-                                : (xregsB_1.rdata << {exec.n[0,2],3b000});
+    mem.wdata      = xregsB.rdata; // <- not shifted, byte interface with SOC
     // maintain write enable low (pulses high when needed)
-    mem0.wenable   = 4b0000;
-    mem1.wenable   = 4b0000;
-    o_mem_wenable  = 4b0000;
+    mem.wenable    = 0;
     // maintain alu trigger low
     exec.trigger   = 0;
     // maintain register wenable low
     // (pulsed when necessary)
-    xregsA_0.wenable = 0;
-    xregsA_1.wenable = 0;
+    xregsA.wenable = 0;
 
-    // dual state machine
+    // state machine
     // four states: F, T, LS1, LS2/commit
 $$if VERBOSE then
-    //__display("[cycle %d] ====== stage:%b reset:%b pc_0:%h pc_1:%h",cycle,stage,reset,pc_0,pc_1);
+    //__display("[cycle %d] ====== stage:%b reset:%b pc:%h",cycle,stage,reset,pc);
 $$end
 
     if ( ~ stage[0,1] ) { // even stage
 
-      // one core on F, one core on LS1
+      // either on F (~stage[1,1]), or on LS1 (stage[1,1])
 
       // F
-$$if KILL0 then
-      instr_0 = $NOP$;
-      pc_0    = 0;
-$$else
-      instr_0 = ~stage[1,1] & reqmem0_done & reqmem0_instr ? i_mem_rdata : instr_0;
-      pc_0    = ~stage[1,1] & reqmem0_done & reqmem0_instr ? i_mem_addr  : pc_0;
-$$end
-$$if KILL1 then
-      instr_1 = $NOP$;
-      pc_1    = 0;
-$$else
-      instr_1 = stage[1,1] & reqmem1_done & reqmem1_instr ? i_mem_rdata : instr_1;
-      pc_1    = stage[1,1] & reqmem1_done & reqmem1_instr ? i_mem_addr  : pc_1;
-$$end
-      // instruction fetch done?
-      if (i_mem_select) {
-        instr_trigger   =  reqmem1_done | reqmem1_instr; // trigger ALU only once
-        //                                ^^^^^^^^^^^^^^
+      instr = ~stage[1,1] & reqmem_done & reqmem_instr ? mem.rdata : instr;
+      pc    = ~stage[1,1] & reqmem_done & reqmem_instr ? mem.addr  : pc;
+      //       ^^^^^^^^^^ stage == 00
+      if (~stage[1,1]) {
+        // instruction fetch done?  // trigger ALU only once
+        instr_trigger   = ~stage[1,1] ? reqmem_done | reqmem_instr
+        //                                           ^^^^^^^^^^^^^^
         //                           required if ALU holds: stage repeats
-        reqmem1_instr   = ~reqmem1_done & reqmem1_instr;
-      } else {
-        instr_trigger   =  reqmem0_done | reqmem0_instr;
-        reqmem0_instr   = ~reqmem0_done & reqmem0_instr;
+                        : instr_trigger;
+        reqmem_instr    = ~stage[1,1] ? ~reqmem_done & reqmem_instr
+                        : reqmem_instr;
       }
-
 $$if VERBOSE then
       if (instr_trigger) {
         if (~stage[1,1]) {
-$$if CORE0 then
-          __display("[cycle %d] (0) F instr_0:%h (@%h)",cycle,instr_0,pc_0<<2);
-$$end
-        } else {
-$$if CORE1 then
-          __display("[cycle %d] (1) F instr_1:%h (@%h)",cycle,instr_1,pc_1<<2);
-$$end
+          __display("[cycle %d] (0) F instr:%h (@%h)",cycle,instr,pc<<2);
         }
       }
 $$end
 
       // LS1
       // memory address from which to load/store
-      if (o_mem_select) {
+      if (stage[1,1]) {
         uint1 do_load_store(0);
-        do_load_store   = ~exec.working & ~reqmem1_instr & ~reqmem1_ldst & (exec.load | exec.store);
+        do_load_store   = ~exec.working & ~reqmem_instr & ~reqmem_ldst & (exec.load | exec.store);
         //                ^^^^^^^^^^^^^   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         //                |               |
         //         ignore if ALU holds    |
         //                        ignore if waiting for instr or load/store
         //
-        mem1.addr       = do_load_store ? (exec.n >> 2) : mem1.addr;
-        reqmem1_ldst    = do_load_store ? 1 : reqmem1_ldst;
-        mem1.req_valid  = do_load_store;
-      } else {
-        uint1 do_load_store(0);
-        do_load_store   = ~exec.working & ~reqmem0_instr & ~reqmem0_ldst & (exec.load | exec.store);
-        mem0.addr       = do_load_store ? (exec.n >> 2) : mem0.addr;
-        reqmem0_ldst    = do_load_store ? 1 : reqmem0_ldst;
-        mem0.req_valid  = do_load_store;
+        mem.addr       = do_load_store ? (exec.n >> 2) : mem.addr;
+        reqmem_ldst    = do_load_store ? 1 : reqmem_ldst;
+        mem.req_valid  = do_load_store;
       }
-
-      // no need to know which core, since we only read from exec
+      // no need to check stage, since we only read from exec
       if (exec.store) {
         // == Store (enabled if exec.store == 1)
-        // build write mask depending on SB, SH, SW
         // assumes aligned, e.g. SW => next_addr[0,2] == 2
-        o_mem_wenable = ( { { 2{exec.op[0,2]==2b10} },
-                              exec.op[0,1] | exec.op[1,1], 1b1
-                          } ) << exec.n[0,2];
+        mem.wenable     = 1;
       }
+      mem.byte_size   = 1 << exec.op[0,2]; // gives 4,2 or 1
+      mem.byte_offset = exec.n[0,2];
 
 $$if VERBOSE then
       {
-        if (stage[1,1] & mem0.req_valid) {
-$$if CORE0 then
-          //__display("[cycle %d] (0) LS1(%b) @%h = %h (wen:%b)",cycle,mem0.req_valid,mem0.addr,o_mem_wdata,o_mem_wenable);
-$$end
-        }
-        if (~stage[1,1] & mem1.req_valid) {
-$$if CORE1 then
-          //__display("[cycle %d] (1) LS1(%b) @%h = %h (wen:%b)",cycle,mem1.req_valid,mem1.addr,o_mem_wdata,o_mem_wenable);
-$$end
+        if (stage[1,1] & mem.req_valid) {
+          //__display("[cycle %d] (0) LS1(%b) @%h = %h (wen:%b)",cycle,mem.req_valid,mem.addr,mem.wdata,mem.wenable);
         }
       }
 $$end
 
     } else { // stage odd
 
-      // one core on T, one core on LS2/commit
-
-      // T
-      // triggers exec for the core which has been selected at F cycle before
-      // registers are now in for it
-      exec.trigger = instr_trigger;
-      exec.core_id = stage[1,1];
+      // either on T (~stage[1,1]), or LS2/commit (stage[1,1])
 
 $$if VERBOSE then
       if (instr_trigger) {
         if (~stage[1,1]) {
-$$if CORE0 then
           //__display("[cycle %d] (0) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,
           //  instr,pc,
-          //  xregsA_0.addr,xregsA_0.rdata,xregsB_0.addr,xregsB_0.rdata);
-$$end
-        } else {
-$$if CORE1 then
-          //__display("[cycle %d] (1) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,
-          //  instr,pc,
-          //  xregsA_1.addr,xregsA_1.rdata,xregsB_1.addr,xregsB_1.rdata);
-$$end
+          //  xregsA.addr,xregsA.rdata,xregsB_0.addr,xregsB_0.rdata);
         }
       }
 $$end
+      // T
+      // triggers exec for the core which has been selected at F cycle before
+      // registers are now in for it
+      exec.trigger = instr_trigger;
       instr_trigger = 0;
 
       // LS2/commit
 
       // commit result
-      xregsA_0.wenable =  stage[1,1] ? (~exec.no_rd & ~reqmem0_instr) : 0;
-      xregsA_1.wenable = ~stage[1,1] ? (~exec.no_rd & ~reqmem1_instr) : 0;
-      //                                              ^^^^^^^^^^^^^^
+      xregsA.wenable = stage[1,1] ? (~exec.no_rd & ~reqmem_instr) : 0;
+      //                                           ^^^^^^^^^^^^^^
       //                                 ignore if waiting for an instruction
       // load/store done?
-      if (i_mem_select) {
-        reqmem1_ldst   = ~reqmem1_done & reqmem1_ldst;
-      } else {
-        reqmem0_ldst   = ~reqmem0_done & reqmem0_ldst;
-      }
+      reqmem_ldst    = stage[1,1] ? ~reqmem_done & reqmem_ldst : reqmem_ldst;
 $$if VERBOSE then
-$$if CORE0 then
-      if (xregsA_0.wenable) {
-        //__display("[cycle %d] (0) LS2/C xr[%d]=%h",
-        //  cycle,exec.write_rd,write_back);
+      if (xregsA.wenable) {
+        __display("[cycle %d] (0) LS2/C xr[%d]=%h (mem.rdata:%x)",cycle,exec.write_rd,write_back,mem.rdata);
       }
-$$end
-$$if CORE1 then
-      if (xregsA_1.wenable) {
-        //__display("[cycle %d] (1) LS2/C xr[%d]=%h",
-        //  cycle,exec.write_rd,write_back);
-      }
-$$end
 $$end
       // prepare instruction fetch
       // instruction fetch in progress
-      if (o_mem_select) {
+      if (stage[1,1]) {
         uint1 do_fetch(0);
-        do_fetch        = ~exec.working & ~reqmem1_ldst & ~reqmem1_instr;
-        mem1.addr       = do_fetch ? (exec.jump ? (exec.n >> 2) : pc_plus1)
-                                   : mem1.addr;
-        reqmem1_instr   = do_fetch ? 1 : reqmem1_instr;
-        mem1.req_valid  = do_fetch;
-      } else {
-        uint1 do_fetch(0);
-        do_fetch        = ~exec.working & ~reqmem0_ldst & ~reqmem0_instr;
-        mem0.addr       = do_fetch ? (exec.jump ? (exec.n >> 2) : pc_plus1)
-                                   : mem0.addr;
-        reqmem0_instr   = do_fetch ? 1 : reqmem0_instr;
-        mem0.req_valid  = do_fetch;
+        do_fetch       = ~exec.working & ~reqmem_ldst & ~reqmem_instr;
+        mem.addr       = do_fetch ? (exec.jump ? (exec.n >> 2) : pc_plus1)
+                                   : mem.addr;
+        reqmem_instr   = do_fetch ? 1 : reqmem_instr;
+        mem.req_valid  = do_fetch;
       }
 
     }
@@ -576,28 +478,16 @@ $$if VERBOSE then
 $$end
 
     // write back data to both register BRAMs
-    xregsA_0.wdata   = write_back;      xregsB_0.wdata   = write_back;
-    xregsA_1.wdata   = write_back;      xregsB_1.wdata   = write_back;
+    xregsA.wdata   = write_back;      xregsB.wdata   = write_back;
     // xregsB written when xregsA is
-    xregsB_0.wenable = xregsA_0.wenable;
-    xregsB_1.wenable = xregsA_1.wenable;
+    xregsB.wenable = xregsA.wenable;
     // write to write_rd, else track instruction register
-    xregsA_0.addr    = xregsA_0.wenable ? exec.write_rd : Rtype(instr_0).rs1;
-    xregsB_0.addr    = xregsA_0.wenable ? exec.write_rd : Rtype(instr_0).rs2;
-    xregsA_1.addr    = xregsA_1.wenable ? exec.write_rd : Rtype(instr_1).rs1;
-    xregsB_1.addr    = xregsA_1.wenable ? exec.write_rd : Rtype(instr_1).rs2;
-    // write to selected memory
-    if (o_mem_select) {
-      mem1.wdata     = o_mem_wdata;
-      mem1.wenable   = o_mem_wenable;
-    } else {
-      mem0.wdata     = o_mem_wdata;
-      mem0.wenable   = o_mem_wenable;
-    }
-    reqmem0_was_done = mem0.req_valid ? 0 : (mem0.done|reqmem0_was_done);
-    reqmem1_was_done = mem1.req_valid ? 0 : (mem1.done|reqmem1_was_done);
+    xregsA.addr    = xregsA.wenable ? exec.write_rd : Rtype(instr).rs1;
+    xregsB.addr    = xregsA.wenable ? exec.write_rd : Rtype(instr).rs2;
+    // write to memory
+    reqmem_was_done = mem.req_valid ? 0 : (mem.done|reqmem_was_done);
 $$if VERBOSE then
-    // __display("[cycle %d] mem0 @%h(%b)w:%b mem1 @%h(%b)w:%b",cycle,mem0.addr,mem0.req_valid,mem0.wenable,mem1.addr,mem1.req_valid,mem1.wenable);
+    //__display("[cycle %d] mem @%h(%b)w:%b ",cycle,mem.addr,mem.req_valid,mem.wenable);
 $$end
 
 $$if VERBOSE then

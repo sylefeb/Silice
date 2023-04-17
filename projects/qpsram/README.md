@@ -1,27 +1,42 @@
 # QPI-PSRAM writer and loader
 
-This tool is used to store data from UART into SPRAM (Quad SPI).
-Typically this would be used to put data in SPRAM before switching to a
-design that expects this data to be there. As long as the badge has
-power, the written data remains in SPRAM.
+This is a small design to help store and read data from SPRAM (Quad SPI) through UART.
 
-> Tested on the mch2022 badge, icebreaker and icestick with
-> the [QQSPI pmod](https://machdyne.com/product/qqspi-psram32/).
+Typically this would be used to put data in SPRAM before switching to a
+design that expects this data to be there. As long as the board has
+power, the written data should remain in SPRAM.
+
+> Tested on the mch2022 badge (built-in SPRAM),
+> icebreaker and icestick ([QQSPI pmod](https://machdyne.com/product/qqspi-psram32/)).
 
 ___
 
-To build the writer, run
-```make <board> -f Makefile.write```
+> Prebuild bitstreams are in `bistreams`.
+
+To build, run
+```
+make <board>
+```
 
 To send data, run
-```python send.py <uart port> 0 <file>``` where `<uart port>` is
+```
+python xfer.py <uart port> w <offset> <file>
+```
+where `<uart port>` is
 typically `/dev/ttyACM1` under Linux and e.g. `COM6` under Windows.
+`offset` is the address where to store in SPRAM and `file` is the data file.
+
+To read data, run
+```
+python xfer.py <uart port> r <offset> <size>
+```
+where `<uart port>` is
+typically `/dev/ttyACM1` under Linux and e.g. `COM6` under Windows.
+`offset` is the address where to store in SPRAM and `size` is the number of byte to read. The received data is displayed in the console.
 
 ___
 
-To build the reader, run
-```make <board> -f Makefile.read```
+## Limitations
 
-To read data, run
-```python get.py <uart port> 0``` where `<uart port>` is
-typically `/dev/ttyACM1` under Linux and e.g. `COM6` under Windows.
+- If the transfer is interrupted (e.g. CTRL-C) the design will end up in an undetermined state. Simply reprogram the board.
+- When experimenting with QPI it can happen that interrupted or wrong commands put the SPRAM in a state that cannot be easily recovered from. In such cases unplug the board, plug again, reprogram (keep in mind the SPRAM is *not* reset when reprogramming the FPGA).

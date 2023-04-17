@@ -3,23 +3,24 @@
 // https://github.com/sylefeb/Silice
 //
 // ========================================================
-// IMPORTANT: on the ice40, use icepack -s
-// ========================================================
 //
-// NOTE: this is largely based on Silice/projects/spiflash/spiflash2x.si
-//       see this design for more info and simulation
+// IMPORTANT: Pulse init once to initialize the RAM in QPI
+//            and wait for busy to be done.
+//            Otherwise the interface will NOT work.
+//
+// ========================================================
 
 import('ddr_clock.v')
 
-$$if not SIMULATION then
+$$if not SIMULATION and ICE40 then
 import('ice40_sb_io_inout.v')
 import('ice40_sb_io.v')
 $$end
 
 $$if VERILATOR then
-import('verilator_data.v') // this is a feature supported by Silice
-                           // verilator framework to access raw data
-                           // stored in a 'data.raw' file
+import('verilator_data_rw.v') // this is a feature supported by Silice
+                              // verilator framework to access raw data
+                              // stored in a 'data.raw' file
 $$end
 
 algorithm qpsram_qspi(
@@ -106,12 +107,17 @@ $$end
 
 unit qpsram_ram(
   input   uint1  in_ready,
+  input   uint1  init,     // whether the RAM needs initialization
+$$if SIMULATION then
+  input   uint32 addr,
+$$else
   input   uint24 addr,
+$$end
   output  uint8  rdata,
   input   uint8  wdata,
   input   uint1  wenable,
-  output  uint1  busy(1),
-  output  uint1  rdata_available(0),
+  output  uint1  busy(0),
+  output  uint1  data_next(0),
   // QPSRAM io
   output  uint1  ram_csn(1),
   output  uint1  ram_clk,
@@ -121,7 +127,7 @@ unit qpsram_ram(
   inout   uint1  ram_io3,
 ) {
 
-  uint40 sendvec(0);
+  uint32 sendvec(0);
 
   qpsram_qspi spi<reginputs>(
     clk     :> ram_clk,
@@ -136,13 +142,12 @@ unit qpsram_ram(
   uint5  sending(0);
   uint3  stage(1);
   uint3  after(0);
-  uint1  init(1);
   uint1  send_else_read(0);
   uint1  accept_in(0);
   uint1  continue(0);
 
 $$if VERILATOR then
-  verilator_data vdta(clock <: clock);
+  verilator_data_rw vdta(clock <: clock);
   uint32 cycle(0);
 $$end
 
@@ -150,9 +155,12 @@ $$end
 
     spi.send_else_read = send_else_read;
     accept_in          = 0;
-    rdata_available    = 0;
+    data_next          = 0;
     // continue while in_ready stays high
     continue           = continue & in_ready;
+$$if VERILATOR then
+    vdta.wenable       = 0;
+$$end
 
     switch (stage)
     {
@@ -165,60 +173,69 @@ $$end
       }
       case 2: {
         spi.trigger             = 1;
-        spi.send                = sendvec[32,8];
-        sendvec                 = sendvec << 8;
+        spi.send                = sendvec[24,8];
+        sendvec                 = {sendvec[0,24],8b0};
         stage                   = 0; //  wait
         wait                    = 16; //_ 2 cycles
-        after                   = sending[0,1] ? (wenable ? 4 : 3) : 2;
+        after                   = sending[0,1] ? 3 : 2;
         sending                 = sending >> 1;
-      }
+        }
       case 3: {
+        send_else_read          = wenable;
         spi.trigger             = ~init;
-        send_else_read          = 0;
-        spi.send                = 0;
+        spi.send                = wdata;
+        data_next               = wenable;
         stage                   = 0; //  wait
-        wait                    = 7; //_ 11 cycles
+        wait                    = wenable ? 16 : 7; //_ 11 cycles
         after                   = 4;
 $$if VERILATOR then
         vdta.addr               = addr;
+        if (wenable) {
+          vdta.wenable = 1;
+          vdta.wdata   = spi.send;
+        }
 $$end
       }
       case 4: {
   $$if VERILATOR then
-        rdata                   = vdta.data;  // from 'data.raw'
+        rdata                   = vdta.rdata;  // from 'data.raw'
+        vdta.wdata              = wdata;
+        vdta.wenable            = wenable & continue;
         vdta.addr               = vdta.addr + 1;
   $$else
         rdata                   = spi.read;
   $$end
-        rdata_available         = 1;
+        data_next               = 1;
         spi.trigger             = continue;
+        spi.send                = wdata;
         busy                    = continue;
-        init                    = 0;
         wait                    = 16; //_ 2 cycles
         // return to start stage if no further reads, otherwise wait and ...
         stage                   = ~continue ? 1 : 0;
-        after                   = 4; // ... keep reading
+        after                   = 4; // ... keep going
         accept_in               = ~continue; // accept an input immediately
 $$if SIMULATION then
-        // __display("[%d](%d) qpsram [4] (%x) in_ready:%b accept_in:%b",cycle,cycle>>1,rdata,in_ready,accept_in);
+        //__display("[%d] qpsram [4] (%x|%x) w:%b in_ready:%b accept_in:%b",cycle,rdata,wdata,wenable,in_ready,accept_in);
 $$end
       }
+      // default: { }
     } // switch
 
     // start sending?
     if ((in_ready | init) & accept_in & ~reset) {
-      sending = wenable ? 5b10000 : 5b01000;
-      sendvec = init    ? {32b00000000000100010000000100000001,8b0}
+      //__display("----- qpsram starting, @%x (wdata:%x)",addr,wdata);
+      sending = 5b01000;
+      sendvec = init    ? {32b00000000000100010000000100000001}
       //                   ^^^^^^^^^^ produces 35h when not in QPI
-                        : {wenable ? 8h02 : 8hEB,addr,wdata};
+                        : {wenable ? 8h02 : 8hEB,addr};
       send_else_read = 1; // sending
       busy           = 1;
       stage          = 2;
       continue       = 1; // reset continue
-      }
+    }
 
 $$if VERILATOR then
-      cycle = cycle + 1;
+    cycle = cycle + 1;
 $$end
   }
 }

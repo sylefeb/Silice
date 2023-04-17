@@ -8,7 +8,11 @@ void main()
 {
   volatile int i = 0;
 
-  *LEDS = 0x0f;
+  *((volatile unsigned char *)(LEDS)+1) = 0xba;
+  *((volatile unsigned short*)(LEDS)+1) = 0xbeef;
+
+  unsigned char  t_c = *((volatile unsigned char *)(LEDS)+1);
+  unsigned short t_s = *((volatile unsigned short*)(LEDS)+1);
 
   int l = 1;
 
@@ -18,7 +22,8 @@ void main()
       l = 1;
     }
     *LEDS = l;
-    for (i=0;i<655360;i++) { }
+    // for (i=0;i<655360;i++) { asm volatile ("nop;"); }
+    for (i=0;i<655360;i++) {  }
   }
 
 }

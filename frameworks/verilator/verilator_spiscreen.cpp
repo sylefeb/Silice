@@ -59,9 +59,9 @@ void step()
   g_Design->eval();
   // evaluate screen
   g_Screen->eval(
-      g_Design->oled_clk,
-      g_Design->oled_mosi, g_Design->oled_dc,
-      g_Design->oled_csn,  g_Design->oled_resn);
+      g_Design->spiscreen_clk,
+      g_Design->spiscreen_mosi, g_Design->spiscreen_dc,
+      g_Design->spiscreen_csn,  g_Design->spiscreen_resn);
   // increment time
   g_MainTime ++;
 }

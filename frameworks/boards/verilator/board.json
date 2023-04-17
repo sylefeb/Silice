@@ -8,6 +8,7 @@
         {"set"    : "basic"},
         {"set"    : "vga", "define" : "VGA=1"},
         {"set"    : "oled", "define" : "OLED=1"},
+        {"set"    : "spiscreen", "define" : "SPISCREEN=1"},
         {"set"    : "sdram", "define" : "SDRAM=1"}
       ],
       "builders": [

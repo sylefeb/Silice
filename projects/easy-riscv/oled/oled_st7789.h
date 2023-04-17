@@ -78,7 +78,7 @@ void oled_fullscreen()
   WAIT;
   oled(OLED_DTA | 0x01); // 0x140 == 320
   WAIT;
-  oled(OLED_DTA | 0x40);  
+  oled(OLED_DTA | 0x40);
   WAIT;
   // initiate write
   oled(OLED_CMD | 0x2c);
@@ -97,9 +97,9 @@ static inline void oled_pix(unsigned char r,unsigned char g,unsigned char b)
 
 void oled_clear(unsigned char c)
 {
-  for (int v=0;v<128;v++) {
-    for (int u=0;u<128;u++) {
+  for (int v=0;v<320;v++) {
+    for (int u=0;u<240;u++) {
       oled_pix(c,c,c);
-    }  
+    }
   }
 }

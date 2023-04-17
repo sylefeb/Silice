@@ -237,17 +237,13 @@ M_main __main(
   .inout_ram_io3(P1A8),
   .out_ram_clk(P1A4),
   .out_ram_csn(P1A1),
+  .out_ram_bank({P1A10,P1A9}),
 `endif
 `ifdef EXTRAS
   .inout_extras({P1B10,P1B9,RGB_B,RGB_G,RGB_R}),
 `endif
   .in_run(run_main)
 );
-
-`ifdef PMOD_QQSPI
-  assign P1A9  = 1'b0;
-  assign P1A10 = 1'b0;
-`endif
 
 assign LED4 = __main_leds[0+:1];
 assign LED3 = __main_leds[1+:1];
