@@ -87,10 +87,9 @@ interface ram_provider {
   input     byte_size,
   input     byte_offset,
   input     wdata,
-  output(!) rdata,
+  output    rdata,
   input     req_valid,
-  output(!) done
-  //    ^ ^ inform Silice to not worry about comb cycles through these
+  output    done
 }
 
 // --------------
@@ -100,7 +99,7 @@ unit qqspi_memory(
   inout   uint1 ram_io0,  inout  uint1 ram_io1,
   inout   uint1 ram_io2,  inout  uint1 ram_io3,
   output  uint1 ram_clk,  output uint1 ram_csn,
-  output  uint2 ram_bank(0),
+  output  uint2 ram_bank,
 ) {
   $$if SIMULATION then
   uint32 cycle(0);
@@ -199,7 +198,7 @@ $$if PMOD_QQSPI then
   inout   uint1 ram_io3,
   output  uint1 ram_clk,
   output  uint1 ram_csn,
-  output  uint2 ram_bank(0),
+  output  uint2 ram_bank,
 $$end
 $$if UART then
   output  uint1 uart_tx,
@@ -324,7 +323,7 @@ $$end
 
 $$if SIMULATION then
     cycle       = cycle + 1;
-    // if (cycle == 1000000) { __finish(); } // stops sim after n cycles
+    // if (cycle == 1024) { __finish(); } // stops sim after n cycles
 $$end
   }
 
