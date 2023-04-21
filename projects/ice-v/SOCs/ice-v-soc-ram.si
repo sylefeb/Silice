@@ -328,8 +328,8 @@ $$if SPISCREEN then
     // display
     display.enable     = 0;  // maintain low
 $$if SIMULATION then
-   spiscreen_clk  = screen_clk; spiscreen_mosi = screen_mosi; // assign pins
-   spiscreen_dc   = screen_dc;  spiscreen_resn = screen_resn;
+    spiscreen_clk  = screen_clk; spiscreen_mosi = screen_mosi; // assign pins
+    spiscreen_dc   = screen_dc;  spiscreen_resn = screen_resn;
 $$end
 $$end
 
