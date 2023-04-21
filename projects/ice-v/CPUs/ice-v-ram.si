@@ -46,6 +46,230 @@ $$if not Boot then Boot = 0 end
 bitfield Rtype { uint1 unused1, uint1 sign, uint4 unused2, uint1 muldiv,
                  uint5 rs2,     uint5 rs1,  uint3 op, uint5 rd, uint7 opcode}
 
+
+// --------------------------------------------------
+// Risc-V RV32I CPU with RAM memory interface
+//
+// ---- CPU stages (same as dual on a single core) ----
+//
+// F:     instruction fetched, setup regs
+// T:     trigger ALU+decode
+// LS1:   load/store stage 1, setup RAM (optional, on load/store)
+// LS2/C: load/store stage 2, commit result to register, setup RAM (instr)
+//
+// NOTE: that no state is waiting both on ALU and RAM
+//       it is not possible for RAM to deliver a request while we wait on ALU
+//
+// LS1         might wait on ALU
+// LS2/C and F might wait on RAM
+//
+// At each cycle a single state is active:
+// cycle i    F    (0)
+// cycle i+1  T    (0)
+// cycle i+2  LS1  (0)
+// cycle i+3  LS2/C(0)
+//
+// ---------------------------------
+
+// interface for ram user
+interface icev_ram_user {
+  output!  addr,        // memory address
+  output!  wenable,     // write enable
+  output!  byte_offset, // byte offset 0-3
+  output!  byte_size,   // byte size   1,2,4
+  output!  wdata,       // data to be written
+  input    rdata,       // data read from memory
+  output!  req_valid,   // pulses high when request is valid
+  input    done,        // pulses high when request is completed
+}
+
+unit icev_ram(
+  icev_ram_user mem,
+$$if ICEV_USERDATA then
+  input uint32  user_data
+$$end
+) {
+
+  // register files, two BRAMs to fetch two registers at once
+  bram int32 xregsA[$Nregs$]={pad(0)}; bram int32 xregsB[$Nregs$]={pad(0)};
+
+  // current instruction
+  uint32 instr($NOP$);
+  uint1  instr_trigger(0);
+
+  // CPU stages
+  uint4  stage(4b1000);
+
+  // program counters
+  uint$addrW$ pc($Boot//4-1$);
+  // next program counter
+  uint$addrW$ pc_plus1 <:: pc + 1;
+
+  // value that has been loaded from memory
+  int32 loaded = uninitialized;
+
+  // decoder + ALU, executes the instruction and tells the processor what to do
+  execute exec(instr <: instr,pc <: pc, xa <: xregsA.rdata, xb <: xregsB.rdata);
+
+$$if VERBOSE then
+  uint32 cycle(0);
+$$end
+
+  int32 write_back(0);
+  uint1 do_load_store(0);
+  uint1 do_fetch(0);
+
+  // track pending RAM requests
+  uint1 reqmem(0);
+  // a RAM request is done if we are expecting it and memory signals its done
+  uint1 reqmem_done    <:: reqmem & :mem.done & ~reset;
+  // a RAM request is pending if there was one and it is still not done
+  uint1 reqmem_pending <:: reqmem & ~reqmem_done;
+
+  // always block, done every cycle
+  always {
+$$if VERBOSE then
+    if (~reset) {
+      //__display("\n[cycle %d] ---------------- stage: %b ----- exec.working:%b mem.done:%b(%b|%b)=%h(@%h)",cycle,stage,exec.working,mem.done,reqmem,reqmem_done,mem.rdata,mem.addr);
+      //__display("[cycle %d] RAM, reqmem_done:%d, reqmem: %b",cycle,reqmem_done,reqmem);
+    }
+$$end
+    // maintain request valid low
+    mem.req_valid   = 0;
+    do_load_store   = 0;
+    do_fetch        = 0;
+    // defaults to reading 32bits words
+    mem.byte_offset = 0;
+    mem.byte_size   = 4;
+    // decodes values loaded from memory (used when exec.load == 1)
+    switch ( exec.op[0,2] ) { // LB / LBU, LH / LHU, LW
+      case 2b00:{ loaded = {{24{(~exec.op[2,1])&mem.rdata[ 7,1]}},mem.rdata[ 0,8]}; }
+      case 2b01:{ loaded = {{16{(~exec.op[2,1])&mem.rdata[15,1]}},mem.rdata[ 0,16]};}
+      case 2b10:{ loaded = mem.rdata;   }
+      default:  { loaded = {32{1bx}}; } // don't care
+    }
+    // what do we write in register? (pc, alu, val or load)
+    write_back =      (exec.jump      ? (pc_plus1<<2)       : 32b0)
+                    | (exec.storeAddr ? exec.n[0,$addrW+2$] : 32b0)
+                    | (exec.storeVal  ? exec.val            : 32b0)
+                    | (exec.load      ? loaded              : 32b0)
+                    | (exec.intop     ? exec.r              : 32b0);
+$$if ICEV_USERDATA then
+    exec.user_data = user_data;
+$$end
+    // what to write on a store (used when exec.store == 1)
+    mem.wdata      = xregsB.rdata; // <- not shifted, byte interface with SOC
+    // maintain write enable low (pulses high when needed)
+    mem.wenable    = 0;
+    // maintain alu trigger low
+    exec.trigger   = 0;
+    // maintain register wenable low
+    // (pulsed when necessary)
+    xregsA.wenable = 0;
+
+$$if VERBOSE then
+    //__display("[cycle %d] ====== stage:%b reset:%b pc:%h",cycle,stage,reset,pc);
+$$end
+
+    // four states: F, T, LS1, LS2/commit
+    onehot (stage) {
+      case 0: {
+        // ---- F
+        // may wait on RAM from previous fetch
+        instr         = reqmem_done ? mem.rdata : instr;
+        pc            = reqmem_done ? mem.addr  : pc;
+        // instruction fetch done?
+        instr_trigger = reqmem_done;
+$$if VERBOSE then
+        if (instr_trigger) {
+          __display("[cycle %d] (0) F instr:%h (@%h)",cycle,instr,pc<<2);
+        }
+$$end
+      }
+      case 1: {
+  $$if VERBOSE then
+        if (instr_trigger) {
+          //__display("[cycle %d] (0) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,instr,pc,xregsA.addr,xregsA.rdata,xregsB_0.addr,xregsB_0.rdata);
+        }
+  $$end
+        // ---- T
+        // registers are now in, triggers exec
+        exec.trigger  = instr_trigger;
+        instr_trigger = 0;
+      }
+      case 2: {
+        // ---- LS1
+        // may wait on ALU
+        do_load_store = ~exec.working & (exec.load | exec.store);
+        //              ^^^^^^^^^^^^^
+        //             wait if ALU holds
+        // memory address from which to load/store
+        mem.addr       = (exec.n >> 2);
+        mem.req_valid  = do_load_store;
+        // store if exec.store == 1
+        mem.wenable     = exec.store;
+        mem.byte_size   = 1 << exec.op[0,2]; // gives 4,2 or 1
+        mem.byte_offset = exec.n[0,2];
+$$if VERBOSE then
+        if (mem.req_valid) {
+          __display("[cycle %d] (0) LS1(%b) @%h = %h (wen:%b)",cycle,mem.req_valid,mem.addr,mem.wdata,mem.wenable);
+        }
+$$end
+      }
+      case 3: {
+        // ---- LS2/commit
+        // may wait on RAM
+        // commit result
+        xregsA.wenable = ~exec.no_rd & ~reqmem_pending;
+        //                              ^^^^^^^^^^^^^^
+        //                           wait on RAM if request pending
+$$if VERBOSE then
+        if (xregsA.wenable) {
+          //__display("[cycle %d] (0) LS2/C xr[%d]=%h (mem.rdata:%x)",cycle,exec.write_rd,write_back,mem.rdata);
+        }
+$$end
+        // prepare instruction fetch
+        // instruction fetch in progress
+        do_fetch       = ~reqmem_pending;
+        //                 ^^^^^^^^^^^^^^
+        //                wait on RAM from load/store
+        mem.addr       = do_fetch ? (exec.jump ? (exec.n >> 2) : pc_plus1)
+                                  : mem.addr; // <= preserve addr is RAM is busy
+        mem.req_valid  = do_fetch;
+      }
+    }
+
+    // advance states unless reset, waiting on ALU or RAM
+    stage       = (exec.working | reset | reqmem_pending)
+                ? stage : {stage[0,3],stage[3,1]};
+    // pending memory request?
+    reqmem      = do_fetch | do_load_store | reqmem_pending;
+    //            ^^^^^^^    ^^^^^^^         ^^^^^^^^^^^^^^
+    //            on fetch,  on load/store,  or previous still active
+
+$$if VERBOSE then
+    if (reset) { __display("[cycle %d] reset (reqmem:%b reqmem_done:%b)",cycle,reqmem,reqmem_done); }
+$$end
+
+    // write back data to both register BRAMs
+    xregsA.wdata    = write_back;      xregsB.wdata   = write_back;
+    // xregsB written when xregsA is
+    xregsB.wenable  = xregsA.wenable;
+    // write to write_rd, else track instruction register
+    xregsA.addr     = xregsA.wenable ? exec.write_rd : Rtype(instr).rs1;
+    xregsB.addr     = xregsA.wenable ? exec.write_rd : Rtype(instr).rs2;
+$$if VERBOSE then
+    // __display("[cycle %d] mem @%h(%b)w:%b ",cycle,mem.addr,mem.req_valid,mem.wenable);
+$$end
+
+$$if VERBOSE then
+    cycle = cycle + 1;
+$$end
+
+  }
+
+}
+
 // --------------------------------------------------
 // execute: decoder + ALU
 // - decodes instructions
@@ -238,229 +462,6 @@ $$if ICEV_ALU_LATCH then
     // ==== latch xa and b (fmax relief)
     ra = xa; rb = b;
 $$end
-  }
-
-}
-
-// --------------------------------------------------
-// Risc-V RV32I CPU with RAM memory interface
-//
-// ---- CPU stages (same as dual on a single core) ----
-//
-// F:     instruction fetched, setup regs
-// T:     trigger ALU+decode
-// LS1:   load/store stage 1, setup RAM (optional, on load/store)
-// LS2/C: load/store stage 2, commit result to register, setup RAM (instr)
-//
-// NOTE: that no state is waiting both on ALU and RAM
-//       it is not possible for RAM to deliver a request while we wait on ALU
-//
-// LS1         might wait on ALU
-// LS2/C and F might wait on RAM
-//
-// At each cycle a single state is active:
-// cycle i    F    (0)
-// cycle i+1  T    (0)
-// cycle i+2  LS1  (0)
-// cycle i+3  LS2/C(0)
-//
-// ---------------------------------
-
-// interface for ram user
-interface icev_ram_user {
-  output!  addr,        // memory address
-  output!  wenable,     // write enable
-  output!  byte_offset, // byte offset 0-3
-  output!  byte_size,   // byte size   1,2,4
-  output!  wdata,       // data to be written
-  input    rdata,       // data read from memory
-  output!  req_valid,   // pulses high when request is valid
-  input    done,        // pulses high when request is completed
-}
-
-unit icev_ram(
-  icev_ram_user mem,
-$$if ICEV_USERDATA then
-  input uint32  user_data
-$$end
-) {
-
-  // register files, two BRAMs to fetch two registers at once
-  bram int32 xregsA[$Nregs$]={pad(0)}; bram int32 xregsB[$Nregs$]={pad(0)};
-
-  // current instruction
-  uint32 instr($NOP$);
-  uint1  instr_trigger(0);
-
-  // CPU stages
-  uint4  stage(4b1000);
-
-  // program counters
-  uint$addrW$ pc($Boot//4-1$);
-  // next program counter
-  uint$addrW$ pc_plus1 <:: pc + 1;
-
-  // value that has been loaded from memory
-  int32 loaded = uninitialized;
-
-  // decoder + ALU, executes the instruction and tells the processor what to do
-  execute exec(instr <: instr,pc <: pc, xa <: xregsA.rdata, xb <: xregsB.rdata);
-
-$$if VERBOSE then
-  uint32 cycle(0);
-$$end
-
-  int32 write_back(0);
-  uint1 do_load_store(0);
-  uint1 do_fetch(0);
-
-  // track pending RAM requests
-  uint1 reqmem(0);
-  // a RAM request is done if we are expecting it and memory signals its done
-  uint1 reqmem_done    <:: reqmem & :mem.done & ~reset;
-  // a RAM request is pending if there was one and it is still not done
-  uint1 reqmem_pending <:: reqmem & ~reqmem_done;
-
-  // always block, done every cycle
-  always {
-$$if VERBOSE then
-    if (~reset) {
-      __display("\n[cycle %d] ---------------- stage: %b ----- exec.working:%b mem.done:%b(%b|%b)=%h(@%h)",cycle,stage,exec.working,mem.done,reqmem,reqmem_done,mem.rdata,mem.addr);
-      __display("[cycle %d] RAM, reqmem_done:%d, reqmem: %b",cycle,reqmem_done,reqmem);
-    }
-$$end
-    // maintain request valid low
-    mem.req_valid   = 0;
-    do_load_store   = 0;
-    do_fetch        = 0;
-    // defaults to reading 32bits words
-    mem.byte_offset = 0;
-    mem.byte_size   = 4;
-    // decodes values loaded from memory (used when exec.load == 1)
-    switch ( exec.op[0,2] ) { // LB / LBU, LH / LHU, LW
-      case 2b00:{ loaded = {{24{(~exec.op[2,1])&mem.rdata[ 7,1]}},mem.rdata[ 0,8]}; }
-      case 2b01:{ loaded = {{16{(~exec.op[2,1])&mem.rdata[15,1]}},mem.rdata[ 0,16]};}
-      case 2b10:{ loaded = mem.rdata;   }
-      default:  { loaded = {32{1bx}}; } // don't care
-    }
-    // what do we write in register? (pc, alu, val or load)
-    write_back =      (exec.jump      ? (pc_plus1<<2)       : 32b0)
-                    | (exec.storeAddr ? exec.n[0,$addrW+2$] : 32b0)
-                    | (exec.storeVal  ? exec.val            : 32b0)
-                    | (exec.load      ? loaded              : 32b0)
-                    | (exec.intop     ? exec.r              : 32b0);
-$$if ICEV_USERDATA then
-    exec.user_data = user_data;
-$$end
-    // what to write on a store (used when exec.store == 1)
-    mem.wdata      = xregsB.rdata; // <- not shifted, byte interface with SOC
-    // maintain write enable low (pulses high when needed)
-    mem.wenable    = 0;
-    // maintain alu trigger low
-    exec.trigger   = 0;
-    // maintain register wenable low
-    // (pulsed when necessary)
-    xregsA.wenable = 0;
-
-$$if VERBOSE then
-    //__display("[cycle %d] ====== stage:%b reset:%b pc:%h",cycle,stage,reset,pc);
-$$end
-
-    // four states: F, T, LS1, LS2/commit
-    onehot (stage) {
-      case 0: {
-        // ---- F
-        // may wait on RAM from previous fetch
-        instr         = reqmem_done ? mem.rdata : instr;
-        pc            = reqmem_done ? mem.addr  : pc;
-        // instruction fetch done?
-        instr_trigger = reqmem_done;
-$$if VERBOSE then
-        if (instr_trigger) {
-          __display("[cycle %d] (0) F instr:%h (@%h)",cycle,instr,pc<<2);
-        }
-$$end
-      }
-      case 1: {
-  $$if VERBOSE then
-        if (instr_trigger) {
-          //__display("[cycle %d] (0) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,instr,pc,xregsA.addr,xregsA.rdata,xregsB_0.addr,xregsB_0.rdata);
-        }
-  $$end
-        // ---- T
-        // registers are now in, triggers exec
-        exec.trigger  = instr_trigger;
-        instr_trigger = 0;
-      }
-      case 2: {
-        // ---- LS1
-        // may wait on ALU
-        do_load_store = ~exec.working & (exec.load | exec.store);
-        //              ^^^^^^^^^^^^^
-        //             wait if ALU holds
-        // memory address from which to load/store
-        mem.addr       = (exec.n >> 2);
-        mem.req_valid  = do_load_store;
-        // store if exec.store == 1
-        mem.wenable     = exec.store;
-        mem.byte_size   = 1 << exec.op[0,2]; // gives 4,2 or 1
-        mem.byte_offset = exec.n[0,2];
-$$if VERBOSE then
-        if (mem.req_valid) {
-          __display("[cycle %d] (0) LS1(%b) @%h = %h (wen:%b)",cycle,mem.req_valid,mem.addr,mem.wdata,mem.wenable);
-        }
-$$end
-      }
-      case 3: {
-        // ---- LS2/commit
-        // may wait on RAM
-        // commit result
-        xregsA.wenable = ~exec.no_rd & ~reqmem_pending;
-        //                              ^^^^^^^^^^^^^^
-        //                           wait on RAM if request pending
-$$if VERBOSE then
-        if (xregsA.wenable) {
-          __display("[cycle %d] (0) LS2/C xr[%d]=%h (mem.rdata:%x)",cycle,exec.write_rd,write_back,mem.rdata);
-        }
-$$end
-        // prepare instruction fetch
-        // instruction fetch in progress
-        do_fetch       = ~reqmem_pending;
-        //                 ^^^^^^^^^^^^^^
-        //                wait on RAM from load/store
-        mem.addr       = do_fetch ? (exec.jump ? (exec.n >> 2) : pc_plus1)
-                                  : mem.addr; // <= preserve addr is RAM is busy
-        mem.req_valid  = do_fetch;
-      }
-    }
-
-    // advance states unless reset, waiting on ALU or RAM
-    stage       = (exec.working | reset | reqmem_pending)
-                ? stage : {stage[0,3],stage[3,1]};
-    // pending memory request?
-    reqmem      = do_fetch | do_load_store | reqmem_pending;
-    //            ^^^^^^^    ^^^^^^^         ^^^^^^^^^^^^^^
-    //            on fetch,  on load/store,  or previous still active
-
-$$if VERBOSE then
-    if (reset) { __display("[cycle %d] reset (reqmem:%b reqmem_done:%b)",cycle,reqmem,reqmem_done); }
-$$end
-
-    // write back data to both register BRAMs
-    xregsA.wdata    = write_back;      xregsB.wdata   = write_back;
-    // xregsB written when xregsA is
-    xregsB.wenable  = xregsA.wenable;
-    // write to write_rd, else track instruction register
-    xregsA.addr     = xregsA.wenable ? exec.write_rd : Rtype(instr).rs1;
-    xregsB.addr     = xregsA.wenable ? exec.write_rd : Rtype(instr).rs2;
-$$if VERBOSE then
-    // __display("[cycle %d] mem @%h(%b)w:%b ",cycle,mem.addr,mem.req_valid,mem.wenable);
-$$end
-
-$$if VERBOSE then
-    cycle = cycle + 1;
-$$end
-
   }
 
 }
