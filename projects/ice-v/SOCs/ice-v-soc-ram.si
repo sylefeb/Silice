@@ -273,17 +273,23 @@ $$end
 
   // ---- display SPI controller
 $$if SPISCREEN then
-  uint1 displ_en(0);
-  uint1 displ_dta_or_cmd <: ramio.wdata[10,1]; // track data
-  uint8 displ_byte       <: ramio.wdata[0,8];  // written to RAM
+  uint1 screen_dc(0);   uint1 screen_clk(0);
+  uint1 screen_mosi(0); uint1 screen_resn(0);
+  uint1 displ_dta_or_cmd <: ~ramio.wdata[9,1]; // data or command
+  uint8 displ_byte       <:  ramio.wdata[0,8]; // byte to be written
   spi_mode3_send display(
-    enable          <: displ_en,
     data_or_command <: displ_dta_or_cmd,
     byte            <: displ_byte,
-    spi_mosi        :> spiscreen_mosi,
-    spi_clk         :> spiscreen_clk,
-    spi_dc          :> spiscreen_dc,
+    spi_mosi        :> screen_mosi,
+    spi_clk         :> screen_clk,
+    spi_dc          :> screen_dc,
   );
+$$if not SIMULATION then
+   sb_io _( clock <: fastclk, out  <: screen_clk,  pin  :> spiscreen_clk);
+   sb_io _( clock <: fastclk, out  <: screen_mosi, pin  :> spiscreen_mosi);
+   sb_io _( clock <: fastclk, out  <: screen_dc,   pin  :> spiscreen_dc);
+   sb_io _( clock <: fastclk, out  <: screen_resn, pin  :> spiscreen_resn);
+$$end
 $$end
 
   // ---- memory
@@ -320,7 +326,11 @@ $$end
     uo.data_in       = ramio.wdata[0,8];
 $$if SPISCREEN then
     // display
-    displ_en         = 0;  // maintain low
+    display.enable     = 0;  // maintain low
+$$if SIMULATION then
+   spiscreen_clk  = screen_clk; spiscreen_mosi = screen_mosi; // assign pins
+   spiscreen_dc   = screen_dc;  spiscreen_resn = screen_resn;
+$$end
 $$end
 
     // ---- memory mapping to peripherals: writes
@@ -340,7 +350,7 @@ $$end
         case 1: {
 $$if SPISCREEN then
           // command
-          displ_en =  ramio.wdata[9,1] | ramio.wdata[10,1];
+          display.enable = 1;
 $$if SIMULATION then
           //__display("[cycle %d] SPISCREEN: %b %x (cmd:%b)", cycle, ramio.wdata[0,8], ramio.wdata[0,8], ramio.wdata[9,1]);
 $$end
@@ -349,7 +359,7 @@ $$end
         case 2: {
 $$if SPISCREEN then
           // reset
-          spiscreen_resn    = ~ ramio.wdata[0,1];
+          screen_resn    = ~ ramio.wdata[0,1];
 $$if SIMULATION then
           // __display("[cycle %d] SPISCREEN resn: %b", cycle, ~ramio.wdata[0,1]);
 $$end
