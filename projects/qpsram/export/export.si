@@ -1,0 +1,7 @@
+// we indicate that we want the controller synthesized for the IceStick
+// this is normally done by the framework, but for export we use
+// the empty 'bare' framework
+$$ICESTICK = 1
+$$ICE40    = 1
+// we include the controller
+$include('../../common/qpsram2x.si')
