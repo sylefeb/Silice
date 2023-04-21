@@ -115,31 +115,31 @@ unit qqspi_memory(
     ram_io2 <:> ram_io2,    ram_io3 <:> ram_io3,
   );
   // logic
-  uint1            was_busy(1);
+  uint1            was_busy(0);
   uint4            work_vector(0);
   uint2            count(0);
   uint32           wdata(0);
   // fastram
-  bram uint8       fastram[1024] = uninitialized;
+  bram uint8       fastram[2048] = uninitialized;
 
   always {
     ram.init      = 0;
     // in periph?
-    uint1 in_periph     = io.addr[$addrW-3$,3] == 3b100;
+    uint1 in_periph         = io.addr[$addrW-3$,3] == 3b100;
     // in fastram?
-    uint1 in_fastram    = io.addr[$addrW-3$,3] == 3b111;
+    uint1 in_fastram        = &io.addr[$addrW-3$,3]; //_ == 3b111
     // mask request on peripherals
     uint1 req_valid         = io.req_valid & ~in_periph;
-    uint1 req_valid_ram     = io.req_valid & ~in_periph & ~in_fastram;
-    uint1 req_valid_fastram = io.req_valid & ~in_periph &  in_fastram;
+    uint1 req_valid_ram     = req_valid & ~in_fastram;
+    uint1 req_valid_fastram = req_valid &  in_fastram;
     // data being read
     io.rdata[{count,3b0},8] = (ram.data_next  ? ram.rdata               : 8b0)
             | (in_fastram                     ? fastram.rdata           : 8b0)
             | ((~ram.data_next & ~in_fastram) ? io.rdata[{count,3b0},8] : 8b0);
     // data being written
     ram.wdata     = wdata[0,8];
-    // NOTE: wdata is not needed immediately by ram which is why it is
-    //       passed above with latency
+    // NOTE: ^^^^^^^^^^^^ wdata is not needed immediately by ram which is why it
+    //       is passed above to ram with latency wrt. assignment below vvvvvv
     wdata        = (ram.data_next | (in_fastram&~io.req_valid) ) ? {8b0,wdata[8,24]}
                  : req_valid                                     ? io.wdata
                  : wdata;
@@ -151,7 +151,7 @@ $$else
     ram.addr     = req_valid_ram ? {io.addr[0,$addrW-3$],io.byte_offset} : ram.addr;
     ram_bank     = io.addr[$addrW-3$,2];
 $$end
-    fastram.addr    = req_valid_fastram ? {io.addr[0,8],io.byte_offset} : (fastram.addr+1);
+    fastram.addr    = req_valid_fastram ? {io.addr[0,9],io.byte_offset} : (fastram.addr+1);
     fastram.wenable = req_valid_fastram ? io.wenable : (fastram.wenable & (work_vector!=0));
     ram.wenable     = req_valid_ram     ? io.wenable : ram.wenable;
     // count bytes
@@ -168,9 +168,6 @@ $$end
 /*                          one more cycle for reads -------------------|     */
               : (ram.data_next | in_fastram) ? {1b0,work_vector[1,3]} // shift
               : work_vector; // keep
-
-/// TODO: reads in fastram need one more cycle!
-
     // done?
     io.done      = (was_busy & ~ram.busy)
                  | (io.req_valid & in_periph)
@@ -299,11 +296,6 @@ $$end
     ram_io2 <:> ram_io2,    ram_io3 <:> ram_io3,
     ram_bank :> ram_bank
   );
-$$if not SIMULATION then
-  //uint1 one(1);
-  //sb_io_inout _( clock <: fastclk, oe <: one, out <: banks[0,1], pin <:> ram_bank_0);
-  //sb_io_inout _( clock <: fastclk, oe <: one, out <: banks[1,1], pin <:> ram_bank_1);
-$$end
 
   // ---- cpu
   icev_ram cpu(

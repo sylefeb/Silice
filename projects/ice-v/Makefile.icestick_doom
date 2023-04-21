@@ -19,7 +19,7 @@ program_data: doom1.wad doom-riscv.bin
 		sleep 1
 		python  ../qpsram/xfer.py $(SERIAL_PORT) w 16777216 doom1.wad
 
-program_bin: doom-bitstream.bin
+program_bin: doom-bitstream.bin doom-riscv.bin
 		iceprog ../qpsram/bitstreams/icestick.bin
 		sleep 1
 		python  ../qpsram/xfer.py $(SERIAL_PORT) w 0 doom-riscv.bin

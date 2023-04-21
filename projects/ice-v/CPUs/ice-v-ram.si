@@ -122,7 +122,7 @@ $$end
   // track pending RAM requests
   uint1 reqmem(0);
   // a RAM request is done if we are expecting it and memory signals its done
-  uint1 reqmem_done    <:: reqmem & :mem.done & ~reset;
+  uint1 reqmem_done    <:: reqmem & :mem.done;
   // a RAM request is pending if there was one and it is still not done
   uint1 reqmem_pending <:: reqmem & ~reqmem_done;
 
@@ -230,7 +230,7 @@ $$if VERBOSE then
 $$end
         // prepare instruction fetch
         // instruction fetch in progress
-        do_fetch       = ~reqmem_pending;
+        do_fetch       = ~reqmem_pending & ~reset;
         //                 ^^^^^^^^^^^^^^
         //                wait on RAM from load/store
         mem.addr       = do_fetch ? (exec.jump ? (exec.n >> 2) : pc_plus1)
