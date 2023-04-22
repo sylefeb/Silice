@@ -269,6 +269,7 @@ $$else
   // dummy pins for simulation
   uint1 ram_io0(0);  uint1 ram_io1(0);  uint1 ram_io2(0);
   uint1 ram_io3(0);  uint1 ram_clk(0);  uint1 ram_csn(0);
+  uint2 ram_bank(0);
 $$end
 
   // ---- display SPI controller
@@ -294,7 +295,6 @@ $$end
 
   // ---- memory
   ram_io ramio;
-  uint2  banks(0);
   qqspi_memory ram(
     io      <:> ramio,
     ram_csn  :> ram_csn,    ram_clk  :> ram_clk,
