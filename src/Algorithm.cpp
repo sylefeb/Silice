@@ -4896,9 +4896,9 @@ void Algorithm::verifyMemberGroup(std::string member, const t_group_definition &
     if (std::find(mbrs.begin(), mbrs.end(), member) == mbrs.end()) {
       std::string grname = "group";
       if      (gd.blueprint != nullptr) grname = "instance";
-      else if (gd.inout != nullptr)     grname = "inout";
-      else if (gd.intrface != nullptr)  grname = "interface";
-      else if (gd.memory != nullptr)    grname = "memory";
+      else if (gd.inout     != nullptr) grname = "inout";
+      else if (gd.intrface  != nullptr) grname = "interface";
+      else if (gd.memory    != nullptr) grname = "memory";
       reportError(t_source_loc(), "%s does not contain a member '%s'", grname.c_str(), member.c_str());
     }
   }
