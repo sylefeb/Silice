@@ -95,7 +95,7 @@ namespace Silice {
   } t_parsed_unit;
 
   /// \brief contains info about a parsed circuitry and its parsing context
-  typedef struct {
+  typedef struct s_parsed_circuitry {
     std::string             parsed_circuitry;
     AutoPtr<ParsingContext> ios_parser;
     AutoPtr<ParsingContext> body_parser;

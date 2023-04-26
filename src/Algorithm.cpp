@@ -771,7 +771,8 @@ void Algorithm::gatherInitListFromFile(int width, siliceParser::InitListContext 
   if (!LibSL::System::File::exists(fname.c_str())) {
     reportError(sourceloc(ilist->file()), "file '%s' not found", fname.c_str());
   }
-  FILE *f = fopen(fname.c_str(),"rb");
+  FILE *f = NULL;
+  fopen_s(&f, fname.c_str(), "rb");
   std::cerr << "- reading " << width << " bits data from file " << fname << '.' << nxl;
   if (width == 8) {
     uchar v;
@@ -1057,22 +1058,26 @@ void Algorithm::getBindings(
               sourceloc(bindings->bpBinding()),
               "expecting an identifier on the right side of a group binding");
           }
-          auto G = m_VIOGroups.find(bindings->bpBinding()->right->getText());
-          if (G != m_VIOGroups.end()) {
-            // unfold all bindings, select direction automatically
-            // NOTE: some members may not be used, these are excluded during auto-binding
-            for (auto v : getGroupMembers(G->second)) {
-              string member = v;
-              t_binding_nfo nfo;
-              nfo.left   = bindings->bpBinding()->left->getText() + "_" + member;
-              nfo.right  = bindings->bpBinding()->right->IDENTIFIER()->getText() + "_" + member;
-              nfo.srcloc = sourceloc(bindings->bpBinding());
-              nfo.dir    = (bindings->bpBinding()->BDEFINE() != nullptr) ? e_Auto : e_AutoQ;
-              _vec_bindings.push_back(nfo);
+          // inout pins do not bind as groups
+          if (!isInOut(bindings->bpBinding()->right->IDENTIFIER()->getText())) {
+            // check if this is a group
+            auto G = m_VIOGroups.find(bindings->bpBinding()->right->getText());
+            if (G != m_VIOGroups.end()) {
+              // unfold all bindings, select direction automatically
+              // NOTE: some members may not be used, these are excluded during auto-binding
+              for (auto v : getGroupMembers(G->second)) {
+                string member = v;
+                t_binding_nfo nfo;
+                nfo.left = bindings->bpBinding()->left->getText() + "_" + member;
+                nfo.right = bindings->bpBinding()->right->IDENTIFIER()->getText() + "_" + member;
+                nfo.srcloc = sourceloc(bindings->bpBinding());
+                nfo.dir = (bindings->bpBinding()->BDEFINE() != nullptr) ? e_Auto : e_AutoQ;
+                _vec_bindings.push_back(nfo);
+              }
+              // skip to next
+              bindings = bindings->bpBindingList();
+              continue;
             }
-            // skip to next
-            bindings = bindings->bpBindingList();
-            continue;
           }
         }
         // check if this binds an instance (e.g. through 'outputs()')
@@ -2213,49 +2218,53 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
   // constraint?
   for (auto P : sub->subroutineParamList()->subroutineParam()) {
     if (P->READ() != nullptr) {
-      nfo->allowed_reads.insert(P->IDENTIFIER()->getText());
+      string identifier = P->IDENTIFIER()->getText();
+      nfo->allowed_reads.insert(translateVIOName(identifier, &_current->context));
       // if group, add all members
-      auto G = m_VIOGroups.find(P->IDENTIFIER()->getText());
+      auto G = m_VIOGroups.find(identifier);
       if (G != m_VIOGroups.end()) {
         for (auto v : getGroupMembers(G->second)) {
-          string mbr = P->IDENTIFIER()->getText() + "_" + v;
+          string mbr = identifier + "_" + v;
+          mbr = translateVIOName(mbr, &_current->context);
           nfo->allowed_reads.insert(mbr);
         }
       }
-      if (!isVIO(P->IDENTIFIER()->getText()) && G == m_VIOGroups.end()) {
-        reportError(sourceloc(P), "cannot find referenced identifier '%s'", P->IDENTIFIER()->getText().c_str());
-      }
+      // NOTE: we do not check for existence since global subroutines may give
+      //       permissions to variables that are not in scope (#103)
     } else if (P->WRITE() != nullptr) {
-      nfo->allowed_writes.insert(P->IDENTIFIER()->getText());
+      string identifier = P->IDENTIFIER()->getText();
+      nfo->allowed_writes.insert(translateVIOName(identifier, &_current->context));
       // if group, add all members
-      auto G = m_VIOGroups.find(P->IDENTIFIER()->getText());
+      auto G = m_VIOGroups.find(identifier);
       if (G != m_VIOGroups.end()) {
         for (auto v : getGroupMembers(G->second)) {
-          string mbr = P->IDENTIFIER()->getText() + "_" + v;
+          string mbr = identifier + "_" + v;
+          mbr = translateVIOName(mbr, &_current->context);
           nfo->allowed_writes.insert(mbr);
         }
       }
-      if (!isVIO(P->IDENTIFIER()->getText()) && G == m_VIOGroups.end()) {
-        reportError(sourceloc(P), "cannot find referenced identifier '%s'", P->IDENTIFIER()->getText().c_str());
-      }
+      // NOTE: we do not check for existence since global subroutines may give
+      //       permissions to variables that are not in scope (#103)
     } else if (P->READWRITE() != nullptr) {
-      nfo->allowed_reads.insert(P->IDENTIFIER()->getText());
-      nfo->allowed_writes.insert(P->IDENTIFIER()->getText());
+      string identifier = P->IDENTIFIER()->getText();
+      nfo->allowed_reads.insert(translateVIOName(identifier, &_current->context));
+      nfo->allowed_writes.insert(translateVIOName(identifier, &_current->context));
       // if group, add all members
-      auto G = m_VIOGroups.find(P->IDENTIFIER()->getText());
+      auto G = m_VIOGroups.find(identifier);
       if (G != m_VIOGroups.end()) {
         for (auto v : getGroupMembers(G->second)) {
-          string mbr = P->IDENTIFIER()->getText() + "_" + v;
+          string mbr = identifier + "_" + v;
+          mbr = translateVIOName(mbr, &_current->context);
           nfo->allowed_reads.insert(mbr);
           nfo->allowed_writes.insert(mbr);
         }
       }
-      if (!isVIO(P->IDENTIFIER()->getText()) && G == m_VIOGroups.end()) {
-        reportError(sourceloc(P), "cannot find referenced identifier '%s'", P->IDENTIFIER()->getText().c_str());
-      }
+      // NOTE: we do not check for existence since global subroutines may give
+      //       permissions to variables that are not in scope (#103)
     } else if (P->CALLS() != nullptr) {
+      string identifier = P->IDENTIFIER()->getText();
       // add to list, check is in checkPermissions
-      nfo->allowed_calls.insert(P->IDENTIFIER()->getText());
+      nfo->allowed_calls.insert(identifier);
     } else if (P->input() != nullptr || P->output() != nullptr) {
       // input or output?
       std::string in_or_out;
@@ -3194,14 +3203,16 @@ void Algorithm::checkPermissions(antlr4::tree::ParseTree *node, t_combinational_
   std::unordered_set<std::string> insub;
   if (_current->context.subroutine != nullptr) {
     for (auto R : read) {
-      if (_current->context.subroutine->allowed_reads.count(R) == 0) {
+      string v = translateVIOName(R, &_current->context);
+      if (_current->context.subroutine->allowed_reads.count(v) == 0) {
         std::string msg = "variable '%s' is read by subroutine '%s' without explicit permission\n\n";
         msg += notes;
         warn(Standard, sourceloc(node), msg.c_str(), R.c_str(), _current->context.subroutine->name.c_str());
       }
     }
     for (auto W : written) {
-      if (_current->context.subroutine->allowed_writes.count(W) == 0) {
+      string v = translateVIOName(W, &_current->context);
+      if (_current->context.subroutine->allowed_writes.count(v) == 0) {
         std::string msg = "variable '%s' is written by subroutine '%s' without explicit permission\n\n";
         msg += notes;
         warn(Standard, sourceloc(node), msg.c_str(), W.c_str(), _current->context.subroutine->name.c_str());
@@ -3400,6 +3411,8 @@ void Algorithm::gatherIoGroup(siliceParser::IoDefContext *iog, const t_combinati
         inp.name = grpre + "_" + V->second.name;
         m_InOuts.emplace_back(inp);
         m_InOutNames.insert(make_pair(inp.name, (int)m_InOuts.size() - 1));
+        // add group for member access and bindings
+        m_VIOGroups.insert(make_pair(inp.name, &inp));
       } else if (io->is_output != nullptr) {
         t_output_nfo oup;
         var_nfo_copy(oup, V->second);
@@ -3497,6 +3510,8 @@ void Algorithm::gatherIoInterface(siliceParser::IoDefContext *itrf)
       m_InOuts.emplace_back(inp);
       m_InOutNames.insert(make_pair(inp.name, (int)m_InOuts.size() - 1));
       m_Parameterized.push_back(inp.name);
+      // add group for member access and bindings
+      m_VIOGroups.insert(make_pair(inp.name, &inp));
     } else if (io->is_output != nullptr) {
       t_output_nfo oup;
       var_nfo_copy(oup, vnfo);
@@ -3563,6 +3578,8 @@ void Algorithm::gatherIOs(siliceParser::InOutListContext* inout)
       if (io.type_nfo.base_type == Parameterized) {
         m_Parameterized.push_back(io.name);
       }
+      // add group for member access and bindings
+      m_VIOGroups.insert(make_pair(io.name, &io));
     } else if (iodef) {
       gatherIoDef(iodef, &empty);
     } else if (allouts) {
@@ -5125,12 +5142,14 @@ void Algorithm::determineVIOAccess(
   std::unordered_set<std::string>&           _read,
   std::unordered_set<std::string>&           _written) const
 {
+  sl_assert(node != nullptr);
   const t_combinational_block_context *bctx = &block->context;
   if (node->children.empty()) {
     // read accesses are children
     auto term = dynamic_cast<antlr4::tree::TerminalNode*>(node);
     if (term) {
-      if (term->getSymbol()->getType() == siliceParser::IDENTIFIER) {
+      auto symtype = term->getSymbol()->getType();
+      if (symtype == siliceParser::IDENTIFIER) {
         std::string var = term->getText();
         var = translateVIOName(var, bctx);
         // is it a var?
@@ -5356,7 +5375,7 @@ void Algorithm::determineVIOAccess(
           }
           if (!var.empty()) {
             var = translateVIOName(var, bctx);
-            if (!var.empty() && vios.find(var) != vios.end()) {
+            if (vios.find(var) != vios.end()) {
               _written.insert(var);
             } else {
               // is it a group? (in a call)
@@ -5395,6 +5414,7 @@ void Algorithm::determineVIOAccess(
         // special case for io access read
         std::string var = determineAccessedVar(ioa,bctx);
         if (!var.empty()) {
+          var = translateVIOName(var, bctx);
           if (vios.find(var) != vios.end()) {
             _read.insert(var);
           }
@@ -5407,6 +5427,7 @@ void Algorithm::determineVIOAccess(
         // special case for bitfield access read
         std::string var = determineAccessedVar(bfa, bctx);
         if (!var.empty()) {
+          var = translateVIOName(var, bctx);
           if (vios.find(var) != vios.end()) {
             _read.insert(var);
           }
@@ -5460,7 +5481,7 @@ void Algorithm::determinePipelineSpecificAssignments(
       // tag var as written
       if (!var.empty()) {
         var = translateVIOName(var, bctx);
-        if (!var.empty() && vios.find(var) != vios.end()) {
+        if (vios.find(var) != vios.end()) {
           if (assign->ASSIGN_AFTER() != nullptr) {
             _ex_written_after   .insert(var);
           } else if (assign->ASSIGN_BACKWARD() != nullptr) {
@@ -6439,8 +6460,6 @@ void Algorithm::resolveInOuts()
         }
         addVar(v, m_Blocks.front(), t_source_loc());
       }
-      // add group for member access and bindings
-      m_VIOGroups.insert(make_pair(io.name, &io));
     }
   }
 }
@@ -7068,6 +7087,7 @@ void Algorithm::writePartSelect(std::string prefix, std::ostream& out, bool assi
     // but for lack of it we have no other choice here to avoid generating wrong code.
     // See also issue #54.
     std::string var = determineAccessedVar(partsel, bctx);
+    var = translateVIOName(var, bctx);
     updateFFUsage(e_Q, true, _ff_usage.ff_usage[var]);
   }
 }
@@ -7999,10 +8019,11 @@ void Algorithm::writeBlock(std::string prefix, t_writer_context &w,
         // retrieve var
         string var;
         if (assign->IDENTIFIER() != nullptr) {
-          var = translateVIOName(assign->IDENTIFIER()->getText(), &block->context);
+          var = assign->IDENTIFIER()->getText();
         } else {
           var = determineAccessedVar(assign->access(), &block->context);
         }
+        var = translateVIOName(var, &block->context);
         // check if assigning to a wire
         if (m_VarNames.count(var) > 0) {
           if (m_Vars.at(m_VarNames.at(var)).usage == e_Wire) {
@@ -8020,10 +8041,11 @@ void Algorithm::writeBlock(std::string prefix, t_writer_context &w,
         // -> determine assigned var
         string var;
         if (alw->IDENTIFIER() != nullptr) {
-          var = translateVIOName(alw->IDENTIFIER()->getText(), &block->context);
+          var = alw->IDENTIFIER()->getText();
         } else {
           var = determineAccessedVar(alw->access(), &block->context);
         }
+        var = translateVIOName(var, &block->context);
         if (m_VarNames.count(var) > 0) {
           skip = (m_Vars.at(m_VarNames.at(var)).usage == e_Wire);
         }

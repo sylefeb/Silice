@@ -1,3 +1,6 @@
+// expects [ FAILED ]
+
 algorithm main(output uint8 leds) {
-  __display("%d", {8{1b1}, 5b11111});
+  __display("%d", {{8{1b1}}, 5b11111}); // correct
+  __display("%d", {8{1b1}, 5b11111}); // syntax error
 }

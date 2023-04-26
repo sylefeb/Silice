@@ -97,7 +97,7 @@ namespace Silice
     };
 
     /// \brief information about instantiation
-    typedef struct {
+    typedef struct s_instantiation_context {
       SiliceCompiler                              *compiler = nullptr;
       std::string                                  instance_name;
       std::string                                  top_name;

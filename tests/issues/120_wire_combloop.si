@@ -1,3 +1,4 @@
+// expects [ FAILED ]
 
 algorithm foo(input   uint8 pcpo,
               output! uint8 newPc)
@@ -12,7 +13,7 @@ algorithm main(output uint8 leds)
 {
   uint8 pc = 0;
   uint8 nextPc = uninitialized;
-  
+
   uint8 iter(0);
 
   uint8 pcPlusOne := pc + 1;
@@ -20,11 +21,11 @@ algorithm main(output uint8 leds)
   foo f(pcpo <: pcPlusOne);
 
   while (iter < 16) {
-  
+
     nextPc = f.newPc;
     pc     = nextPc;
     iter   = iter + 1;
-    
+
   }
 
 }

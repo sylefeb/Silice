@@ -620,7 +620,7 @@ private:
     };
 
     /// \brief context while gathering code
-    typedef struct
+    typedef struct s_gather_context
     {
       bool                                      in_algorithm = false;
       bool                                      in_algorithm_preamble = false;

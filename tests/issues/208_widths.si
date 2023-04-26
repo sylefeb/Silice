@@ -1,3 +1,5 @@
+// expects [ FAILED ]
+
 algorithm alg_test(input uint1 bit_in, output uint1 bit_out)
 {
    bit_out = ~bit_in;

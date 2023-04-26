@@ -7,18 +7,18 @@ unit main(output uint5 leds, inout uint8 pmod)
 {
    algorithm
    {
-      bram uint8 test[16] = {pad(0)};    
+      bram uint8 test[16] = {pad(0)};
       g_def g;
-   
+
       subroutine sub(readwrites pmod,readwrites test,readwrites g)
       {
          pmod.o = 33;   // spurious warning (inout not seen as a group)
          test.addr = 3; // spurious warning (due to declaration being within algorithm, ok if in unit)
-         g.a = ~g.b;    // spurious warning (due to declaration being within algorithm, ok if in unit)
+         g.a = g.b;    // spurious warning (due to declaration being within algorithm, ok if in unit)
       }
 
       () <- sub <- ();
-      
+
       __finish();
    }
 }

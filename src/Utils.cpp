@@ -291,11 +291,11 @@ void Utils::getSourceInfo(
     offset = (int)tk_stream->get(interval.a)->getStartIndex();
   }
   if (offender != nullptr) {
-    _first = offender->getStartIndex() - offset;
-    _last  = offender->getStopIndex() - offset;
+    _first = (int)offender->getStartIndex() - offset;
+    _last  = (int)offender->getStopIndex() - offset;
   } else if (!(interval == antlr4::misc::Interval::INVALID)) {
-    _first = tk_stream->get(interval.a)->getStartIndex() - offset;
-    _last  = tk_stream->get(interval.b)->getStopIndex() - offset;
+    _first = (int)tk_stream->get(interval.a)->getStartIndex() - offset;
+    _last  = (int)tk_stream->get(interval.b)->getStopIndex() - offset;
   }
 }
 
