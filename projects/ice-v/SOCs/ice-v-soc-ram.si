@@ -4,6 +4,8 @@
 // This SOC runs entirely in PSRAM, enabling to use a
 //  'large' RAM for the CPU.
 //
+// It's been shown to be Doom-capable :)
+//
 // This is using a special verision of the ice-v RV32I,
 // see CPUs/ice-v-ram.si
 //
@@ -343,6 +345,7 @@ $$end
           leds = ramio.wdata[0,5];
 $$if SIMULATION then
           __write("%c",ramio.wdata[0,8]);
+          // __display("==> %d",ramio.wdata);
 $$end
           // send over uart
           uo.data_in_ready = 1;

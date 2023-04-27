@@ -124,7 +124,7 @@ $$end
   }
 
   always_after {
-    leds         = {blip,write,0,ram_bank};
+    leds         = {blip,write,1b1,ram_bank};
     blip         = blip >> 1;
     // receiving
     if (ui.data_out_ready) {

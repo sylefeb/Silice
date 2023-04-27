@@ -1,14 +1,17 @@
 // SL 2023-04-17 @sylefeb
 // ========================================================
 //
-// Compact Risc-V RV32I CPU with RAM memory interface
-// Simple, compact, slow (4 cycles per instruction if on BRAM)
+// Compact risc-V RV32I CPU with byte RAM memory interface
+//
+// Simple, compact, slow
+//
+// CPI: 7 if on BRAM excl. load-store (3 cycles in CPU + 4 bytes fetch)
 //
 // NOTE: Write byte memory interface
 //
 // NOTE: Please get familiar with the ice-v first.
 //
-// NOTE: Needs further clean-up, but works!
+// NOTE: Needs further clean-up
 //
 // ========================================================
 // https://github.com/sylefeb/Silice
@@ -186,10 +189,10 @@ $$end
         instr_trigger = reqmem_done;
 $$if VERBOSE then
         if (instr_trigger) {
-          if (cycle-last_cycle < 30) {
+          //if (cycle-last_cycle < 30) {
             __display("[cycle %d] (0) F instr:%h (@%h) [elapsed: %d cycles]",cycle,instr,pc<<2,cycle-last_cycle);
             debug = 1;
-          }
+          //}
           last_cycle = cycle;
         }
 $$end
