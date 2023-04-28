@@ -25,7 +25,7 @@
 //     total: 12 cycles for writing a byte
 //
 // NOTE: these latency numbers are guaranteed, so the parent may choose to count
-//       cycles and not rely on data_next / busy (see qpsram_ram doc. below).
+//       cycles and not rely on data_next / busy (see qpsram_ram header below).
 //
 // ========================================================
 
@@ -55,31 +55,31 @@ $$end
 //
 //   After init (see important note below), the parent signals a request is
 //   ready by setting `in_ready` to high. As long as `in_ready` is high, data
-//   will be read/written on byte at a time.
+//   will be read/written one byte at a time.
 //
 //   Each time a byte has been sent/received, `data_next` pulses high.
 //   Streaming ends if `in_ready` is low when the next `data_next` pulse occurs.
 //
 //   When `in_ready` is set high, the unit expects `addr`, `wenable` and (if
-//   writting) `wdata` to be set. For proper operation these have to retain
-//   their values until done, or until the next `data_next` for `wdata` (where
-//   it changes to the next byte to be written).
+//   writing) `wdata` to be set. For proper operation these have to retain
+//   their values until done, or until the next `data_next` pulse for `wdata`
+//   (where it changes to the next byte value to be written).
 //
 //  The unit also outputs a `busy` signal, that is high during operation.
-//  Any `in_ready` pulses occuring while `busy` is high are ignored.
+//  Any `in_ready` pulse occuring while `busy` is high is ignored.
 //
 //  **IMPORTANT**: If the QPSRAM chip has just been powered up, pulse `init`
-//  once to initialize the QPI mode, and wait for busy to be low again.
+//  once to initialize the QPI mode, and wait for `busy` to be low again.
 //
 //            >>> Otherwise the interface will NOT work <<<
 //
 //  NOTES:
 //   - It is typical to first upload data to the QPSRAM with a tool (e.g. see
-//     Silice/projects/qpsram/) in which case the chips remaing initialized in
+//     Silice/projects/qpsram/) in which case the chip remains initialized in
 //     QPI as long as the device is not powered down.
 //   - If something wrong happens during testing, the QPSRAM chip may end up in
-//     an unkown state, preventing future operations. Beware of that: in case of
-//     doubts, power down the board and restart afresh.
+//     an unknown state, preventing future operations. Beware of that: in case
+//     of doubts, power down the board and restart afresh.
 //
 // -------------------------------------------------------------
 
