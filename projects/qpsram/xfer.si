@@ -12,13 +12,19 @@ $$ bank_width = 23
 $include('../common/qpsram2x.si')
 
 $$if ICESTICK then
-import('../common/plls/icestick_50.v')
+  import('../common/plls/icestick_50.v')
+  $$uart_in_clock_freq_mhz = 50
 $$elseif ICE40 then
-import('../common/plls/icebrkr_50.v')
+  import('../common/plls/icebrkr_50.v')
+  $$uart_in_clock_freq_mhz = 50
+$$elseif ECPIX5 then
+  import('../common/plls/ecpix5_50.v')
+  $$uart_in_clock_freq_mhz = 50
+$$else
+  $$uart_in_clock_freq_mhz = 25
 $$end
 
 $$uart_bauds = 500000
-$$uart_in_clock_freq_mhz = 50
 $include('../common/uart.si')
 
 unit main(
@@ -40,6 +46,15 @@ $$if ICE40 then
   pll pllgen(
     clock_in  <: clock,
     clock_out :> clock_pll,
+  );
+$$elseif ECPIX5 then
+<@clock_pll,!notready> {
+  uint1 clock_pll = uninitialized;
+  uint1 notready  = uninitialized;
+  pll pllgen(
+    clkin     <: clock,
+    clkout0   :> clock_pll,
+    notlocked :> notready
   );
 $$else
 {

@@ -31,9 +31,14 @@
 
 import('ddr_clock.v')
 
-$$if not SIMULATION and ICE40 then
+$$if not SIMULATION then
+$$if ICE40 then
 import('ice40_sb_io_inout.v')
-import('ice40_sb_io.v')
+// import('ice40_sb_io.v')
+$$end
+$$if ECP5 then
+import('ecp5_inout.v')
+$$end
 $$end
 
 $$if VERILATOR then
@@ -123,6 +128,8 @@ $$end
 
 $$if VERILATOR then
   verilator_data_rw vdta(clock <: clock);
+$$end
+$$if SIMULATION then
   uint32 cycle(0);
 $$end
 
@@ -210,7 +217,7 @@ $$end
       continue       = 1; // reset continue
     }
 
-$$if VERILATOR then
+$$if SIMULATION then
     cycle = cycle + 1;
 $$end
   }
@@ -236,58 +243,28 @@ algorithm qpsram_qspi(
 ) {
   // internal state
   uint1 dc(0);  uint8 sending(0);  uint1 osc(0);
-  // driving the QPSRAM chip clock
+  // driving the QPSRAM chip clock with a ddr module
   uint1 enable(0);
-  ddr_clock _(clock <: clock, enable <:: enable, ddr_clock :> clk);
-
-$$if not ICE40 then
-  // --- Generic implementation without any vendor specific modules
-  // which is not recommanded when driving an external chip. It may also be used
-  // for simulation with e.g. Icarus
-$$if SIMULATION then
-  uint32 cycle(0);    // cycle counter in simulation
-$$end
-  uint1 csn_reg(1);   // csn register
-  uint4 read_reg(0);  // read register
-  always {
-    // output enable on ios
-    io0.oenable = send_else_read;
-    io1.oenable = send_else_read;
-    io2.oenable = send_else_read;
-    io3.oenable = send_else_read;
-    // read current
-    read      = {read[0,4],read_reg};
-$$if SIMULATION then
-    read_reg  = cycle[0,4];
-$$else
-    read_reg  = {io3.i,io2.i,io1.i,io0.i};
-$$end
-    // update outputs
-    io0.o = ~osc ? sending[0,1] : sending[4,1];
-    io1.o = ~osc ? sending[1,1] : sending[5,1];
-    io2.o = ~osc ? sending[2,1] : sending[6,1];
-    io3.o = ~osc ? sending[3,1] : sending[7,1];
-    // start/keep sending?
-    sending   = (~osc | ~enable) ? send : sending;
-    osc       = ~trigger ? 1b0 : ~osc;
-    enable    = trigger;
-    csn       = csn_reg;
-    csn_reg   = ~enable;
-$$if SIMULATION then
-    cycle = cycle + 1;
-$$end
-  }
-$$else
-  // ---- Lattice ice40 implementation using vendor specific primitives
+  uint1 one(1);
+  ddr_clock _(clock <: clock, enable <:: one, ddr_clock :> clk);
   // setup registered tristate ios
   uint4 io_oe(0); uint4 io_i(0); uint4 io_o(0);
-  sb_io_inout sb_io0(clock <: clock, oe <: io_oe[0,1], in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
-  sb_io_inout sb_io1(clock <: clock, oe <: io_oe[1,1], in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
-  sb_io_inout sb_io2(clock <: clock, oe <: io_oe[2,1], in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
-  sb_io_inout sb_io3(clock <: clock, oe <: io_oe[3,1], in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
-  uint1 nenable <:: ~ enable;
-  // sb_io sb_csn(clock <: clock, out <: nenable, pin :> csn); // NOTE: disabled due to placement conflicts
-  uint4 read_reg(0); // read register
+$$if ICE40 then
+  // ---- Lattice ice40 implementation using vendor specific primitives
+  sb_io_inout _(clock <: clock, oe <: io_oe[0,1], in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
+  sb_io_inout _(clock <: clock, oe <: io_oe[1,1], in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
+  sb_io_inout _(clock <: clock, oe <: io_oe[2,1], in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
+  sb_io_inout _(clock <: clock, oe <: io_oe[3,1], in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
+  // sb_io _(clock <: clock, out <: nenable, pin :> csn); // NOTE: disabled due to placement conflicts
+$$end
+$$if ECP5 then
+  // ---- Lattice ecp5 implementation using vendor specific primitives
+  ecp5_inout  _(clock <: clock, oe <: io_oe[0,1], in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
+  ecp5_inout  _(clock <: clock, oe <: io_oe[1,1], in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
+  ecp5_inout  _(clock <: clock, oe <: io_oe[2,1], in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
+  ecp5_inout  _(clock <: clock, oe <: io_oe[3,1], in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
+$$end
+  uint1 nenable <:: ~enable;
   always {
     csn       = nenable;
     // output enable on ios
@@ -301,5 +278,4 @@ $$else
     osc       = ~trigger ? 1b0 : ~osc;
     enable    = trigger;
   }
-$$end
 }

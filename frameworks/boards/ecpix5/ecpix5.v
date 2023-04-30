@@ -27,7 +27,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 `define ECPIX5 1
+`define ECP5   1
 $$ECPIX5   = 1
+$$ECP5     = 1
 $$HARDWARE = 1
 $$NUM_LEDS = 12
 $$color_depth=6
@@ -61,6 +63,16 @@ module top(
 
   output P1A7,  // hs
   output P1A8,  // vs
+`endif
+`ifdef PMOD_QQSPI
+  output P2A1,
+  inout  P2A2,
+  inout  P2A3,
+  output P2A4,
+  inout  P2A7,
+  inout  P2A8,
+  output P2A9,
+  output P2A10,
 `endif
   input  clk100
   );
@@ -102,8 +114,8 @@ M_main __main(
   .in_run        (run_main),
   .out_leds      (__main_leds),
 `ifdef UART
-  .out_uart_tx  (uart_tx),
-  .in_uart_rx   (uart_rx),
+  .out_uart_tx  (uart_rx),
+  .in_uart_rx   (uart_tx),
 `endif
 `ifdef VGA
   .out_video_hs(__main_out_vga_hs),
@@ -111,6 +123,15 @@ M_main __main(
   .out_video_r(__main_out_vga_r),
   .out_video_g(__main_out_vga_g),
   .out_video_b(__main_out_vga_b),
+`endif
+`ifdef PMOD_QQSPI
+  .inout_ram_io0(P2A2),
+  .inout_ram_io1(P2A3),
+  .inout_ram_io2(P2A7),
+  .inout_ram_io3(P2A8),
+  .out_ram_clk(P2A4),
+  .out_ram_csn(P2A1),
+  .out_ram_bank({P2A10,P2A9}),
 `endif
   .clock         (clk100)
 );
