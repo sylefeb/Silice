@@ -34,7 +34,7 @@ import('ddr_clock.v')
 $$if not SIMULATION then
 $$if ICE40 then
 import('ice40_sb_io_inout.v')
-// import('ice40_sb_io.v')
+import('ice40_sb_io.v')
 $$end
 $$if ECP5 then
 import('ecp5_inout.v')
@@ -168,7 +168,12 @@ $$end
         spi.send                = wdata;
         data_next               = wenable;
         stage                   = 0; //  wait
-        wait                    = wenable ? 16 : 7; //_ 2 : 11 cycles
+        wait                    = wenable ? 16 :    //_ 2 cycles
+$$if ECP5 then
+                                                 6; //_ 12 cycles
+$$else
+                                                 7; //_ 11 cycles
+$$end
         after                   = 4;
 $$if VERILATOR then
         vdta.addr               = addr;
