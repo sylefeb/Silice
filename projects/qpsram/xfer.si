@@ -20,6 +20,9 @@ $$elseif ICE40 then
 $$elseif ECPIX5 then
   import('../common/plls/ecpix5_50.v')
   $$uart_in_clock_freq_mhz = 50
+$$elseif ULX3S then
+  import('../common/plls/ulx3s_50.v')
+  $$uart_in_clock_freq_mhz = 50
 $$else
   $$uart_in_clock_freq_mhz = 25
 $$end
@@ -47,14 +50,14 @@ $$if ICE40 then
     clock_in  <: clock,
     clock_out :> clock_pll,
   );
-$$elseif ECPIX5 then
-<@clock_pll,!notready> {
+$$elseif ECPIX5 or ULX3S then
+<@clock_pll> {
   uint1 clock_pll = uninitialized;
-  uint1 notready  = uninitialized;
+  uint1 locked    = uninitialized;
   pll pllgen(
     clkin     <: clock,
     clkout0   :> clock_pll,
-    notlocked :> notready
+    locked :> locked
   );
 $$else
 {

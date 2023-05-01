@@ -25,6 +25,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 (header_2_M)
 
 */
+
+// TODO, FIXME: some peripherals mobilize the entire gpio while using
+//              only a subset, this needs revising (e.g. vga,pmod_qqspi)
+
 `define ULX3S 1
 `define ECP5  1
 `default_nettype none
@@ -115,6 +119,19 @@ module top(
   // i2c for rtc
   inout gpdi_sda,
   inout gpdi_scl,
+`endif
+`ifdef PMOD_QQSPI
+  // uses only a subset
+  inout  qqspi_io0,
+  inout  qqspi_io1,
+  inout  qqspi_io2,
+  inout  qqspi_io3,
+  output qqspi_clk,
+  output qqspi_csn,
+  output qqspi_bank0,
+  output qqspi_bank1,
+  //inout  [27:0] gp,
+  //inout  [27:0] gn,
 `endif
   output wifi_gpio0,
   input  clk_25mhz
@@ -269,6 +286,16 @@ M_main __main(
 `ifdef I2C
   .inout_gpdi_sda(gpdi_sda),
   .inout_gpdi_scl(gpdi_scl),
+`endif
+`ifdef PMOD_QQSPI
+  // NOTE: overlaps with gp/gn (14 to 17)
+  .inout_ram_io0(qqspi_io0),
+  .inout_ram_io1(qqspi_io1),
+  .inout_ram_io2(qqspi_io2),
+  .inout_ram_io3(qqspi_io3),
+  .out_ram_clk(qqspi_clk),
+  .out_ram_csn(qqspi_csn),
+  .out_ram_bank({qqspi_bank1,qqspi_bank0}),
 `endif
   .clock         (clk_25mhz)
 );

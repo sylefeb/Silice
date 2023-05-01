@@ -6,12 +6,11 @@ module pll
 (
     input clkin, // 100 MHz, 0 deg
     output clkout0, // 50 MHz, 0 deg
-    output notlocked
+    output locked
 );
 (* FREQUENCY_PIN_CLKI="100" *)
 (* FREQUENCY_PIN_CLKOP="50" *)
 (* ICP_CURRENT="12" *) (* LPF_RESISTOR="8" *) (* MFG_ENABLE_FILTEROPAMP="1" *) (* MFG_GMCREF_SEL="2" *)
-wire locked;
 EHXPLLL #(
         .PLLRST_ENA("DISABLED"),
         .INTFB_WAKE("DISABLED"),
@@ -44,5 +43,4 @@ EHXPLLL #(
         .ENCLKOP(1'b0),
         .LOCK(locked)
 	);
-  assign notlocked = ~locked;
 endmodule
