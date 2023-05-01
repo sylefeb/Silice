@@ -11,10 +11,10 @@ power, the written data should remain in PSRAM.
 > Prebuild bitstreams are in `bistreams` for the QQPSI pmod (use PMOD1 on icebreaker, PMOD2 on ecpix5, gp/gn 14 to 17 on ulx3s).
 
 <p align="center">
-  <img width="300" src="icestick_qqspi.jpg">
-  <img width="300" src="icebreaker_qqspi.jpg">
-  <img width="300" src="ulx3s_qqspi.jpg">
-  <img width="300" src="ecpix5_qqspi.jpg">
+  <img width="200" src="icestick_qqspi.jpg">
+  <img width="200" src="icebreaker_qqspi.jpg">
+  <img width="200" src="ulx3s_qqspi.jpg">
+  <img width="200" src="ecpix5_qqspi.jpg">
 </p>
 
 ___
