@@ -12,6 +12,9 @@ power, the written data should remain in PSRAM.
 
 <p align="center">
   <img width="300" src="icestick_qqspi.jpg">
+  <img width="300" src="icebreaker_qqspi.jpg">
+  <img width="300" src="ulx3s_qqspi.jpg">
+  <img width="300" src="ecpix5_qqspi.jpg">
 </p>
 
 ___
