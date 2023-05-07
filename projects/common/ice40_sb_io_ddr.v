@@ -6,7 +6,7 @@ module sb_io_ddr(
   );
 
   SB_IO #(
-    .PIN_TYPE(6'b0100_00)
+    .PIN_TYPE(6'b0100_01)
     //                ^^ ignored (input)
     //           ^^^^ DDR output
   ) sbio (

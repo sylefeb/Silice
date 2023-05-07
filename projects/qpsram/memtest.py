@@ -9,7 +9,7 @@ import time
 import math
 from tqdm import tqdm
 
-read_packed_size = 16
+read_packed_size = 32
 
 if len(sys.argv) < 4:
   print("xfer.py <port> <addr> <size>")
@@ -17,6 +17,7 @@ if len(sys.argv) < 4:
 
 # open serial port
 ser = serial.Serial(sys.argv[1],500000, timeout=1)
+# ser = serial.Serial(sys.argv[1],115200, timeout=1)
 
 # seed
 S = int(time.time())
@@ -104,19 +105,30 @@ error = 0
 pbr = tqdm(total=size)
 rb = []
 while n != size:
-  bs = ser.read(16)
+  bs = ser.read(read_packed_size)
+  if len(bs) == 0:
+    print("**************************************")
+    print("**************************************")
+    print("\033[91m" + f'Error: received nothing (errors so far: {0}).'.format(error))
+    print("\033[0m" + "**************************************")
+    print("**************************************")
+    ser.close()
+    sys.exit(-1)
   for b in bs:
-    v = b # int.from_bytes(b,byteorder='little')
-    rb.append(v)
-  n = n + 16
-  pbr.update(16)
+    rb.append(b)
+  n = n + read_packed_size
+  pbr.update(read_packed_size)
 pbr.close()
 
 random.seed(S)
+i = 0
+print('read {0} bytes'.format(len(rb)))
 for v in rb:
   check = random.randint(0,255)
   if check != v:
+    print("expected {0} found {1} at {2}".format(check,v,i))
     error = error + 1
+  i = i + 1
 
 if error > 0:
   print("**************************************")

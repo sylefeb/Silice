@@ -12,6 +12,7 @@ if len(sys.argv) < 4:
 
 # open serial port
 ser = serial.Serial(sys.argv[1],500000, timeout=1)
+# ser = serial.Serial(sys.argv[1],115200, timeout=1)
 
 # op to perform
 op = sys.argv[2]

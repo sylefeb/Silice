@@ -9,7 +9,7 @@ module ddr_clock(
 `ifdef ICE40
 
   SB_IO #(
-    .PIN_TYPE(6'b1100_11)
+    .PIN_TYPE(6'b1100_01)
   ) sbio_clk (
       .PACKAGE_PIN(ddr_clock),
       .D_OUT_0(1'b0),
@@ -22,19 +22,19 @@ module ddr_clock(
 
 `ifdef ECP5
 
-reg renable;
+reg rnenable;
 
 ODDRX1F oddr
       (
         .Q(ddr_clock),
         .D0(1'b0),
-        .D1(renable),
+        .D1(1'b1),
         .SCLK(clock),
-        .RST(1'b0)
+        .RST(rnenable)
       );
 
 always @(posedge clock) begin
-  renable <= enable;
+  rnenable <= ~enable;
 end
 
 `else

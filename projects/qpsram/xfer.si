@@ -9,11 +9,10 @@
 
 $$ bank_width = 23
 
-$include('../common/qpsram2x.si')
-
 $$if ICESTICK then
-  import('../common/plls/icestick_50.v')
-  $$uart_in_clock_freq_mhz = 50
+  import('../common/plls/icestick_100.v')
+  $$uart_in_clock_freq_mhz = 100
+  $$qpsram_fast = true
 $$elseif ICE40 then
   import('../common/plls/icebrkr_50.v')
   $$uart_in_clock_freq_mhz = 50
@@ -21,11 +20,14 @@ $$elseif ECPIX5 then
   import('../common/plls/ecpix5_50.v')
   $$uart_in_clock_freq_mhz = 50
 $$elseif ULX3S then
-  import('../common/plls/ulx3s_50.v')
-  $$uart_in_clock_freq_mhz = 50
+  import('../common/plls/ulx3s_80.v')
+  $$uart_in_clock_freq_mhz = 80
+  $$qpsram_fast = true
 $$else
   $$uart_in_clock_freq_mhz = 25
 $$end
+
+$include('../common/qpsram2x.si')
 
 $$uart_bauds = 500000
 $include('../common/uart.si')

@@ -17,8 +17,16 @@
 // - Provides simulation with data support in Verilator + Silice.
 // - Used in the tinygpus, a5k, and doom-on-icestick demos.
 //
-// Latency:
-// -------
+// Max freq:
+// - Tested successfully at 50 MHz on all boards.
+// - If >= 70 MHz set '$$qpsram_fast = true'
+// - On icestick, works fine at 100 MHz
+// - On ULX3S, works fine at 80 MHz
+//
+// NOTE: use memtest.py in projects/qpsram for testing
+//
+// Latency (<= 50 MHz):
+// -----------------
 // - reading: 1(start)+8(command,addr)+11(chip delay)+2(per byte  in)+1(outregs)
 //     total: 21 cycles for reading a byte
 // - writing: 1(start)+8(command,addr)               +2(per byte out)+1(outregs)
@@ -31,6 +39,10 @@
 
 import('ddr_clock.v')
 
+$$if not qpsram_fast then
+$$  qpsram_fast = false
+$$end
+
 $$if not SIMULATION then
 $$if ICE40 then
 import('ice40_sb_io_inout.v')
@@ -38,6 +50,7 @@ import('ice40_sb_io.v')
 $$end
 $$if ECP5 then
 import('ecp5_inout.v')
+import('ecp5_out.v')
 $$end
 $$end
 
@@ -168,11 +181,19 @@ $$end
         spi.send                = wdata;
         data_next               = wenable;
         stage                   = 0; //  wait
-        wait                    = wenable ? 16 :    //_ 2 cycles
+        wait                    = wenable ? //_ 16 => 2 cycles, 6 => 12 cycles, 7 => 11 cycles
 $$if ECP5 then
-                                                 6; //_ 12 cycles
+$$  if qpsram_fast then
+                                            13 : 2;
+$$  else
+                                            13 : 4;
+$$  end
 $$else
-                                                 7; //_ 11 cycles
+$$  if qpsram_fast then
+                                            16 : 6;
+$$  else
+                                            16 : 7;  // icebreaker, icestick <= 60 use 7, faster 6
+$$  end
 $$end
         after                   = 4;
 $$if VERILATOR then
@@ -250,37 +271,41 @@ algorithm qpsram_qspi(
   uint1 dc(0);  uint8 sending(0);  uint1 osc(0);
   // driving the QPSRAM chip clock with a ddr module
   uint1 enable(0);
-  uint1 one(1);
-  ddr_clock _(clock <: clock, enable <:: one, ddr_clock :> clk);
+  ddr_clock _(clock <: clock, enable <:: enable, ddr_clock :> clk);
   // setup registered tristate ios
   uint4 io_oe(0); uint4 io_i(0); uint4 io_o(0);
+  uint1 chip_select(0);
 $$if ICE40 then
   // ---- Lattice ice40 implementation using vendor specific primitives
-  sb_io_inout _(clock <: clock, oe <: io_oe[0,1], in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
-  sb_io_inout _(clock <: clock, oe <: io_oe[1,1], in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
-  sb_io_inout _(clock <: clock, oe <: io_oe[2,1], in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
-  sb_io_inout _(clock <: clock, oe <: io_oe[3,1], in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
-  // sb_io _(clock <: clock, out <: nenable, pin :> csn); // NOTE: disabled due to placement conflicts
+  sb_io_inout _(clock <: clock, oe  <: io_oe[0,1],  in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
+  sb_io_inout _(clock <: clock, oe  <: io_oe[1,1],  in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
+  sb_io_inout _(clock <: clock, oe  <: io_oe[2,1],  in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
+  sb_io_inout _(clock <: clock, oe  <: io_oe[3,1],  in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
+  sb_io       _(clock <: clock, out <: chip_select, pin :> csn);
 $$end
 $$if ECP5 then
   // ---- Lattice ecp5 implementation using vendor specific primitives
-  ecp5_inout  _(clock <: clock, oe <: io_oe[0,1], in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
-  ecp5_inout  _(clock <: clock, oe <: io_oe[1,1], in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
-  ecp5_inout  _(clock <: clock, oe <: io_oe[2,1], in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
-  ecp5_inout  _(clock <: clock, oe <: io_oe[3,1], in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
+  uint4 io_oe_1(0); uint4 io_o_1(0);  uint4 io_oe_2(0); uint4 io_o_2(0);
+  ecp5_inout  _(clock <: clock, oe  <:: io_oe_2[0,1],  in :> io_i[0,1], out <:: io_o_2[0,1], pin <:> io0);
+  ecp5_inout  _(clock <: clock, oe  <:: io_oe_2[1,1],  in :> io_i[1,1], out <:: io_o_2[1,1], pin <:> io1);
+  ecp5_inout  _(clock <: clock, oe  <:: io_oe_2[2,1],  in :> io_i[2,1], out <:: io_o_2[2,1], pin <:> io2);
+  ecp5_inout  _(clock <: clock, oe  <:: io_oe_2[3,1],  in :> io_i[3,1], out <:: io_o_2[3,1], pin <:> io3);
+  ecp5_out    _(clock <: clock, out <:  chip_select, pin :> csn);
 $$end
-  uint1 nenable <:: ~enable;
   always {
-    csn       = nenable;
+    chip_select = ~ ( trigger | enable );
+    $$if ECP5 then
+    io_oe_2 = io_oe_1; io_o_2 = io_o_1; io_oe_1 = io_oe; io_o_1 = io_o;
+    $$end
     // output enable on ios
-    io_oe     = {4{send_else_read}};
+    io_oe       = {4{send_else_read}};
     // read current
-    read      = {read[0,4],io_i};
+    read        = {read[0,4],io_i};
     // update outputs
-    io_o      = ~osc ? sending[0,4] : sending[4,4];
+    io_o        = ~osc ? sending[0,4] : sending[4,4];
     // start/keep sending?
-    sending   = (~osc | ~enable) ? send : sending;
-    osc       = ~trigger ? 1b0 : ~osc;
-    enable    = trigger;
+    sending     = (~osc | ~enable) ? send : sending;
+    osc         = ~trigger ? 1b0 : ~osc;
+    enable      = trigger;
   }
 }
