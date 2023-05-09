@@ -6,13 +6,15 @@ Typically this would be used to put data in PSRAM before switching to a
 design that expects this data to be there. As long as the board has
 power, the written data should remain in PSRAM.
 
-> Tested on the mch2022 badge (built-in PSRAM),
-> icebreaker and icestick ([QQSPI pmod](https://machdyne.com/product/qqspi-psram32/) from @machdyne).
+> Tested on the mch2022 badge (built-in PSRAM), and with the [QQSPI pmod](https://machdyne.com/product/qqspi-psram32/) from @machdyne on icebreaker, icestick, ulx3s and ecpix5.
 
-> Prebuild bitstreams are in `bistreams`.
+> Prebuild bitstreams are in `bistreams` for the QQPSI pmod (use PMOD1 on icebreaker, PMOD2 on ecpix5, gp/gn 14 to 17 on ulx3s).
 
 <p align="center">
-  <img width="300" src="icestick_qqspi.jpg">
+  <img width="200" src="icestick_qqspi.jpg">
+  <img width="200" src="icebreaker_qqspi.jpg">
+  <img width="200" src="ulx3s_qqspi.jpg">
+  <img width="200" src="ecpix5_qqspi.jpg">
 </p>
 
 ___

@@ -18,7 +18,8 @@
         {"set"    : "uart2",   "define" : "UART2=1"},
         {"set"    : "spiflash","define" : "SPIFLASH=1"},
         {"set"    : "us2_ps2", "define" : "US2_PS2=1"},
-        {"set"    : "i2c",     "define" : "I2C=1"}
+        {"set"    : "i2c",     "define" : "I2C=1"},
+        {"set"    : "pmod_qqspi", "define" : "PMOD_QQSPI=1"}
       ],
       "builders": [
       {

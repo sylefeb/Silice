@@ -5,13 +5,13 @@ module sb_io(
   );
 
   SB_IO #(
-    .PIN_TYPE(6'b0101_00)
+    .PIN_TYPE(6'b0101_01)
     //                ^^ ignored (input)
     //           ^^^^ registered output
   ) sbio (
       .PACKAGE_PIN(pin),
       .D_OUT_0(out),
-      .OUTPUT_CLK(clock)
+      .OUTPUT_CLK(clock),
   );
 
 endmodule

@@ -4,127 +4,120 @@
 //
 // ========================================================
 //
-// IMPORTANT: Pulse init once to initialize the RAM in QPI
-//            and wait for busy to be done.
-//            Otherwise the interface will NOT work.
+// This QPSRAM controller has the following features:
+//
+// - Targets ice40 Lattice architectures (should be easy to extend).
+// - Works with QPSRAM modules compatible with the APS6404L-3SQR (@machdyne
+//   QQSPI pmod) and ESP-PSRAM64H (mch2022 badge).
+// - Assumes 16MB max per chip (24 bits addresses).
+// - Drives the QPSRAM at the same clock frequency as the design through DDR.
+// - Once a request initiated, streams data (read and write).
+// - Capable of initializing the QPI mode of the QPSRAM chip.
+// - Fairly compact.
+// - Provides simulation with data support in Verilator + Silice.
+// - Used in the tinygpus, a5k, and doom-on-icestick demos.
+//
+// Max freq:
+// - Tested successfully at 50 MHz on all boards.
+// - If >= 70 MHz set '$$qpsram_fast = true'
+// - On icestick, works fine at 100 MHz
+// - On ULX3S, works fine at 80 MHz
+//
+// NOTE: use memtest.py in projects/qpsram for testing
+//
+// Latency (<= 50 MHz):
+// -----------------
+// - reading: 1(start)+8(command,addr)+11(chip delay)+2(per byte  in)+1(outregs)
+//     total: 21 cycles for reading a byte
+// - writing: 1(start)+8(command,addr)               +2(per byte out)+1(outregs)
+//     total: 12 cycles for writing a byte
+//
+// NOTE: these latency numbers are guaranteed, so the parent may choose to count
+//       cycles and not rely on data_next / busy (see qpsram_ram header below).
 //
 // ========================================================
 
 import('ddr_clock.v')
 
-$$if not SIMULATION and ICE40 then
+$$if not qpsram_fast then
+$$  qpsram_fast = false
+$$end
+
+$$if not SIMULATION then
+$$if ICE40 then
 import('ice40_sb_io_inout.v')
 import('ice40_sb_io.v')
 $$end
+$$if ECP5 then
+import('ecp5_inout.v')
+import('ecp5_out.v')
+$$end
+$$end
 
 $$if VERILATOR then
-import('verilator_data_rw.v') // this is a feature supported by Silice
+import('verilator_data_rw.v') // This is a feature supported by the Silice
                               // verilator framework to access raw data
-                              // stored in a 'data.raw' file
+                              // stored in a 'data.raw' file.
+                              // Writes are also supported (file is unchanged,
+                              // this happens in memory).
 $$end
 
-algorithm qpsram_qspi(
-  input  uint8 send,
-  input  uint1 trigger,
-  input  uint1 send_else_read,
-  output uint8 read,
-  output uint1 clk(0),
-  output uint1 csn(1),
-  inout  uint1 io0,
-  inout  uint1 io1,
-  inout  uint1 io2,
-  inout  uint1 io3,
-) {
-  uint1 dc(0);
-  uint8 sending(0);
-  uint1 osc(0);
-
-  uint1 enable(0);
-  ddr_clock _(clock <: clock, enable <:: enable, ddr_clock :> clk);
-
-$$if not ICE40 then
-$$if SIMULATION then
-  uint32 cycle(0);
-$$end
-  uint1 d_csn(1);
-  uint4 read_reg(0);
-  always {
-    // output enable on ios
-    io0.oenable = send_else_read;
-    io1.oenable = send_else_read;
-    io2.oenable = send_else_read;
-    io3.oenable = send_else_read;
-    // read current
-    read      = {read[0,4],read_reg};
-$$if SIMULATION then
-    read_reg  = cycle[0,4];
-$$else
-    read_reg  = {io3.i,io2.i,io1.i,io0.i};
-$$end
-    // update outputs
-    io0.o = ~osc ? sending[0,1] : sending[4,1];
-    io1.o = ~osc ? sending[1,1] : sending[5,1];
-    io2.o = ~osc ? sending[2,1] : sending[6,1];
-    io3.o = ~osc ? sending[3,1] : sending[7,1];
-    // start/keep sending?
-    sending   = (~osc | ~enable) ? send : sending;
-    osc       = ~trigger ? 1b0 : ~osc;
-    enable    = trigger;
-    csn       = d_csn;
-    d_csn     = ~enable;
-$$if SIMULATION then
-    cycle = cycle + 1;
-$$end
-  }
-$$else
-  // setup registered tristate ios
-  uint4 io_oe(0); uint4 io_i(0); uint4 io_o(0);
-  sb_io_inout sb_io0(clock <: clock, oe <: io_oe[0,1], in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
-  sb_io_inout sb_io1(clock <: clock, oe <: io_oe[1,1], in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
-  sb_io_inout sb_io2(clock <: clock, oe <: io_oe[2,1], in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
-  sb_io_inout sb_io3(clock <: clock, oe <: io_oe[3,1], in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
-  uint1 nenable <:: ~ enable;
-  // sb_io sb_csn(clock <: clock, out <: nenable, pin :> csn);
-  uint4 read_reg(0);
-  always {
-    csn       = nenable;
-    // output enable on ios
-    io_oe     = {4{send_else_read}};
-    // read current
-    read      = {read[0,4],io_i};
-    // update outputs
-    io_o      = ~osc ? sending[0,4] : sending[4,4];
-    // start/keep sending?
-    sending   = (~osc | ~enable) ? send : sending;
-    osc       = ~trigger ? 1b0 : ~osc;
-    enable    = trigger;
-  }
-$$end
-}
-
-
+// -------------------------------------------------------------
+// [unit qpsram_ram]
+//
+// Main unit implementing a RAM interface, enabling byte-per-byte streaming
+// in both read/write modes.
+//
+// Overall usage:
+// -------------
+//
+//   After init (see important note below), the parent signals a request is
+//   ready by setting `in_ready` to high. As long as `in_ready` is high, data
+//   will be read/written one byte at a time.
+//
+//   Each time a byte has been sent/received, `data_next` pulses high.
+//   Streaming ends if `in_ready` is low when the next `data_next` pulse occurs.
+//
+//   When `in_ready` is set high, the unit expects `addr`, `wenable` and (if
+//   writing) `wdata` to be set. For proper operation these have to retain
+//   their values until done, or until the next `data_next` pulse for `wdata`
+//   (where it changes to the next byte value to be written).
+//
+//  The unit also outputs a `busy` signal, that is high during operation.
+//  Any `in_ready` pulse occuring while `busy` is high is ignored.
+//
+//  **IMPORTANT**: If the QPSRAM chip has just been powered up, pulse `init`
+//  once to initialize the QPI mode, and wait for `busy` to be low again.
+//
+//            >>> Otherwise the interface will NOT work <<<
+//
+//  NOTES:
+//   - It is typical to first upload data to the QPSRAM with a tool (e.g. see
+//     Silice/projects/qpsram/) in which case the chip remains initialized in
+//     QPI as long as the device is not powered down.
+//   - If something wrong happens during testing, the QPSRAM chip may end up in
+//     an unknown state, preventing future operations. Beware of that: in case
+//     of doubts, power down the board and restart afresh.
+//
 // -------------------------------------------------------------
 
 unit qpsram_ram(
-  input   uint1  in_ready,
-  input   uint1  init,     // whether the RAM needs initialization
+  input   uint1  in_ready, // set high to start reading/writting
+  input   uint1  init,     // pulse high to initiate QPI mode on the QPSRAM chip
 $$if SIMULATION then
   input   uint32 addr,
 $$else
-  input   uint24 addr,
+  input   uint24 addr,         // address to be written (24 bits is 16 MB)
 $$end
-  output  uint8  rdata,
-  input   uint8  wdata,
-  input   uint1  wenable,
-  output  uint1  busy(0),
-  output  uint1  data_next(0),
-  // QPSRAM io
-  output  uint1  ram_csn(1),
-  output  uint1  ram_clk,
-  inout   uint1  ram_io0,
-  inout   uint1  ram_io1,
-  inout   uint1  ram_io2,
-  inout   uint1  ram_io3,
+  output  uint8  rdata,        // read byte
+  input   uint8  wdata,        // byte to be written
+  input   uint1  wenable,      // set high if writting
+  output  uint1  busy(0),      // high during operation
+  output  uint1  data_next(0), // pulses high when next byte is ready/needed
+  // QPSRAM io pins
+  output  uint1  ram_csn(1),  output  uint1  ram_clk,
+  inout   uint1  ram_io0,     inout   uint1  ram_io1,
+  inout   uint1  ram_io2,     inout   uint1  ram_io3,
 ) {
 
   uint32 sendvec(0);
@@ -138,16 +131,18 @@ $$end
     io3    <:> ram_io3,
   );
 
-  uint5  wait(0);
-  uint5  sending(0);
-  uint3  stage(1);
-  uint3  after(0);
-  uint1  send_else_read(0);
-  uint1  accept_in(0);
-  uint1  continue(0);
+  uint3  stage(1);          // current stage
+  uint5  wait(0);           // amount to wait
+  uint3  after(0);          // stage to go to after wait
+  uint5  sending(0);        // 'counter' when sending command+address
+  uint1  send_else_read(0); // high if sending
+  uint1  accept_in(0);      // is it possible to accept a request
+  uint1  continue(0);       // will operation continue? (streaming)
 
 $$if VERILATOR then
   verilator_data_rw vdta(clock <: clock);
+$$end
+$$if SIMULATION then
   uint32 cycle(0);
 $$end
 
@@ -164,14 +159,14 @@ $$end
 
     switch (stage)
     {
-      case 0: {
+      case 0: { // ---- waiting stage (delay)
         stage = wait[4,1] ? after : 0; // counts up to 16 and goes to after
         wait  = wait + 1;
       }
-      case 1: {
+      case 1: { // ---- idle
         accept_in = 1;
       }
-      case 2: {
+      case 2: { // ---- sending command and address
         spi.trigger             = 1;
         spi.send                = sendvec[24,8];
         sendvec                 = {sendvec[0,24],8b0};
@@ -180,13 +175,26 @@ $$end
         after                   = sending[0,1] ? 3 : 2;
         sending                 = sending >> 1;
         }
-      case 3: {
+      case 3: { // ---- setup read/write delay
         send_else_read          = wenable;
         spi.trigger             = ~init;
         spi.send                = wdata;
         data_next               = wenable;
         stage                   = 0; //  wait
-        wait                    = wenable ? 16 : 7; //_ 11 cycles
+        wait                    = wenable ? //_ 16 => 2 cycles, 6 => 12 cycles, 7 => 11 cycles
+$$if ECP5 then
+$$  if qpsram_fast then
+                                            13 : 2;
+$$  else
+                                            13 : 4;
+$$  end
+$$else
+$$  if qpsram_fast then
+                                            16 : 6;
+$$  else
+                                            16 : 7;  // icebreaker, icestick <= 60 use 7, faster 6
+$$  end
+$$end
         after                   = 4;
 $$if VERILATOR then
         vdta.addr               = addr;
@@ -196,7 +204,7 @@ $$if VERILATOR then
         }
 $$end
       }
-      case 4: {
+      case 4: { // ---- next byte received/written
   $$if VERILATOR then
         rdata                   = vdta.rdata;  // from 'data.raw'
         vdta.wdata              = wdata;
@@ -218,12 +226,13 @@ $$if SIMULATION then
         //__display("[%d] qpsram [4] (%x|%x) w:%b in_ready:%b accept_in:%b",cycle,rdata,wdata,wenable,in_ready,accept_in);
 $$end
       }
-      // default: { }
     } // switch
 
     // start sending?
     if ((in_ready | init) & accept_in & ~reset) {
-      //__display("----- qpsram starting, @%x (wdata:%x)",addr,wdata);
+$$if SIMULATION then
+      __display("[%d] ----- qpsram starting, @%x (wenable:%b wdata:%x)",cycle,addr,wenable,wdata);
+$$end
       sending = 5b01000;
       sendvec = init    ? {32b00000000000100010000000100000001}
       //                   ^^^^^^^^^^ produces 35h when not in QPI
@@ -234,10 +243,69 @@ $$end
       continue       = 1; // reset continue
     }
 
-$$if VERILATOR then
+$$if SIMULATION then
     cycle = cycle + 1;
 $$end
   }
 }
 
 // -------------------------------------------------------------
+// [unit qpsram_qspi]
+//
+// Physical layer, sends one byte every two cycle in QPI mode
+// -------------------------------------------------------------
+
+algorithm qpsram_qspi(
+  input  uint8 send,           // byte to be sent
+  input  uint1 trigger,        // trigger: set to high to start operation
+  input  uint1 send_else_read, // set to high if sending, low if reading
+  output uint8 read,           // byte read from QPSRAM
+  output uint1 clk(0),
+  output uint1 csn(1),
+  inout  uint1 io0,
+  inout  uint1 io1,
+  inout  uint1 io2,
+  inout  uint1 io3,
+) {
+  // internal state
+  uint1 dc(0);  uint8 sending(0);  uint1 osc(0);
+  // driving the QPSRAM chip clock with a ddr module
+  uint1 enable(0);
+  ddr_clock _(clock <: clock, enable <:: enable, ddr_clock :> clk);
+  // setup registered tristate ios
+  uint4 io_oe(0); uint4 io_i(0); uint4 io_o(0);
+  uint1 chip_select(0);
+$$if ICE40 then
+  // ---- Lattice ice40 implementation using vendor specific primitives
+  sb_io_inout _(clock <: clock, oe  <: io_oe[0,1],  in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
+  sb_io_inout _(clock <: clock, oe  <: io_oe[1,1],  in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
+  sb_io_inout _(clock <: clock, oe  <: io_oe[2,1],  in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
+  sb_io_inout _(clock <: clock, oe  <: io_oe[3,1],  in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
+  sb_io       _(clock <: clock, out <: chip_select, pin :> csn);
+$$end
+$$if ECP5 then
+  // ---- Lattice ecp5 implementation using vendor specific primitives
+  uint4 io_oe_1(0); uint4 io_o_1(0);  uint4 io_oe_2(0); uint4 io_o_2(0);
+  ecp5_inout  _(clock <: clock, oe  <:: io_oe_2[0,1],  in :> io_i[0,1], out <:: io_o_2[0,1], pin <:> io0);
+  ecp5_inout  _(clock <: clock, oe  <:: io_oe_2[1,1],  in :> io_i[1,1], out <:: io_o_2[1,1], pin <:> io1);
+  ecp5_inout  _(clock <: clock, oe  <:: io_oe_2[2,1],  in :> io_i[2,1], out <:: io_o_2[2,1], pin <:> io2);
+  ecp5_inout  _(clock <: clock, oe  <:: io_oe_2[3,1],  in :> io_i[3,1], out <:: io_o_2[3,1], pin <:> io3);
+  ecp5_out    _(clock <: clock, out <:  chip_select, pin :> csn);
+$$end
+  always {
+    chip_select = ~ ( trigger | enable );
+    $$if ECP5 then
+    io_oe_2 = io_oe_1; io_o_2 = io_o_1; io_oe_1 = io_oe; io_o_1 = io_o;
+    $$end
+    // output enable on ios
+    io_oe       = {4{send_else_read}};
+    // read current
+    read        = {read[0,4],io_i};
+    // update outputs
+    io_o        = ~osc ? sending[0,4] : sending[4,4];
+    // start/keep sending?
+    sending     = (~osc | ~enable) ? send : sending;
+    osc         = ~trigger ? 1b0 : ~osc;
+    enable      = trigger;
+  }
+}

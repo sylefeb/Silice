@@ -12,6 +12,7 @@ if len(sys.argv) < 4:
 
 # open serial port
 ser = serial.Serial(sys.argv[1],500000, timeout=1)
+# ser = serial.Serial(sys.argv[1],115200, timeout=1)
 
 # op to perform
 op = sys.argv[2]
@@ -82,7 +83,7 @@ elif op == 'w':
   n = 0
   ntot = 0
   while True:
-    b = f.read(1)
+    b = f.read(1) # this is really slow!
     if not b:
       break
     packet.append(int.from_bytes(b,byteorder='little'))
@@ -93,6 +94,6 @@ elif op == 'w':
       print("%.1f" % (ntot*100/size),"% ")
       packet = bytearray()
       n = 0
+  ser.write(packet)
 
-ser.write(packet)
 ser.close()
