@@ -6,6 +6,6 @@ module out13_ff_ulx3s(
   input  [12:0] d
 );
 
-  OFS1P3BX out_ff[12:0] (.D(d), .Q(pin), .SCLK(clock), .PD(1'b0), .SP(1'b0));
+  OFS1P3BX out_ff[12:0] (.D(d), .Q(pin), .SCLK(clock), .PD(1'b0), .SP(1'b1));
 
 endmodule
