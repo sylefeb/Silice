@@ -293,5 +293,5 @@ The SDRAM model Semiconductor cannot be directly imported (too complex for Silic
 - The Verilator framework uses a SDRAM simulator embedded with the `verilator_sdram_vga` framework. It was authored by Frederic Requin.
 
 ## Links
-- Josh Bassett SDRAM controller (source on github, follow links) https://www.joshbassett.info/sdram-controller/
+- Josh Bassett SDRAM controller (source on github, follow links) https://github.com/nullobject/sdram-fpga
 - Alchitry SDRAM tutorial https://alchitry.com/blogs/tutorials/sdram-verilog

@@ -25,7 +25,7 @@
 //
 // NOTE: use memtest.py in projects/qpsram for testing
 //
-// Latency (<= 50 MHz):
+// Latency (<= 50 MHz, icebreaker/icestick, numbers differ on other configs):
 // -----------------
 // - reading: 1(start)+8(command,addr)+11(chip delay)+2(per byte  in)+1(outregs)
 //     total: 21 cycles for reading a byte
