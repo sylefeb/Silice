@@ -5,7 +5,7 @@ module verilator_random(
             output reg [31:0]  rnd);
 
   always @(posedge clock) begin
-    rnd <= $c32("random()");
+    rnd <= $c32("get_random()");
   end
 
 endmodule
