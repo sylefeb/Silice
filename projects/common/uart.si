@@ -20,6 +20,8 @@ $$  elseif ICESTICK then
 $$    uart_in_clock_freq_mhz = 12
 $$  elseif RIEGEL then
 $$    uart_in_clock_freq_mhz = 48
+$$  elseif ECPIX5 then
+$$    uart_in_clock_freq_mhz = 100
 $$  else
 $$    error("[uart] clock frequency 'uart_in_clock_freq_mhz' not specified")
 $$  end
@@ -101,7 +103,7 @@ algorithm uart_receiver(
 ) <autorun> {
 
   uint10 half_interval($math.floor(0.5 + uart_in_clock_freq_mhz * 1000000 / uart_bauds / 2)$);
-  int10  counter(0);
+  int11  counter(0);
   uint1  edge(0);
 
   uint10 receiving     = 0;
@@ -122,7 +124,7 @@ algorithm uart_receiver(
         counter   = half_interval; // wait half-period
       }
     } else {
-      if (counter[9,1]) { // half period elapsed
+      if (counter[10,1]) { // half period elapsed
         received  = ~edge ? {latched_rx,received[1,9]} : received; // read uart rx
         receiving = ~edge ? receiving >> 1 : receiving;
         edge      = ~edge;

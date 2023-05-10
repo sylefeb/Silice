@@ -53,7 +53,7 @@ void data_write(int wenable,int addr,unsigned char byte)
   g_RawData[addr] = byte;
 }
 
-int  random()
+int  get_random()
 {
   return rand() ^ (rand()<<8) ^ (rand()<<16) ^ (rand()<<24);
 }

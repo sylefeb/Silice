@@ -1,14 +1,17 @@
 // SL 2023-04-17 @sylefeb
 // ========================================================
 //
-// Compact Risc-V RV32I CPU with RAM memory interface
-// Simple, compact, slow (4 cycles per instruction if on BRAM)
+// Compact risc-V RV32I CPU with byte RAM memory interface
+//
+// Simple, compact, slow
+//
+// CPI: 7 if on BRAM excl. load-store (3 cycles in CPU + 4 bytes fetch)
 //
 // NOTE: Write byte memory interface
 //
 // NOTE: Please get familiar with the ice-v first.
 //
-// NOTE: Needs further clean-up, but works!
+// NOTE: Needs further clean-up
 //
 // ========================================================
 // https://github.com/sylefeb/Silice
@@ -24,7 +27,7 @@ $$end
 // --------------------------------------------------
 
 $$if SIMULATION then
-$$VERBOSE = nil
+$$VERBOSE = 1
 $$end
 
 $$ print("--------------- Ice-V-ram ---------------")
@@ -111,8 +114,12 @@ $$end
   // decoder + ALU, executes the instruction and tells the processor what to do
   execute exec(instr <: instr,pc <: pc, xa <: xregsA.rdata, xb <: xregsB.rdata);
 
+  uint1 load_store   <:: (exec.load | exec.store);
+
 $$if VERBOSE then
   uint32 cycle(0);
+  uint32 last_cycle(0);
+  uint1  debug(0);
 $$end
 
   int32 write_back(0);
@@ -182,7 +189,11 @@ $$end
         instr_trigger = reqmem_done;
 $$if VERBOSE then
         if (instr_trigger) {
-          __display("[cycle %d] (0) F instr:%h (@%h)",cycle,instr,pc<<2);
+          //if (cycle-last_cycle < 30) {
+            __display("[cycle %d] (0) F instr:%h (@%h) [elapsed: %d cycles]",cycle,instr,pc<<2,cycle-last_cycle);
+            debug = 1;
+          //}
+          last_cycle = cycle;
         }
 $$end
       }
@@ -200,7 +211,7 @@ $$end
       case 2: {
         // ---- LS1
         // may wait on ALU
-        do_load_store = ~exec.working & (exec.load | exec.store);
+        do_load_store = ~exec.working & load_store;
         //              ^^^^^^^^^^^^^
         //             wait if ALU holds
         // memory address from which to load/store
@@ -211,7 +222,7 @@ $$end
         mem.byte_size   = 1 << exec.op[0,2]; // gives 4,2 or 1
         mem.byte_offset = exec.n[0,2];
 $$if VERBOSE then
-        if (mem.req_valid) {
+        if (mem.req_valid & debug) {
           __display("[cycle %d] (0) LS1(%b) @%h = %h (wen:%b)",cycle,mem.req_valid,mem.addr,mem.wdata,mem.wenable);
         }
 $$end
@@ -224,8 +235,9 @@ $$end
         //                              ^^^^^^^^^^^^^^
         //                           wait on RAM if request pending
 $$if VERBOSE then
-        if (xregsA.wenable) {
-          //__display("[cycle %d] (0) LS2/C xr[%d]=%h (mem.rdata:%x)",cycle,exec.write_rd,write_back,mem.rdata);
+        if (xregsA.wenable & debug) {
+          __display("[cycle %d] (0) LS2/C xr[%d]=%h (mem.rdata:%x)",cycle,exec.write_rd,write_back,mem.rdata);
+          debug = 0;
         }
 $$end
         // prepare instruction fetch
@@ -241,7 +253,13 @@ $$end
 
     // advance states unless reset, waiting on ALU or RAM
     stage       = (exec.working | reset | reqmem_pending)
-                ? stage : {stage[0,3],stage[3,1]};
+                ? stage
+                : // {stage[0,3],stage[3,1]};
+                  { stage[2,1] | (stage[1,1] & ~load_store),
+                    stage[1,1]               &  load_store,
+                    stage[0,1],
+                    stage[3,1] };
+
     // pending memory request?
     reqmem      = do_fetch | do_load_store | reqmem_pending;
     //            ^^^^^^^    ^^^^^^^         ^^^^^^^^^^^^^^

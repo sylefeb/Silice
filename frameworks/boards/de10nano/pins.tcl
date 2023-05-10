@@ -148,12 +148,12 @@ set_instance_assignment -name FAST_OUTPUT_ENABLE_REGISTER ON -to SDRAM_DQMH
 # UART
 #============================================================
 
-set_location_assignment PIN_AG11 -to uart_rx
-set_location_assignment PIN_AH9  -to uart_tx
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to uart_rx
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to uart_tx
-
-set_location_assignment PIN_AG8  -to uart2_rx
-set_location_assignment PIN_AH8  -to uart2_tx
+set_location_assignment PIN_AG11 -to uart2_rx
+set_location_assignment PIN_AH9  -to uart2_tx
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to uart2_rx
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to uart2_tx
+
+set_location_assignment PIN_AG8  -to uart_rx
+set_location_assignment PIN_AH8  -to uart_tx
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to uart_rx
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to uart_tx

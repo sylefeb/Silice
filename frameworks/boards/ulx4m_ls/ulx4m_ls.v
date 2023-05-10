@@ -26,8 +26,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 `define ULX4M_LS 1
+`define ECP5     1
 `default_nettype none
-$$ULX4M_LS    = 1
+$$ULX4M_LS = 1
+$$ECP5     = 1
 $$HARDWARE = 1
 $$NUM_LEDS = 8
 $$NUM_BTNS = 7
