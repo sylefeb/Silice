@@ -17,7 +17,7 @@ int data(int addr)
     }
     fseek(f, 0, SEEK_END);
     g_DataSz = ftell(f);
-    fprintf(stdout,"\n[verilator_data] loading %d bytes from data.raw\n",g_DataSz);
+    fprintf(stdout,"\n[verilator_data] loading %ld bytes from data.raw\n",g_DataSz);
     fseek(f, 0, SEEK_SET);
     g_RawData = new unsigned char[g_DataSz];
     fread(g_RawData,sizeof(unsigned char),g_DataSz,f);
