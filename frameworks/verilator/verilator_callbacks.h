@@ -4,4 +4,4 @@
 
 int  data(int addr);
 void set_vga_resolution(int w,int h);
-int  random();
+int  get_random();
