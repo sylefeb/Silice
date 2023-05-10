@@ -24,6 +24,10 @@ cd ..
 
 cd ..
 
+echo -e "\nInstalling python packages for building designs\n"
+pip install termcolor
+pip install edalize
+
 echo " "
 echo " "
 echo "=================================="
