@@ -76,13 +76,13 @@ bitfield Rtype { uint1 unused1, uint1 sign, uint4 unused2, uint1 muldiv,
 
 // interface for ram user
 interface icev_ram_user {
-  output  addr,        // memory address
-  output  wenable,     // write enable
-  output  byte_offset, // byte offset 0-3
-  output  byte_size,   // byte size   1,2,4
-  output  wdata,       // data to be written
+  output!  addr,        // memory address
+  output!  wenable,     // write enable
+  output!  byte_offset, // byte offset 0-3
+  output!  byte_size,   // byte size   1,2,4
+  output!  wdata,       // data to be written
   input    rdata,       // data read from memory
-  output  req_valid,   // pulses high when request is valid
+  output!  req_valid,   // pulses high when request is valid
   input    done,        // pulses high when request is completed
 }
 
