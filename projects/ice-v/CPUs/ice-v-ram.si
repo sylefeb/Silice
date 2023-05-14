@@ -76,13 +76,13 @@ bitfield Rtype { uint1 unused1, uint1 sign, uint4 unused2, uint1 muldiv,
 
 // interface for ram user
 interface icev_ram_user {
-  output!  addr,        // memory address
-  output!  wenable,     // write enable
-  output!  byte_offset, // byte offset 0-3
-  output!  byte_size,   // byte size   1,2,4
-  output!  wdata,       // data to be written
+  output  addr,        // memory address
+  output  wenable,     // write enable
+  output  byte_offset, // byte offset 0-3
+  output  byte_size,   // byte size   1,2,4
+  output  wdata,       // data to be written
   input    rdata,       // data read from memory
-  output!  req_valid,   // pulses high when request is valid
+  output  req_valid,   // pulses high when request is valid
   input    done,        // pulses high when request is completed
 }
 
@@ -112,9 +112,17 @@ $$end
   int32 loaded = uninitialized;
 
   // decoder + ALU, executes the instruction and tells the processor what to do
-  execute exec(instr <: instr,pc <: pc, xa <: xregsA.rdata, xb <: xregsB.rdata);
+  execute exec(instr <:: instr, pc <:: pc, xa <: xregsA.rdata, xb <: xregsB.rdata);
 
-  uint1 load_store   <:: (exec.load | exec.store);
+  // we need load/store in advance compared to what exec provides
+
+  uint5 opcode      <:: instr[ 2, 5];
+  uint1 load        <:: opcode == 5b00000;
+  uint1 store       <:: opcode == 5b01000;
+  uint1 load_store  <:: (load | store);
+
+  // uint1 load_store   <: (exec.load | exec.store);
+
 
 $$if VERBOSE then
   uint32 cycle(0);
@@ -200,7 +208,7 @@ $$end
       case 1: {
   $$if VERBOSE then
         if (instr_trigger) {
-          //__display("[cycle %d] (0) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,instr,pc,xregsA.addr,xregsA.rdata,xregsB_0.addr,xregsB_0.rdata);
+          __display("[cycle %d] (0) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,instr,pc,xregsA.addr,xregsA.rdata,xregsB.addr,xregsB.rdata);
         }
   $$end
         // ---- T
@@ -222,8 +230,11 @@ $$end
         mem.byte_size   = 1 << exec.op[0,2]; // gives 4,2 or 1
         mem.byte_offset = exec.n[0,2];
 $$if VERBOSE then
-        if (mem.req_valid & debug) {
-          __display("[cycle %d] (0) LS1(%b) @%h = %h (wen:%b)",cycle,mem.req_valid,mem.addr,mem.wdata,mem.wenable);
+        if (debug) {
+          __display("[cycle %d] load: %b store: %b",cycle,exec.load,exec.store);
+          if (mem.req_valid) {
+            __display("[cycle %d] (0) LS1(%b) @%h = %h (wen:%b)",cycle,mem.req_valid,mem.addr,mem.wdata,mem.wenable);
+          }
         }
 $$end
       }
@@ -309,7 +320,7 @@ $$if ICEV_USERDATA then
 $$end
 ) {
   uint5        shamt(0); // shifter status
-  // uint$cycleW$ cycle(0); // cycle counter
+  uint$cycleW$ cycle(0); // cycle counter
 
   // ==== decode immediates
   int32 imm_u  <: {instr[12,20],12b0};
@@ -339,11 +350,7 @@ $$end
   // ==== select ALU second input
   int32 b             <: regOrImm ? (xb) : imm_i;
 
-$$if ICEV_ALU_LATCH then
-  int32 ra(0);    int32 rb(0);
-$$else
   int32 ra <: xa; int32 rb <: b;
-$$end
 
   // ==== allows to do subtraction and all comparisons with a single adder
   // trick from femtorv32/swapforth/J1
@@ -357,28 +364,35 @@ $$end
   int$addrW+3$ addr_imm <: (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
                         |  (branch ? imm_b : 32b0) | ((JALR|load) ? imm_i : 32b0)
                         |  (store  ? imm_s : 32b0);
-  // ==== set decoder outputs depending on incoming instructions
-  // load/store?
-  load         := opcode == 5b00000;   store        := opcode == 5b01000;
-  // operator for load/store           // register to write to?
-  op           := Rtype(instr).op;     write_rd     := Rtype(instr).rd;
-  // do we have to write a result to a register?
-  no_rd        := branch  | store  | (Rtype(instr).rd == 5b0);
-  // integer operations                // store next address?
-  intop        := (IntImm | IntReg);   storeAddr    := AUIPC;
-  // value to store directly
-$$if ICEV_USERDATA then
-  val          :=    (LUI                ? imm_u      : 32b0)
-                |  ( (CSR &~instr[20,1]) ? cycle      : 32b0)
-                |  ( (CSR & instr[20,1]) ? user_data  : 32b0);
-$$else
-  val          := LUI ? imm_u : 0; //cycle;
-$$end
-  // store value?
-  storeVal     := LUI | CSR;
-
   always {
     uint1 j(0); // temp variables for and comparator
+
+$$if VERBOSE then
+    if (trigger) {
+      __display("[cycle %d] %h @%h xa=%h xb=%h",cycle,instr,pc,xa,xb);
+    }
+$$end
+
+    // ==== set decoder outputs depending on incoming instructions
+    // load/store?
+    load         = opcode == 5b00000;   store        = opcode == 5b01000;
+    // operator for load/store           // register to write to?
+    op           = Rtype(instr).op;     write_rd     = Rtype(instr).rd;
+    // do we have to write a result to a register?
+    no_rd        = branch  | store  | (Rtype(instr).rd == 5b0);
+    // integer operations                // store next address?
+    intop        = (IntImm | IntReg);   storeAddr    = AUIPC;
+    // value to store directly
+  $$if ICEV_USERDATA then
+    val          =   (  LUI                ? imm_u      : 32b0)
+                  |  ( (CSR &~instr[20,1]) ? cycle      : 32b0)
+                  |  ( (CSR & instr[20,1]) ? user_data  : 32b0);
+  $$else
+    val          = LUI ? imm_u : 0; //cycle;
+  $$end
+    // store value?
+    storeVal     = LUI | CSR;
+
 
     // ====================== ALU
 $$if not ICEV_FAST_SHIFT then
@@ -457,8 +471,8 @@ $$if ICEV_MULDIV then
 $$end
 
 $$if VERBOSE then
-    if (working) {
-      // __display("[cycle %d] ALU busy",cycle);
+    if (trigger) {
+      __display("[cycle %d] load %b store %b",cycle,load,store);
     }
 $$end
 
@@ -473,13 +487,13 @@ $$end
     // ====================== Next address adder
     n = addr_a + addr_imm;
 
-    // ==== increment cycle counter
-    // cycle = cycle + 1;
-
-$$if ICEV_ALU_LATCH then
-    // ==== latch xa and b (fmax relief)
-    ra = xa; rb = b;
+$$if VERBOSE then
+    if (working) {
+    }
 $$end
+
+    // ==== increment cycle counter
+    cycle = cycle + 1;
   }
 
 }
