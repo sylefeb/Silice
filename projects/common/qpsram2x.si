@@ -231,7 +231,7 @@ $$end
     // start sending?
     if ((in_ready | init) & accept_in & ~reset) {
 $$if SIMULATION then
-      __display("[%d] ----- qpsram starting, @%x (wenable:%b wdata:%x)",cycle,addr,wenable,wdata);
+      //__display("[%d] ----- qpsram starting, @%x (wenable:%b wdata:%x)",cycle,addr,wenable,wdata);
 $$end
       sending = 5b01000;
       sendvec = init    ? {32b00000000000100010000000100000001}
