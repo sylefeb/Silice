@@ -1,0 +1,43 @@
+SERIAL_PORT ?= COM13
+
+icestick: program_data program_bin
+
+doom-bitstream.bin : SOCs/ice-v-soc-ram-2x.si CPUs/ice-v-ram.si
+		silice-make.py -s SOCs/ice-v-soc-ram-2x.si -b icestick -p basic,uart,pmod_qqspi,spiscreen_extra -o BUILD_icestick -t shell $(ARGS)
+		cp BUILD_icestick/build.bin doom-bitstream.bin
+
+verilator: SOCs/ice-v-soc-ram-2x.si data.raw
+		silice-make.py -s SOCs/ice-v-soc-ram-2x.si -b $@ -p basic,spiscreen -o BUILD_$(subst :,_,$@) $(ARGS)
+
+icarus: SOCs/ice-v-soc-ram-2x.si data.raw
+		silice-make.py -s SOCs/ice-v-soc-ram-2x.si -b $@ -p basic -o BUILD_$(subst :,_,$@) $(ARGS)
+
+program_data: doom1.wad doom-riscv.bin
+		iceprog ../qpsram/bitstreams/icestick.bin
+		sleep 1
+		python  ../qpsram/xfer.py $(SERIAL_PORT) w 16777216 doom1.wad
+
+program_bin: doom-bitstream.bin doom-riscv.bin
+		iceprog ../qpsram/bitstreams/icestick.bin
+		sleep 1
+		python  ../qpsram/xfer.py $(SERIAL_PORT) w 0 doom-riscv.bin
+		sleep 1
+		iceprog doom-bitstream.bin
+
+data.raw: doom1.wad doom-riscv.bin
+		cp doom-riscv.bin tmp.raw
+		truncate --size=16777216 tmp.raw
+		cat tmp.raw doom1.wad > data.raw
+		rm tmp.raw
+
+doom1.wad:
+		wget -nc https://distro.ibiblio.org/slitaz/sources/packages/d/doom1.wad
+
+doom-riscv.bin:
+		git clone -b icestick https://github.com/sylefeb/doom_riscv.git
+		make -C doom_riscv/src/riscv
+		cp doom_riscv/src/riscv/doom-riscv.bin .
+		rm -rf doom_riscv
+
+clean:
+		rm -rf BUILD_*
