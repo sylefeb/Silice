@@ -107,7 +107,6 @@ unit qqspi_memory(
   $$if SIMULATION then
   uint32 cycle(0);
   uint32 cycle_req(0);
-  uint1  in_progress(0);
   $$end
   // QPSRAM RAM
   qpsram_ram ram(
@@ -116,7 +115,8 @@ unit qqspi_memory(
     ram_io2 <:> ram_io2,    ram_io3 <:> ram_io3,
   );
   // logic
-  uint1            was_busy(0);
+  uint1            ram_was_busy(0);
+  uint1            fastram_was_busy(0);
   uint4            work_vector(0);
   uint2            count(0);
   uint32           wdata(0);
@@ -170,21 +170,22 @@ $$end
               : (ram.data_next | in_fastram) ? {1b0,work_vector[1,3]} // shift
               : work_vector; // keep
     // done?
-    io.done      = (was_busy & ~ram.busy)
+    io.done      = (ram_was_busy & ~ram.busy)
                  | (io.req_valid & in_periph)
-                 | (in_fastram & (work_vector==0));
-    was_busy     = ram.busy | req_valid_ram;
+                 | (fastram_was_busy & in_fastram & (work_vector==0));
+    ram_was_busy     = ram.busy | req_valid_ram;
+    fastram_was_busy = io.req_valid ? in_fastram : (io.done ? 0 : fastram_was_busy);
     // keep going?
     ram.in_ready = ((work_vector != 0) & ram.in_ready) | req_valid_ram;
 $$if SIMULATION then
+    /*
     if (io.req_valid) {
+      cycle_req   = cycle;
       if (in_fastram) {
-        in_progress = 1;
-        cycle_req   = cycle;
         if (io.wenable) {
-          //__display("[%d][req ] **** [W] fastram:%b, wenable %b, offset %d, size %d, work_vector %b, ram.addr @%x, wdata: %x, bank:%b",cycle,in_fastram,io.wenable,io.byte_offset,io.byte_size,work_vector,ram.addr,io.wdata,ram_bank);
+          __display("[%d][req ] **** [W] fastram:%b, wenable %b, offset %d, size %d, work_vector %b, ram.addr @%x, wdata: %x, bank:%b",cycle,in_fastram,io.wenable,io.byte_offset,io.byte_size,work_vector,ram.addr,io.wdata,ram_bank);
         } else {
-          //__display("[%d][req ] **** [R] fastram:%b, work_vector %b, offset %d, size %d, addr @%x, bank:%b ------------------------------------------",cycle,in_fastram,work_vector,io.byte_offset,io.byte_size,ram.addr,ram_bank);
+          __display("[%d][req ] **** [R] fastram:%b, work_vector %b, offset %d, size %d, addr @%x, bank:%b ------------------------------------------",cycle,in_fastram,work_vector,io.byte_offset,io.byte_size,ram.addr,ram_bank);
         }
       }
     }
@@ -192,14 +193,14 @@ $$if SIMULATION then
       //__display("[%d][next] work_vector:%b count:%d ram.in_ready:%b ram.wenable:%b",cycle,work_vector,count,ram.in_ready,ram.wenable);
     }
     if (in_fastram) {
-      //__display("[%d][next] work_vector:%b count:%d io.byte_size:%d fastram.wenable:%b fastram.addr:%x fastram.rdata:%x fastram.wdata:%x",cycle,work_vector,count,io.byte_size,fastram.wenable,fastram.addr,fastram.rdata,fastram.wdata);
+      __display("[%d][next] work_vector:%b count:%d io.byte_size:%d fastram.wenable:%b fastram.addr:%x fastram.rdata:%x fastram.wdata:%x",cycle,work_vector,count,io.byte_size,fastram.wenable,fastram.addr,fastram.rdata,fastram.wdata);
     }
-    if (in_progress & io.done) {
-      //__display("[%d][req ] RAM req done in %d cycles (rdata:%x)",cycle,cycle-cycle_req+1,io.rdata);
-      in_progress = 0;
+    if (io.done) {
+      __display("[%d][req ] RAM req done in %d cycles (rdata:%x)",cycle,cycle-cycle_req+1,io.rdata);
     }
+    */
     cycle = cycle + 1;
-  $$end
+$$end
 
   }
 }
