@@ -33,7 +33,8 @@ $$Boot     = 0
 $$print('===========> address bus width: ' .. addrW)
 
 // Main design frequency
-$$master_freq = 60
+$$master_freq = 100
+$$qpsram_fast = true
 
 $$if ICESTICK then
 // Import hardware modules

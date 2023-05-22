@@ -81,9 +81,9 @@ interface icev_ram_user {
   output/*!*/  byte_offset, // byte offset 0-3
   output/*!*/  byte_size,   // byte size   1,2,4
   output/*!*/  wdata,       // data to be written
-  input    rdata,       // data read from memory
+  input        rdata,       // data read from memory
   output/*!*/  req_valid,   // pulses high when request is valid
-  input    done,        // pulses high when request is completed
+  input        done,        // pulses high when request is completed
 }
 
 unit icev_ram(
