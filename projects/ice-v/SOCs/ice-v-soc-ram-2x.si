@@ -33,7 +33,7 @@ $$Boot     = 0
 $$print('===========> address bus width: ' .. addrW)
 
 // Main design frequency
-$$master_freq = 100
+$$master_freq = 120
 $$qpsram_fast = true
 
 $$if ICESTICK then
