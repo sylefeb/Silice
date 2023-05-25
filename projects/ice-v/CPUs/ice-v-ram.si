@@ -76,14 +76,14 @@ bitfield Rtype { uint1 unused1, uint1 sign, uint4 unused2, uint1 muldiv,
 
 // interface for ram user
 interface icev_ram_user {
-  output/*!*/  addr,        // memory address
-  output/*!*/  wenable,     // write enable
-  output/*!*/  byte_offset, // byte offset 0-3
-  output/*!*/  byte_size,   // byte size   1,2,4
-  output/*!*/  wdata,       // data to be written
-  input        rdata,       // data read from memory
-  output/*!*/  req_valid,   // pulses high when request is valid
-  input        done,        // pulses high when request is completed
+  output  addr,        // memory address
+  output  wenable,     // write enable
+  output  byte_offset, // byte offset 0-3
+  output  byte_size,   // byte size   1,2,4
+  output  wdata,       // data to be written
+  input   rdata,       // data read from memory
+  output  req_valid,   // pulses high when request is valid
+  input   done,        // pulses high when request is completed
 }
 
 unit icev_ram(
@@ -183,7 +183,7 @@ $$end
     xregsA.wenable = 0;
 
 $$if VERBOSE then
-    //__display("[cycle %d] ====== stage:%b reset:%b pc:%h",cycle,stage,reset,pc);
+    // __display("[cycle %d] ====== stage:%b reset:%b pc:%h mem.done:%b",cycle,stage,reset,pc,mem.done);
 $$end
 
     // four states: F, T, LS1, LS2/commit
@@ -197,7 +197,7 @@ $$end
         instr_trigger = reqmem_done;
 $$if VERBOSE then
         if (instr_trigger) {
-          //if (cycle-last_cycle < 30) {
+          //if (cycle-last_cycle < 18) {
             __display("[cycle %d] (0) F instr:%h (@%h) [elapsed: %d cycles]",cycle,instr,pc<<2,cycle-last_cycle);
             debug = 1;
           //}
@@ -208,7 +208,7 @@ $$end
       case 1: {
   $$if VERBOSE then
         if (instr_trigger) {
-          __display("[cycle %d] (0) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,instr,pc,xregsA.addr,xregsA.rdata,xregsB.addr,xregsB.rdata);
+          // __display("[cycle %d] (0) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,instr,pc,xregsA.addr,xregsA.rdata,xregsB.addr,xregsB.rdata);
         }
   $$end
         // ---- T
@@ -231,9 +231,9 @@ $$end
         mem.byte_offset = exec.n[0,2];
 $$if VERBOSE then
         if (debug) {
-          __display("[cycle %d] load: %b store: %b",cycle,exec.load,exec.store);
+          // __display("[cycle %d] load: %b store: %b",cycle,exec.load,exec.store);
           if (mem.req_valid) {
-            __display("[cycle %d] (0) LS1(%b) @%h = %h (wen:%b)",cycle,mem.req_valid,mem.addr,mem.wdata,mem.wenable);
+            // __display("[cycle %d] (0) LS1(%b) @%h = %h (wen:%b)",cycle,mem.req_valid,mem.addr,mem.wdata,mem.wenable);
           }
         }
 $$end
@@ -277,7 +277,7 @@ $$end
     //            on fetch,  on load/store,  or previous still active
 
 $$if VERBOSE then
-    if (reset) { __display("[cycle %d] reset (reqmem:%b reqmem_done:%b)",cycle,reqmem,reqmem_done); }
+    // if (reset) { __display("[cycle %d] reset (reqmem:%b reqmem_done:%b)",cycle,reqmem,reqmem_done); }
 $$end
 
     // write back data to both register BRAMs
@@ -288,7 +288,7 @@ $$end
     xregsA.addr     = xregsA.wenable ? exec.write_rd : Rtype(instr).rs1;
     xregsB.addr     = xregsA.wenable ? exec.write_rd : Rtype(instr).rs2;
 $$if VERBOSE then
-    // __display("[cycle %d] mem @%h(%b)w:%b ",cycle,mem.addr,mem.req_valid,mem.wenable);
+    // __display("[cycle %d] mem @%h (req:%b pending:%b) w:%b ",cycle,mem.addr,mem.req_valid,reqmem_pending,mem.wenable);
 $$end
 
 $$if VERBOSE then
@@ -369,7 +369,7 @@ $$end
 
 $$if VERBOSE then
     if (trigger) {
-      __display("[cycle %d] %h @%h xa=%h xb=%h",cycle,instr,pc,xa,xb);
+      // __display("[cycle %d] %h @%h xa=%h xb=%h",cycle,instr,pc,xa,xb);
     }
 $$end
 
@@ -472,7 +472,7 @@ $$end
 
 $$if VERBOSE then
     if (trigger) {
-      __display("[cycle %d] load %b store %b",cycle,load,store);
+      // __display("[cycle %d] load %b store %b",cycle,load,store);
     }
 $$end
 
@@ -486,11 +486,6 @@ $$end
 
     // ====================== Next address adder
     n = addr_a + addr_imm;
-
-$$if VERBOSE then
-    if (working) {
-    }
-$$end
 
     // ==== increment cycle counter
     cycle = cycle + 1;

@@ -131,8 +131,8 @@ unit qqspi_memory(
     uint1 in_fastram        = &io.addr[$addrW-3$,3]; //_ == 3b111
     // mask request on peripherals
     uint1 req_valid         = io.req_valid & ~in_periph;
-    uint1 req_valid_ram     = req_valid & ~in_fastram;
-    uint1 req_valid_fastram = req_valid &  in_fastram;
+    uint1 req_valid_ram     = req_valid    & ~in_fastram;
+    uint1 req_valid_fastram = req_valid    &  in_fastram;
     // data being read
     io.rdata[{count,3b0},8] = (ram.data_next  ? ram.rdata               : 8b0)
             | (in_fastram                     ? fastram.rdata           : 8b0)
@@ -174,7 +174,8 @@ $$end
                  | (io.req_valid & in_periph)
                  | (fastram_was_busy & in_fastram & (work_vector==0));
     ram_was_busy     = ram.busy | req_valid_ram;
-    fastram_was_busy = io.req_valid ? in_fastram : (io.done ? 0 : fastram_was_busy);
+    fastram_was_busy = io.req_valid ? in_fastram
+                                    : (io.done ? 0 : fastram_was_busy);
     // keep going?
     ram.in_ready = ((work_vector != 0) & ram.in_ready) | req_valid_ram;
 $$if SIMULATION then
@@ -328,7 +329,7 @@ $$end
     uo.data_in       = ramio.wdata[0,8];
 $$if SPISCREEN then
     // display
-    display.enable     = 0;  // maintain low
+    display.enable   = 0;  // maintain low
 $$if SIMULATION then
     spiscreen_clk  = screen_clk; spiscreen_mosi = screen_mosi; // assign pins
     spiscreen_dc   = screen_dc;  spiscreen_resn = screen_resn;
