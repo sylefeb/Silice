@@ -136,7 +136,7 @@ unit qqspi_memory(
     // in fastram?
     uint1 in_fastram        = &io.addr[$addrW-3$,3]; //_ == 3b111
     // transform io.req_valid in a pulse (here running 2x clock)
-    io_req_pulse            = (io.req_valid & ~io_req_was_high);
+    io_req_pulse            = io.req_valid & ~io_req_was_high;
     io_req_was_high         = io.req_valid;
     // mask request on peripherals
     uint1 req_valid         = io_req_pulse & ~in_periph;
@@ -189,7 +189,7 @@ $$end
                      ) ? 2b11 : (done_2x >> 1);
     io.done          = done_2x[0,1];
     ram_was_busy     = ram.busy | req_valid_ram;
-    fastram_was_busy = io.done ? 0 : (req_valid ? in_fastram : fastram_was_busy);
+    fastram_was_busy = (work_vector!=0) & (req_valid ? in_fastram : fastram_was_busy);
 $$if SIMULATION then
 /*
     if (req_valid_fastram | req_valid_ram) {
