@@ -6921,8 +6921,8 @@ void Algorithm::writeSubroutineReadback(antlr4::tree::ParseTree *node, std::stri
         "call to subroutine '%s' invalid receiving expression for output '%s'",
         called->name.c_str(), outs.c_str());
     }
-    updateFFUsage(e_Q, true, _ff_usage.ff_usage[called->io2var.at(outs)]);
-    out << " = " << FF_Q << prefix << called->io2var.at(outs) << ';' << nxl;
+    t_vio_dependencies _;
+    out << " = " << rewriteIdentifier(prefix, called->io2var.at(outs), "", bctx, ictx, sourceloc(plist), FF_Q, true, _, _ff_usage) << ';' << nxl;
     ++p;
   }
 }
