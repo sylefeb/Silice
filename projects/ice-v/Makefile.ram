@@ -1,9 +1,13 @@
 
-.DEFAULT: SOCs/ice-v-soc-ram.si
-		silice-make.py -s SOCs/ice-v-soc-ram.si -b $@ -p basic,uart,pmod_qqspi,spiscreen_extra -o BUILD_$(subst :,_,$@) -t shell $(ARGS)
+.DEFAULT: SOCs/ice-v-soc-ram-2x.si
+		silice-make.py -s SOCs/ice-v-soc-ram-2x.si -b $@ -p basic,uart,pmod_qqspi,spiscreen_extra -o BUILD_$(subst :,_,$@) -t shell $(ARGS)
 
-verilator: SOCs/ice-v-soc-ram.si
-		silice-make.py -s SOCs/ice-v-soc-ram.si -b $@ -p basic,spiscreen -o BUILD_$(subst :,_,$@) $(ARGS)
+verilator: SOCs/ice-v-soc-ram-2x.si data.raw
+		# silice-make.py -s SOCs/ice-v-soc-ram-2x.si -b $@ -p basic,spiscreen -o BUILD_$(subst :,_,$@) $(ARGS)
+		silice-make.py -s SOCs/ice-v-soc-ram-2x.si -b $@ -p basic -o BUILD_$(subst :,_,$@) $(ARGS)
+
+data.raw:
+		cp ./compile/build/code.bin data.raw
 
 clean:
 	rm -rf BUILD_*
