@@ -4085,6 +4085,9 @@ bool Algorithm::preventIfElseCodeDup(t_fsm_nfo* fsm)
   bool changed = false;
   for (auto b : m_Blocks) {
     if (b->context.fsm == fsm) {
+      if (b->is_state && b->state_id == -1) {
+        continue; // state not reached
+      }
       if (b->if_then_else()) {
         if (!b->if_then_else()->after->is_state) {
           // should after be a state?

@@ -1,0 +1,30 @@
+unit u(output uint1 data)
+{
+   algorithm {
+      data = 0;
+   }
+}
+
+unit main(output uint5 leds)
+{
+
+   uint1 result1 = uninitialized;
+   u u1;
+
+   algorithm
+   {
+
+      subroutine not_used (output uint1 sub_out, calls u1)
+      {
+         if (u1.data == 1) {
+            sub_out = 1;
+         }
+      }
+
+      // (result1) <- not_used <- (); <--- subroutine is commented out.
+      __display("%b",result1);
+
+      __finish();
+
+   }
+}
