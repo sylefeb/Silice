@@ -4082,12 +4082,26 @@ void Algorithm::resolveForwardJumpRefs()
 
 bool Algorithm::preventIfElseCodeDup(t_fsm_nfo* fsm)
 {
+  // detect unreachable block
+  // NOTE: this is done before as the loop below changes is_state for some block,
+  //       and these have to be renumbered
+  std::set<int> unreachable;
+  for (auto b : m_Blocks) {
+    if (b->context.fsm == fsm) {
+      if (b->state_id == -1 && b->is_state) {
+        unreachable.insert(b->id);
+      }
+    }
+  }
+  // go through all fsm blocks
   bool changed = false;
   for (auto b : m_Blocks) {
     if (b->context.fsm == fsm) {
-      if (b->is_state && b->state_id == -1) {
-        continue; // state not reached
+      // skip unreachable block
+      if (unreachable.find(b->id) != unreachable.end()) {
+        continue;
       }
+      // prevent code dup if necessary
       if (b->if_then_else()) {
         if (!b->if_then_else()->after->is_state) {
           // should after be a state?
@@ -5756,7 +5770,7 @@ void Algorithm::determineAccess(
   // for all blocks
   for (auto& b : m_Blocks) {
     if (b->is_state && b->state_id != -1) {
-      //               ^^^^^^^^^^^ state is never reached
+      //               ^^^^^^^^^^^ otherwise state is never reached
       determineAccess(b);
     }
   }
