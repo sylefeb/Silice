@@ -1,0 +1,18 @@
+unit main(output uint5 leds)
+{
+   uint1 result1 = uninitialized;
+
+   algorithm
+   {
+
+      subroutine subr(output uint1 data_out)
+      {
+         // data_out = 1; // issue 253: leads to incorrect verilog when output not used
+      }
+
+      (result1) <- subr <- ();
+      __display("%b",result1);
+      __finish();
+
+   }
+}

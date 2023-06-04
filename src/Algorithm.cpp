@@ -4082,9 +4082,26 @@ void Algorithm::resolveForwardJumpRefs()
 
 bool Algorithm::preventIfElseCodeDup(t_fsm_nfo* fsm)
 {
+  // detect unreachable block
+  // NOTE: this is done before as the loop below changes is_state for some block,
+  //       and these have to be renumbered
+  std::set<int> unreachable;
+  for (auto b : m_Blocks) {
+    if (b->context.fsm == fsm) {
+      if (b->state_id == -1 && b->is_state) {
+        unreachable.insert(b->id);
+      }
+    }
+  }
+  // go through all fsm blocks
   bool changed = false;
   for (auto b : m_Blocks) {
     if (b->context.fsm == fsm) {
+      // skip unreachable block
+      if (unreachable.find(b->id) != unreachable.end()) {
+        continue;
+      }
+      // prevent code dup if necessary
       if (b->if_then_else()) {
         if (!b->if_then_else()->after->is_state) {
           // should after be a state?
@@ -5753,7 +5770,7 @@ void Algorithm::determineAccess(
   // for all blocks
   for (auto& b : m_Blocks) {
     if (b->is_state && b->state_id != -1) {
-      //               ^^^^^^^^^^^ state is never reached
+      //               ^^^^^^^^^^^ otherwise state is never reached
       determineAccess(b);
     }
   }
@@ -6921,8 +6938,8 @@ void Algorithm::writeSubroutineReadback(antlr4::tree::ParseTree *node, std::stri
         "call to subroutine '%s' invalid receiving expression for output '%s'",
         called->name.c_str(), outs.c_str());
     }
-    updateFFUsage(e_Q, true, _ff_usage.ff_usage[called->io2var.at(outs)]);
-    out << " = " << FF_Q << prefix << called->io2var.at(outs) << ';' << nxl;
+    t_vio_dependencies _;
+    out << " = " << rewriteIdentifier(prefix, called->io2var.at(outs), "", bctx, ictx, sourceloc(plist), FF_Q, true, _, _ff_usage) << ';' << nxl;
     ++p;
   }
 }
