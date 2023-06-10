@@ -4082,7 +4082,7 @@ void Algorithm::resolveForwardJumpRefs()
 
 bool Algorithm::preventIfElseCodeDup(t_fsm_nfo* fsm)
 {
-  // detect unreachable block
+  // detect unreachable blocks
   // NOTE: this is done before as the loop below changes is_state for some block,
   //       and these have to be renumbered
   std::set<int> unreachable;
