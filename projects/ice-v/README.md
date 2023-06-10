@@ -6,16 +6,14 @@
 > - adventurous designs (dual core, pipelined, etc.)
 > - fun demos! (graphics, sound, etc.)
 
-The CPUs you'll find here should work great as microcontrollers for your projects,
-but most are focused on executing from BRAM with the exception of the *Fermata*
-(see list below).
+The CPUs you'll find here should work great as microcontrollers for your projects. Most are focused on executing from BRAM (or SPRAM when available, e.g. on the UP5K), with the exception of the *Fermata* (see list below) that features a full RAM interface.
 
 The Ice-V projects come with their own custom SOCs, but if you only want to add
-RISC-V capabilities to your designs and are not so much interested in playing
+RISC-V capabilities to your designs and are not so much interested in playing with
 the CPU itself, check out the [easy_riscv demo projects](../easy-riscv/README.md).
 
 All the CPUs run code compiled with gcc RISC-V (build scripts included), and
-come with a SOC with a SPI-screen driver (some have SPIflash and even sound!).
+come with a SOC with a SPI-screen driver (some use SPI-flash and even sound!).
 For each variant the CPU is in the [CPUs](./CPUs/) subdirectory, the SOC is in
 the [SOCs](./SOCs/) subdirectory, the compilation scripts in
 the [compile](./compile/) subdirectory. All can be simulated using verilator,

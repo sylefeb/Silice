@@ -271,7 +271,7 @@ elif target_builder['builder'] == 'edalize':
     my_env = os.environ
     my_env["PATH"] = make_dir + os.pathsep + my_env["PATH"]
 
-    from edalize import get_edatool
+    from edalize.edatool import get_edatool
     import subprocess
 
     tool   = target_builder['tool']
