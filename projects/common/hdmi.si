@@ -152,6 +152,7 @@ algorithm hdmi(
   uint1  pixel_clk     = uninitialized;
   uint1  half_hdmi_clk = uninitialized;
   hdmi_clock pll(
+    rst           <: reset,
     clk           <: clock,
     pixel_clk     :> pixel_clk,     //  25 MHz
     half_hdmi_clk :> half_hdmi_clk, // 125 MHz (half 250MHz HDMI, double data rate output)

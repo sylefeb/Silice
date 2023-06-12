@@ -41,11 +41,11 @@ fi
 if ! type "nextpnr-ice40" > /dev/null; then
   # try arachne-pnr instead
   echo "nextpnr-ice40 not found, trying arachne-pnr instead"
-  yosys -q -p "synth_ice40 -blif build.blif -top top" build.v
+  yosys -q -p "read_verilog -sv build.v" -p "synth_ice40 -blif build.blif -top top"
   arachne-pnr -p $BOARD_DIR/icestick.pcf build.blif -o build.txt
   icepack build.txt build.bin
 else
-  yosys -l yosys.log -p 'synth_ice40 -relut -top top -json build.json' build.v
+  yosys -l yosys.log -p "read_verilog -sv build.v" -p 'synth_ice40 -relut -top top -json build.json'
   nextpnr-ice40 --force --hx1k --json build.json --pcf $BOARD_DIR/icestick.pcf --asc build.asc --package tq144 --freq 12
   icepack build.asc build.bin
 fi

@@ -45,19 +45,19 @@ namespace Silice
 
   public:
 
-    /// \brief enum for variable access
-    /// e_ReadWrite = e_ReadOnly | e_WriteOnly
+    /// \brief enum for variable access    
     enum e_Access {
       e_NotAccessed = 0,
       e_ReadOnly = 1,
       e_WriteOnly = 2,
-      e_ReadWrite = 3,
+      e_ReadWrite = 3,   /// e_ReadWrite = e_ReadOnly | e_WriteOnly
       e_WriteBinded = 4,
       e_ReadWriteBinded = 8,
       e_InternalFlipFlop = 16
     };
 
-    /// \brief enum for variable type
+    /// \brief enum for variable usage type
+    ///        determined from how a variable is accessed
     enum e_VarUsage {
       e_Undetermined = 0,
       e_NotUsed = 1,
@@ -77,6 +77,7 @@ namespace Silice
       std::vector<std::string> init_values;
       int          table_size        = 0; // 0: not a table, otherwise size
       bool         do_not_initialize = false;
+      bool         assigned_as_wire  = false; // for e_Const, forces to have no init whatsoever (even if config "reg_init_zero" is set)
       bool         init_at_startup   = false;
       e_Access     access            = e_NotAccessed;
       e_VarUsage   usage             = e_Undetermined;
@@ -111,7 +112,8 @@ namespace Silice
       std::ostream& out;
       std::ostream& pipes;
       std::ostream& wires;
-      t_writer_context(std::ostream& out_, std::ostream& pipes_, std::ostream& wires_) : out(out_), pipes(pipes_), wires(wires_) { }
+      std::ostream& defines;
+      t_writer_context(std::ostream& out_, std::ostream& pipes_, std::ostream& wires_, std::ostream& defines_) : out(out_), pipes(pipes_), wires(wires_), defines(defines_) { }
     };
 
     /// \brief returns the blueprint name

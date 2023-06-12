@@ -40,7 +40,7 @@ rm build*
 
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
 
-yosys -D PVT=1 -p 'synth_ice40 -dsp -top top -json build.json' build.v
+yosys -D PVT=1 -p "read_verilog -sv build.v" -p 'synth_ice40 -dsp -top top -json build.json'
 
 nextpnr-ice40 --up5k --freq 12 --package uwg30 --pcf $BOARD_DIR/fomu-pvt1.pcf --json build.json --asc build.asc
 

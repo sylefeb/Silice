@@ -42,7 +42,7 @@ if [[ ! -z "${NO_BUILD}" ]]; then
   exit
 fi
 
-yosys -p "synth_ice40 -dsp -json build.json -abc9 -device u -top top" build.v
+yosys -p "read_verilog -sv build.v" -p "synth_ice40 -dsp -json build.json -abc9 -device u -top top"
 nextpnr-ice40 --up5k --freq 12 --package sg48 --json build.json --pcf $BOARD_DIR/mch2022.pcf --asc build.asc -r --timing-allow-fail
 
 icepack -s build.asc build.bin
