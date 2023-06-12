@@ -5145,7 +5145,6 @@ bool Algorithm::isPartialAccess(siliceParser::AccessContext* access, const t_com
   return "";
 }
 
-
 // -------------------------------------------------
 
 std::string Algorithm::bindingRightIdentifier(const t_binding_nfo& bnd, const t_combinational_block_context* bctx) const
@@ -7266,14 +7265,12 @@ void Algorithm::writeAccess(std::string prefix, std::ostream& out, bool assignin
   } else if (access->bitfieldAccess() != nullptr) {
     writeBitfieldAccess(prefix, out, assigning, access->bitfieldAccess(), std::make_pair("", ""), __id, bctx, ictx, ff, dependencies, _usage);
   }
-
   // disable stable in cycle on partial access (not supported by verilog on defines)
   if (isPartialAccess(access, bctx)) {
     string var = determineAccessedVar(access, bctx);
     var = translateVIOName(var, bctx);
     _usage.stable_in_cycle[var] = false;
   }
-
 }
 
 // -------------------------------------------------
@@ -9299,7 +9296,20 @@ void Algorithm::writeAsModule(std::ostream& out, const t_instantiation_context &
       std::ofstream null;
       writeAsModule(null, ictx, usage, first_pass);
 
-      // update usage based on first pass
+      /// update usage based on first pass
+      // promote (non table) consts that cannot be defines
+      for (auto& v : m_Vars) {
+        if (v.usage == e_Const && v.table_size == 0) {
+          bool stable = true;
+          if (usage.stable_in_cycle.count(v.name)) { // stable in cycle?
+            stable = usage.stable_in_cycle.at(v.name);
+          }
+          if (!stable) {
+            v.usage = e_Temporary; // no: promote to temp
+          }
+        }
+      }
+      // demote flip-flop and temporaries
       for (const auto &v : usage.ff_usage) {
         if (m_VarNames.count(v.first)) { // variable?
           if (!(v.second & e_Q)) { // Q side is never used
