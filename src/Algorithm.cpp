@@ -6991,8 +6991,9 @@ void Algorithm::writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::strin
           a.instance_name.c_str(), outs.name.c_str());
       }
       if (!is_a_define.empty()) {
-        w.defines << "`undef  " << lvalue.str() << nxl;
-        w.defines << "`define " << lvalue.str() << ' ' << vioAsDefine(ictx,is_a_define,WIRE + a.instance_prefix + "_" + outs.name) << nxl;
+        std::string lvalue_str = (lvalue.str()[0] == '`') ? lvalue.str().substr(1) : lvalue.str();
+        w.defines << "`undef  " << lvalue_str << nxl;
+        w.defines << "`define " << lvalue_str << ' ' << vioAsDefine(ictx,is_a_define,WIRE + a.instance_prefix + "_" + outs.name) << nxl;
       } else {
         w.out << lvalue.str() << " = " << WIRE << a.instance_prefix << "_" << outs.name << ";" << nxl;
       }
@@ -7074,10 +7075,11 @@ void Algorithm::writeSubroutineReadback(antlr4::tree::ParseTree *node, std::stri
     t_vio_dependencies _;
     std::string rvalue = rewriteIdentifier(prefix, called->io2var.at(outs), "", bctx, ictx, sourceloc(plist), FF_Q, true, _, _usage);
     if (!is_a_define.empty()) {
-      w.defines << "`undef  " << lvalue.str() << nxl;
-      w.defines << "`define " << lvalue.str() << ' ' << vioAsDefine(ictx, is_a_define, rvalue) << nxl;
+      std::string lvalue_str = (lvalue.str()[0] == '`') ? lvalue.str().substr(1) : lvalue.str();
+      w.defines << "`undef  " << lvalue_str << nxl;
+      w.defines << "`define " << lvalue_str << ' ' << vioAsDefine(ictx, is_a_define, rvalue) << nxl;
     } else {
-      w.out << " = " << rvalue << ';' << nxl;
+      w.out << lvalue.str() << " = " << rvalue << ';' << nxl;
     }
     // next
     ++p;
@@ -7343,8 +7345,9 @@ void Algorithm::writeAssignement(
   }
   // = rvalue
   if (!is_a_define.empty()) {
-    w.defines << "`undef  " << lvalue.str() << nxl;
-    w.defines << "`define " << lvalue.str() << ' ' << vioAsDefine(ictx, is_a_define, rewriteExpression(prefix, expression_0, a.__id, bctx, ictx, ff, true, dependencies, _usage)) << nxl;
+    std::string lvalue_str = (lvalue.str()[0] == '`') ? lvalue.str().substr(1) : lvalue.str();
+    w.defines << "`undef  " << lvalue_str << nxl;
+    w.defines << "`define " << lvalue_str << ' ' << vioAsDefine(ictx, is_a_define, rewriteExpression(prefix, expression_0, a.__id, bctx, ictx, ff, true, dependencies, _usage)) << nxl;
   } else {
     w.out << lvalue.str() << " = " << rewriteExpression(prefix, expression_0, a.__id, bctx, ictx, ff, true, dependencies, _usage) << ';' << nxl;
   }
@@ -8313,8 +8316,7 @@ void Algorithm::writeBlock(
             if (m_Vars.at(m_VarNames.at(var)).usage == e_Const) {
               // assign expression to const
               w.defines << "`undef  " << FF_CST << prefix << var << nxl;
-              w.defines << "`define " 
-                << FF_CST << prefix << var << ' ' 
+              w.defines << "`define " << FF_CST << prefix << var << ' '
                 << vioAsDefine(ictx, m_Vars.at(m_VarNames.at(var)),rewriteExpression(prefix, expr, a.__id, &block->context, ictx, FF_Q, true, _dependencies, _usage)) << "\n";
             } else if (m_Vars.at(m_VarNames.at(var)).usage != e_NotUsed) {
               // assign expression to temporary
