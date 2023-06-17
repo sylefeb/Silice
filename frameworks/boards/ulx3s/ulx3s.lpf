@@ -84,12 +84,12 @@ IOBUF PORT "oled_resn" PULLMODE=UP IO_TYPE=LVCMOS33 DRIVE=4;
 IOBUF PORT "oled_csn" PULLMODE=UP IO_TYPE=LVCMOS33 DRIVE=4;
 
 ## SPI Flash chip "flash" sheet
-LOCATE COMP "flash_csn" SITE "R2";
-LOCATE COMP "flash_clk" SITE "U3";
-LOCATE COMP "flash_mosi" SITE "W2";  # IO0
-LOCATE COMP "flash_miso" SITE "V2";  # IO1
-LOCATE COMP "flash_holdn" SITE "W1"; # IO3
-LOCATE COMP "flash_wpn" SITE "Y2";   # IO2
+LOCATE COMP "flash_csn"   SITE "R2";
+LOCATE COMP "flash_clk"   SITE "U3";
+LOCATE COMP "flash_mosi"  SITE "W2";  # IO0
+LOCATE COMP "flash_miso"  SITE "V2";  # IO1
+LOCATE COMP "flash_wpn"   SITE "Y2";  # IO2
+LOCATE COMP "flash_holdn" SITE "W1";  # IO3
 
 #LOCATE COMP "flash_csspin" SITE "AJ3";
 #LOCATE COMP "flash_initn" SITE "AG4";
