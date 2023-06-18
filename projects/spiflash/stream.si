@@ -16,7 +16,7 @@
 $$spi4x  = nil
 $$spi2x  = 1
 
-$$SIM_FOMU = 1
+$$SIM_FOMU = nil
 
 $$nBytes = 4
 
@@ -39,23 +39,22 @@ $$end
 $$master_freq = 12
 
 $$if ICE40 then
-$$if spi4x then
-  import('../common/ice40_half_quarter_clock.v')
-  $$master_freq = 100 --------------------------------------
-$$elseif spi2x then
-  import('../common/ice40_half_clock.v')
-$$else
-  $$error('define either spi2x or spi4x')
-$$end
-// Import hardware modules
-$$if not FOMU then
-$$master_freq = 50
-import('../common/plls/icebrkr_$master_freq$.v')
-$$else
-$$master_freq = 25
-import('../common/plls/fomu_$master_freq$.v')
-$$end
-import('../../common/ice40_spram.v')
+  $$if spi4x then
+    import('../common/ice40_half_quarter_clock.v')
+    $$master_freq = 100
+  $$elseif spi2x then
+    import('../common/ice40_half_clock.v')
+  $$else
+    $$error('define either spi2x or spi4x')
+  $$end
+  // Import hardware modules
+  $$if not FOMU then
+    $$master_freq = 50
+    import('../common/plls/icebrkr_$master_freq$_lock.v')
+  $$else
+    $$master_freq = 25
+    import('../common/plls/fomu_$master_freq$.v')
+  $$end
 $$end
 
 $$if spi4x then
@@ -103,35 +102,39 @@ $$if UART then
   output uint1 uart_tx,
   input  uint1 uart_rx,
 $$end
-) <@clock1x> {
+) <@clock1x,!rst> {
 $$if ICE40 then
-$$if spi4x then
-  uint1 clock2x = uninitialized;
-  uint1 clock4x = uninitialized;
-  pll pllgen(
-    clock_in  <: clock,
-    clock_out :> clock4x,
-  );
-  uint1 clock1x  = uninitialized;
-  ice40_half_quarter_clock hc(
-    clock_in  <: clock4x,
-    clock_h   :> clock2x,
-    clock_q   :> clock1x,
-  );
-$$elseif spi2x then
-  uint1 clock2x = uninitialized;
-  pll pllgen(
-    clock_in  <: clock,
-    clock_out :> clock2x,
-  );
-  uint1 clock1x  = uninitialized;
-  ice40_half_clock hc(
-    clock_in  <: clock2x,
-    clock_out :> clock1x,
-  );
-$$else
-$$ error('Either spi2x or spi4x has to be set')
-$$end
+  $$if spi4x then
+    uint1 clock2x = uninitialized;
+    uint1 clock4x = uninitialized;
+    uint1 rst     = uninitialized;
+    pll pllgen(
+      clock_in  <: clock,
+      clock_out :> clock4x,
+      reset     :> rst
+    );
+    uint1 clock1x  = uninitialized;
+    ice40_half_quarter_clock hc(
+      clock_in  <: clock4x,
+      clock_h   :> clock2x,
+      clock_q   :> clock1x,
+    );
+  $$elseif spi2x then
+    uint1 clock2x = uninitialized;
+    uint1 rst     = uninitialized;
+    pll pllgen(
+      clock_in  <: clock,
+      clock_out :> clock2x,
+      reset     :> rst
+    );
+    uint1 clock1x  = uninitialized;
+    ice40_half_clock hc(
+      clock_in  <: clock2x,
+      clock_out :> clock1x,
+    );
+  $$else
+    $$error('Either spi2x or spi4x has to be set')
+  $$end
 $$elseif SIMULATION then
   uint1 clock1x = uninitialized;
   uint1 clock2x = uninitialized;
@@ -202,28 +205,45 @@ $$if SIMULATION then
 $$end
   }
 
+  leds = 8hff;
+
   while (sf_rom.busy) { }
   __display("init done =====================");
+
+  leds = 8h03;
+
+  // sentinel
+  uint8 n(0);
+  while (n != 16) {
+    uo.data_in       = 8hFF;
+    uo.data_in_ready = 1;
+    while (uo.busy) { }
+    n = n + 1;
+  }
+
+  leds = 8h00;
 
   // read some
   data.wenable      = 1;
   data.addr         = 0;
   while (~data.addr[7,1]) {
     sf_rom.in_ready = 1;
-    sf_rom.addr     = 24h40000 + (data.addr[0,8] << 8d$clog2(nBytes)$);
-    //sf_rom.addr     = {4b0000,12b0,data.addr[0,8] << 8d$clog2(nBytes)$ };
+    //sf_rom.addr     = 24h40000 + (data.addr[0,8] << 8d$clog2(nBytes)$);
+    sf_rom.addr     = {4b0000,12b0,data.addr[0,8] << 8d$clog2(nBytes)$ };
     //sf_rom.addr     = {4b0000,12b0,data.addr[0,8] };
 ++:
     while (sf_rom.busy) { }
+++:
     __display("read @%h = %x",sf_rom.addr,sf_rom.rdata);
     data.wdata      = sf_rom.rdata;
     data.addr       = data.addr + 1;
   }
 
-  // sentinel
-  uo.data_in       = 8hff;
-  uo.data_in_ready = 1;
-  while (uo.busy) { }
+  leds = 8h00;
+
+$$if SIMULATION then
+  __finish();
+$$end
 
   // output to UART
   data.wenable = 0;
@@ -231,7 +251,7 @@ $$end
   while (data.addr != 129) {
     uint32 dta = 0;
     uint3  n   = 0;
-    dta = data.rdata;
+    dta        = data.rdata;
     while (n != $nBytes$) {
       uo.data_in       = dta[0,8];
       uo.data_in_ready = 1;
