@@ -25,14 +25,14 @@ $$ error('single speed SPIflash controller supports only byte access')
 $$end
 
 $$if ICARUS then
-$$if not SIM_FOMU and not FOMU then
-// download W25Q128JVxIM from winbond Verilog models
-append('W25Q128JVxIM/W25Q128JVxIM.v')
-import('simul_spiflash_w.v')
-$$else
+$$if SIM_FOMU or FOMU then
 // download MX25R1635F from macronix Verilog models
 append('MX25R1635F/MX25R1635F.v')
 import('simul_spiflash_m.v')
+$$else
+// download W25Q128JVxIM from winbond Verilog models
+append('W25Q128JVxIM/W25Q128JVxIM.v')
+import('simul_spiflash_w.v')
 $$end
 $$end
 
@@ -55,6 +55,13 @@ $$if ICE40 then
     $$master_freq = 25
     import('../common/plls/fomu_$master_freq$.v')
   $$end
+$$end
+
+import('../common/passthrough.v')
+
+$$if ULX3S then
+  $$master_freq = 50
+  import('../common/plls/ulx3s_50_25.v')
 $$end
 
 $$if spi4x then
@@ -108,7 +115,7 @@ $$if ICE40 then
     uint1 clock2x = uninitialized;
     uint1 clock4x = uninitialized;
     uint1 rst     = uninitialized;
-    pll pllgen(
+    pll _(
       clock_in  <: clock,
       clock_out :> clock4x,
       reset     :> rst
@@ -122,7 +129,7 @@ $$if ICE40 then
   $$elseif spi2x then
     uint1 clock2x = uninitialized;
     uint1 rst     = uninitialized;
-    pll pllgen(
+    pll _(
       clock_in  <: clock,
       clock_out :> clock2x,
       reset     :> rst
@@ -135,6 +142,19 @@ $$if ICE40 then
   $$else
     $$error('Either spi2x or spi4x has to be set')
   $$end
+$$elseif ULX3S then
+  uint1 clock1x = uninitialized;
+  uint1 clock2x = uninitialized;
+  uint1 locked  = uninitialized;
+  uint1 rst     = uninitialized;
+  pll_50_25 _(
+    clkin   <: clock,
+    clkout0 :> clock2x,
+    clkout1 :> clock1x,
+    locked  :> locked
+  );
+  uint1 nlocked <: ~ locked;
+  passthrough _(inv <: nlocked,outv :> rst);
 $$elseif SIMULATION then
   uint1 clock1x = uninitialized;
   uint1 clock2x = uninitialized;
@@ -144,7 +164,8 @@ $$elseif SIMULATION then
     clock2x :> clock2x,
     clock4x :> clock4x
   );
-  uint1 rst <: reset;
+  uint1 rst     = uninitialized;
+  passthrough _(inv <: reset,outv :> rst);
 $$end
 
 $$if SIMULATION then
@@ -197,6 +218,7 @@ $$end
   always {
     uo.data_in_ready = 0;
     sf_rom.in_ready  = 0;
+    data.wenable     = 0;
 $$if SIMULATION then
     cycle = cycle + 1;
     //if (cycle == 1200) {
@@ -212,19 +234,7 @@ $$end
 
   leds = 8h03;
 
-  // sentinel
-  uint8 n(0);
-  while (n != 16) {
-    uo.data_in       = 8hFF;
-    uo.data_in_ready = 1;
-    while (uo.busy) { }
-    n = n + 1;
-  }
-
-  leds = 8h00;
-
   // read some
-  data.wenable      = 1;
   data.addr         = 0;
   while (~data.addr[7,1]) {
     sf_rom.in_ready = 1;
@@ -237,6 +247,7 @@ $$end
     __display("read @%h = %x",sf_rom.addr,sf_rom.rdata);
     data.wdata      = sf_rom.rdata;
     data.addr       = data.addr + 1;
+    data.wenable    = 1;
   }
 
   leds = 8h00;
@@ -245,22 +256,31 @@ $$if SIMULATION then
   __finish();
 $$end
 
-  // output to UART
-  data.wenable = 0;
-  data.addr    = 1;
-  while (data.addr != 129) {
-    uint32 dta = 0;
-    uint3  n   = 0;
-    dta        = data.rdata;
-    while (n != $nBytes$) {
-      uo.data_in       = dta[0,8];
+  while (1) {
+    // sentinel
+    uint8 n = 0;
+    while (n != 16) {
+      uo.data_in       = 8hFF;
       uo.data_in_ready = 1;
-      // __display("sending %h",dta[0,8]);
-      dta              = dta >> 8;
       while (uo.busy) { }
       n = n + 1;
     }
-    data.addr        = data.addr + 1;
+    // output to UART
+    data.addr    = 1;
+    while (data.addr != 129) {
+      uint32 dta = 0;
+      uint3  n   = 0;
+      dta        = data.rdata;
+      while (n != $nBytes$) {
+        uo.data_in       = dta[0,8];
+        uo.data_in_ready = 1;
+        // __display("sending %h",dta[0,8]);
+        dta              = dta >> 8;
+        while (uo.busy) { }
+        n = n + 1;
+      }
+      data.addr        = data.addr + 1;
+    }
   }
 
 $$if SIMULATION then

@@ -380,7 +380,14 @@ assign ftdi_rxd      = __main_out_uart_rx;
 assign gpdi_dp       = __main_out_gpdi_dp;
 `endif
 
-`ifdef SPIFLASH or QSPIFLASH
+`ifdef SPIFLASH
+wire __main_flash_clk;
+USRMCLK usrmclk_flash(
+          .USRMCLKI(__main_flash_clk),
+          .USRMCLKTS(1'b0));
+`endif
+
+`ifdef QSPIFLASH
 wire __main_flash_clk;
 USRMCLK usrmclk_flash(
           .USRMCLKI(__main_flash_clk),
