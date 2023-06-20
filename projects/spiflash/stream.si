@@ -18,7 +18,7 @@ $$spi2x  = 1
 
 $$if ICARUS then
 $$SIM_FOMU  = nil
-$$SIM_ULX3S = nil -- NOTE: sim does not match read delays perfectly
+$$SIM_ULX3S = 1 -- TODO: remove (adds too much bloat in code)
 $$end
 
 $$nBytes = 4

@@ -105,6 +105,7 @@ $$end
 $$end
   uint4 read_reg(0);
   always {
+
     $$if SIM_ULX3S then
       // before
       io0.oenable = io_oe[0,1];    io1.oenable = io_oe[1,1];
@@ -115,12 +116,14 @@ $$end
       // inputs
       io_i      = {io3.i,io2.i,io1.i,io0.i};
     $$end
-    chip_select = ~ ( trigger | enable );
+
     $$if ECP5 or SIM_ULX3S then
-      chip_select = ~ ( trigger | en_2 );
-      en_2        = en_1;
-      en_1        = enable;
-      read_reg    = io_i;
+    chip_select = ~ ( trigger | en_2 );
+    en_2        = en_1;
+    en_1        = enable;
+    read_reg    = io_i;
+    $$else
+    chip_select = ~ ( trigger | enable );
     $$end
     // output enable on ios
     io_oe     = {4{send_else_read}};
@@ -133,6 +136,7 @@ $$end
     sending   = (~osc | ~enable) ? send : sending;
     osc       = ~trigger ? 1b0 : ~osc;
     enable    = trigger;
+
     $$if SIM_ULX3S then
       // after
       csn = chip_select;
@@ -222,11 +226,11 @@ $$if FOMU or SIM_FOMU then
         //_                                   ^^^^ 9 cycles
 $$elseif ULX3S or SIM_ULX3S then
         spiflash.send           = 8b00100000; // continuous read, M5-4=(1,0)
-        wait                    = init[0,1] ? 1017 : 1019;
+        wait                    = 1023; //_ 3 cycles
+        // wait                    = init[0,1] ? 1017 : 1019;
 $$else
         spiflash.send           = 8b00100000; // continuous read, M5-4=(1,0)
-        wait                    = init[0,1] ? 1017 : 1019;
-        // wait                    = 1023; //_ 3 cycles
+        wait                    = 1023; //_ 3 cycles
 $$end
         after                   = 4;
       }
@@ -264,7 +268,9 @@ $$end
     } // switch
 
     // start sending?
-$$--if FOMU or SIM_FOMU or ULX3S then
+$$if FOMU or SIM_FOMU then
+    // W25Q128JV / MX25R1635F requiring wake up
+    // NOTE: on W25Q128JV requires more latency than option below
     if ((in_ready | init[0,1]) & accept_in) {
       four     = {init[0,1],~init[0,1],2b00};
       sendvec  = (init == 2b01 ? 32b00010001000100000001000000010001 : 24h0)
@@ -273,18 +279,15 @@ $$--if FOMU or SIM_FOMU or ULX3S then
                | (init == 2b00 ? {addr,8h00} : 24h0) //_ after init
                | (init[1,1]    ? 32b00010000000100000001000000010001 : 24h0);
                //                ^^^^^^^^^^ produces ABh when not in QPI (wake up)
-$$--else
-
-    // DEBUG : commented to test non QPI init on icebreaker for ULX3S version
-
+$$else
     // W25Q128JV that is already awake (e.g. icebreaker with icepack -s)
-    //if ((in_ready | init[1,1]) & accept_in) {
-    //  four     = {init[0,1],~init[0,1],2b00};
-    //  sendvec  = (init == 2b01 ? {8hEB,addr} : 24h0) //_ init step 2 (on first command)
-    //           | (init == 2b00 ? {addr,8h00} : 24h0) //_ after init
-    //           | (init[1,1]    ? 32b00000000000100010001000000000000 : 24h0); //_ init step 1
-    //           //                ^^^^^^^^^^ produces 38h when not in QPI (qpi enable)
-$$--end
+    if ((in_ready | init[1,1]) & accept_in) {
+      four     = {init[0,1],~init[0,1],2b00};
+      sendvec  = (init == 2b01 ? {8hEB,addr} : 24h0) //_ init step 2 (on first command)
+               | (init == 2b00 ? {addr,8h00} : 24h0) //_ after init
+               | (init[1,1]    ? 32b00000000000100010001000000000000 : 24h0); //_ init step 1
+               //                ^^^^^^^^^^ produces 38h when not in QPI (qpi enable)
+$$end
       spiflash.send_else_read = 1; // sending
   $$if SIMULATION then
       //__display("[%d](%d) spiflash [1] START @%x init:%b",cycle,cycle>>1,addr,init);
