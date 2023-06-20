@@ -16,7 +16,10 @@
 $$spi4x  = nil
 $$spi2x  = 1
 
-$$SIM_FOMU = nil
+$$if ICARUS then
+$$SIM_FOMU  = nil
+$$SIM_ULX3S = nil -- NOTE: sim does not match read delays perfectly
+$$end
 
 $$nBytes = 4
 
@@ -267,7 +270,7 @@ $$end
     }
     // output to UART
     data.addr    = 1;
-    while (data.addr != 129) {
+    while (data.addr != 63) {
       uint32 dta = 0;
       uint3  n   = 0;
       dta        = data.rdata;
