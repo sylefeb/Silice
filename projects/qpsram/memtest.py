@@ -126,7 +126,7 @@ print('read {0} bytes'.format(len(rb)))
 for v in rb:
   check = random.randint(0,255)
   if check != v:
-    print("expected {0} found {1} at {2}".format(check,v,i))
+    print("expected {0:02X} found {1:02X} at {2:02X}".format(check,v,i))
     error = error + 1
   i = i + 1
 

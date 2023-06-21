@@ -90,9 +90,9 @@ $$end
 $$if ECP5 or SIM_ULX3S then
   // ---- Lattice ecp5 implementation using vendor specific primitives
   // uint4 io_oe_1(0); uint4 io_o_1(0);  uint4 io_oe_2(0); uint4 io_o_2(0);
-  uint1 en_1(0);    uint1 en_2(0);
+  uint1       en_1(0);    uint1 en_2(0);
   uint1       clk_flash <:: (~clock) & en_2;
-  passthrough _(inv <: clk_flash,outv :> clk);
+  passthrough _(inv <: clk_flash, outv :> clk);
 $$if not SIM_ULX3S then
   ecp5_inout  _(clock <: clock, oe  <:: io_oe[0,1],  in :> io_i[0,1], out <:: io_o[0,1], pin <:> io0);
   ecp5_inout  _(clock <: clock, oe  <:: io_oe[1,1],  in :> io_i[1,1], out <:: io_o[1,1], pin <:> io1);

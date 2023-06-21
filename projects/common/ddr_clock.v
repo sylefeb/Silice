@@ -30,7 +30,7 @@ ODDRX1F oddr
         .D0(1'b0),
         .D1(1'b1),
         .SCLK(clock),
-        .RST(rnenable)
+        .RST(~enable)
       );
 
 always @(posedge clock) begin

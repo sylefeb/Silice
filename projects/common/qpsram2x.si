@@ -122,7 +122,8 @@ $$end
 
   uint32 sendvec(0);
 
-  qpsram_qspi spi<reginputs>(
+  // qpsram_qspi spi<reginputs>(
+  qpsram_qspi spi(
     clk     :> ram_clk,
     csn     :> ram_csn,
     io0    <:> ram_io0,
@@ -184,15 +185,15 @@ $$end
         wait                    = wenable ? //_ 16 => 2 cycles, 6 => 12 cycles, 7 => 11 cycles
 $$if ECP5 then
 $$  if qpsram_fast then
-                                            13 : 2;
+                                            13 : 5;
 $$  else
-                                            13 : 4;
+                                            13 : 6;
 $$  end
 $$else
 $$  if qpsram_fast then
-                                            16 : 6;
+                                            16 : 7;
 $$  else
-                                            16 : 7;  // icebreaker, icestick <= 60 use 7, faster 6
+                                            16 : 8;  // icebreaker, icestick <= 60 use 8, faster 7
 $$  end
 $$end
         after                   = 4;
@@ -271,12 +272,12 @@ algorithm qpsram_qspi(
   uint1 dc(0);  uint8 sending(0);  uint1 osc(0);
   // driving the QPSRAM chip clock with a ddr module
   uint1 enable(0);
-  ddr_clock _(clock <: clock, enable <:: enable, ddr_clock :> clk);
   // setup registered tristate ios
   uint4 io_oe(0); uint4 io_i(0); uint4 io_o(0);
   uint1 chip_select(0);
 $$if ICE40 then
   // ---- Lattice ice40 implementation using vendor specific primitives
+  ddr_clock _(clock <: clock, enable <:: enable, ddr_clock :> clk);
   sb_io_inout _(clock <: clock, oe  <: io_oe[0,1],  in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
   sb_io_inout _(clock <: clock, oe  <: io_oe[1,1],  in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
   sb_io_inout _(clock <: clock, oe  <: io_oe[2,1],  in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
@@ -285,13 +286,15 @@ $$if ICE40 then
 $$end
 $$if ECP5 then
   // ---- Lattice ecp5 implementation using vendor specific primitives
+  ddr_clock _(clock <: clock, enable <: enable, ddr_clock :> clk);
   uint4 io_oe_1(0); uint4 io_o_1(0);  uint4 io_oe_2(0); uint4 io_o_2(0);
-  ecp5_inout  _(clock <: clock, oe  <:: io_oe_2[0,1],  in :> io_i[0,1], out <:: io_o_2[0,1], pin <:> io0);
-  ecp5_inout  _(clock <: clock, oe  <:: io_oe_2[1,1],  in :> io_i[1,1], out <:: io_o_2[1,1], pin <:> io1);
-  ecp5_inout  _(clock <: clock, oe  <:: io_oe_2[2,1],  in :> io_i[2,1], out <:: io_o_2[2,1], pin <:> io2);
-  ecp5_inout  _(clock <: clock, oe  <:: io_oe_2[3,1],  in :> io_i[3,1], out <:: io_o_2[3,1], pin <:> io3);
+  ecp5_inout  _(clock <: clock, oe  <:: io_oe[0,1],  in :> io_i[0,1], out <:: io_o[0,1], pin <:> io0);
+  ecp5_inout  _(clock <: clock, oe  <:: io_oe[1,1],  in :> io_i[1,1], out <:: io_o[1,1], pin <:> io1);
+  ecp5_inout  _(clock <: clock, oe  <:: io_oe[2,1],  in :> io_i[2,1], out <:: io_o[2,1], pin <:> io2);
+  ecp5_inout  _(clock <: clock, oe  <:: io_oe[3,1],  in :> io_i[3,1], out <:: io_o[3,1], pin <:> io3);
   ecp5_out    _(clock <: clock, out <:  chip_select, pin :> csn);
 $$end
+  uint4 read_reg(0);
   always {
     chip_select = ~ ( trigger | enable );
     $$if ECP5 then
@@ -301,6 +304,7 @@ $$end
     io_oe       = {4{send_else_read}};
     // read current
     read        = {read[0,4],io_i};
+    read_reg    = io_i;
     // update outputs
     io_o        = ~osc ? sending[0,4] : sending[4,4];
     // start/keep sending?
