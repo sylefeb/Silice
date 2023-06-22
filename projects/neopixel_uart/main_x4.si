@@ -1,0 +1,204 @@
+
+$$if not ULX3S then
+$$ error("Board not supported, please adjust")
+$$end
+
+import('../../common/plls/ulx3s_100.v')
+/*
+
+This simple design reads data from UART to set the colors of
+a NeoPixel string.
+First send FF to initialize the sequence, then send a stream of:
+ID R G B
+Each 4 bytes sets LED ID at R,G,B
+
+Note that the value FF is reserved to reset the sequence, and should
+not be used as R,G,B or ID (thus max R,G,B is 254).
+
+*/
+
+// WS2812B timings
+// see https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf
+// T0H  0.4us
+// T0L  0.85us
+// T1H  0.8us
+// T1L  0.45us
+// RES 55.0us
+
+// NOTE: this code drivea fixed number of LEDs, change the number below
+// (max 1023 otherwise adjust bitwidths below)
+$$NUM_PIXS_SEG = 678  --- has to be < 1024 or increase BRAM sizes
+
+$$ t0h_cycles          = 42   -- 416 nsec
+$$ t0l_cycles          = 84   -- 833 nsec
+$$ t1h_cycles          = 84   -- 833 nsec
+$$ t1l_cycles          = 42   -- 416 nsec
+$$ res_cycles          = 6640 -- 66400 nsec
+$$ print('t0h_cycles = ' .. t0h_cycles)
+$$ print('t0l_cycles = ' .. t0l_cycles)
+$$ print('t1h_cycles = ' .. t1h_cycles)
+$$ print('t1l_cycles = ' .. t1l_cycles)
+$$ print('res_cycles = ' .. res_cycles)
+
+// UART
+$$uart_in_clock_freq_mhz = 100
+$$uart_bauds             = 1152000 -- 921600 -- 576000
+$include('../common/uart.si')
+
+algorithm sender(input uint24 send_clr,output uint1 ctrl)
+{
+  uint8  i   = 0;
+  uint13 cnt = 0;
+  uint24 clr = send_clr;
+  // send the 24 bits
+  while (i != 24) {
+    uint10 th = clr[23,1] ? $t1h_cycles-2$ : $t0h_cycles-2$;
+    //                                     ^^^              ^^^
+    // this accounts for the two cycles entering and exiting a while
+    uint10 tl = clr[23,1] ? $t1l_cycles-3$ : $t0l_cycles-3$;
+    //                                     ^^^              ^^^
+    // this accounts for the two cycles entering and exiting a while and
+    // the additional cycle it takes to loop back in the main loop
+    // generates a '1'
+    ctrl = 1;
+    cnt  = 0;
+    while (cnt != th) {
+      cnt  = cnt + 1;
+    }
+    // generates a '0'
+    ctrl = 0;
+    cnt  = 0;
+    while (cnt != tl) {
+      cnt  = cnt + 1;
+    }
+    // shift clr to send next bit
+    clr = clr << 1;
+    // count sent bits
+    i   = i + 1;
+  }
+}
+
+// The hardware implements the LED driver
+algorithm main(
+  output uint8 leds = 0,
+  output uint1 uart_tx,
+  input  uint1 uart_rx,
+  output uint28 gp,
+  input  uint28 gn,
+) <@fast_clock> {
+
+  // clock
+  uint1 fast_clock  = uninitialized;
+  pll clk_gen (
+    clock_in  <: clock,
+    clock_out :> fast_clock
+  );
+
+  // UART receiver
+  uart_in ui;
+  uart_receiver urecv(io <:> ui,uart_rx <: uart_rx);
+
+  uint13 cnt(0);  // counter for generating the control signal
+  uint1  ctr0(0);
+  uint1  ctr1(0);
+  uint1  ctr2(0);
+  uint1  ctr3(0);
+  sender s0;
+  sender s1;
+  sender s2;
+  sender s3;
+
+  simple_dualport_bram uint24 colors0[1024] = {pad(0)};
+  simple_dualport_bram uint24 colors1[1024] = {pad(0)};
+  simple_dualport_bram uint24 colors2[1024] = {pad(0)};
+  simple_dualport_bram uint24 colors3[1024] = {pad(0)};
+
+  uint24 clr_from_uart(0);
+  uint16 id(0);
+  uint3  receive_step(3b1); // each LEDS requies four bytes from uart
+  uint1  refresh(0);
+  uint2  seg(0);
+
+  always_after {
+    gp               = {24b0,s3.ctrl,s2.ctrl,s1.ctrl,s0.ctrl};
+    colors0.wenable1 = 0; // maintain low, pulses if needed (see next)
+    colors1.wenable1 = 0;
+    colors2.wenable1 = 0;
+    colors3.wenable1 = 0;
+    colors0.addr1    = id;
+    colors1.addr1    = id;
+    colors2.addr1    = id;
+    colors3.addr1    = id;
+    leds             = seg; //receive_step;
+    if (ui.data_out_ready) {
+      // leds = ui.data_out; // for debugging
+      // data is ready on uart
+      if (ui.data_out == 8hff) { // FF reset the sequence
+        receive_step = 3b1;
+        id           = 0;
+        seg          = 2b00;
+        refresh      = 1;
+      } else {
+        switch (receive_step) {
+          case 1: { clr_from_uart = (clr_from_uart<<8) | ui.data_out; }
+          case 2: { clr_from_uart = (clr_from_uart<<8) | ui.data_out; }
+          case 4: { clr_from_uart = (clr_from_uart<<8) | ui.data_out; }
+        }
+        colors0.wdata1   = clr_from_uart;
+        colors1.wdata1   = clr_from_uart;
+        colors2.wdata1   = clr_from_uart;
+        colors3.wdata1   = clr_from_uart;
+        colors0.wenable1 = receive_step[2,1] & (seg == 2b00);
+        colors1.wenable1 = receive_step[2,1] & (seg == 2b01);
+        colors2.wenable1 = receive_step[2,1] & (seg == 2b10);
+        colors3.wenable1 = receive_step[2,1] & (seg == 2b11);
+        seg              = (id == $NUM_PIXS_SEG-1$ & receive_step[2,1])
+                         ? (seg + 1) : seg;
+        id               = receive_step[2,1]
+                         ? ((id == $NUM_PIXS_SEG-1$) ? 0 : (id + 1))
+                         : id;
+        receive_step     = {receive_step[0,2],receive_step[2,1]};
+      }
+    }
+  }
+
+  // we use a Silice algorithm to implement the driver
+  while (1) {
+    while (!refresh) { }
+    refresh = 0;
+    // send reset
+    cnt   = 0;
+    while (cnt != $res_cycles$) {
+      cnt  = cnt + 1;
+    }
+    // iterate through the LEDs and set their color
+    uint16 led_id = 0;
+    colors0.addr0 = led_id;
+    colors1.addr0 = led_id;
+    colors2.addr0 = led_id;
+    colors3.addr0 = led_id;
+    while (led_id != $NUM_PIXS_SEG$) {
+      uint24 send_clr0(0);
+      uint24 send_clr1(0);
+      uint24 send_clr2(0);
+      uint24 send_clr3(0);
+      // color to be sent
+      s0.send_clr   = colors0.rdata0;
+      s1.send_clr   = colors1.rdata0;
+      s2.send_clr   = colors2.rdata0;
+      s3.send_clr   = colors3.rdata0;
+      s0 <- ();
+      s1 <- ();
+      s2 <- ();
+      s3 <- ();
+      () <- s1; // join one (all take same time)
+      // next LED
+      led_id        = led_id + 1;
+      colors0.addr0 = led_id;
+      colors1.addr0 = led_id;
+      colors2.addr0 = led_id;
+      colors3.addr0 = led_id;
+    }
+  }
+
+}

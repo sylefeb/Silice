@@ -3,41 +3,83 @@ import time
 import sys
 import os
 import glob
+import sys
 
-remap = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
-
-if len(sys.argv) != 3:
-  print("send.py <port> <directory>")
+if len(sys.argv) < 3:
+  print("send.py <port> <led map (optional)")
   sys.exit()
+
+map = []
+
+if len(sys.argv) > 2:
+  file_map = sys.argv[2]
+
+  nb_led = 0
+  f = open(file_map, 'r')
+  line = f.readline()
+  while line:
+    if (line[0:1] == '#'):
+      print(line)
+    else:
+      nb_led = nb_led+1
+    line = f.readline()
+  f.close()
+
+  for i in range(0, nb_led):
+    map.append(0)
+
+  f = open(file_map, 'r')
+  line = f.readline()
+  while line:
+    if (line[0:1] == '#'):
+        print(line)
+    else:
+        lin =  line.split("\n")[0]
+        sline = lin.split(" ")
+        ind = int(sline[1])
+        val = int(sline[0])
+        map[ind]=val
+    line = f.readline()
+  f.close()
+
 
 ser = serial.Serial(sys.argv[1],115200)
 
-while True:
-  files = glob.glob(sys.argv[2] + "/*.col")
-  for fname in files:
-    f = open(fname,"r")
-    packet = bytearray()
-    packet.append(255) # reset
-    ser.write(packet)
-    lines = f.readlines()
-    for l in lines:
-      # print(l)
-      which = 0
-      for n in l.split():
-        packet = bytearray()
-        if which == 0:
-          if int(n) < len(remap):
-            v = remap[int(n)]
-          else:
-            v = int(n)
-        else:
-          v = int(float(n)*63)
-        which = which + 1
-        # print("val = " + str(v))
-        packet.append(v)
-        ser.write(packet)
-      # wait some time
-      for i in range(0,50000):
-        pass
+def send_byte(b):
+  packet = bytearray()
+  packet.append(b)
+  ser.write(packet)
+  for i in range(0,5):
+    pass
 
+send_byte(0)
+send_byte(0)
+send_byte(0)
+send_byte(0)
+
+send_byte(255) # reset
+send_byte(255) # reset
+send_byte(255) # reset
+send_byte(255) # reset
+send_byte(255) # reset
+send_byte(255) # reset
+send_byte(255) # reset
+send_byte(255) # reset
+
+while True:
+  for line in sys.stdin:
+    if line[0] == '$':
+      line   = line[1:]
+      values = [int(n) for n in line.split()]
+      if len(map) > 0:
+        v = map[values[0]]
+      else :
+        v = values[0]
+      packet = bytearray()
+      packet.append(v>>8)
+      packet.append(v&255)
+      packet.append(values[2])
+      packet.append(values[1])
+      packet.append(values[3])
+      ser.write(packet)
 ser.close()
