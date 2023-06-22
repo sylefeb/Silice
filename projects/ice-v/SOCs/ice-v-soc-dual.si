@@ -55,11 +55,11 @@ $$config['bram_wmask_byte_wenable_width'] = 'data'
 $$dofile('pre_include_compiled.lua')
 
 // Use SPRAM on UP5K boards
-$$if (ICEBREAKER or ICEBITSY or SIMULATION) then
+$$if (ICEBREAKER or ICEBITSY) then
 $$  USE_SPRAM = 1
 $$end
 
-$$if (ICEBREAKER or ICEBITSY or SIMULATION) then
+$$if (ICEBREAKER or ICEBITSY) then
 // UP5K configuration
 $$  periph   = 17       -- bit indicating a peripheral is addressed
 $$  addrW    = 18       -- additional bits for memory mapping
@@ -80,16 +80,6 @@ $$bramSize = 1024
 // Verify this is addressable
 $$if bramSize > 1<<(addrW-1) then
 $$  error("RAM is not fully addressable")
-$$end
-
-// Allows to load image in SPRAM for simulation
-$$if SIMULATION then
-$$  SPRAM_INIT_FILE = nil -- '"../spram_h.img"'
-$$  SPRAM_POSTFIX = '_h'
-$include('../../common/simulation_spram.si')
-$$  SPRAM_INIT_FILE = nil -- '"../spram_l.img"'
-$$  SPRAM_POSTFIX = '_l'
-$include('../../common/simulation_spram.si')
 $$end
 
 // Include the processor!
