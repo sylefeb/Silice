@@ -18,7 +18,7 @@ $$spi2x  = 1
 
 $$if ICARUS then
 $$SIM_FOMU  = nil
-$$SIM_ULX3S = 1 -- TODO: remove (adds too much bloat in code)
+$$SIM_ULX3S = nil -- TODO: remove (adds too much bloat in code)
 $$end
 
 $$nBytes = 4
@@ -191,6 +191,7 @@ $$end
   uint32 cycle(0);
 $$end
 
+  // BRAM storing data read from SPIflash
   bram uint$8*nBytes$ data[256] = uninitialized;
 
   uart_out uo;
@@ -224,9 +225,6 @@ $$end
     data.wenable     = 0;
 $$if SIMULATION then
     cycle = cycle + 1;
-    //if (cycle == 1200) {
-    //  __finish();
-    //}
 $$end
   }
 
@@ -239,9 +237,9 @@ $$end
 
   // read some
   data.addr         = 0;
-  while (~data.addr[7,1]) {
+  while (data.addr != 127) {
     sf_rom.in_ready = 1;
-    //sf_rom.addr     = 24h40000 + (data.addr[0,8] << 8d$clog2(nBytes)$);
+    //sf_rom.addr     = 2097152 + (data.addr[0,8] << 8d$clog2(nBytes)$);
     sf_rom.addr     = {4b0000,12b0,data.addr[0,8] << 8d$clog2(nBytes)$ };
     //sf_rom.addr     = {4b0000,12b0,data.addr[0,8] };
 ++:
@@ -270,7 +268,7 @@ $$end
     }
     // output to UART
     data.addr    = 1;
-    while (data.addr != 63) {
+    while (data.addr != 127) {
       uint32 dta = 0;
       uint3  n   = 0;
       dta        = data.rdata;

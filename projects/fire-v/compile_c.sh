@@ -26,8 +26,8 @@ fi
 
 echo "Compiling for CPU $CPU"
 
-$ARCH-gcc -fno-unroll-loops -O2 -fno-pic -fno-stack-protector -march=rv32i -mabi=ilp32 -S $1 -o build/code.s
-$ARCH-gcc -fno-unroll-loops -O2 -fno-pic -fno-stack-protector -march=rv32i -mabi=ilp32 -c -o build/code.o $1
+$ARCH-gcc -fno-unroll-loops -O2 -fno-pic -fno-builtin -fno-stack-protector -march=rv32i -mabi=ilp32 -S $1 -o build/code.s
+$ARCH-gcc -fno-unroll-loops -O2 -fno-pic -fno-builtin -fno-stack-protector -march=rv32i -mabi=ilp32 -c -o build/code.o $1
 
 $ARCH-as -march=rv32i -mabi=ilp32 -o build/div.o smoke/mylibc/div.s
 $ARCH-as -march=rv32i -mabi=ilp32 -o crt0.o smoke/crt0.s

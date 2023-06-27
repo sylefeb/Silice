@@ -287,11 +287,11 @@ $$end
 $$if ECP5 then
   // ---- Lattice ecp5 implementation using vendor specific primitives
   ddr_clock _(clock <: clock, enable <: enable, ddr_clock :> clk);
-  ecp5_inout  _(clock <: clock, oe  <:: io_oe[0,1],  in :> io_i[0,1], out <:: io_o[0,1], pin <:> io0);
-  ecp5_inout  _(clock <: clock, oe  <:: io_oe[1,1],  in :> io_i[1,1], out <:: io_o[1,1], pin <:> io1);
-  ecp5_inout  _(clock <: clock, oe  <:: io_oe[2,1],  in :> io_i[2,1], out <:: io_o[2,1], pin <:> io2);
-  ecp5_inout  _(clock <: clock, oe  <:: io_oe[3,1],  in :> io_i[3,1], out <:: io_o[3,1], pin <:> io3);
-  ecp5_out    _(clock <: clock, out <:  chip_select, pin :> csn);
+  ecp5_inout _(clock <: clock, oe  <:: io_oe[0,1],  in :> io_i[0,1], out <:: io_o[0,1], pin <:> io0);
+  ecp5_inout _(clock <: clock, oe  <:: io_oe[1,1],  in :> io_i[1,1], out <:: io_o[1,1], pin <:> io1);
+  ecp5_inout _(clock <: clock, oe  <:: io_oe[2,1],  in :> io_i[2,1], out <:: io_o[2,1], pin <:> io2);
+  ecp5_inout _(clock <: clock, oe  <:: io_oe[3,1],  in :> io_i[3,1], out <:: io_o[3,1], pin <:> io3);
+  ecp5_out   _(clock <: clock, out <:  chip_select, pin :> csn);
 $$end
   uint4 read_reg(0);
   always {

@@ -180,6 +180,12 @@ unit spiflash_rom_core(
   uint2  init(2b11);
   uint1  accept_in(0);
   uint1  continue(0);
+$$if FOMU or SIM_FOMU then
+  uint8  mode_reg(8b10100101);
+$$else
+  uint8  mode_reg(8b00100000); // continuous read, M5-4=(1,0)
+$$end
+
 $$if SIMULATION then
   uint32 cycle(0);
 $$if VERILATOR then
@@ -219,19 +225,17 @@ $$end
       case 3: {
         spiflash.trigger        = ~init[1,1];
         stage                   = 0; // wait
+        spiflash.send           = mode_reg; // requests continuous read
         // send dummy
 $$if FOMU or SIM_FOMU then
-        spiflash.send           = 8b10100101; // requests continuous read
         wait                    = init[0,1] ? 1017 : 1019;
         //_                                   ^^^^ 9 cycles
 $$elseif ULX3S or SIM_ULX3S then
-        spiflash.send           = 8b00100000; // continuous read, M5-4=(1,0)
         wait                    = 1023; //_ 3 cycles
-        // wait                    = init[0,1] ? 1017 : 1019;
 $$else
-        spiflash.send           = 8b00100000; // continuous read, M5-4=(1,0)
         wait                    = 1023; //_ 3 cycles
 $$end
+
         after                   = 4;
       }
       case 4: {
@@ -280,7 +284,7 @@ $$if FOMU or SIM_FOMU then
                | (init[1,1]    ? 32b00010000000100000001000000010001 : 24h0);
                //                ^^^^^^^^^^ produces ABh when not in QPI (wake up)
 $$else
-    // W25Q128JV that is already awake (e.g. icebreaker with icepack -s)
+    // W25Q128JV that is already awake (e.g. icebreaker with icepack -s, ulx3s)
     if ((in_ready | init[1,1]) & accept_in) {
       four     = {init[0,1],~init[0,1],2b00};
       sendvec  = (init == 2b01 ? {8hEB,addr} : 24h0) //_ init step 2 (on first command)
