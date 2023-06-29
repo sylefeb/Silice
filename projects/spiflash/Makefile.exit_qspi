@@ -1,0 +1,8 @@
+
+.DEFAULT: exit_qspi.si
+		silice-make.py -s exit_qspi.si -b $@ -p basic,qspiflash,uart -o BUILD_$(subst :,_,$@) $(ARGS)
+
+icarus: exit_qspi.si
+		mkdir -p BUILD_$(subst :,_,$@)
+		cp W25Q128JVxIM/*.TXT BUILD_$(subst :,_,$@)/
+		silice-make.py -s exit_qspi.si -b icarus -p basic -o BUILD_$(subst :,_,$@) $(ARGS)

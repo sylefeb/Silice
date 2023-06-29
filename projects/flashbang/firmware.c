@@ -70,27 +70,15 @@ typedef void (*t_patch_func)(int,unsigned char*);
 void main()
 {
   spiflash_init();
-
+  // read n first bytes from SPI and send them over UART
+  const int N = 32;
   while (1) {
     printf("Hello world\n");
     spiflash_read_begin(0);
-    for (int addr=0;addr<32;++addr) {
+    for (int addr=0;addr<N;++addr) {
       unsigned char b = spiflash_read_next();
       printf("byte @%x = %x\n",addr,b);
     }
     spiflash_read_end();
   }
-
-/*
-
-  // read address from current header
-	// spiflash_read_begin(0);
-	// spiflash_read_end();
-
-  int i = 0;
-  while (1) {
-    (*UART) = i; // LEDs only (UART sends if bit 31 is set)
-    ++ i;
-  }
-*/
 }

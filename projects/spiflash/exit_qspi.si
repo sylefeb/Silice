@@ -4,10 +4,12 @@
 // https://github.com/sylefeb/Silice
 // --------------------------------------------------
 //
-// SPI flash controller test
+// SPI flash controller -- emergency QSPI exit
 //
-// outputs on UART
-// reads 64 4x8bits from SPIflash address 1MB
+// Stuck in QSPI? Cannot program the flash anymore?
+//
+// No worries! program this little design through SRAM
+// and get out of QSPI limbo!
 //
 // ========================================================
 // IMPORTANT: on the ice40, use icepack -s
@@ -18,7 +20,7 @@ $$spi2x  = 1
 
 $$if ICARUS then
 $$SIM_FOMU  = nil
-$$SIM_ULX3S = nil  -- TODO: remove? (adds bloat in code)
+$$SIM_ULX3S = 1
 $$end
 
 $$nBytes = 4
@@ -191,100 +193,22 @@ $$end
   uint32 cycle(0);
 $$end
 
-  // BRAM storing data read from SPIflash
-  bram uint$8*nBytes$ data[256] = uninitialized;
-
-  uart_out uo;
-$$if UART then
-  uart_sender usend(
-    io      <:> uo,
-    uart_tx :>  uart_tx
-  );
-$$end
-
-$$if spi4x then
-  spiflash_rom sf_rom<reginputs>
-$$else
-  spiflash_rom sf_rom<reginputs,@clock2x>
-$$end
-  (
+  spiflash_exit_qpi _<reginputs,@clock2x> (
     sf_clk  :>  sf_clk,
     sf_csn  :>  sf_csn,
     sf_io0  <:> sf_io0,
     sf_io1  <:> sf_io1,
     sf_io2  <:> sf_io2,
     sf_io3  <:> sf_io3,
-$$if spi4x then
-    clkspi  <: clock4x
-$$end
   );
 
   always {
-    uo.data_in_ready = 0;
-    sf_rom.in_ready  = 0;
-    data.wenable     = 0;
 $$if SIMULATION then
     cycle = cycle + 1;
-$$end
-  }
-
-  leds = 8hff;
-
-  while (sf_rom.busy) { }
-  __display("init done =====================");
-
-  leds = 8h03;
-
-  // read some
-  data.addr         = 0;
-  while (data.addr != 127) {
-    sf_rom.in_ready = 1;
-    //sf_rom.addr     = 2097152 + (data.addr[0,8] << 8d$clog2(nBytes)$);
-    sf_rom.addr     = {4b0000,12b0,data.addr[0,8] << 8d$clog2(nBytes)$ };
-    //sf_rom.addr     = {4b0000,12b0,data.addr[0,8] };
-++:
-    while (sf_rom.busy) { }
-++:
-    __display("read @%h = %x",sf_rom.addr,sf_rom.rdata);
-    data.wdata      = sf_rom.rdata;
-    data.addr       = data.addr + 1;
-    data.wenable    = 1;
-  }
-
-  leds = 8h00;
-
-$$if SIMULATION then
-  __finish();
-$$end
-
-  while (1) {
-    // sentinel
-    uint8 n = 0;
-    while (n != 16) {
-      uo.data_in       = 8hFF;
-      uo.data_in_ready = 1;
-      while (uo.busy) { }
-      n = n + 1;
+    if (cycle > 2000) {
+      __finish();
     }
-    // output to UART
-    data.addr    = 1;
-    while (data.addr != 127) {
-      uint32 dta = 0;
-      uint3  n   = 0;
-      dta        = data.rdata;
-      while (n != $nBytes$) {
-        uo.data_in       = dta[0,8];
-        uo.data_in_ready = 1;
-        // __display("sending %h",dta[0,8]);
-        dta              = dta >> 8;
-        while (uo.busy) { }
-        n = n + 1;
-      }
-      data.addr        = data.addr + 1;
-    }
-  }
-$$if SIMULATION then
-  __finish();
 $$end
+  }
 
 }
