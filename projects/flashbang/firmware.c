@@ -71,10 +71,10 @@ void main()
 {
   spiflash_init();
   // read n first bytes from SPI and send them over UART
-  const int N = 32;
+  const int N = 256;
   while (1) {
     printf("Hello world\n");
-    spiflash_read_begin(0);
+    spiflash_read_begin( /*0*/ 2097152 );
     for (int addr=0;addr<N;++addr) {
       unsigned char b = spiflash_read_next();
       printf("byte @%x = %x\n",addr,b);
