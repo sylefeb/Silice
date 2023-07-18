@@ -92,6 +92,16 @@ module top(
   inout P1A9,
   inout P1A10,
 `endif
+`ifdef PMOD2
+  inout P1B1,
+  inout P1B2,
+  inout P1B3,
+  inout P1B4,
+  inout P1B7,
+  inout P1B8,
+  inout P1B9,
+  inout P1B10,
+`endif
 `ifdef SPIFLASH
   output FLASH_SCK,
   output FLASH_SSB,
@@ -208,6 +218,9 @@ M_main __main(
 `endif
 `ifdef PMOD
   .inout_pmod({P1A10,P1A9,P1A8,P1A7,P1A4,P1A3,P1A2,P1A1}),
+`endif
+`ifdef PMOD2
+  .inout_pmod2({P1B10,P1B9,P1B8,P1B7,P1B4,P1B3,P1B2,P1B1}),
 `endif
 `ifdef OLED
   .out_oled_mosi(__main_oled_mosi),

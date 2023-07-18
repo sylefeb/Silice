@@ -3313,6 +3313,7 @@ void Algorithm::gatherInoutNfo(siliceParser::InoutContext* inout, t_inout_nfo& _
   } else {
     sl_assert(false);
   }
+  _io.combinational = (inout->combinational != nullptr) || (inout->combinational_nocheck != nullptr);
 }
 
 // -------------------------------------------------
@@ -3409,6 +3410,7 @@ void Algorithm::gatherIoGroup(siliceParser::IoDefContext *iog, const t_combinati
         t_inout_nfo inp;
         var_nfo_copy(inp, V->second);
         inp.name = grpre + "_" + V->second.name;
+        inp.combinational = (io->combinational != nullptr || io->combinational_nocheck != nullptr);
         m_InOuts.emplace_back(inp);
         m_InOutNames.insert(make_pair(inp.name, (int)m_InOuts.size() - 1));
         // add group for member access and bindings
@@ -3507,6 +3509,7 @@ void Algorithm::gatherIoInterface(siliceParser::IoDefContext *itrf)
       t_inout_nfo inp;
       var_nfo_copy(inp, vnfo);
       inp.name              = grpre + "_" + vnfo.name;
+      inp.combinational     = (io->combinational != nullptr) || (io->combinational_nocheck != nullptr);
       m_InOuts.emplace_back(inp);
       m_InOutNames.insert(make_pair(inp.name, (int)m_InOuts.size() - 1));
       m_Parameterized.push_back(inp.name);
@@ -9728,7 +9731,7 @@ void Algorithm::writeAsModule(std::ostream& out, const t_instantiation_context& 
           }
           out << " ? ";
           if (m_Vars.at(m_VarNames.at(io.name + "_o")).access != e_NotAccessed) {
-            out << rewriteIdentifier("_", io.name + "_o", "[" + std::to_string(b) + "]", nullptr, ictx, io.srcloc, FF_Q, true, _1, ff_input_bindings_usage);
+            out << rewriteIdentifier("_", io.name + "_o", "[" + std::to_string(b) + "]", nullptr, ictx, io.srcloc, io.combinational ? FF_D : FF_Q, true, _1, ff_input_bindings_usage);
           } else {
             out << "1'b0";
           }
