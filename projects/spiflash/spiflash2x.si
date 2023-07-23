@@ -6,6 +6,9 @@
 // IMPORTANT: on the ice40, use icepack -s
 // ========================================================
 //
+// Note: on Winbond flash chip see W25Q128FV datasheet for continuous read mode
+//       (EBh with mode bits)
+//
 
 import('ddr_clock.v')
 
@@ -15,11 +18,15 @@ import('../common/verilator_data.v') // this is a feature supported by Silice
                                      // stored in a 'data.raw' file
 $$end
 
-$$local ICE40
-$$if ICEBREAKER or ICEBITSY or FOMU then
-$$ ICE40 = 1
+$$if ICE40 then
 import('../common/ice40_sb_io_inout.v')
 import('../common/ice40_sb_io.v')
+$$end
+
+$$if ECP5 then
+import('ecp5_inout.v')
+import('ecp5_out.v')
+// import('passthrough.v')
 $$end
 
 $$if not nBytes then
@@ -27,33 +34,30 @@ $$ nBytes = 1
 $$end
 
 unit spiflash_qspi(
-  input  uint8 send,
-  input  uint1 trigger,
-  input  uint1 send_else_read,
-  output uint8 read,
-  output uint1 clk,
-  output uint1 csn(1),
-  inout  uint1 io0,
-  inout  uint1 io1,
-  inout  uint1 io2,
-  inout  uint1 io3,
+  input   uint8 send,
+  input   uint1 trigger,
+  input   uint1 send_else_read,
+  output  uint8 read,
+  output  uint1 clk(0),
+  output  uint1 csn(1),
+  inout   uint1 io0,
+  inout   uint1 io1,
+  inout   uint1 io2,
+  inout   uint1 io3,
 ) {
-  uint1 dc(0);
-  uint8 sending(0);
-  uint1 osc(0);
-
+  // internal state
+  uint1 dc(0);  uint8 sending(0);  uint1 osc(0);
+  // driving the QPSRAM chip clock with a ddr module
   uint1 enable(0);
-  ddr_clock ddr(clock <: clock, enable <:: enable, ddr_clock :> clk);
 
-$$if not ICE40 then
+$$if SIMULATION and not SIM_ULX3S then
+  ddr_clock _(clock <: clock, enable <:: enable, ddr_clock :> clk);
   uint1 d_csn(1);
   uint4 read_reg(0);
   always {
     // output enable on ios
-    io0.oenable = send_else_read;
-    io1.oenable = send_else_read;
-    io2.oenable = send_else_read;
-    io3.oenable = send_else_read;
+    io0.oenable = send_else_read; io1.oenable = send_else_read;
+    io2.oenable = send_else_read; io3.oenable = send_else_read;
     // read current
     read      = {read[0,4],read_reg};
     read_reg  = {io3.i,io2.i,io1.i,io0.i};
@@ -70,27 +74,73 @@ $$if not ICE40 then
     d_csn     = ~enable;
   }
 $$else
-  // setup registered tristate ios
+  uint1 chip_select(0);
   uint4 io_oe(0); uint4 io_i(0); uint4 io_o(0);
-  sb_io_inout sb_io0(clock <: clock, oe <: io_oe[0,1], in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
-  sb_io_inout sb_io1(clock <: clock, oe <: io_oe[1,1], in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
-  sb_io_inout sb_io2(clock <: clock, oe <: io_oe[2,1], in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
-  sb_io_inout sb_io3(clock <: clock, oe <: io_oe[3,1], in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
-  uint1 nenable <:: ~ enable;
-  sb_io sb_csn(clock <: clock, out <: nenable, pin :> csn);
+$$if ICE40 then
+  ddr_clock _(clock <: clock, enable <:: enable, ddr_clock :> clk);
+  // setup registered tristate ios
+  sb_io_inout _(clock <: clock, oe  <: io_oe[0,1], in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
+  sb_io_inout _(clock <: clock, oe  <: io_oe[1,1], in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
+  sb_io_inout _(clock <: clock, oe  <: io_oe[2,1], in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
+  sb_io_inout _(clock <: clock, oe  <: io_oe[3,1], in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
+  sb_io       _(clock <: clock, out <: chip_select, pin :> csn);
+  //uint1 nenable <:: ~ enable;
+  //sb_io sb_csn(clock <: clock, out <: nenable, pin :> csn);
+$$end
+$$if ECP5 or SIM_ULX3S then
+  // ---- Lattice ecp5 implementation using vendor specific primitives
+  // uint4 io_oe_1(0); uint4 io_o_1(0);  uint4 io_oe_2(0); uint4 io_o_2(0);
+  uint1       en_1(0);    uint1 en_2(0);
+  uint1       clk_flash <:: (~clock) & en_2;
+  passthrough _(inv <: clk_flash, outv :> clk);
+$$if not SIM_ULX3S then
+  ecp5_inout  _(clock <: clock, oe  <:: io_oe[0,1],  in :> io_i[0,1], out <:: io_o[0,1], pin <:> io0);
+  ecp5_inout  _(clock <: clock, oe  <:: io_oe[1,1],  in :> io_i[1,1], out <:: io_o[1,1], pin <:> io1);
+  ecp5_inout  _(clock <: clock, oe  <:: io_oe[2,1],  in :> io_i[2,1], out <:: io_o[2,1], pin <:> io2);
+  ecp5_inout  _(clock <: clock, oe  <:: io_oe[3,1],  in :> io_i[3,1], out <:: io_o[3,1], pin <:> io3);
+  ecp5_out    _(clock <: clock, out <:  chip_select, pin :> csn);
+$$else
+  // nothing in simulation
+$$end
+$$end
   uint4 read_reg(0);
   always {
+
+    $$if SIM_ULX3S then
+      // before
+      io0.oenable = io_oe[0,1]; io1.oenable = io_oe[1,1];
+      io2.oenable = io_oe[2,1]; io3.oenable = io_oe[3,1];
+      // update outputs
+      io0.o = io_o[0,1]; io1.o = io_o[1,1];
+      io2.o = io_o[2,1]; io3.o = io_o[3,1];
+      // inputs
+      io_i  = {io3.i,io2.i,io1.i,io0.i};
+    $$end
+
+    $$if ECP5 or SIM_ULX3S then
+    chip_select = ~ ( trigger | en_1 );
+    en_2        = en_1;
+    en_1        = enable;
+    read_reg    = io_i;
+    $$else
+    chip_select = ~ ( trigger | enable );
+    $$end
     // output enable on ios
     io_oe     = {4{send_else_read}};
     // read current
     read      = {read[0,4],read_reg};
     read_reg  = io_i;
     // update outputs
-    io_o      = ~osc ? sending[0,4] : sending [4,4];
+    io_o      = ~osc ? sending[0,4] : sending[4,4];
     // start/keep sending?
     sending   = (~osc | ~enable) ? send : sending;
     osc       = ~trigger ? 1b0 : ~osc;
     enable    = trigger;
+
+    $$if SIM_ULX3S then
+      // after
+      csn = chip_select;
+    $$end
   }
 $$end
 }
@@ -112,7 +162,7 @@ unit spiflash_rom_core(
   inout   uint1  sf_io3,
 ) {
 
-  uint32 sendvec(0); //_ 38h (QPI enable)
+  uint32 sendvec(0);
 
   spiflash_qspi spiflash(
     clk     :> sf_clk,
@@ -130,6 +180,12 @@ unit spiflash_rom_core(
   uint2  init(2b11);
   uint1  accept_in(0);
   uint1  continue(0);
+$$if FOMU or SIM_FOMU then
+  uint8  mode_reg(8b10100101);
+$$else
+  uint8  mode_reg(8b00100000); // continuous read, M5-4=(1,0)
+$$end
+
 $$if SIMULATION then
   uint32 cycle(0);
 $$if VERILATOR then
@@ -168,23 +224,28 @@ $$end
       }
       case 3: {
         spiflash.trigger        = ~init[1,1];
-        // send dummy
-$$if not FOMU and not SIM_FOMU then
-        spiflash.send           = 8b00100000; // requests continuous read
         stage                   = 0; // wait
+        spiflash.send           = mode_reg; // requests continuous read
+        // send dummy
+$$if FOMU or SIM_FOMU then
+        wait                    = init[0,1] ? 1017 : 1019;
+        //_                                   ^^^^ 9 cycles
+$$elseif ULX3S or SIM_ULX3S then
         wait                    = 1023; //_ 3 cycles
 $$else
-        spiflash.send           = 8b10100101; // requests continuous read
-        stage                   = 0; // wait
-        wait                    = init[0,1] ? 1017 //_ 9 cycles
-                                            : 1019;
+        wait                    = 1023; //_ 3 cycles
 $$end
+
         after                   = 4;
       }
       case 4: {
         spiflash.send_else_read = 0;
         stage                   = 0; // wait
+$$if ULX3S or SIM_ULX3S then
+        wait                    = 1021;
+$$else
         wait                    = 1022; //_ 4 cycles (one extra due to registered ios)
+$$end
         after                   = 5;
       }
       case 5: {
@@ -211,21 +272,25 @@ $$end
     } // switch
 
     // start sending?
-$$if not FOMU and not SIM_FOMU then
-    if ((in_ready | init[1,1]) & accept_in) {
-      four     = {init[0,1],~init[0,1],2b00};
-      sendvec  = (init == 2b01 ? {8hEB,addr} : 24h0)
-               | (init == 2b00 ? {addr,8h00} : 24h0)
-               | (init[1,1]    ? 32b00000000000100010001000000000000 : 24h0);
-               //                ^^^^^^^^^^ produces 38h when not in QPI (qpi enable)
-$$else
+$$if FOMU or SIM_FOMU then
+    // W25Q128JV / MX25R1635F requiring wake up
+    // NOTE: on W25Q128JV requires more latency than option below
     if ((in_ready | init[0,1]) & accept_in) {
       four     = {init[0,1],~init[0,1],2b00};
-      sendvec  = (init == 2b01 ? 32b00010001000100000001000000010001 : 24h0)
+      sendvec  = (init == 2b01 ? 32b00010001000100000001000000010001 : 32h0)
                //                ^^^^^^^^^^ produces EBh when not in QPI
-               | (init == 2b00 ? {addr,8h00} : 24h0)
-               | (init[1,1]    ? 32b00010000000100000001000000010001 : 24h0);
+               //        as we request continuous read, we remain in QPI read
+               | (init == 2b00 ? {addr,8h00} : 32h0) //_ after init
+               | (init[1,1]    ? 32b00010000000100000001000000010001 : 32h0);
                //                ^^^^^^^^^^ produces ABh when not in QPI (wake up)
+$$else
+    // W25Q128JV that is already awake (e.g. icebreaker with icepack -s, ulx3s)
+    if ((in_ready | init[1,1]) & accept_in) {
+      four     = {init[0,1],~init[0,1],2b00};
+      sendvec  = (init == 2b01 ? {8hEB,addr} : 32h0) //_ init step 2 (on first command)
+               | (init == 2b00 ? {addr,8h00} : 32h0) //_ after init
+               | (init[1,1]    ? 32b00000000000100010001000000000000 : 32h0); //_ init step 1
+               //                ^^^^^^^^^^ produces 38h when not in QPI (qpi enable)
 $$end
       spiflash.send_else_read = 1; // sending
   $$if SIMULATION then
@@ -284,6 +349,100 @@ $$end
                  ? {core_rdata, rdata[8,$(nBytes-1)*8$]}
                  : rdata;
     busy         = keep_reading[0,1] | core_busy;
+  }
+}
+
+
+// -------------------------------------------------------------
+
+unit spiflash_exit_qpi(
+  // QSPI flash
+  output  uint1  sf_csn(1),
+  output  uint1  sf_clk,
+  inout   uint1  sf_io0,
+  inout   uint1  sf_io1,
+  inout   uint1  sf_io2,
+  inout   uint1  sf_io3,
+) {
+
+  uint32 sendvec(0);
+
+  spiflash_qspi spiflash(
+    clk     :> sf_clk,
+    csn     :> sf_csn,
+    io0    <:> sf_io0,
+    io1    <:> sf_io1,
+    io2    <:> sf_io2,
+    io3    <:> sf_io3,
+  );
+
+  uint11 wait(0);
+  uint4  four(0);
+  uint3  stage(0);
+  uint3  after(1);
+  uint4  init(4b1111);
+
+$$if SIMULATION then
+  uint32 cycle(0);
+$$end
+  always {
+
+    spiflash.send_else_read = 1;
+    spiflash.send = 8hff;
+
+    switch (stage)
+    {
+      case 0: {
+$$if ICARUS then
+        // this is necessary for icarus as init is otherwise 1bz
+        spiflash.trigger = reset ? 0 : spiflash.trigger;
+$$end
+        stage = wait[10,1] ? after : 0; // counts up to 1024 and goes to after
+        wait  = wait + 1;
+      }
+      case 2: {
+        spiflash.trigger        = 1;
+        spiflash.send           = sendvec[24,8];
+        sendvec                 = sendvec << 8;
+        stage                   = 0; // wait
+        wait                    = 1024; //_ 2 cycles
+        after                   = four[0,1] ? 3 : 2;
+        four                    = four >> 1;
+      }
+      case 3: {
+        spiflash.trigger        = 0; // init[1,1];
+        stage                   = 0;    // wait
+        spiflash.send           = 8hff; // mode bits
+        // send dummy
+        wait                    = 1024;
+        after                   = 4;
+      }
+      case 4: {
+        spiflash.trigger        = 0;
+        stage                   = 1;
+      }
+      default: { }
+    } // switch
+
+    if (init[0,1] && stage == 1) {
+$$if SIMULATION then
+      __display("[%d] init: %b",cycle,init);
+$$end
+      four     = (init == 4b0001 ? 4b0001 : 4b0)
+               | (init == 4b0011 ? 4b0001 : 4b0)
+               | (init == 4b0111 ? 4b1000 : 4b0)
+               | (init == 4b1111 ? 4b1000 : 4b0);
+      sendvec  = (init == 4b0001 ? 32hffffffff : 32h0)
+               | (init == 4b0011 ? 32hffffffff : 32h0)
+               | (init == 4b0111 ? 32hffffffff : 32h0)
+               | (init == 4b1111 ? 32hffffffff : 32h0); // exit continuous read
+      stage                   = 2;
+      init                    = init >> 1;
+    }
+
+$$if SIMULATION then
+    cycle = cycle + 1;
+$$end
   }
 }
 

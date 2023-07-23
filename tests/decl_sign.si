@@ -1,0 +1,7 @@
+algorithm main(output uint8 leds)
+{
+  int8 n = -16;
+  int8 v = n>>>1;
+  __display("%d",v);
+
+}

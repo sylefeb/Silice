@@ -1,6 +1,12 @@
 
-$$if not ICESTICK and not SIMULATION then
-$$ error("This is assuming the 12 MHz clock of the IceStick, please adjust")
+$$if not ICESTICK and not SIMULATION and not ULX3S then
+$$ error("Board not supported, please adjust")
+$$end
+
+$$if ICESTICK then
+import('../../common/plls/icestick_100.v')
+$$elseif ULX3S then
+import('../../common/plls/ulx3s_100.v')
 $$end
 
 /*
@@ -26,13 +32,17 @@ not be used as R,G,B or ID (thus max R,G,B is 254).
 
 // NOTE: this code drivea fixed number of LEDs, change the number below
 // (max 1023 otherwise adjust bitwidths below)
+$$if ICESTICK then
 $$ NUM_PIXS = 2048
+$$else
+$$ NUM_PIXS = 678*4
+$$end
 
-$$ t0h_cycles          = 5  -- 416 nsec
-$$ t0l_cycles          = 10 -- 833 nsec
-$$ t1h_cycles          = 10 -- 833 nsec
-$$ t1l_cycles          = 5  -- 416 nsec
-$$ res_cycles          = 800
+$$ t0h_cycles          = 42   -- 416 nsec
+$$ t0l_cycles          = 84   -- 833 nsec
+$$ t1h_cycles          = 84   -- 833 nsec
+$$ t1l_cycles          = 42   -- 416 nsec
+$$ res_cycles          = 6640 -- 66400 nsec
 $$ print('t0h_cycles = ' .. t0h_cycles)
 $$ print('t0l_cycles = ' .. t0l_cycles)
 $$ print('t1h_cycles = ' .. t1h_cycles)
@@ -40,8 +50,8 @@ $$ print('t1l_cycles = ' .. t1l_cycles)
 $$ print('res_cycles = ' .. res_cycles)
 
 // UART
-$$uart_in_clock_freq_mhz = 12
-$$uart_bauds             = 115200
+$$uart_in_clock_freq_mhz = 100
+$$uart_bauds             = 1152000 -- 921600 -- 576000
 $include('../common/uart.si')
 
 // The hardware implements the LED driver
@@ -49,49 +59,76 @@ algorithm main(
   output uint8 leds = 0,
   output uint1 uart_tx,
   input  uint1 uart_rx,
-  inout  uint8 pmod)
-{
+$$if ICESTICK then
+  inout  uint8 pmod
+$$elseif ULX3S then
+  output uint28 gp,
+  input  uint28 gn,
+$$end
+) <@fast_clock> {
+
+  // clock
+  uint1 fast_clock  = uninitialized;
+  pll clk_gen (
+    clock_in  <: clock,
+    clock_out :> fast_clock
+  );
+
   // UART receiver
   uart_in ui;
   uart_receiver urecv(io <:> ui,uart_rx <: uart_rx);
 
-  uint10 cnt(0);  // counter for generating the control signal
+  uint13 cnt(0);  // counter for generating the control signal
   uint1  ctrl(0); // control signal state
 
-  simple_dualport_bram uint24 colors[$NUM_PIXS$] = {pad(0)};
+  simple_dualport_bram uint24 colors[$NUM_PIXS$] = {pad(24h200000)};
 
   uint24 clr_from_uart(0);
-  uint16 id_from_uart(0);
-  uint5  receive_step(5b1); // each LEDS requies four bytes from uart
+  uint16 id(0);
+  uint3  receive_step(3b1); // each LEDS requies four bytes from uart
+  uint1  refresh(0);
 
   always_after {
+$$if ICESTICK then
     pmod.oenable     = 8b11111111;
     pmod.o           = {8{ctrl}}; // output on PMOD pins
+$$elseif ULX3S then
+    gp               = {28{ctrl}};
+$$end
     colors.wenable1  = 0; // maintain low, pulses if needed (see next)
+    colors.addr1     = id;
+    leds             = receive_step; //receive_step;
     if (ui.data_out_ready) {
-      leds         = receive_step;
       // leds = ui.data_out; // for debugging
       // data is ready on uart
-      if (ui.data_out == 8hff && id_from_uart == 16hffff) { // FF reset the sequence
-        receive_step = 5b1;
+      if (ui.data_out == 8hff) { // FF reset the sequence
+        receive_step = 3b1;
+        id           = 0;
+        refresh      = 1;
       } else {
-        colors.wenable1 = receive_step[4,1];
-        onehot (receive_step) {
-          case 0: { id_from_uart  = (id_from_uart <<8) | ui.data_out; }
-          case 1: { id_from_uart  = (id_from_uart <<8) | ui.data_out; }
+        switch (receive_step) {
+          case 1: { clr_from_uart = (clr_from_uart<<8) | ui.data_out; }
           case 2: { clr_from_uart = (clr_from_uart<<8) | ui.data_out; }
-          case 3: { clr_from_uart = (clr_from_uart<<8) | ui.data_out; }
           case 4: { clr_from_uart = (clr_from_uart<<8) | ui.data_out; }
         }
-        receive_step = {receive_step[0,4],receive_step[4,1]};
+        colors.wdata1    = clr_from_uart;
+        colors.wenable1  = receive_step[2,1];
+        id               = receive_step[2,1] ? (id + 1) : id;
+        receive_step     = {receive_step[0,2],receive_step[2,1]};
       }
     }
-    colors.wdata1    = clr_from_uart;
-    colors.addr1     = id_from_uart;
   }
 
   // we use a Silice algorithm to implement the driver
   while (1) {
+    while (!refresh) { }
+    refresh = 0;
+    // send reset
+    ctrl = 0;
+    cnt  = 0;
+    while (cnt != $res_cycles$) {
+      cnt  = cnt + 1;
+    }
     // iterate through the LEDs and set their color
     uint16 led_id = 0;
     colors.addr0 = led_id;
@@ -129,12 +166,6 @@ algorithm main(
         // count sent bits
         i        = i + 1;
       }
-    }
-    // send reset
-    ctrl = 0;
-    cnt  = 0;
-    while (cnt != $res_cycles$) {
-      cnt  = cnt + 1;
     }
   }
 

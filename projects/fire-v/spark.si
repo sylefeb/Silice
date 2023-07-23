@@ -22,17 +22,23 @@ $$error('Sorry, Spark is currently not supported on this board.')
 $$end
 
 $$if ULX3S then
-import('../common/plls/ulx3s_200.v')
+import('../common/plls/ulx3s_50.v')
+$$uart_in_clock_freq_mhz = 50
 $$end
 
 $$if ICEBREAKER then
 import('../common/plls/icebrkr_25.v')
 $$FIREV_MERGE_ADD_SUB = 1
 $$FIREV_NO_INSTRET    = 1
+$$uart_in_clock_freq_mhz = 25
 $$if WARMBOOT then
 import('../common/ice40_warmboot.v')
 $$print('enabling WARMBOOT')
 $$end
+$$end
+
+$$if UART then
+$include('../common/uart.si')
 $$end
 
 // pre-compilation script, embeds code within string for BRAM and outputs sdcard image
@@ -60,8 +66,14 @@ $$if SPIFLASH then
   output uint1   sf_mosi,
   input  uint1   sf_miso,
 $$end
+$$if UART then
+  output uint1 uart_tx,
+  input  uint1 uart_rx,
+$$end
+)
 $$if ULX3S then
-) <@sys_clock,!sys_reset> {
+<@sys_clock,!sys_reset>
+{
   uint1 sys_clock = uninitialized;
   uint1 locked    = uninitialized;
   pll pllgen(
@@ -74,7 +86,7 @@ $$if ULX3S then
     out :> sys_reset
   );
 $$elseif ICEBREAKER then
-) <@sys_clock,!sys_reset> {
+<@sys_clock,!sys_reset> {
   uint1 sys_clock = uninitialized;
   pll pllgen(
     clock_in  <: clock,
@@ -85,7 +97,7 @@ $$elseif ICEBREAKER then
     out :> sys_reset
   );
 $$else
-) {
+{
 $$end
 
   rv32i_ram_io mem;
@@ -114,6 +126,14 @@ $$end
     predicted_correct :> predicted_correct,
   );
 
+$$if UART then
+  uart_out uo;
+  uart_sender usend(
+    io      <:> uo,
+    uart_tx :>  uart_tx
+  );
+$$end
+
 $$if WARMBOOT then
   uint1  boot(0);
   uint2  slot(0);
@@ -125,7 +145,7 @@ $$end
 
 $$if SIMULATION then
   uint32 iter = 0;
-  while (iter != 48) {
+  while (iter != 1024) {
     iter = iter + 1;
 $$else
   while (1) {
@@ -139,35 +159,42 @@ $$elseif SPIFLASH then
     user_data[3,1] = reg_miso;
     reg_miso       = sf_miso;
 $$end
+$$if UART then
+    uo.data_in_ready = 0;
+    uo.data_in       = mem.data_in[0,8];
+$$end
 
     if (mem.addr[28,1] & mem.in_valid & mem.rw) {
-//      __display("[iter %d] mem.addr %h mem.data_in %h",iter,mem.addr,mem.data_in);
+      //__display("[iter %d] mem.addr %h mem.data_in %h",iter,mem.addr,mem.data_in);
 $$if SDCARD or SPIFLASH then
       if (~mem.addr[3,1]) {
         leds = mem.data_in[0,8];
-$$  if SIMULATION then
-        __display("[iter %d] LEDs = %b",iter,leds);
-$$  end
-$$if WARMBOOT then
+  $$if WARMBOOT then
         boot = boot | mem.data_in[9,1];
 				slot = mem.data_in[0,2];
-$$end
+  $$end
+  $$if UART then
+        uo.data_in_ready = mem.data_in[31,1];
+  $$end
       } else {
-$$  if SDCARD then
+  $$if SDCARD then
         sd_clk  = mem.data_in[0,1];
         sd_mosi = mem.data_in[1,1];
         sd_csn  = mem.data_in[2,1];
-$$  elseif SPIFLASH then
+  $$elseif SPIFLASH then
         sf_clk  = mem.data_in[0,1];
         sf_mosi = mem.data_in[1,1];
         sf_csn  = mem.data_in[2,1];
-$$  end
-$$  if SIMULATION then
+  $$end
+  $$if SIMULATION then
         __display("[iter %d] SPI (flash/SD) = %b",iter,mem.data_in[0,3]);
-$$  end
+  $$end
       }
 $$else
       leds = mem.data_in[0,8];
+      $$if SIMULATION then
+      __display("[iter %d] LEDs = %b",iter,leds);
+      $$end
 $$end
     }
 

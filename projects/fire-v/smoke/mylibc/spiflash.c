@@ -20,6 +20,8 @@ void spiflash_select()
 void spiflash_unselect()
 {
   *SPIFLASH = 4 | 2;
+  //          ^
+  //          csn high (unselect)
 }
 
 #define spiflash_send_step(data) \

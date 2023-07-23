@@ -230,7 +230,7 @@ bpBindingList          : bpBinding ',' bpBindingList | bpBinding | ;
 
 /* -- io lists -- */
 
-io                  : ( (is_input='input' nolatch='!'? ) | (is_output='output' combinational='!'? combinational_nocheck='(!)'?) | is_inout='inout' ) IDENTIFIER declarationVarInitCstr? ;
+io                  : ( (is_input='input' nolatch='!'? ) | ((is_output='output' | is_inout='inout') combinational='!'? combinational_nocheck='(!)'?)) IDENTIFIER declarationVarInitCstr? ;
 
 ioList              : io (',' io)* ','? | ;
 
@@ -427,8 +427,8 @@ repeatBlock         : REPEATCNT '{' instructionSequence '}' ;
 
 /* -- Inputs/outputs -- */
 
-inout               : 'inout' declarationVar
-                    | 'inout' declarationTable;
+inout               : 'inout' combinational='!'? combinational_nocheck='(!)'? declarationVar
+                    | 'inout' combinational='!'? combinational_nocheck='(!)'? declarationTable ;
 input               : 'input' nolatch='!'? declarationVar
                     | 'input' nolatch='!'? declarationTable;
 output              : 'output' combinational='!'? combinational_nocheck='(!)'? declarationVar

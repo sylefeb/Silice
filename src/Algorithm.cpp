@@ -3331,6 +3331,7 @@ void Algorithm::gatherInoutNfo(siliceParser::InoutContext* inout, t_inout_nfo& _
   } else {
     sl_assert(false);
   }
+  _io.combinational = (inout->combinational != nullptr) || (inout->combinational_nocheck != nullptr);
 }
 
 // -------------------------------------------------
@@ -3427,6 +3428,7 @@ void Algorithm::gatherIoGroup(siliceParser::IoDefContext *iog, const t_combinati
         t_inout_nfo inp;
         var_nfo_copy(inp, V->second);
         inp.name = grpre + "_" + V->second.name;
+        inp.combinational = (io->combinational != nullptr || io->combinational_nocheck != nullptr);
         m_InOuts.emplace_back(inp);
         m_InOutNames.insert(make_pair(inp.name, (int)m_InOuts.size() - 1));
         // add group for member access and bindings
@@ -3525,6 +3527,7 @@ void Algorithm::gatherIoInterface(siliceParser::IoDefContext *itrf)
       t_inout_nfo inp;
       var_nfo_copy(inp, vnfo);
       inp.name              = grpre + "_" + vnfo.name;
+      inp.combinational     = (io->combinational != nullptr) || (io->combinational_nocheck != nullptr);
       m_InOuts.emplace_back(inp);
       m_InOutNames.insert(make_pair(inp.name, (int)m_InOuts.size() - 1));
       m_Parameterized.push_back(inp.name);
@@ -4100,7 +4103,7 @@ void Algorithm::resolveForwardJumpRefs()
 
 bool Algorithm::preventIfElseCodeDup(t_fsm_nfo* fsm)
 {
-  // detect unreachable block
+  // detect unreachable blocks
   // NOTE: this is done before as the loop below changes is_state for some block,
   //       and these have to be renumbered
   std::set<int> unreachable;
@@ -4962,7 +4965,7 @@ void Algorithm::combineUsageInto(const t_combinational_block *debug_block, const
       use_after.stable_in_cycle.insert(std::make_pair(sic.first,all_ok));
     }
   }
-  // -> if unknown in use_before, and stable in *one* branch then stable, otherwise not stable  
+  // -> if unknown in use_before, and stable in *one* branch then stable, otherwise not stable
   map<string, int> num_stable;
   for (const auto& br : use_branches) {
     for (const auto& sic : br.stable_in_cycle) {
@@ -9545,8 +9548,8 @@ void Algorithm::writeInstanciatedBlueprints(std::ostream& out, const t_instantia
 // -------------------------------------------------
 
 void Algorithm::writeAsModule(
-  std::ostream&                   out_stream, 
-  const t_instantiation_context&  ictx, 
+  std::ostream&                   out_stream,
+  const t_instantiation_context&  ictx,
   t_vio_usage&                   _usage,
   bool                            first_pass) const
 {
@@ -9985,7 +9988,7 @@ void Algorithm::writeAsModule(
           }
           out << " ? ";
           if (m_Vars.at(m_VarNames.at(io.name + "_o")).access != e_NotAccessed) {
-            out << rewriteIdentifier("_", io.name + "_o", "[" + std::to_string(b) + "]", nullptr, ictx, io.srcloc, FF_Q, true, _1, input_bindings_usage);
+            out << rewriteIdentifier("_", io.name + "_o", "[" + std::to_string(b) + "]", nullptr, ictx, io.srcloc, io.combinational ? FF_D : FF_Q, true, _1, input_bindings_usage);
           } else {
             out << "1'b0";
           }

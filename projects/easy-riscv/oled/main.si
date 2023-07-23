@@ -20,6 +20,9 @@ $include('../../common/spi.si')
 $$if ICESTICK then
 import('../../common/plls/icestick_60.v')
 $$end
+$$if BROT then
+import('../../common/plls/brot_60.v')
+$$end
 
 // CPU declaration
 riscv cpu_drawer(output uint1  oled_rst,
@@ -69,7 +72,7 @@ $$if VERILATOR then
   output uint10 spiscreen_height(240),
 $$end
 )
-$$if ICESTICK then
+$$if ICESTICK or BROT then
  <@cpu_clock> {
   // PLL
   uint1 cpu_clock  = uninitialized;
