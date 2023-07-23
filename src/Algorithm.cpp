@@ -1505,9 +1505,7 @@ std::string Algorithm::encapsulateIdentifier(std::string var, bool read_access, 
 std::string Algorithm::vioAsDefine(const t_instantiation_context& ictx, const t_var_nfo& v, std::string value) const
 {
   std::string def;
-  // sl_assert(v.type_nfo.base_type != Parameterized);
-  def = /*(v.type_nfo.base_type == Int ? "$signed" : "") +*/ string("(") + varBitWidth(v, ictx) + "\'(" + value + "))";
-  //   NOTE: ^^^^^^ signed is problematic when defines are bound (yosys triggers an assert as of 0.29+11)
+  def = (v.type_nfo.base_type == Int ? "$signed" : "") + string("(") + varBitWidth(v, ictx) + "\'(" + value + "))";
   return def;
 }
 
