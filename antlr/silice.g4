@@ -429,8 +429,8 @@ repeatBlock         : REPEATCNT '{' instructionSequence '}' ;
 
 inout               : 'inout' combinational='!'? combinational_nocheck='(!)'? declarationVar
                     | 'inout' combinational='!'? combinational_nocheck='(!)'? declarationTable ;
-input               : 'input' nolatch='!'? declarationVar
-                    | 'input' nolatch='!'? declarationTable;
+input               : 'input' declarationVar
+                    | 'input' declarationTable;
 output              : 'output' combinational='!'? combinational_nocheck='(!)'? declarationVar
                     | 'output' combinational='!'? combinational_nocheck='(!)'? declarationTable ;
 outputs             : 'input' OUTPUTS '(' alg=IDENTIFIER ')' grp=IDENTIFIER ;
