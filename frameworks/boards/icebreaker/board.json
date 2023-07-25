@@ -15,7 +15,9 @@
         {"set"    : "spiflash", "define" : "SPIFLASH=1"},
         {"set"    : "qspiflash", "define" : "QSPIFLASH=1"},
         {"set"    : "extras", "define" : "EXTRAS=1"},
-        {"set"    : "pmod_qqspi", "define" : "PMOD_QQSPI=1"}
+        {"set"    : "pmod_qqspi", "define" : "PMOD_QQSPI=1"},
+        {"set"    : "pmod_com_out", "define" : "PMOD_COM_OUT=1"},
+        {"set"    : "pmod_com_in", "define" : "PMOD_COM_IN=1"}
       ],
       "builders": [
         {

@@ -128,6 +128,30 @@ module top(
   output P1A9,
   output P1A10,
 `endif
+`ifdef PMOD_COM_OUT
+  output P1A1,
+  output P1A2,
+  output P1A3,
+  output P1A4,
+  output P1A7,
+  output P1A8,
+  output P1A9,
+  output P1A10,
+  output P1B1,
+  output P1B7,
+`endif
+`ifdef PMOD_COM_IN
+  input  P1A1,
+  input  P1A2,
+  input  P1A3,
+  input  P1A4,
+  input  P1A7,
+  input  P1A8,
+  input  P1A9,
+  input  P1A10,
+  input  P1B1,
+  input  P1B7,
+`endif
 `ifdef EXTRAS
   inout RGB_R,
   inout RGB_G,
@@ -254,6 +278,16 @@ M_main __main(
 `endif
 `ifdef EXTRAS
   .inout_extras({P1B10,P1B9,RGB_B,RGB_G,RGB_R}),
+`endif
+`ifdef PMOD_COM_OUT
+  .out_com_data({P1A10,P1A9,P1A8,P1A7,P1A4,P1A3,P1A2,P1A1}),
+  .out_com_clock(P1B1),
+  .out_com_valid(P1B7),
+`endif
+`ifdef PMOD_COM_IN
+  .in_com_data({P1A4,P1A3,P1A2,P1A1,P1A10,P1A9,P1A8,P1A7}),
+  .in_com_clock(P1B7),
+  .in_com_valid(P1B1),
 `endif
   .in_run(run_main)
 );
