@@ -42,11 +42,13 @@ $$config['simple_dualport_bram_wenable0_width'] = '1'
 $$config['simple_dualport_bram_wenable1_width'] = '1'
 
 module top(
+`ifdef BASIC
   output LED1,
   output LED2,
   output LED3,
   output LED4,
   output LED5,
+`endif
 `ifdef BUTTONS
   input BTN1,
   input BTN2,
@@ -152,6 +154,20 @@ module top(
   input  P1B1,
   input  P1B7,
 `endif
+`ifdef PARALLEL_SCREEN
+  output P2_1,
+  output P2_2,
+  output P2_3,
+  output P2_4,
+  output P2_7,
+  output P2_8,
+  output P2_9,
+  output P2_10,
+  output P1B2,
+  output P1B3,
+  output P1B8,
+  output P1B9,
+`endif
 `ifdef EXTRAS
   inout RGB_R,
   inout RGB_G,
@@ -225,7 +241,9 @@ M_main __main(
   .clock(CLK),
   .out_clock(design_clk),
   .reset(~RST_q[15]),
+`ifdef BASIC
   .out_leds(__main_leds),
+`endif
 `ifdef BUTTONS
   .in_btns({BTN3,BTN2,BTN1}),
 `endif
@@ -289,14 +307,23 @@ M_main __main(
   .in_com_clock(P1B7),
   .in_com_valid(P1B1),
 `endif
+`ifdef PARALLEL_SCREEN
+  .out_lcd_d({P2_10,P2_9,P2_8,P2_7,P2_4,P2_3,P2_2,P2_1}),
+  .out_lcd_rst_n(P1B2),
+  .out_lcd_cs_n(P1B8),
+  .out_lcd_rs(P1B3),
+  .out_lcd_wr_n(P1B9),
+`endif
   .in_run(run_main)
 );
 
+`ifdef BASIC
 assign LED4 = __main_leds[0+:1];
 assign LED3 = __main_leds[1+:1];
 assign LED5 = __main_leds[2+:1];
 assign LED2 = __main_leds[3+:1];
 assign LED1 = __main_leds[4+:1];
+`endif
 
 `ifdef VGA
 assign P1A1  = __main_out_vga_r[2+:1];
