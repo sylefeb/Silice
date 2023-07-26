@@ -42,33 +42,6 @@ Then we update the pin groups. The board has [many cool features](http://docs.la
   {"set"    : "uart",   "define" : "UART=1"}
 ],
 ```
-We then update the list in the `"pins"` section. The board has 4 RGB LEDs so that will make for a 12 bit signal. We will also wire in the UART.
-
-> **Note:** the pin definitions in the json file are currently not used an not mandatory. There is a plan to use them, but that is likely to change.
-
-```c
-"pins": {
-  "basic": [
-    {
-      "name": "leds",
-      "type": "uint12",
-      "io": "output"
-    }
-  ],
-  "uart": [
-    {
-      "name": "uart_tx",
-      "type": "uint1",
-      "io"  : "output"
-    },
-    {
-      "name": "uart_rx",
-      "type": "uint1",
-      "io"  : "input"
-    }
-  ]
-}
-```
 
 The board has so much more to offer - we are just getting started! (As you look at the files they'll likely have grown to include more pin definitions).
 
@@ -97,7 +70,7 @@ Next we have to consider how the board will be programed. I'd like to use [openF
 
 Now time to move on to the pin definitions. I could not find a `.lpf` file online so [I created one](ecpix5/ecpix5.lpf) from the documentation.
 
-The final step is to update the [Verilog framework](ecpix5/ecpix.v). This is the glue between the pin definitions in the lpf file and the Silice main module.
+The final step is to update the [Verilog framework](ecpix5/ecpix5.v). This is the glue between the pin definitions in the lpf file and the Silice main module.
 
 The header will be updated as:
 ```c

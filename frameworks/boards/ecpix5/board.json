@@ -43,53 +43,5 @@
       }
       ]
     }
-  ],
-  "pins": {
-    "basic": [
-      {
-        "name": "leds",
-        "type": "uint12",
-        "io": "output"
-      }
-    ],
-    "uart": [
-      {
-        "name": "uart_tx",
-        "type": "uint1",
-        "io"  : "output"
-      },
-      {
-        "name": "uart_rx",
-        "type": "uint1",
-        "io"  : "input"
-      }
-    ],
-    "vga": [
-      {
-        "name": "vga_hs",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "vga_vs",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "vga_r",
-        "type": "uint6",
-        "io": "output"
-      },
-      {
-        "name": "vga_g",
-        "type": "uint6",
-        "io": "output"
-      },
-      {
-        "name": "vga_b",
-        "type": "uint6",
-        "io": "output"
-      }
-    ]
-  }
+  ]
 }

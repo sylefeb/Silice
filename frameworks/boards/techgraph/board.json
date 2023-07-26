@@ -4,7 +4,7 @@
     {
       "name"      : "techgraph",
       "framework" : "techgraph.v",
-      "pins"      : [ 
+      "pins"      : [
         {"set"    : "basic"}
       ],
       "builders": [
@@ -13,16 +13,7 @@
           "command" : "techgraph.sh",
           "description": "Custom shell scripts using yosys and nextpnr"
         }
-      ]    
+      ]
     }
-  ],
-  "pins": {
-    "basic": [
-        {
-          "name": "leds",
-          "type": "uint8",
-          "io": "output"
-        }
-    ]
-  }
+  ]
 }
