@@ -201,10 +201,9 @@ pad                 : PAD '(' (value | UNINITIALIZED) ')' ;
 file                : FILE '(' STRING ')' ;
 initList            : '{' value (',' value)* (',' pad)? ','? '}' | '{' (file ',')? pad '}'  | '{' '}' ;
 
-memNoInputLatch     : 'input' '!' ;
 memDelayed          : 'delayed' ;
 memClocks           : (clk0=sclock ',' clk1=sclock) ;
-memModifier         : memClocks | memNoInputLatch | memDelayed | STRING;
+memModifier         : memClocks | memDelayed | STRING;
 memModifiers        : '<' memModifier (',' memModifier)* ','? '>' ;
 
 type                   : TYPE | (SAMEAS '(' base=IDENTIFIER ('.' member=IDENTIFIER)? ')') | AUTO;
@@ -230,7 +229,7 @@ bpBindingList          : bpBinding ',' bpBindingList | bpBinding | ;
 
 /* -- io lists -- */
 
-io                  : ( (is_input='input' nolatch='!'? ) | ((is_output='output' | is_inout='inout') combinational='!'? combinational_nocheck='(!)'?)) IDENTIFIER declarationVarInitCstr? ;
+io                  : ( (is_input='input') | ((is_output='output' | is_inout='inout') combinational='!'? combinational_nocheck='(!)'?)) IDENTIFIER declarationVarInitCstr? ;
 
 ioList              : io (',' io)* ','? | ;
 
