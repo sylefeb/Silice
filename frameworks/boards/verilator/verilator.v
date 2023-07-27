@@ -80,8 +80,8 @@ module top(
   output [9:0] prlscreen_width,
   output [9:0] prlscreen_height,
   // basic
-  input        clk,
-  output [7:0] leds
+  output [7:0] leds,
+  input        clk
   );
 
 // this is used by the verilator framework
@@ -139,7 +139,9 @@ wire done_main;
 M_main __main(
   .clock(clk),
   .reset(RST_q[0]),
+`ifdef BASIC
   .out_leds(__main_leds),
+`endif
 `ifdef SDRAM
   .out_sdram_clock(__main_sdram_clock),
   .out_sdram_cle(__main_sdram_cle),
