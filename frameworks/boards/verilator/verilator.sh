@@ -92,36 +92,27 @@ VERILATOR_LIB_DIR=$SILICE_DIR/../frameworks/verilator/
 cp    $VERILATOR_LIB_DIR/verilator_callbacks.h .
 cp -R $SILICE_DIR/../src/libs/LibSL-small/src/LibSL .
 
-# TODO: this selection process could be more elegant ...
-if [[ -z "${VGA}" ]] && [[ -z "${SDRAM}" ]] && [[ -z "${OLED}" ]] && [[ -z "${SPISCREEN}" ]]; then
-# basic framework
-LDFLAGS=""
-VERILATOR_LIB="verilator_bare"
-VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_bare.cpp $VERILATOR_LIB_DIR/verilator_data.cpp"
-else
-if [[ -z "${SDRAM}" ]]; then
-if [[ -z "${OLED}" ]] && [[ -z "${SPISCREEN}" ]]; then
-# VGA only
-VERILATOR_LIB="verilator_vga"
-VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_vga.cpp $VERILATOR_LIB_DIR/verilator_data.cpp $VERILATOR_LIB_DIR/display.cpp $VERILATOR_LIB_DIR/VgaChip.cpp $LIBSL_DIR/Image/ImageFormat_TGA.cpp $LIBSL_DIR/Image/Image.cpp $LIBSL_DIR/Image/tga.cpp $LIBSL_DIR/Math/Vertex.cpp $LIBSL_DIR/Math/Math.cpp $LIBSL_DIR/StlHelpers/StlHelpers.cpp $LIBSL_DIR/CppHelpers/CppHelpers.cpp $LIBSL_DIR/System/System.cpp"
-else
-# SPIscreen only
-VERILATOR_LIB="verilator_spiscreen"
-VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_spiscreen.cpp $VERILATOR_LIB_DIR/verilator_data.cpp $VERILATOR_LIB_DIR/display.cpp $VERILATOR_LIB_DIR/SPIScreen.cpp $LIBSL_DIR/Image/ImageFormat_TGA.cpp $LIBSL_DIR/Image/Image.cpp $LIBSL_DIR/Image/tga.cpp $LIBSL_DIR/Math/Vertex.cpp $LIBSL_DIR/Math/Math.cpp $LIBSL_DIR/StlHelpers/StlHelpers.cpp $LIBSL_DIR/CppHelpers/CppHelpers.cpp $LIBSL_DIR/System/System.cpp"
+VERILATOR_BASE="$VERILATOR_LIB_DIR/verilator_main.cpp $VERILATOR_LIB_DIR/verilator_data.cpp $LIBSL_DIR/Image/ImageFormat_TGA.cpp $LIBSL_DIR/Image/Image.cpp $LIBSL_DIR/Image/tga.cpp $LIBSL_DIR/Math/Vertex.cpp $LIBSL_DIR/Math/Math.cpp $LIBSL_DIR/StlHelpers/StlHelpers.cpp $LIBSL_DIR/CppHelpers/CppHelpers.cpp $LIBSL_DIR/System/System.cpp $VERILATOR_LIB_DIR/display.cpp $VERILATOR_LIB_DIR/sdr_sdram.cpp $VERILATOR_LIB_DIR/VgaChip.cpp $VERILATOR_LIB_DIR/ParallelScreen.cpp $VERILATOR_LIB_DIR/SPIScreen.cpp"
+
+VERILATOR_LIB_SRC="$VERILATOR_BASE"
+
+DEFINES=""
+if [[ -n "${VGA}" ]]; then
+  DEFINES+="-CFLAGS -DVGA "
 fi
-else
-if [[ -z "${VGA}" ]]; then
-# SDRAM only
-LDFLAGS=""
-VERILATOR_LIB="verilator_sdram"
-VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_sdram.cpp $VERILATOR_LIB_DIR/verilator_data.cpp $VERILATOR_LIB_DIR/sdr_sdram.cpp $LIBSL_DIR/StlHelpers/StlHelpers.cpp $LIBSL_DIR/CppHelpers/CppHelpers.cpp $LIBSL_DIR/System/System.cpp"
-else
-# VGA and SDRAM
-VERILATOR_LIB="verilator_vga_sdram"
-VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_vga_sdram.cpp $VERILATOR_LIB_DIR/verilator_data.cpp $VERILATOR_LIB_DIR/display.cpp $VERILATOR_LIB_DIR/sdr_sdram.cpp $VERILATOR_LIB_DIR/VgaChip.cpp $LIBSL_DIR/Image/ImageFormat_TGA.cpp $LIBSL_DIR/Image/Image.cpp $LIBSL_DIR/Image/tga.cpp $LIBSL_DIR/Math/Vertex.cpp $LIBSL_DIR/Math/Math.cpp $LIBSL_DIR/StlHelpers/StlHelpers.cpp $LIBSL_DIR/CppHelpers/CppHelpers.cpp $LIBSL_DIR/System/System.cpp"
+if [[ -n "${SDRAM}" ]]; then
+  DEFINES+="-CFLAGS -DSDRAM "
 fi
+if [[ -n "${SPISCREEN}" ]]; then
+  DEFINES+="-CFLAGS -DSPISCREEN "
 fi
+if [[ -n "${OLED}" ]]; then
+  DEFINES+="-CFLAGS -DSPISCREEN "
 fi
+if [[ -n "${PARALLEL_SCREEN}" ]]; then
+  DEFINES+="-CFLAGS -DPARALLEL_SCREEN "
+fi
+VERILATOR_LIB="verilator_main"
 
 if test -f "$1.cpp"; then
 	echo ">>>>>> custom verilator framework detected <<<<<<"
@@ -137,8 +128,9 @@ else
 fi
 
 echo "using verilator framework $VERILATOR_LIB"
+echo "defines: $DEFINES"
 
-verilator -Wno-fatal -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat $OPT --top-module top --exe $VERILATOR_LIB_SRC -CFLAGS "-include" -CFLAGS "../verilator_callbacks.h" -CFLAGS "-include" -CFLAGS "custom.h" -CFLAGS "-I$SILICE_DIR/../frameworks/verilator/" -CFLAGS "-I../"  -CFLAGS "-I../LibSL/" -CFLAGS "-DNO_SHLWAPI" $LDFLAGS
+verilator -Wno-fatal -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat $OPT --top-module top --exe $VERILATOR_LIB_SRC -CFLAGS "-include" -CFLAGS "../verilator_callbacks.h" -CFLAGS "-include" -CFLAGS "custom.h" -CFLAGS "-I$SILICE_DIR/../frameworks/verilator/" -CFLAGS "-I../"  -CFLAGS "-I../LibSL/" -CFLAGS "-DNO_SHLWAPI" $DEFINES $LDFLAGS
 cd obj_dir
 
 $MAKE -f Vtop.mk -j$(nproc)

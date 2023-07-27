@@ -308,11 +308,11 @@ M_main __main(
   .in_com_valid(P1B1),
 `endif
 `ifdef PARALLEL_SCREEN
-  .out_lcd_d({P2_10,P2_9,P2_8,P2_7,P2_4,P2_3,P2_2,P2_1}),
-  .out_lcd_rst_n(P1B2),
-  .out_lcd_cs_n(P1B8),
-  .out_lcd_rs(P1B3),
-  .out_lcd_wr_n(P1B9),
+  .out_prlscreen_d({P2_10,P2_9,P2_8,P2_7,P2_4,P2_3,P2_2,P2_1}),
+  .out_prlscreen_resn(P1B2),
+  .out_prlscreen_csn(P1B8),
+  .out_prlscreen_rs(P1B3),
+  .out_prlscreen_clk(P1B9),
 `endif
   .in_run(run_main)
 );

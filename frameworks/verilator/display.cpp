@@ -45,7 +45,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // external definitions
 static DisplayChip *g_Chip = nullptr;
 
-void step();
+int step();
 
 // ----------------------------------------------------------------------------
 
@@ -56,13 +56,31 @@ std::mutex g_Mutex;         // Mutex to lock the chip during rendering
 
 void simul()
 {
+#ifdef TRACE_FST
+  // open trace
+  VerilatedFstC *trace = new VerilatedFstC();
+  Verilated::traceEverOn(true);
+  bare_test->trace(trace, std::numeric_limits<int>::max());
+  trace->open("trace.fst");
+  int timestamp = 0;
+#endif
   // thread running the simulation forever
-  while (1) {
+  int keep_going = 1;
+  while (keep_going) {
     // lock for safe concurrent use between drawer and simulation
     std::lock_guard<std::mutex> lock(g_Mutex);
     // step
-    step();
+    keep_going = step();
+    #ifdef TRACE_FST
+    // update trace
+    trace->dump(timestamp++);
+    #endif
   }
+#ifdef TRACE_FST
+  // close trace
+  trace->close();
+#endif
+
 }
 
 // ----------------------------------------------------------------------------

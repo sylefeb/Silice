@@ -51,12 +51,12 @@
 #define FLAG_RANDOM_FILLED     ((vluint8_t)0x20)
 #define FLAG_DEBUG_ON          ((vluint8_t)0x40)
 
-class SDRAM
+class SimulSDRAM
 {
     public:
         // Constructor and destructor
-        SDRAM(vluint8_t log2_rows, vluint8_t log2_cols, vluint8_t flags, char *logfile);
-        ~SDRAM();
+        SimulSDRAM(vluint8_t log2_rows, vluint8_t log2_cols, vluint8_t flags, char *logfile);
+        ~SimulSDRAM();
         // Methods
         void load(const char *name, vluint32_t size,  vluint32_t addr);
         void save(const char *name, vluint32_t size,  vluint32_t addr);
@@ -71,7 +71,7 @@ class SDRAM
         vluint32_t mem_size;
     private:
         // Byte reading functions (to speedup access)
-        vluint8_t  (SDRAM::*read_byte_priv)(vluint32_t);
+        vluint8_t  (SimulSDRAM::*read_byte_priv)(vluint32_t);
         vluint8_t  read_byte_i_be_8(vluint32_t addr);
         vluint8_t  read_byte_i_be_16(vluint32_t addr);
         vluint8_t  read_byte_i_be_32(vluint32_t addr);
@@ -107,16 +107,16 @@ class SDRAM
         vluint8_t *mem_array_2[SDRAM_NUM_BANKS];
         vluint8_t *mem_array_1[SDRAM_NUM_BANKS];
         vluint8_t *mem_array_0[SDRAM_NUM_BANKS]; // LSB
-        // Mode register                         
+        // Mode register
         int        cas_lat;                      // CAS latency (2 or 3)
         int        bst_len_rd;                   // Burst length during read
         int        bst_len_wr;                   // Burst length during write
         vluint8_t  bst_type;                     // Burst type
-        // Debug mode                            
-        vluint8_t  dbg_on;                       
-        // Special memory flags                  
-        vluint8_t  mem_flags;                    
-        // Internal variables                    
+        // Debug mode
+        vluint8_t  dbg_on;
+        // Special memory flags
+        vluint8_t  mem_flags;
+        // Internal variables
         vluint8_t  prev_clk;                     // Previous clock state
         vluint8_t  cmd_pipe[CMD_PIPE_DEPTH];     // Command pipeline
         int        col_pipe[CMD_PIPE_DEPTH];     // Column address pipeline
