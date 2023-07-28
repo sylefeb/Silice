@@ -157,11 +157,11 @@ module top(
 `ifdef PARALLEL_SCREEN
   output P2_1,
   output P2_2,
-  output P2_3,
+  output P1B4,  // (P2_3 collides with flash if on different clocks)
   output P2_4,
   output P2_7,
   output P2_8,
-  output P2_9,
+  output P1B10, // (P2_9 collides with flash if on different clocks)
   output P2_10,
   output P1B2,
   output P1B3,
@@ -308,7 +308,7 @@ M_main __main(
   .in_com_valid(P1B1),
 `endif
 `ifdef PARALLEL_SCREEN
-  .out_prlscreen_d({P2_10,P2_9,P2_8,P2_7,P2_4,P2_3,P2_2,P2_1}),
+  .out_prlscreen_d({P2_10,P1B10,P2_8,P2_7,P2_4,P1B4,P2_2,P2_1}),
   .out_prlscreen_resn(P1B2),
   .out_prlscreen_csn(P1B8),
   .out_prlscreen_rs(P1B3),
