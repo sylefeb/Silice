@@ -14,7 +14,8 @@
 // ========================================================
 
 $$spi4x  = nil
-$$spi2x  = 1
+$$spi2x  = nil
+$$spi1x  = 1
 
 $$if ICARUS then
 $$SIM_FOMU  = nil
@@ -22,10 +23,6 @@ $$SIM_ULX3S = nil  -- TODO: remove? (adds bloat in code)
 $$end
 
 $$nBytes = 4
-
-$$if not spi4x and not spi2x and nBytes ~= 1 then
-$$ error('single speed SPIflash controller supports only byte access')
-$$end
 
 $$if ICARUS then
 $$if SIM_FOMU or FOMU then
@@ -45,7 +42,7 @@ $$if ICE40 then
   $$if spi4x then
     import('../common/ice40_half_quarter_clock.v')
     $$master_freq = 100
-  $$elseif spi2x then
+  $$elseif spi2x or spi1x then
     import('../common/ice40_half_clock.v')
   $$else
     $$error('define either spi2x or spi4x')
@@ -72,6 +69,9 @@ $$if spi4x then
   $$uart_in_clock_freq_mhz = master_freq//4
 $$elseif spi2x then
   $include('spiflash2x.si')
+  $$uart_in_clock_freq_mhz = master_freq//2
+$$elseif spi1x then
+  $include('spiflash1x.si')
   $$uart_in_clock_freq_mhz = master_freq//2
 $$end
 $include('../common/uart.si')
@@ -129,7 +129,7 @@ $$if ICE40 then
       clock_h   :> clock2x,
       clock_q   :> clock1x,
     );
-  $$elseif spi2x then
+  $$elseif spi2x or spi1x then
     uint1 clock2x = uninitialized;
     uint1 rst     = uninitialized;
     pll _(
@@ -143,7 +143,7 @@ $$if ICE40 then
       clock_out :> clock1x,
     );
   $$else
-    $$error('Either spi2x or spi4x has to be set')
+    $$error('Either spi1x, spi2x or spi4x has to be set')
   $$end
 $$elseif ULX3S then
   uint1 clock1x = uninitialized;
@@ -212,8 +212,10 @@ $$end
     sf_csn  :>  sf_csn,
     sf_io0  <:> sf_io0,
     sf_io1  <:> sf_io1,
+$$if not spi1x then
     sf_io2  <:> sf_io2,
     sf_io3  <:> sf_io3,
+$$end
 $$if spi4x then
     clkspi  <: clock4x
 $$end
@@ -242,6 +244,7 @@ $$end
     //sf_rom.addr     = 2097152 + (data.addr[0,8] << 8d$clog2(nBytes)$);
     sf_rom.addr     = {4b0000,12b0,data.addr[0,8] << 8d$clog2(nBytes)$ };
     //sf_rom.addr     = {4b0000,12b0,data.addr[0,8] };
+    //sf_rom.addr     = 24h500000;
 ++:
     while (sf_rom.busy) { }
 ++:

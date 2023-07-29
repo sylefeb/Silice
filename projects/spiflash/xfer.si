@@ -1,0 +1,166 @@
+// @sylefeb 2023
+// https://github.com/sylefeb/Silice
+// MIT license, see LICENSE_MIT in Silice repo root
+// --------------------------------------------------------------
+//
+// SPIFLASH communication firmware
+// Adapted from ../qpsram
+//
+// --------------------------------------------------------------
+
+$$if ICESTICK then
+  import('../common/plls/icestick_50.v')
+  $$uart_in_clock_freq_mhz = 50
+$$elseif ICE40 then
+  import('../common/plls/icebrkr_50.v')
+  $$uart_in_clock_freq_mhz = 50
+$$elseif ECPIX5 then
+  import('../common/plls/ecpix5_50.v')
+  $$uart_in_clock_freq_mhz = 50
+$$elseif ULX3S then
+  import('../common/plls/ulx3s_50.v')
+  $$uart_in_clock_freq_mhz = 50
+$$else
+  $$uart_in_clock_freq_mhz = 25
+$$end
+
+$$spi1x = 1
+
+$$if spi1x then
+$include('spiflash1x.si')
+$$else
+$include('spiflash2x.si')
+$$end
+
+$$uart_bauds = 115200
+$include('../common/uart.si')
+
+unit main(
+  output  uint5 leds,
+  input   uint1 uart_rx,
+  output  uint1 uart_tx,
+  output  uint1 sf_clk,
+  output  uint1 sf_csn,
+  inout   uint1 sf_io0,
+  inout   uint1 sf_io1,
+  inout   uint1 sf_io2,
+  inout   uint1 sf_io3,
+)
+// clocking (pll) and reset
+$$if ICE40 then
+<@clock_pll> {
+  uint1 clock_pll = uninitialized;
+  pll pllgen(
+    clock_in  <: clock,
+    clock_out :> clock_pll,
+  );
+$$elseif ECPIX5 or ULX3S then
+<@clock_pll> {
+  uint1 clock_pll = uninitialized;
+  uint1 locked    = uninitialized;
+  pll pllgen(
+    clkin     <: clock,
+    clkout0   :> clock_pll,
+    locked :> locked
+  );
+$$else
+{
+$$end
+
+  // SPIflash RAM
+  spiflash_rom_core ram(
+    sf_clk  :> sf_clk,   sf_csn  :> sf_csn,
+    sf_io0 <:> sf_io0,   sf_io1 <:> sf_io1,
+$$if not spi1x then
+    sf_io2 <:> sf_io2,   sf_io3 <:> sf_io3,
+$$end
+  );
+
+  // UART receiver
+  uart_in ui;
+  uart_receiver urecv(io <:> ui,uart_rx <: uart_rx);
+
+  // UART sender
+  uart_out uo;
+  uart_sender usend(
+    io      <:> uo,
+    uart_tx :>  uart_tx
+  );
+
+  uint1  enabled(0);
+  uint1  write(0);
+  uint1  restart(0);
+
+  uint32 addr(0);
+  uint4  get_addr(4b1111);
+
+  uint32 size_m1(0);
+  uint4  get_size(4b1111);
+
+  uint32 cur_addr(0);
+
+  uint32 blip(0);
+
+  always_before {
+    uo.data_in_ready = 0; // maintain low, pulse high to send
+    ram.in_ready     = 0; // maintain low, pulse high to read/write
+  }
+
+  algorithm {
+
+    while (1) {
+      // wait for size and address
+      while (get_size[0,1]) { } // size arrives last
+      // do some work
+      int33 n      = size_m1;
+      cur_addr     = addr;
+      while (~n[32,1]) { // stop on n negative
+        // receive from uart
+        while (write & ~ui.data_out_ready) { }
+        // read/write from psram
+        ram.addr     = cur_addr;
+        ram.in_ready = 1;
+        while (ram.busy) {}
+        // send over uart
+        uo.data_in       = ram.rdata;
+        uo.data_in_ready = ~write;
+        while (uo.busy) {}
+        // next
+        cur_addr = cur_addr + 1;
+        n        = n - 1;
+      }
+      restart = 1;
+    }
+  }
+
+  always_after {
+    leds         = {blip,write,1b1,2b00};
+    blip         = blip >> 1;
+    // receiving
+    if (ui.data_out_ready) {
+      // read size (if enabled and address received)
+      size_m1     = get_size[0,1] & ~get_addr[0,1]
+                  ? {size_m1[0,24],ui.data_out} : size_m1;
+      get_size    = enabled       & ~get_addr[0,1]
+                  ? get_size>>1 : get_size;
+      // read address (if enabled)
+      addr         = get_addr[0,1] ? {addr[0,24],ui.data_out} : addr;
+      get_addr     = enabled       ? get_addr>>1 : get_addr;
+      // pulse LEDs
+      blip         = enabled       ? 32hffffffff : 0;
+      // write? (top bit of enabling tag)
+      write        = ( ~enabled & (ui.data_out      == 8hD5) ) ? 1 : write;
+      // enable on tag
+      enabled      = ( enabled  | (ui.data_out[0,7] == 8h55));
+    } else {
+      if (restart) { // on restart
+        enabled  = 0;
+        get_size = 4b1111;
+        get_addr = 4b1111;
+        write    = 0;
+        restart  = 0;
+      }
+    }
+  }
+
+}

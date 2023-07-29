@@ -6,6 +6,8 @@
 // IMPORTANT: on the ice40, use icepack -s
 // ========================================================
 //
+// 4x version (quad SPI at 2x clock)
+//
 // Highly recommanded watch on timing analysis for SPIflash on ice40:
 //   https://www.youtube.com/watch?v=mitAhMOt3zI&t=1400s
 //
