@@ -83,9 +83,9 @@ $$if ICE40 then
   sb_io_inout _(clock <: clock, oe  <: io_oe[1,1], in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
   sb_io_inout _(clock <: clock, oe  <: io_oe[2,1], in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
   sb_io_inout _(clock <: clock, oe  <: io_oe[3,1], in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
-  sb_io       _(clock <: clock, out <: chip_select, pin :> csn);
-  //uint1 nenable <:: ~ enable;
-  //sb_io sb_csn(clock <: clock, out <: nenable, pin :> csn);
+  //sb_io       _(clock <: clock, out <: chip_select, pin :> csn);
+  uint1 nenable <:: ~ enable;
+  sb_io sb_csn(clock <: clock, out <: nenable, pin :> csn);
 $$end
 $$if ECP5 or SIM_ULX3S then
   // ---- Lattice ecp5 implementation using vendor specific primitives
