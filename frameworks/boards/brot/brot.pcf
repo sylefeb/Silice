@@ -1,0 +1,59 @@
+# Brot V4
+# -------
+# from https://github.com/machdyne/brot/blob/main/brot_v4.pcf
+
+set_io CLK_48	35
+
+set_io LED_R	41
+set_io LED_G	40
+set_io LED_B	39
+
+# GPIO
+set_io GPIO0		  18
+set_io GPIO1		  19
+set_io GPIO2		  20 # NOTE: constrained on same clock as SPIflash?
+set_io GPIO3		  21 # NOTE: constrained on same clock as SPIflash?
+set_io GPIO4		  23
+set_io GPIO5		  25
+set_io GPIO6		  26
+set_io GPIO7		  27
+
+# PMOD_A
+set_io PMOD_A1		47
+set_io PMOD_A2		45
+set_io PMOD_A3		43
+set_io PMOD_A4		38
+set_io PMOD_A7		46
+set_io PMOD_A8		44
+set_io PMOD_A9		42
+set_io PMOD_A10	  36
+
+# UART on PMOD_A
+set_io UART0_RTS  47
+set_io UART0_RX   45
+set_io UART0_TX   43
+set_io UART0_CTS  38
+
+# PMOD_B
+set_io PMOD_B1		11
+set_io PMOD_B2		9
+set_io PMOD_B3		4
+set_io PMOD_B4		2
+set_io PMOD_B7		10
+set_io PMOD_B8		6
+set_io PMOD_B9		3
+set_io PMOD_B10	  48
+
+# USB
+set_io USB_DN		  31
+set_io USB_DP		  32
+set_io USB_DP_PU	34
+
+# SPI
+set_io SPI_SS_FLASH	16
+set_io SPI_SS_RAM		37
+set_io SPI_SCK			15
+set_io SPI_MISO		  17 # CSPI_SI
+set_io SPI_MOSI		  14 # CSPI_SO
+set_io SPI_IO2			12
+set_io SPI_IO3			13
