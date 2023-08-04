@@ -23,6 +23,9 @@ $$elseif ULX3S then
   import('../common/plls/ulx3s_90.v')
   $$uart_in_clock_freq_mhz = 90
   $$qpsram_fast            = true   -- false if freq <= 60
+$$elseif BROT then
+  import('../common/plls/brot_50_lock.v')
+  $$uart_in_clock_freq_mhz = 50
 $$end
 
 $include('../common/qpsram2x.si')
@@ -50,6 +53,15 @@ $$if ICESTICK or ICEBREAKER then
     clock_in  <: clock,
     clock_out :> clock_pll,
   );
+$$elseif BROT then
+<@clock_pll,!rst> {
+  uint1 clock_pll = uninitialized;
+  uint1 rst       = uninitialized;
+  pll pllgen(
+    clock_in  <: clock,
+    clock_out :> clock_pll,
+    reset     :> rst
+  );
 $$elseif ECPIX5 or ULX3S then
 <@clock_pll> {
   uint1 clock_pll = uninitialized;
@@ -57,7 +69,7 @@ $$elseif ECPIX5 or ULX3S then
   pll pllgen(
     clkin     <: clock,
     clkout0   :> clock_pll,
-    locked :> locked
+    locked    :> locked
   );
 $$else
 {
