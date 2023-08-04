@@ -195,7 +195,9 @@ $$if ULX3S then
         $$error('TODO: adjust delays')
         wait                    = 1023; //_ 3 cycles
 $$else
-        wait                    = 1021;
+        wait                    = init[0,1] ? 1019 : 1021;
+        //                                    ^^^^
+        //                         init needs a longer delay
 $$end
 
         after                   = 4;

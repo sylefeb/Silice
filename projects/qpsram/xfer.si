@@ -13,7 +13,7 @@ $$if ICESTICK then
   import('../common/plls/icestick_100.v')
   $$uart_in_clock_freq_mhz = 100
   $$qpsram_fast            = true  -- false if freq <= 60
-$$elseif ICE40 then
+$$elseif ICEBREAKER then
   import('../common/plls/icebrkr_50.v')
   $$uart_in_clock_freq_mhz = 50
 $$elseif ECPIX5 then
@@ -23,8 +23,6 @@ $$elseif ULX3S then
   import('../common/plls/ulx3s_90.v')
   $$uart_in_clock_freq_mhz = 90
   $$qpsram_fast            = true   -- false if freq <= 60
-$$else
-  $$uart_in_clock_freq_mhz = 25
 $$end
 
 $include('../common/qpsram2x.si')
@@ -45,7 +43,7 @@ unit main(
   output  uint2 ram_bank(2b00),
 )
 // clocking (pll) and reset
-$$if ICE40 then
+$$if ICESTICK or ICEBREAKER then
 <@clock_pll> {
   uint1 clock_pll = uninitialized;
   pll pllgen(

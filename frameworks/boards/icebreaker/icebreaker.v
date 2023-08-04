@@ -175,6 +175,12 @@ module top(
   inout P1B9,
   inout P1B10,
 `endif
+`ifdef PMOD_DSPI
+  output P1A7,
+  inout  P1A8,
+  inout  P1A9,
+  output P1A10,
+`endif
   input  CLK
   );
 
@@ -313,6 +319,12 @@ M_main __main(
   .out_prlscreen_csn(P1B8),
   .out_prlscreen_rs(P1B3),
   .out_prlscreen_clk(P1B9),
+`endif
+`ifdef PMOD_DSPI
+  .out_sf_csn(P1A7),
+  .inout_sf_io0(P1A8),
+  .inout_sf_io1(P1A9),
+  .out_sf_clk(P1A10),
 `endif
   .in_run(run_main)
 );

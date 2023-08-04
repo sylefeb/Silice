@@ -11,17 +11,18 @@
 $$if ICESTICK then
   import('../common/plls/icestick_50.v')
   $$uart_in_clock_freq_mhz = 50
-$$elseif ICE40 then
+$$elseif ICEBREAKER then
   import('../common/plls/icebrkr_50.v')
   $$uart_in_clock_freq_mhz = 50
+$$elseif BROT then
+  import('../common/plls/brot_25_lock.v')
+  $$uart_in_clock_freq_mhz = 25
 $$elseif ECPIX5 then
   import('../common/plls/ecpix5_50.v')
   $$uart_in_clock_freq_mhz = 50
 $$elseif ULX3S then
   import('../common/plls/ulx3s_50.v')
   $$uart_in_clock_freq_mhz = 50
-$$else
-  $$uart_in_clock_freq_mhz = 25
 $$end
 
 $$spi1x = 1
@@ -47,12 +48,21 @@ unit main(
   inout   uint1 sf_io3,
 )
 // clocking (pll) and reset
-$$if ICE40 then
+$$if ICEBREAKER or ICESTICK then
 <@clock_pll> {
   uint1 clock_pll = uninitialized;
   pll pllgen(
     clock_in  <: clock,
     clock_out :> clock_pll,
+  );
+$$elseif BROT then
+<@clock_pll,!rst> {
+  uint1 clock_pll = uninitialized;
+  uint1 rst       = uninitialized;
+  pll pllgen(
+    clock_in  <: clock,
+    clock_out :> clock_pll,
+    reset     :> rst
   );
 $$elseif ECPIX5 or ULX3S then
 <@clock_pll> {
@@ -134,7 +144,7 @@ $$end
   }
 
   always_after {
-    leds         = {blip,write,1b1,2b00};
+    leds         = blip;
     blip         = blip >> 1;
     // receiving
     if (ui.data_out_ready) {

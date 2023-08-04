@@ -5,14 +5,17 @@
       "name"      : "configurable",
       "framework" : "brot.v",
       "pins"      : [
-        {"set"    : "basic"},
+        {"set"    : "basic", "define" : "BASIC=1"},
         {"set"    : "buttons", "define" : "BUTTONS=1"},
         {"set"    : "pmod", "define" : "PMOD=1"},
+        {"set"    : "uart", "define" : "UART=1"},
+        {"set"    : "uart2", "define" : "UART2=1"},
         {"set"    : "spiflash", "define" : "SPIFLASH=1"},
-        {"set"    : "pmod_qqspi", "define" : "PMOD_QQSPI=1"},
+        {"set"    : "pmod_dspi", "define" : "PMOD_DSPI=1"},
         {"set"    : "pmod_com_out", "define" : "PMOD_COM_OUT=1"},
         {"set"    : "pmod_com_in", "define" : "PMOD_COM_IN=1"},
-        {"set"    : "parallel_screen", "define" : "PARALLEL_SCREEN=1"}
+        {"set"    : "parallel_screen", "define" : "PARALLEL_SCREEN=1"},
+        {"set"    : "qpsram", "define" : "QPSRAM=1"}
       ],
       "builders": [
         {
