@@ -9,6 +9,7 @@
         {"set"    : "vga", "define" : "VGA=1"},
         {"set"    : "oled", "define" : "OLED=1"},
         {"set"    : "spiscreen", "define" : "SPISCREEN=1"},
+        {"set"    : "parallel_screen", "define" : "PARALLEL_SCREEN=1"},
         {"set"    : "sdram", "define" : "SDRAM=1"}
       ],
       "builders": [
@@ -19,130 +20,5 @@
         }
       ]
     }
-  ],
-  "pins": {
-    "basic": [
-        {
-          "name": "leds",
-          "type": "uint8",
-          "io": "output"
-        }
-    ],
-    "vga": [
-      {
-        "name": "vga_hs",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "vga_vs",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "vga_r",
-        "type": "uint6",
-        "io": "output"
-      },
-      {
-        "name": "vga_g",
-        "type": "uint6",
-        "io": "output"
-      },
-      {
-        "name": "vga_b",
-        "type": "uint6",
-        "io": "output"
-      }
-    ],
-    "oled": [
-      {
-        "name": "oled_clk",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "oled_mosi",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "oled_csn",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "oled_resn",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "oled_dc",
-        "type": "uint1",
-        "io": "output"
-      }
-    ],
-    "sdram": [
-      {
-        "name": "sdram_clock",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "sdram_dq_i",
-        "type": "uint16",
-        "io": "input"
-      },
-      {
-        "name": "sdram_dq_o",
-        "type": "uint16",
-        "io": "output"
-      },
-      {
-        "name": "sdram_dq_en",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "sdram_cle",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "sdram_dqm",
-        "type": "uint2",
-        "io": "output"
-      },
-      {
-        "name": "sdram_cs",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "sdram_we",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "sdram_cas",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "sdram_ras",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "sdram_ba",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "sdram_a",
-        "type": "uint1",
-        "io": "output"
-      }
-    ]
-  }
+  ]
 }

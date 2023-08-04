@@ -42,11 +42,13 @@ $$config['simple_dualport_bram_wenable0_width'] = '1'
 $$config['simple_dualport_bram_wenable1_width'] = '1'
 
 module top(
+`ifdef BASIC
   output LED1,
   output LED2,
   output LED3,
   output LED4,
   output LED5,
+`endif
 `ifdef BUTTONS
   input BTN1,
   input BTN2,
@@ -128,12 +130,56 @@ module top(
   output P1A9,
   output P1A10,
 `endif
+`ifdef PMOD_COM_OUT
+  output P1A1,
+  output P1A2,
+  output P1A3,
+  output P1A4,
+  output P1A7,
+  output P1A8,
+  output P1A9,
+  output P1A10,
+  output P1B1,
+  output P1B7,
+`endif
+`ifdef PMOD_COM_IN
+  input  P1A1,
+  input  P1A2,
+  input  P1A3,
+  input  P1A4,
+  input  P1A7,
+  input  P1A8,
+  input  P1A9,
+  input  P1A10,
+  input  P1B1,
+  input  P1B7,
+`endif
+`ifdef PARALLEL_SCREEN
+  output P2_1,
+  output P2_2,
+  output P1B4,  // (P2_3 collides with flash if on different clocks)
+  output P2_4,
+  output P2_7,
+  output P2_8,
+  output P1B10, // (P2_9 collides with flash if on different clocks)
+  output P2_10,
+  output P1B2,
+  output P1B3,
+  output P1B8,
+  output P1B9,
+`endif
 `ifdef EXTRAS
   inout RGB_R,
   inout RGB_G,
   inout RGB_B,
   inout P1B9,
   inout P1B10,
+`endif
+`ifdef PMOD_DSPI
+  output P1A7,
+  inout  P1A8,
+  inout  P1A9,
+  output P1A10,
 `endif
   input  CLK
   );
@@ -201,7 +247,9 @@ M_main __main(
   .clock(CLK),
   .out_clock(design_clk),
   .reset(~RST_q[15]),
+`ifdef BASIC
   .out_leds(__main_leds),
+`endif
 `ifdef BUTTONS
   .in_btns({BTN3,BTN2,BTN1}),
 `endif
@@ -255,14 +303,39 @@ M_main __main(
 `ifdef EXTRAS
   .inout_extras({P1B10,P1B9,RGB_B,RGB_G,RGB_R}),
 `endif
+`ifdef PMOD_COM_OUT
+  .out_com_data({P1A10,P1A9,P1A8,P1A7,P1A4,P1A3,P1A2,P1A1}),
+  .out_com_clock(P1B1),
+  .out_com_valid(P1B7),
+`endif
+`ifdef PMOD_COM_IN
+  .in_com_data({P1A4,P1A3,P1A2,P1A1,P1A10,P1A9,P1A8,P1A7}),
+  .in_com_clock(P1B7),
+  .in_com_valid(P1B1),
+`endif
+`ifdef PARALLEL_SCREEN
+  .out_prlscreen_d({P2_10,P1B10,P2_8,P2_7,P2_4,P1B4,P2_2,P2_1}),
+  .out_prlscreen_resn(P1B2),
+  .out_prlscreen_csn(P1B8),
+  .out_prlscreen_rs(P1B3),
+  .out_prlscreen_clk(P1B9),
+`endif
+`ifdef PMOD_DSPI
+  .out_sf_csn(P1A7),
+  .inout_sf_io0(P1A8),
+  .inout_sf_io1(P1A9),
+  .out_sf_clk(P1A10),
+`endif
   .in_run(run_main)
 );
 
+`ifdef BASIC
 assign LED4 = __main_leds[0+:1];
 assign LED3 = __main_leds[1+:1];
 assign LED5 = __main_leds[2+:1];
 assign LED2 = __main_leds[3+:1];
 assign LED1 = __main_leds[4+:1];
+`endif
 
 `ifdef VGA
 assign P1A1  = __main_out_vga_r[2+:1];

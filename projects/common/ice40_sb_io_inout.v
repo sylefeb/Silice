@@ -7,7 +7,7 @@ module sb_io_inout(
   );
 
   SB_IO #(
-    .PIN_TYPE(6'b1101_00) // registered
+    .PIN_TYPE(6'b1101_00)
   ) sbio (
       .PACKAGE_PIN(pin),
 			.OUTPUT_ENABLE(oe),

@@ -156,7 +156,6 @@ private:
       t_type_nfo  type_nfo;
       int         table_size        = 0;
       bool        do_not_initialize = false;
-      bool        no_input_latch    = false;
       bool        delayed           = false;
       std::string custom_template;
       Utils::t_source_loc      srcloc;

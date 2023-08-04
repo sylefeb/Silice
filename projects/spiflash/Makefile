@@ -1,6 +1,12 @@
 
-.DEFAULT: stream.si
-		silice-make.py -s stream.si -b $@ -p basic,qspiflash,uart -o BUILD_$(subst :,_,$@) $(ARGS)
+.DEFAULT: xfer.si
+		silice-make.py -s xfer.si -b $@ -p basic,qspiflash,uart -o BUILD_$(subst :,_,$@) $(ARGS)
+
+brot: xfer.si
+		silice-make.py -s xfer.si -b $@ -p basic,pmod_dspi,uart2 -o BUILD_$(subst :,_,$@) $(ARGS)
+
+#icebreaker: xfer.si
+#		silice-make.py -s xfer.si -b $@ -p basic,pmod_dspi,uart -o BUILD_$(subst :,_,$@) $(ARGS)
 
 icarus: stream.si
 		mkdir -p BUILD_$(subst :,_,$@)

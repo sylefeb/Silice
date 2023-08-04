@@ -4,7 +4,7 @@
     {
       "name"      : "configurable",
       "framework" : "littlebee.v",
-      "pins"      : [         
+      "pins"      : [
         {"set"    : "basic"},
         {"set"    : "buttons", "define" : "BUTTONS=1"}
       ],
@@ -14,23 +14,7 @@
           "command" : "littlebee.sh",
           "description": "Custom shell scripts using yosys and nextpnr"
         }
-      ]    
+      ]
     }
-  ],
-  "pins": {
-    "basic": [
-        {
-          "name": "leds",
-          "type": "uint8",
-          "io": "output"
-        }
-    ],    
-    "buttons": [
-      {
-        "name": "btns",
-        "type": "uint2",
-        "io": "input"
-      }
-    ]
-  }
+  ]
 }

@@ -41,20 +41,12 @@ ODDRX1F mddr
 
 `else
 
-`ifdef ICARUS
-
 reg ddr_out;
 assign out_pin = ddr_out;
 
-always @(posedge clock) begin
-  ddr_out <= twice[0];
+always @(posedge clock or negedge clock) begin
+  ddr_out <= clock ? twice[0] : twice[1];
 end
-
-always @(negedge clock) begin
-  ddr_out <= twice[1];
-end
-
-`endif
 
 `endif
 `endif

@@ -61,11 +61,11 @@ set_io -nowarn P1B10 28
 # ------------ Leds and Buttons (PMOD 2) -------------------------------------
 set_io -nowarn P2_1  27
 set_io -nowarn P2_2  25
-set_io -nowarn P2_3  21
+set_io -nowarn P2_3  21 # NOTE: constrained on same clock as SPIflash?
 set_io -nowarn P2_4  19
 set_io -nowarn P2_7  26
 set_io -nowarn P2_8  23
-set_io -nowarn P2_9  20
+set_io -nowarn P2_9  20 # NOTE: constrained on same clock as SPIflash?
 set_io -nowarn P2_10 18
 
 # ------------ RGB Led pins -------------------------------------

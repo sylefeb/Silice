@@ -38,3 +38,5 @@ public:
 };
 
 void display_loop(DisplayChip *chip);
+
+void simul();

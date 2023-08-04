@@ -958,17 +958,7 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
         // add
         mem.clocks.push_back(mod->memClocks()->clk0->IDENTIFIER()->getText());
         mem.clocks.push_back(mod->memClocks()->clk1->IDENTIFIER()->getText());
-      } else if (mod->memNoInputLatch() != nullptr) { // no input latch
-        if (mod->memDelayed() != nullptr) {
-          reportError(sourceloc(mod->memNoInputLatch()),
-            "memory cannot use both 'input!' and 'delayed' options");
-        }
-        mem.no_input_latch = true;
       } else if (mod->memDelayed() != nullptr) { // delayed input ( <:: )
-        if (mod->memNoInputLatch() != nullptr) {
-          reportError(sourceloc(mod->memDelayed()),
-            "memory cannot use both 'input!' and 'delayed' options");
-        }
         mem.delayed = true;
       } else if (mod->STRING() != nullptr) {
         mem.custom_template = mod->STRING()->getText();

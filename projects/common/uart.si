@@ -20,6 +20,8 @@ $$  elseif ICESTICK then
 $$    uart_in_clock_freq_mhz = 12
 $$  elseif RIEGEL then
 $$    uart_in_clock_freq_mhz = 48
+$$  elseif BROT then
+$$    uart_in_clock_freq_mhz = 48
 $$  elseif ECPIX5 then
 $$    uart_in_clock_freq_mhz = 100
 $$  else

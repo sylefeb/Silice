@@ -4,7 +4,7 @@
     {
       "name"      : "configurable",
       "framework" : "icarus.v",
-      "pins"      : [ 
+      "pins"      : [
         {"set"    : "basic"},
         {"set"    : "vga", "define"  : "VGA=1"},
         {"set"    : "hdmi", "define" : "HDMI=1"},
@@ -20,65 +20,5 @@
         }
       ]
     }
-  ],
-  "pins": {
-    "basic": [
-        {
-          "name": "leds",
-          "type": "uint8",
-          "io": "output"
-        }
-    ],
-    "uart": [
-      {
-        "name": "uart_tx",
-        "type": "uint1",
-        "io"  : "output"
-      },
-      {
-        "name": "uart_rx",
-        "type": "uint1",
-        "io"  : "input"
-      }
-    ],
-    "vga": [
-      {
-        "name": "vga_hs",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "vga_vs",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "vga_r",
-        "type": "uint6",
-        "io": "output"
-      },
-      {
-        "name": "vga_g",
-        "type": "uint6",
-        "io": "output"
-      },
-      {
-        "name": "vga_b",
-        "type": "uint6",
-        "io": "output"
-      }
-    ],
-    "hdmi": [
-      {
-        "name": "gpdi_dq",
-        "type": "uint1",
-        "io": "output"
-      },
-      {
-        "name": "gpdi_dn",
-        "type": "uint1",
-        "io": "output"
-      }
-    ]
-  }
+  ]
 }

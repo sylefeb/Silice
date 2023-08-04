@@ -54,7 +54,7 @@
 #define DATA_MSL ((vluint8_t)0x04)
 
 // Constructor
-SDRAM::SDRAM(vluint8_t log2_rows, vluint8_t log2_cols, vluint8_t flags, char *logfile)
+SimulSDRAM::SimulSDRAM(vluint8_t log2_rows, vluint8_t log2_cols, vluint8_t flags, char *logfile)
 {
     // memory size
     int s       = (int)1 << (log2_rows + log2_cols);
@@ -88,41 +88,41 @@ SDRAM::SDRAM(vluint8_t log2_rows, vluint8_t log2_cols, vluint8_t flags, char *lo
     switch (flags & (DATA_MSB | DATA_MSW | DATA_MSL | FLAG_BANK_INTERLEAVING | FLAG_BIG_ENDIAN))
     {
         // Little endian, contiguous banks
-        case 0x00 : read_byte_priv = &SDRAM::read_byte_c_le_8;  break;
-        case 0x01 : read_byte_priv = &SDRAM::read_byte_c_le_16; break;
-        case 0x02 : read_byte_priv = &SDRAM::read_byte_c_le_32; break;
-        case 0x03 : read_byte_priv = &SDRAM::read_byte_c_le_32; break;
-        case 0x04 : read_byte_priv = &SDRAM::read_byte_c_le_64; break;
-        case 0x05 : read_byte_priv = &SDRAM::read_byte_c_le_64; break;
-        case 0x06 : read_byte_priv = &SDRAM::read_byte_c_le_64; break;
-        case 0x07 : read_byte_priv = &SDRAM::read_byte_c_le_64; break;
+        case 0x00 : read_byte_priv = &SimulSDRAM::read_byte_c_le_8;  break;
+        case 0x01 : read_byte_priv = &SimulSDRAM::read_byte_c_le_16; break;
+        case 0x02 : read_byte_priv = &SimulSDRAM::read_byte_c_le_32; break;
+        case 0x03 : read_byte_priv = &SimulSDRAM::read_byte_c_le_32; break;
+        case 0x04 : read_byte_priv = &SimulSDRAM::read_byte_c_le_64; break;
+        case 0x05 : read_byte_priv = &SimulSDRAM::read_byte_c_le_64; break;
+        case 0x06 : read_byte_priv = &SimulSDRAM::read_byte_c_le_64; break;
+        case 0x07 : read_byte_priv = &SimulSDRAM::read_byte_c_le_64; break;
         // Little endian, interleaved banks
-        case 0x08 : read_byte_priv = &SDRAM::read_byte_i_le_8;  break;
-        case 0x09 : read_byte_priv = &SDRAM::read_byte_i_le_16; break;
-        case 0x0A : read_byte_priv = &SDRAM::read_byte_i_le_32; break;
-        case 0x0B : read_byte_priv = &SDRAM::read_byte_i_le_32; break;
-        case 0x0C : read_byte_priv = &SDRAM::read_byte_i_le_64; break;
-        case 0x0D : read_byte_priv = &SDRAM::read_byte_i_le_64; break;
-        case 0x0E : read_byte_priv = &SDRAM::read_byte_i_le_64; break;
-        case 0x0F : read_byte_priv = &SDRAM::read_byte_i_le_64; break;
+        case 0x08 : read_byte_priv = &SimulSDRAM::read_byte_i_le_8;  break;
+        case 0x09 : read_byte_priv = &SimulSDRAM::read_byte_i_le_16; break;
+        case 0x0A : read_byte_priv = &SimulSDRAM::read_byte_i_le_32; break;
+        case 0x0B : read_byte_priv = &SimulSDRAM::read_byte_i_le_32; break;
+        case 0x0C : read_byte_priv = &SimulSDRAM::read_byte_i_le_64; break;
+        case 0x0D : read_byte_priv = &SimulSDRAM::read_byte_i_le_64; break;
+        case 0x0E : read_byte_priv = &SimulSDRAM::read_byte_i_le_64; break;
+        case 0x0F : read_byte_priv = &SimulSDRAM::read_byte_i_le_64; break;
         // Big endian, contiguous banks
-        case 0x10 : read_byte_priv = &SDRAM::read_byte_c_be_8;  break;
-        case 0x11 : read_byte_priv = &SDRAM::read_byte_c_be_16; break;
-        case 0x12 : read_byte_priv = &SDRAM::read_byte_c_be_32; break;
-        case 0x13 : read_byte_priv = &SDRAM::read_byte_c_be_32; break;
-        case 0x14 : read_byte_priv = &SDRAM::read_byte_c_be_64; break;
-        case 0x15 : read_byte_priv = &SDRAM::read_byte_c_be_64; break;
-        case 0x16 : read_byte_priv = &SDRAM::read_byte_c_be_64; break;
-        case 0x17 : read_byte_priv = &SDRAM::read_byte_c_be_64; break;
+        case 0x10 : read_byte_priv = &SimulSDRAM::read_byte_c_be_8;  break;
+        case 0x11 : read_byte_priv = &SimulSDRAM::read_byte_c_be_16; break;
+        case 0x12 : read_byte_priv = &SimulSDRAM::read_byte_c_be_32; break;
+        case 0x13 : read_byte_priv = &SimulSDRAM::read_byte_c_be_32; break;
+        case 0x14 : read_byte_priv = &SimulSDRAM::read_byte_c_be_64; break;
+        case 0x15 : read_byte_priv = &SimulSDRAM::read_byte_c_be_64; break;
+        case 0x16 : read_byte_priv = &SimulSDRAM::read_byte_c_be_64; break;
+        case 0x17 : read_byte_priv = &SimulSDRAM::read_byte_c_be_64; break;
         // Big endian, interleaved banks
-        case 0x18 : read_byte_priv = &SDRAM::read_byte_i_be_8;  break;
-        case 0x19 : read_byte_priv = &SDRAM::read_byte_i_be_16; break;
-        case 0x1A : read_byte_priv = &SDRAM::read_byte_i_be_32; break;
-        case 0x1B : read_byte_priv = &SDRAM::read_byte_i_be_32; break;
-        case 0x1C : read_byte_priv = &SDRAM::read_byte_i_be_64; break;
-        case 0x1D : read_byte_priv = &SDRAM::read_byte_i_be_64; break;
-        case 0x1E : read_byte_priv = &SDRAM::read_byte_i_be_64; break;
-        case 0x1F : read_byte_priv = &SDRAM::read_byte_i_be_64; break;
+        case 0x18 : read_byte_priv = &SimulSDRAM::read_byte_i_be_8;  break;
+        case 0x19 : read_byte_priv = &SimulSDRAM::read_byte_i_be_16; break;
+        case 0x1A : read_byte_priv = &SimulSDRAM::read_byte_i_be_32; break;
+        case 0x1B : read_byte_priv = &SimulSDRAM::read_byte_i_be_32; break;
+        case 0x1C : read_byte_priv = &SimulSDRAM::read_byte_i_be_64; break;
+        case 0x1D : read_byte_priv = &SimulSDRAM::read_byte_i_be_64; break;
+        case 0x1E : read_byte_priv = &SimulSDRAM::read_byte_i_be_64; break;
+        case 0x1F : read_byte_priv = &SimulSDRAM::read_byte_i_be_64; break;
     }
 
     // debug mode
@@ -236,7 +236,7 @@ SDRAM::SDRAM(vluint8_t log2_rows, vluint8_t log2_cols, vluint8_t flags, char *lo
 }
 
 // Destructor
-SDRAM::~SDRAM()
+SimulSDRAM::~SimulSDRAM()
 {
     // free the memory
     for (int i = 0; i < SDRAM_NUM_BANKS; i++)
@@ -253,7 +253,7 @@ SDRAM::~SDRAM()
 }
 
 // Binary file loading
-void SDRAM::load(const char *name, vluint32_t size, vluint32_t addr)
+void SimulSDRAM::load(const char *name, vluint32_t size, vluint32_t addr)
 {
     FILE *fh;
 
@@ -407,7 +407,7 @@ void SDRAM::load(const char *name, vluint32_t size, vluint32_t addr)
 }
 
 // Binary file saving
-void SDRAM::save(const char *name, vluint32_t size, vluint32_t addr)
+void SimulSDRAM::save(const char *name, vluint32_t size, vluint32_t addr)
 {
     FILE *fh;
 
@@ -561,13 +561,13 @@ void SDRAM::save(const char *name, vluint32_t size, vluint32_t addr)
 }
 
 // Read a byte
-vluint8_t SDRAM::read_byte(vluint32_t addr)
+vluint8_t SimulSDRAM::read_byte(vluint32_t addr)
 {
     return (this->*read_byte_priv)(addr);
 }
 
 // Read a word
-vluint16_t SDRAM::read_word(vluint32_t addr)
+vluint16_t SimulSDRAM::read_word(vluint32_t addr)
 {
     if (mem_flags & FLAG_BIG_ENDIAN)
     {
@@ -582,7 +582,7 @@ vluint16_t SDRAM::read_word(vluint32_t addr)
 }
 
 // Read a long
-vluint32_t SDRAM::read_long(vluint32_t addr)
+vluint32_t SimulSDRAM::read_long(vluint32_t addr)
 {
     if (mem_flags & FLAG_BIG_ENDIAN)
     {
@@ -601,7 +601,7 @@ vluint32_t SDRAM::read_long(vluint32_t addr)
 }
 
 // Read a quad
-vluint64_t SDRAM::read_quad(vluint32_t addr)
+vluint64_t SimulSDRAM::read_quad(vluint32_t addr)
 {
     if (mem_flags & FLAG_BIG_ENDIAN)
     {
@@ -628,7 +628,7 @@ vluint64_t SDRAM::read_quad(vluint32_t addr)
 }
 
 // Cycle evaluate
-void SDRAM::eval
+void SimulSDRAM::eval
 (
     vluint64_t ts,
     // Clock
@@ -1370,7 +1370,7 @@ void SDRAM::eval
 }
 
 // Read a byte, interleaved banks, big endian, 8-bit SDRAM
-vluint8_t SDRAM::read_byte_i_be_8(vluint32_t addr)
+vluint8_t SimulSDRAM::read_byte_i_be_8(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
@@ -1382,7 +1382,7 @@ vluint8_t SDRAM::read_byte_i_be_8(vluint32_t addr)
 }
 
 // Read a byte, interleaved banks, big endian, 16-bit SDRAM
-vluint8_t SDRAM::read_byte_i_be_16(vluint32_t addr)
+vluint8_t SimulSDRAM::read_byte_i_be_16(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
@@ -1397,7 +1397,7 @@ vluint8_t SDRAM::read_byte_i_be_16(vluint32_t addr)
 }
 
 // Read a byte, interleaved banks, big endian, 32-bit SDRAM
-vluint8_t SDRAM::read_byte_i_be_32(vluint32_t addr)
+vluint8_t SimulSDRAM::read_byte_i_be_32(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
@@ -1416,7 +1416,7 @@ vluint8_t SDRAM::read_byte_i_be_32(vluint32_t addr)
 }
 
 // Read a byte, interleaved banks, big endian, 64-bit SDRAM
-vluint8_t SDRAM::read_byte_i_be_64(vluint32_t addr)
+vluint8_t SimulSDRAM::read_byte_i_be_64(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
@@ -1439,7 +1439,7 @@ vluint8_t SDRAM::read_byte_i_be_64(vluint32_t addr)
 }
 
 // Read a byte, interleaved banks, little endian, 8-bit SDRAM
-vluint8_t SDRAM::read_byte_i_le_8(vluint32_t addr)
+vluint8_t SimulSDRAM::read_byte_i_le_8(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
@@ -1451,7 +1451,7 @@ vluint8_t SDRAM::read_byte_i_le_8(vluint32_t addr)
 }
 
 // Read a byte, interleaved banks, little endian, 16-bit SDRAM
-vluint8_t SDRAM::read_byte_i_le_16(vluint32_t addr)
+vluint8_t SimulSDRAM::read_byte_i_le_16(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
@@ -1466,7 +1466,7 @@ vluint8_t SDRAM::read_byte_i_le_16(vluint32_t addr)
 }
 
 // Read a byte, interleaved banks, little endian, 32-bit SDRAM
-vluint8_t SDRAM::read_byte_i_le_32(vluint32_t addr)
+vluint8_t SimulSDRAM::read_byte_i_le_32(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
@@ -1485,7 +1485,7 @@ vluint8_t SDRAM::read_byte_i_le_32(vluint32_t addr)
 }
 
 // Read a byte, interleaved banks, little endian, 64-bit SDRAM
-vluint8_t SDRAM::read_byte_i_le_64(vluint32_t addr)
+vluint8_t SimulSDRAM::read_byte_i_le_64(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
@@ -1508,7 +1508,7 @@ vluint8_t SDRAM::read_byte_i_le_64(vluint32_t addr)
 }
 
 // Read a byte, contiguous banks, big endian, 8-bit SDRAM
-vluint8_t SDRAM::read_byte_c_be_8(vluint32_t addr)
+vluint8_t SimulSDRAM::read_byte_c_be_8(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
@@ -1520,7 +1520,7 @@ vluint8_t SDRAM::read_byte_c_be_8(vluint32_t addr)
 }
 
 // Read a byte, contiguous banks, big endian, 16-bit SDRAM
-vluint8_t SDRAM::read_byte_c_be_16(vluint32_t addr)
+vluint8_t SimulSDRAM::read_byte_c_be_16(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
@@ -1535,7 +1535,7 @@ vluint8_t SDRAM::read_byte_c_be_16(vluint32_t addr)
 }
 
 // Read a byte, contiguous banks, big endian, 32-bit SDRAM
-vluint8_t SDRAM::read_byte_c_be_32(vluint32_t addr)
+vluint8_t SimulSDRAM::read_byte_c_be_32(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
@@ -1554,7 +1554,7 @@ vluint8_t SDRAM::read_byte_c_be_32(vluint32_t addr)
 }
 
 // Read a byte, contiguous banks, big endian, 64-bit SDRAM
-vluint8_t SDRAM::read_byte_c_be_64(vluint32_t addr)
+vluint8_t SimulSDRAM::read_byte_c_be_64(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
@@ -1577,7 +1577,7 @@ vluint8_t SDRAM::read_byte_c_be_64(vluint32_t addr)
 }
 
 // Read a byte, contiguous banks, little endian, 8-bit SDRAM
-vluint8_t SDRAM::read_byte_c_le_8(vluint32_t addr)
+vluint8_t SimulSDRAM::read_byte_c_le_8(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
@@ -1589,7 +1589,7 @@ vluint8_t SDRAM::read_byte_c_le_8(vluint32_t addr)
 }
 
 // Read a byte, contiguous banks, little endian, 16-bit SDRAM
-vluint8_t SDRAM::read_byte_c_le_16(vluint32_t addr)
+vluint8_t SimulSDRAM::read_byte_c_le_16(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
@@ -1604,7 +1604,7 @@ vluint8_t SDRAM::read_byte_c_le_16(vluint32_t addr)
 }
 
 // Read a byte, contiguous banks, little endian, 32-bit SDRAM
-vluint8_t SDRAM::read_byte_c_le_32(vluint32_t addr)
+vluint8_t SimulSDRAM::read_byte_c_le_32(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)
@@ -1623,7 +1623,7 @@ vluint8_t SDRAM::read_byte_c_le_32(vluint32_t addr)
 }
 
 // Read a byte, contiguous banks, little endian, 64-bit SDRAM
-vluint8_t SDRAM::read_byte_c_le_64(vluint32_t addr)
+vluint8_t SimulSDRAM::read_byte_c_le_64(vluint32_t addr)
 {
     int        bank_nr;  // Bank number (0 to 3)
     int        idx;      // Array index (0 to num_cols * num_rows - 1)

@@ -70,9 +70,18 @@ module top(
   output [1:0] spiscreen_driver,
   output [9:0] spiscreen_width,
   output [9:0] spiscreen_height,
+  // parallel screen
+  output prlscreen_clk,
+  output [7:0] prlscreen_d,
+  output prlscreen_rs,
+  output prlscreen_csn,
+  output prlscreen_resn,
+  output [1:0] prlscreen_driver,
+  output [9:0] prlscreen_width,
+  output [9:0] prlscreen_height,
   // basic
-  input        clk,
-  output [7:0] leds
+  output [7:0] leds,
+  input        clk
   );
 
 // this is used by the verilator framework
@@ -130,7 +139,9 @@ wire done_main;
 M_main __main(
   .clock(clk),
   .reset(RST_q[0]),
+`ifdef BASIC
   .out_leds(__main_leds),
+`endif
 `ifdef SDRAM
   .out_sdram_clock(__main_sdram_clock),
   .out_sdram_cle(__main_sdram_cle),
@@ -172,6 +183,16 @@ M_main __main(
   .out_spiscreen_driver(spiscreen_driver),
   .out_spiscreen_width(spiscreen_width),
   .out_spiscreen_height(spiscreen_height),
+`endif
+`ifdef PARALLEL_SCREEN
+  .out_prlscreen_clk(prlscreen_clk),
+  .out_prlscreen_d(prlscreen_d),
+  .out_prlscreen_rs(prlscreen_rs),
+  .out_prlscreen_csn(prlscreen_csn),
+  .out_prlscreen_resn(prlscreen_resn),
+  .out_prlscreen_driver(prlscreen_driver),
+  .out_prlscreen_width(prlscreen_width),
+  .out_prlscreen_height(prlscreen_height),
 `endif
   .in_run(run_main),
   .out_done(done_main)

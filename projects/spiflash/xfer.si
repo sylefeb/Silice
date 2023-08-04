@@ -3,52 +3,66 @@
 // MIT license, see LICENSE_MIT in Silice repo root
 // --------------------------------------------------------------
 //
-// QSPRAM communication firmware
+// SPIFLASH communication firmware
+// Adapted from ../qpsram
 //
 // --------------------------------------------------------------
 
-$$ bank_width = 23
-
 $$if ICESTICK then
-  import('../common/plls/icestick_100.v')
-  $$uart_in_clock_freq_mhz = 100
-  $$qpsram_fast            = true  -- false if freq <= 60
+  import('../common/plls/icestick_50.v')
+  $$uart_in_clock_freq_mhz = 50
 $$elseif ICEBREAKER then
   import('../common/plls/icebrkr_50.v')
   $$uart_in_clock_freq_mhz = 50
+$$elseif BROT then
+  import('../common/plls/brot_25_lock.v')
+  $$uart_in_clock_freq_mhz = 25
 $$elseif ECPIX5 then
   import('../common/plls/ecpix5_50.v')
   $$uart_in_clock_freq_mhz = 50
 $$elseif ULX3S then
-  import('../common/plls/ulx3s_90.v')
-  $$uart_in_clock_freq_mhz = 90
-  $$qpsram_fast            = true   -- false if freq <= 60
+  import('../common/plls/ulx3s_50.v')
+  $$uart_in_clock_freq_mhz = 50
 $$end
 
-$include('../common/qpsram2x.si')
+$$spi1x = 1
 
-$$uart_bauds = 500000
+$$if spi1x then
+$include('spiflash1x.si')
+$$else
+$include('spiflash2x.si')
+$$end
+
+$$uart_bauds = 115200
 $include('../common/uart.si')
 
 unit main(
   output  uint5 leds,
   input   uint1 uart_rx,
   output  uint1 uart_tx,
-  inout   uint1 ram_io0,
-  inout   uint1 ram_io1,
-  inout   uint1 ram_io2,
-  inout   uint1 ram_io3,
-  output  uint1 ram_clk,
-  output  uint1 ram_csn,
-  output  uint2 ram_bank(2b00),
+  output  uint1 sf_clk,
+  output  uint1 sf_csn,
+  inout   uint1 sf_io0,
+  inout   uint1 sf_io1,
+  inout   uint1 sf_io2,
+  inout   uint1 sf_io3,
 )
 // clocking (pll) and reset
-$$if ICESTICK or ICEBREAKER then
+$$if ICEBREAKER or ICESTICK then
 <@clock_pll> {
   uint1 clock_pll = uninitialized;
   pll pllgen(
     clock_in  <: clock,
     clock_out :> clock_pll,
+  );
+$$elseif BROT then
+<@clock_pll,!rst> {
+  uint1 clock_pll = uninitialized;
+  uint1 rst       = uninitialized;
+  pll pllgen(
+    clock_in  <: clock,
+    clock_out :> clock_pll,
+    reset     :> rst
   );
 $$elseif ECPIX5 or ULX3S then
 <@clock_pll> {
@@ -63,14 +77,13 @@ $$else
 {
 $$end
 
-  // QPSRAM RAM
-  qpsram_ram ram(
-    ram_csn  :> ram_csn,
-    ram_clk  :> ram_clk,
-    ram_io0 <:> ram_io0,
-    ram_io1 <:> ram_io1,
-    ram_io2 <:> ram_io2,
-    ram_io3 <:> ram_io3,
+  // SPIflash RAM
+  spiflash_rom_core ram(
+    sf_clk  :> sf_clk,   sf_csn  :> sf_csn,
+    sf_io0 <:> sf_io0,   sf_io1 <:> sf_io1,
+$$if not spi1x then
+    sf_io2 <:> sf_io2,   sf_io3 <:> sf_io3,
+$$end
   );
 
   // UART receiver
@@ -101,33 +114,22 @@ $$end
   always_before {
     uo.data_in_ready = 0; // maintain low, pulse high to send
     ram.in_ready     = 0; // maintain low, pulse high to read/write
-    ram.init         = 0; // maintain low, pulse high to init
   }
 
   algorithm {
-
-    // initialize all four banks
-$$for bank=0,3 do
-    ram_bank = $bank$;
-    ram.init = 1;
-    while (ram.busy) {}
-$$end
 
     while (1) {
       // wait for size and address
       while (get_size[0,1]) { } // size arrives last
       // do some work
       int33 n      = size_m1;
-      ram.wenable  = write;
       cur_addr     = addr;
       while (~n[32,1]) { // stop on n negative
         // receive from uart
         while (write & ~ui.data_out_ready) { }
         // read/write from psram
-        ram.addr     = {1b0,cur_addr[0,$bank_width$]};
-        ram_bank     = cur_addr[$bank_width$,2];
+        ram.addr     = cur_addr;
         ram.in_ready = 1;
-        ram.wdata    = ui.data_out;
         while (ram.busy) {}
         // send over uart
         uo.data_in       = ram.rdata;
@@ -142,7 +144,7 @@ $$end
   }
 
   always_after {
-    leds         = {blip,write,1b1,ram_bank};
+    leds         = blip;
     blip         = blip >> 1;
     // receiving
     if (ui.data_out_ready) {
