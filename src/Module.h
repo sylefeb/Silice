@@ -164,6 +164,9 @@ namespace Silice
       out << std::endl;
     }
 
+    /// instantiation parameters
+    const std::vector< std::pair<std::string, std::string> >& parameters() const { return m_Parameters; }
+
     /// === implements Blueprint
 
     /// \brief returns the blueprint name

@@ -278,10 +278,11 @@ algorithm qpsram_qspi(
 $$if ICE40 then
   // ---- Lattice ice40 implementation using vendor specific primitives
   ddr_clock _(clock <: clock, enable <:: enable, ddr_clock :> clk);
-  sb_io_inout _(clock <: clock, oe  <: io_oe[0,1],  in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
-  sb_io_inout _(clock <: clock, oe  <: io_oe[1,1],  in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
-  sb_io_inout _(clock <: clock, oe  <: io_oe[2,1],  in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
-  sb_io_inout _(clock <: clock, oe  <: io_oe[3,1],  in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
+  sb_io_inout _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[0,1],  in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
+  sb_io_inout _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[1,1],  in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
+  sb_io_inout _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[2,1],  in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
+  sb_io_inout _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[3,1],  in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
+  //                      ^ enable is not registered so it raises before we output
   sb_io       _(clock <: clock, out <: chip_select, pin :> csn);
 $$end
 $$if ECP5 then

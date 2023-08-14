@@ -1358,7 +1358,13 @@ void Algorithm::gatherDeclarationInstance(siliceParser::DeclarationInstanceConte
         nfo.specializations.autos[str_signed] = tn.base_type == Int ? "signed" : "";
       } else if (m->sparam() != nullptr) {
         std::string p = m->sparam()->IDENTIFIER()->getText();
-        nfo.specializations.params[p] = m->sparam()->NUMBER()->getText();
+        if (m->sparam()->NUMBER()) {
+          nfo.specializations.params[p] = m->sparam()->NUMBER()->getText();
+        } else if (m->sparam()->CONSTANT()) {
+          nfo.specializations.params[p] = rewriteConstant(m->sparam()->CONSTANT()->getText());
+        } else {
+          sl_assert(false);
+        }
       } else {
         reportError(sourceloc(m), "modifier not allowed during instantiation" );
       }
@@ -9473,6 +9479,27 @@ void Algorithm::writeAsModule(std::ostream& out, const t_instantiation_context& 
       out << nfo.blueprint->moduleName(nfo.blueprint_name, (ictx.instance_name.empty() ? ictx.top_name : ictx.instance_name) + '_' + nfo.instance_name) << ' ';
     } else {
       out << nfo.blueprint->moduleName(nfo.blueprint_name, "") << ' ';
+    }
+    // if verilog module add parameters
+    {
+      const Module* vmod = dynamic_cast<const Module*>(nfo.blueprint.raw());
+      if (vmod != nullptr) {
+        if (!vmod->parameters().empty()) {
+          out << "#(";
+          bool first = true;
+          for (const auto& prm : vmod->parameters()) {
+            if (first) { first = false; out << '\n'; } else { out << ",\n"; }
+            // test if given when instanced, otherwise use default
+            auto P = nfo.specializations.params.find(prm.first);
+            if (P != nfo.specializations.params.end()) {
+              out << '.' << prm.first << '(' << P->second << ")";
+            } else {
+              out << '.' << prm.first << '(' << prm.second << ")";
+            }
+          }
+          out << "\n)\n";
+        }
+      }
     }
     // instance name
     out << nfo.instance_name << ' ';
