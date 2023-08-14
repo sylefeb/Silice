@@ -21,9 +21,9 @@ group oledio {
 $$oled_send_delay = 8*2
 
 algorithm oled_send(
-  input!  uint1 enable,
-  input!  uint1 data_or_command,
-  input!  uint8 byte,
+  input   uint1 enable,
+  input   uint1 data_or_command,
+  input   uint8 byte,
   output  uint1 oled_clk,
   output  uint1 oled_mosi,
   output  uint1 oled_dc,

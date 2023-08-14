@@ -1,4 +1,4 @@
-module sb_io_inout(
+module sb_io_inout #(parameter TYPE=6'b1101_00) (
   input        clock,
 	input        oe,
   input        out,
@@ -7,7 +7,7 @@ module sb_io_inout(
   );
 
   SB_IO #(
-    .PIN_TYPE(6'b1101_00)
+    .PIN_TYPE(TYPE) // 1100_00
   ) sbio (
       .PACKAGE_PIN(pin),
 			.OUTPUT_ENABLE(oe),

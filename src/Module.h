@@ -69,57 +69,71 @@ namespace Silice
     std::unordered_map<std::string, int > m_OutputNames;
     /// \brief all inout names, map contains index in m_InOuts
     std::unordered_map<std::string, int > m_InOutNames;
+    /// \brief Verilog parameters
+    std::vector< std::pair<std::string,std::string> >  m_Parameters;
 
     /// \brief gather module information from parsed grammar
     void gather(vmoduleParser::VmoduleContext *vmodule)
     {
       m_Name = vmodule->IDENTIFIER()->getText();
-      vmoduleParser::InOutListContext *list = vmodule->inOutList();
-      for (auto io : list->inOrOut()) {
-        if (io->input()) {
-          t_inout_nfo nfo;
-          nfo.name = io->input()->IDENTIFIER()->getText();
-          nfo.do_not_initialize = true;
-          nfo.type_nfo.base_type = UInt; // TODO signed?
-          if (io->input()->mod()->first != nullptr) {
-            int f = atoi(io->input()->mod()->first->getText().c_str());
-            int s = atoi(io->input()->mod()->second->getText().c_str());
-            nfo.type_nfo.width = f - s + 1;
-          } else {
-            nfo.type_nfo.width = 1;
+      // parse parameters
+      {
+        vmoduleParser::ParamListContext* plist = vmodule->paramList();
+        if (plist != nullptr) {
+          for (auto prm : plist->paramDecl()) {
+            m_Parameters.push_back(std::make_pair( prm->name->getText(), prm->value->getText() ));
           }
-          m_Inputs.emplace_back(nfo);
-          m_InputNames.insert(make_pair(nfo.name, (int)m_Inputs.size() - 1));
-        } else if (io->output()) {
-          t_output_nfo nfo;
-          nfo.name = io->output()->IDENTIFIER()->getText();
-          nfo.do_not_initialize = true;
-          nfo.type_nfo.base_type = UInt; // TODO signed?
-          if (io->output()->mod()->first != nullptr) {
-            int f = atoi(io->output()->mod()->first->getText().c_str());
-            int s = atoi(io->output()->mod()->second->getText().c_str());
-            nfo.type_nfo.width = f - s + 1;
+        }
+      }
+      // parse io
+      {
+        vmoduleParser::InOutListContext* list = vmodule->inOutList();
+        for (auto io : list->inOrOut()) {
+          if (io->input()) {
+            t_inout_nfo nfo;
+            nfo.name = io->input()->IDENTIFIER()->getText();
+            nfo.do_not_initialize = true;
+            nfo.type_nfo.base_type = UInt; // TODO signed?
+            if (io->input()->mod()->first != nullptr) {
+              int f = atoi(io->input()->mod()->first->getText().c_str());
+              int s = atoi(io->input()->mod()->second->getText().c_str());
+              nfo.type_nfo.width = f - s + 1;
+            } else {
+              nfo.type_nfo.width = 1;
+            }
+            m_Inputs.emplace_back(nfo);
+            m_InputNames.insert(make_pair(nfo.name, (int)m_Inputs.size() - 1));
+          } else if (io->output()) {
+            t_output_nfo nfo;
+            nfo.name = io->output()->IDENTIFIER()->getText();
+            nfo.do_not_initialize = true;
+            nfo.type_nfo.base_type = UInt; // TODO signed?
+            if (io->output()->mod()->first != nullptr) {
+              int f = atoi(io->output()->mod()->first->getText().c_str());
+              int s = atoi(io->output()->mod()->second->getText().c_str());
+              nfo.type_nfo.width = f - s + 1;
+            } else {
+              nfo.type_nfo.width = 1;
+            }
+            m_Outputs.emplace_back(nfo);
+            m_OutputNames.insert(make_pair(nfo.name, (int)m_Outputs.size() - 1));
+          } else if (io->inout()) {
+            t_inout_nfo nfo;
+            nfo.name = io->inout()->IDENTIFIER()->getText();
+            nfo.do_not_initialize = true;
+            nfo.type_nfo.base_type = UInt; // TODO signed?
+            if (io->inout()->mod()->first != nullptr) {
+              int f = atoi(io->inout()->mod()->first->getText().c_str());
+              int s = atoi(io->inout()->mod()->second->getText().c_str());
+              nfo.type_nfo.width = f - s + 1;
+            } else {
+              nfo.type_nfo.width = 1;
+            }
+            m_InOuts.emplace_back(nfo);
+            m_InOutNames.insert(make_pair(nfo.name, (int)m_InOuts.size() - 1));
           } else {
-            nfo.type_nfo.width = 1;
+            sl_assert(false);
           }
-          m_Outputs.emplace_back(nfo);
-          m_OutputNames.insert(make_pair(nfo.name, (int)m_Outputs.size() - 1));
-        } else if (io->inout()) {
-          t_inout_nfo nfo;
-          nfo.name = io->inout()->IDENTIFIER()->getText();
-          nfo.do_not_initialize = true;
-          nfo.type_nfo.base_type = UInt; // TODO signed?
-          if (io->inout()->mod()->first != nullptr) {
-            int f = atoi(io->inout()->mod()->first->getText().c_str());
-            int s = atoi(io->inout()->mod()->second->getText().c_str());
-            nfo.type_nfo.width = f - s + 1;
-          } else {
-            nfo.type_nfo.width = 1;
-          }
-          m_InOuts.emplace_back(nfo);
-          m_InOutNames.insert(make_pair(nfo.name, (int)m_InOuts.size() - 1));
-        } else {
-          sl_assert(false);
         }
       }
     }
