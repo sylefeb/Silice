@@ -51,7 +51,7 @@ bitfield Rtype { uint1 unused1, uint1 sign, uint4 unused2, uint1 muldiv,
 
 
 // --------------------------------------------------
-// Risc-V RV32I CPU with RAM memory interface
+// Risc-V RV32I CPU with 8 bits memory interface
 //
 // ---- CPU stages (same as dual on a single core) ----
 //
@@ -74,7 +74,7 @@ bitfield Rtype { uint1 unused1, uint1 sign, uint4 unused2, uint1 muldiv,
 //
 // ---------------------------------
 
-// interface for ram user
+// 8 bits ram interface
 interface icev_ram_user {
   output  addr,        // memory address
   output  wenable,     // write enable
