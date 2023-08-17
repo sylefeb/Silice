@@ -266,7 +266,7 @@ $$end
 unit rv32i_cpu(
   bram_port    mem,
 $$if ICEV_STALL then
-  // advanced feature to stall the CPU (rise only on even stage F/LS1)
+  // optional feature to stall the CPU (rise only on even stage F/LS1)
   input uint1  stall_cpu,
 $$end
 $$if ICEV_USERDATA then

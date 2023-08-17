@@ -24,6 +24,7 @@ $$addrW = 12
 
 // include the processor
 $$ICEV_FAST_SHIFT = 1
+$$ICEV_MULDIV     = 1
 $include('../CPUs/ice-v-swirl.si')
 
 // --------------------------------------------------
@@ -112,7 +113,7 @@ $$end
   //  uses template "bram_wmask_byte", that turns wenable into a byte mask
 
   // cpu
-  rv32i_cpu_swirl cpu( mem <:> memio, rom <:> romio );
+  rv32i_cpu_swirl cpu( dmem <:> memio, imem <:> romio );
 
   // io mapping
   always_before {
@@ -150,7 +151,10 @@ $$end
     if (memio.wenable != 0 & memio.addr[11,1]) {
       leds      = mem.wdata[0,5] & {5{memio.addr[0,1]}};
 $$if SIMULATION then
-      if (memio.addr[0,1]) { __display("[cycle %d] LEDs: %b",cycle,leds); }
+      if (memio.addr[0,1]) {
+        __display("[cycle %d] LEDs: %b (%d)",cycle,leds,mem.wdata);
+        if (mem.wdata == 32hffffffff) { __finish(); }
+      }
 $$end
 $$if OLED then
       // if (memio.addr[1,1]) { __display("[cycle %d] OLED: byte %x",cycle,displ_byte); }

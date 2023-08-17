@@ -141,7 +141,7 @@ unit cpu3_bench()
   sameas(memio.addr) prev_mem_addr(0);
 
   // cpu
-  rv32i_cpu_swirl cpu( mem <:> memio, rom <:> romio );
+  rv32i_cpu_swirl cpu( dmem <:> memio, imem <:> romio );
 
   // io mapping
   always {

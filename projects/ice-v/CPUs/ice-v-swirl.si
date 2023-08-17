@@ -15,6 +15,13 @@ $$if ICEV_FAST_SHIFT then
 $$print("Ice-V-swirl configured for fast shift (barrel shifter)")
 $$end
 
+$$if ICEV_MULDIV then
+$$ print("Ice-V-swirl configured with mul and div (*not* full RV32IM)")
+$$div_width  = 32
+$$div_signed = 1
+$include('../../common/divint_std.si')
+$$end
+
 $$ICEV_BRANCH_PRED      = 1
 
 // set to 1 for a copious amount of debug output in simulation
@@ -23,8 +30,8 @@ $$DEBUG_swirl           = nil
 // --------------------------------------------------
 // bitfield for easier decoding of instructions
 $$if not ICEV_RTYPE then
-bitfield Rtype { uint1 unused1, uint1 sign, uint5 unused2, uint5 rs2,
-                 uint5 rs1,     uint3 op,   uint5 rd,      uint7 opcode}
+bitfield Rtype { uint1 unused1, uint1 sign, uint4 unused2, uint1 muldiv,
+                 uint5 rs2, uint5 rs1, uint3 op, uint5 rd, uint7 opcode}
 $$ICEV_RTYPE = 1
 $$end
 // --------------------------------------------------
@@ -97,7 +104,14 @@ $$print("====== ice-v swirl (pipeline, data bypass, rdcycle) ======")
 // --------------------------------------------------
 // The CPU
 // --------------------------------------------------
-unit rv32i_cpu_swirl(bram_port mem,bram_port rom) {
+unit rv32i_cpu_swirl(
+  bram_port   dmem, // data memory (load/store)
+  bram_port   imem, // instruction memory
+$$if ICEV_STALL then
+  // optional feature to stall the CPU (e.g. while filling a cache)
+  input uint1 stall_cpu,
+$$end
+) {
 
   // register file, uses two BRAMs to fetch two registers at once
   simple_dualport_bram int32 xregsA[32] = {pad(0)};
@@ -130,8 +144,10 @@ unit rv32i_cpu_swirl(bram_port mem,bram_port rom) {
   decode_and_ALU_swirl exec<reginputs>;
 
 $$if SIMULATION then
-  uint32 cycle(0);
-  uint32 reinstr(0);
+  uint32 cycle(0);  uint32 reinstr(0);
+$$end
+$$if not ICEV_STALL then
+  uint1 stall_cpu(0); // stall disabled, never used
 $$end
 
   always {
@@ -142,7 +158,7 @@ $$end
     // maintain register wenable low (pulsed when necessary)
     xregsA.wenable1  = 0;
     // maintain memory write low
-    mem.wenable      = 0;
+    dmem.wenable      = 0;
 
     // CPU pipeline
 
@@ -154,8 +170,8 @@ $$if ICEV_BRANCH_PRED then
       uint$addrW+2$ bpred_n(0);
 $$end
       // capture pc, instr in pipeline
-      pc       = (exec.working | hold) ? pc    : rom.addr;
-      instr    = (exec.working | hold) ? instr : rom.rdata;
+      pc       = (exec.working | hold) ? pc    : imem.addr;
+      instr    = (exec.working | hold) ? instr : imem.rdata;
       //         ^^^^^^^^^^^^^^^^^^^^^ hold if ALU is busy or hazard (c)
       // insert a bubble on a refetch or ALU busy or reset
       bubble   = refetch | exec.working | reset;
@@ -173,7 +189,7 @@ $$if ICEV_BRANCH_PRED then
                             : {{20{instr[31,1]}},instr[7,1],instr[25,6],instr[8,4],1b0};
       bpred_n         = addr_a + addr_imm;
 $$end
-      rom.addr        = refetch ? refetch_addr
+      imem.addr        = refetch ? refetch_addr
                                 : (~bubble & ~reset) ?
 $$if ICEV_BRANCH_PRED then
                                     (bpred ? (bpred_n>>2) : (pc[0,$addrW$] + 1))
@@ -185,7 +201,7 @@ $$if DEBUG_swirl then
       __display("[1] %d instr: %x @%x (bubble:%b reset:%b refetch:%b hold:%b alu:%b rs1 %d rs2 %d)",
         cycle,instr,pc<<2,bubble,reset,refetch,hold,exec.working,xregsA.addr0,xregsB.addr0);
       if (bpred) {
-        __display("[1] pc @%x following branch to @%x",pc<<2,rom.addr<<2);
+        __display("[1] pc @%x following branch to @%x",pc<<2,imem.addr<<2);
       }
 $$end
       // remember ALU was just busy
@@ -278,8 +294,8 @@ $$end
         //           ^^^^^^^^^^^ selects value being written
       }
       // trigger ALU if not in bubble (used by multi-cycle shifts, div)
-      exec.trigger  = ~bubble;
-
+      exec.trigger  = ~bubble; // & ~jumping;
+      //                         ^^^^^^ if stage 4 jumps, cancel store
     } -> { // ==== stage 3
       uint1 prev_bpred(0);
       // propagate bpred
@@ -291,14 +307,14 @@ $$if DEBUG_swirl then
       __display("[3] instr: %x @%x (bubble:%b bpred:%b)",instr,pc<<2,bubble,bpred);
 $$end
       // memory address from which to load/store
-      mem.addr  = (exec.n >> 2);
+      dmem.addr  = (exec.n >> 2);
       if (exec.store & ~bubble & ~jumping) {
         //                        ^^^^^^ if stage 4 jumps, cancel store
         // build write mask depending on SB, SH, SW
         // assumes aligned, e.g. SW => next_addr[0,2] == 2
-        mem.wenable = ( { { 2{exec.op[0,2]==2b10} },
-                          exec.op[0,1] | exec.op[1,1], 1b1
-                        } ) << exec.n[0,2];
+        dmem.wenable = ( { { 2{exec.op[0,2]==2b10} },
+                           exec.op[0,1] | exec.op[1,1], 1b1
+                         } ) << exec.n[0,2];
       }
       // decoder outputs to trickle down the pipeline towards stage 4
       no_rd      = exec.no_rd | bubble;
@@ -321,7 +337,7 @@ $$end
       // decodes values loaded from memory (if any)
       int32  loaded(0);
       uint32 aligned(0);
-      aligned = mem.rdata >> {alu_n[0,2],3b000};
+      aligned = dmem.rdata >> {alu_n[0,2],3b000};
       switch ( op[0,2] ) { // LB / LBU, LH / LHU, LW
         case 2b00:{ loaded = {{24{(~op[2,1])&aligned[ 7,1]}},aligned[ 0,8]}; }
         case 2b01:{ loaded = {{16{(~op[2,1])&aligned[15,1]}},aligned[ 0,16]};}
@@ -380,12 +396,12 @@ $$end
               | xb_regW      ? xregsA.wdata1 : 32b0
               | xb_regW_prev ? xregsB.wdata1 : 32b0;
     // what to write on a store
-    mem.wdata = (xb_regW ? xregsA.wdata1 : xb) << {exec.n[0,2],3b000};
+    dmem.wdata = (xb_regW ? xregsA.wdata1 : xb) << {exec.n[0,2],3b000};
     //                                     ^^---------\
     // capture xb from stage 2 so that stage 3 assign above sees the correct value
 $$if DEBUG_swirl then
-    if (mem.wenable) {
-      __display("[3] store @%x = %x",mem.addr,mem.wdata);
+    if (dmem.wenable) {
+      __display("[3] store @%x = %x",dmem.addr,dmem.wdata);
     }
 $$end
     xb        = exec.xb;
@@ -394,7 +410,7 @@ $$end
     xregsB.wdata1   = xregsA.wdata1;
     xregsB.addr1    = xregsA.addr1;
 $$if DEBUG_swirl then
-    __display("exec.xa = %x exec.xb = %x mem.wdata = %x",exec.xa,exec.xb,mem.wdata);
+    __display("exec.xa = %x exec.xb = %x mem.wdata = %x",exec.xa,exec.xb,dmem.wdata);
     __display("exec.jump = %b exec.n = %x",exec.jump,exec.n);
     __display("xa_keep %b xa_regR %b xa_regW %b xa_regW_prev %b",xa_keep,xa_regR,xa_regW,xa_regW_prev);
     __display("xb_keep %b xb_regR %b xb_regW %b xb_regW_prev %b\n",xb_keep,xb_regR,xb_regW,xb_regW_prev);
@@ -451,6 +467,11 @@ unit decode_and_ALU_swirl(
   uint1 pcOrReg   <: AUIPC   | JAL    | branch;           // pc or reg in addr?
   uint1 sub       <: IntReg  & Rtype(instr).sign;         // subtract
   uint1 aluShift  <: (IntImm | IntReg) & op[0,2] == 2b01; // shift requested
+$$if ICEV_MULDIV then
+  uint1 muldiv    <: IntReg & Rtype(instr).muldiv;        // mul or div
+  div32 div<reginputs>;
+  uint1 dividing(0);
+$$end
   // ==== select next address adder first input
   int$addrW+3$ addr_a <: pcOrReg ? __signed({1b0,pc[0,$addrW-1$],2b0}) : xa;
   // ==== select ALU second input
@@ -486,8 +507,6 @@ unit decode_and_ALU_swirl(
     uint1 j(0); // temp variables for and comparator
     // ====================== ALU
 $$if not ICEV_FAST_SHIFT then
-    // are we still shifting?
-    uint1 shiting <:: (shamt != 0);
     // shift (one bit per clock)
     if (trigger) {
       // start shifting?
@@ -495,7 +514,7 @@ $$if not ICEV_FAST_SHIFT then
       // store value to be shifted
       r      = xa;
     } else {
-      if (shiting) {
+      if (shamt != 0) {
         // decrease shift size
         shamt = shamt - 1;
         // shift one bit
@@ -519,6 +538,38 @@ $$end
       case 3b111: { r = xa & b; }     // AND
       default:    { r = {32{1bx}}; }  // don't care
     }
+    // ====================== Mul Div
+$$if ICEV_MULDIV then
+    // mul div
+    if (muldiv) {
+      //__display("[cycle %d] dividing:%b working:%b isdone(div):%b",cycle,dividing,working,isdone(div));
+      switch ({op}) {
+        case 3b000: { // MUL
+          //__display("MULTIPLICATION %d * %d",xa,xb);
+          r        = xa * xb;
+        }
+        case 3b100: { // DIV
+          if (~working & ~dividing & trigger) {
+            __display("[cycle %d] DIVISION trigger",cycle);
+            working  = 1;
+            dividing = 1;
+            div <- (xa,xb);
+          } else {
+            if (isdone(div) & dividing) {
+              __display("[cycle %d] DIVISION %d / %d = %d",cycle,
+                        div.inum,div.iden,div.ret);
+              dividing    = 0;
+              working     = 0;
+            }
+          }
+          r        = div.ret;
+        }
+        default:   { r = {32{1bx}}; }
+      }
+    } else {
+		  dividing = 0;
+		}
+$$end
     // ====================== Comparator for branching
     switch (op[1,2]) {
       case 2b00:  { j = a_eq_b;  } /*BEQ */ case 2b10: { j=a_lt_b;} /*BLT*/
