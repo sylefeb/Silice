@@ -307,7 +307,12 @@ $$if DEBUG_swirl then
       __display("[3] instr: %x @%x (bubble:%b bpred:%b)",instr,pc<<2,bubble,bpred);
 $$end
       // memory address from which to load/store
+$$if not ICEV_STALL then
       dmem.addr  = (exec.n >> 2);
+$$else
+      dmem.addr  = (exec.store|exec.load) ? (exec.n >> 2) : dmem.addr;
+      // ^^ if a cache is used, we preserve dmem.addr when not accessing dmem
+$$end
       if (exec.store & ~bubble & ~jumping) {
         //                        ^^^^^^ if stage 4 jumps, cancel store
         // build write mask depending on SB, SH, SW
