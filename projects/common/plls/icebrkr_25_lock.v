@@ -4,14 +4,18 @@
 
 module pll(
 	input  clock_in,
-	output clock_out
+	output clock_out,
+  output reset
 	);
 
+  wire lock;
+  assign reset = ~lock;
+
   SB_PLL40_PAD #(.FEEDBACK_PATH("SIMPLE"),
-                  .PLLOUT_SELECT("GENCLK_HALF"), // outputs half of request
+                  .PLLOUT_SELECT("GENCLK"),
                   .DIVR(4'b0000),
-// 30 (but we output half with GENCLK_HALF)
-                  .DIVF(7'b1001111),
+// 25
+                  .DIVF(7'b1000010),
                   .DIVQ(3'b101),
 //
                   .FILTER_RANGE(3'b001),
@@ -28,6 +32,7 @@ module pll(
                          .DYNAMICDELAY(),
                          .LATCHINPUTVALUE(),
                          .RESETB(1'b1),
+                         .LOCK(lock),
                          .BYPASS(1'b0)
                         );
 

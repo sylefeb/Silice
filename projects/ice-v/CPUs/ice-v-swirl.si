@@ -163,7 +163,7 @@ $$end
     // CPU pipeline
 
     { // pipeline is contained within this block
-    { // ==== stage 1
+    if (~stall_cpu) { // ==== stage 1
 $$if ICEV_BRANCH_PRED then
       uint1         jinstr(0);  uint1 jal(0);             uint1 branch(0);
       int$addrW+3$  addr_a(0);  int$addrW+3$ addr_imm(0);
@@ -189,17 +189,17 @@ $$if ICEV_BRANCH_PRED then
                             : {{20{instr[31,1]}},instr[7,1],instr[25,6],instr[8,4],1b0};
       bpred_n         = addr_a + addr_imm;
 $$end
-      imem.addr        = refetch ? refetch_addr
-                                : (~bubble & ~reset) ?
+      imem.addr       = refetch ? refetch_addr :
+                      (~bubble & ~reset) ?
 $$if ICEV_BRANCH_PRED then
-                                    (bpred ? (bpred_n>>2) : (pc[0,$addrW$] + 1))
+                      (bpred ? (bpred_n>>2) : (pc[0,$addrW$] + 1))
 $$else
-                                                            (pc[0,$addrW$] + 1)
+                      (pc[0,$addrW$] + 1)
 $$end
-                                                     : pc;
+                      : pc;
 $$if DEBUG_swirl then
-      __display("[1] %d instr: %x @%x (bubble:%b reset:%b refetch:%b hold:%b alu:%b rs1 %d rs2 %d)",
-        cycle,instr,pc<<2,bubble,reset,refetch,hold,exec.working,xregsA.addr0,xregsB.addr0);
+      __display("[1] %d instr: %x @%x (bubble:%b reset:%b refetch:%b hold:%b stall_cpu:%b alu:%b rs1 %d rs2 %d)",
+        cycle,instr,pc<<2,bubble,reset,refetch,hold,stall_cpu,exec.working,xregsA.addr0,xregsB.addr0);
       if (bpred) {
         __display("[1] pc @%x following branch to @%x",pc<<2,imem.addr<<2);
       }
@@ -208,7 +208,7 @@ $$end
       alu_was_working vv= exec.working;
       //              |-> assign after pipeline, stages will only see it next cycle
 
-    } -> { // ==== stage 2
+    } -> if (~stall_cpu) { // ==== stage 2
       // maintain bpred on bubbles
       uint1 prev_bpred(0);
       // for data hazard detection
@@ -296,7 +296,7 @@ $$end
       // trigger ALU if not in bubble (used by multi-cycle shifts, div)
       exec.trigger  = ~bubble; // & ~jumping;
       //                         ^^^^^^ if stage 4 jumps, cancel store
-    } -> { // ==== stage 3
+    } -> if (~stall_cpu) { // ==== stage 3
       uint1 prev_bpred(0);
       // propagate bpred
       bpred        = exec.working ? prev_bpred : bpred;
@@ -337,7 +337,7 @@ $$end
       // track bpred
       prev_bpred = bpred;
 
-    } -> { // ==== stage 4
+    } -> if (~stall_cpu) { // ==== stage 4
       sameas(pc) pcp1 = pc + 1;
       // decodes values loaded from memory (if any)
       int32  loaded(0);
@@ -390,6 +390,7 @@ $$end
     }
     } // end of pipeline
 
+    if (~stall_cpu) {
     // set decoder+ALU inputs
     // (out of pipeline to get up-to-date value of xregsA.wdata1 from stage 4)
     exec.xa   = xa_keep      ? exec.xa       : 32b0
@@ -418,8 +419,10 @@ $$if DEBUG_swirl then
     __display("exec.xa = %x exec.xb = %x mem.wdata = %x",exec.xa,exec.xb,dmem.wdata);
     __display("exec.jump = %b exec.n = %x",exec.jump,exec.n);
     __display("xa_keep %b xa_regR %b xa_regW %b xa_regW_prev %b",xa_keep,xa_regR,xa_regW,xa_regW_prev);
-    __display("xb_keep %b xb_regR %b xb_regW %b xb_regW_prev %b\n",xb_keep,xb_regR,xb_regW,xb_regW_prev);
+    __display("xb_keep %b xb_regR %b xb_regW %b xb_regW_prev %b",xb_keep,xb_regR,xb_regW,xb_regW_prev);
+    __display("imem.addr @%x, dmem.addr @%x\n",imem.addr<<2,dmem.addr<<2);
 $$end
+    }
 $$if SIMULATION then
     cycle = cycle + 1;
 $$end

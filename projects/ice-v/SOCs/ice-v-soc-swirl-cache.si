@@ -6,12 +6,13 @@
 // MIT license, see LICENSE_MIT in Silice repo root
 
 // Clocks
-$$if ICEBREAKER or ICEBITSY then
+$$if ICEBREAKER then
 $$ICE40 = 1
-import('../../common/plls/icebrkr_25.v')
+import('../../common/plls/icebrkr_15_lock.v')
 import('../../common/ice40_spram.v')
+import('../../common/ice40_sb_gb.v')
 $$elseif not SIMULATION then
-$$error('This SOC is for the UP5K (icebreaker, icebitsy).')
+$$error('This SOC does not support the selected board.')
 $$end
 
 $$config['bram_wmask_byte_wenable_width'] = 'data'
@@ -25,7 +26,7 @@ $$ramW  = 24 -- actual memory address width (<= addrW)
 
 // include the processor
 $$ICEV_FAST_SHIFT = 1
-$$ICEV_MULDIV     = 1
+$$ICEV_MULDIV     = nil
 $$ICEV_STALL      = 1
 $include('../CPUs/ice-v-swirl.si')
 
@@ -54,7 +55,7 @@ interface bram_provider
   input   addr,
 }
 
-$$cache_line_width      = 8
+$$cache_line_width      = 10
 $$cache_line_size_words = 1<<cache_line_width
 $$cache_line_size_bytes = 1<<(cache_line_width+2)
 $$num_cache_lines       = 1<<(14-cache_line_width)
@@ -110,13 +111,13 @@ $$end
 
   // determines whether requested addr match the corresponding cache line
 $$for c=0,1 do
-  uint$num_cache_lines_w$ line$c$_id     <: mem$c$.addr[$cache_line_width$,$num_cache_lines_w$];
-  uint$num_cache_lines$   cache$c$_match <::
-              :mem$c$.addr[$cache_line_width$,$cache_addr_w$]
-          == cache$c$_lines_addr[line$c$_id];
+  uint$num_cache_lines_w$ line$c$_id    <:  mem$c$.addr[$cache_line_width$,$num_cache_lines_w$];
+  uint1                   cache$c$_hit <:: :mem$c$.addr[$cache_line_width$,$cache_addr_w$]
+                                         == cache$c$_lines_addr[line$c$_id];
+  uint$num_cache_lines_w$ qline$c$_id(0);
+  uint$ramW$              qaddr$c$(0);
+  uint4                   qwen$c$(0);
 $$end
-  uint1 cache0_hit <:: | cache0_match;
-  uint1 cache1_hit <:: | cache1_match;
 
   // external RAM
   qpsram_ram ram(
@@ -160,24 +161,25 @@ $$end
 
   algorithm <autorun> {
     // init QPSRAM
-    ram.init = 1;
-    while (ram.busy) {}
+    // ram.init = 1;
+    // while (ram.busy) {}
     // main loop
+
     while (1) {
       if (update_lines_todo) {
         // there is a pending cache miss
         __display("=> cache miss %b|%b",~cache0_hit,~cache1_hit);
         // if line is dirty, store back
         //                  vvvvv start by cache0, then cache1
-        uint1 line_dirty = ~cache0_hit ? cache0_lines_dirty[line0_id]
-                                       : cache1_lines_dirty[line1_id];
+        uint1 line_dirty = ~cache0_hit ? cache0_lines_dirty[qline0_id]
+                                       : cache1_lines_dirty[qline1_id];
         if (line_dirty) {
           // store back line as it was written to
           uint$ramW$ storeAddr =
-            ~cache0_hit ? {cache0_lines_addr[line0_id],$cache_line_width$b0}
-                        : {cache1_lines_addr[line1_id],$cache_line_width$b0};
+            ~cache0_hit ? {cache0_lines_addr[qline0_id],$cache_line_width$b0}
+                        : {cache1_lines_addr[qline1_id],$cache_line_width$b0};
           uint$cache_line_width+2+1$ n = 0;
-          __display("=> [cache %b] writing at @%x from line %d",cache0_hit,storeAddr,~cache0_hit ? line0_id : line1_id);
+          __display("=> [cache %b] writing at @%x from line %d",cache0_hit,storeAddr,~cache0_hit ? qline0_id : qline1_id);
           // write start addr
           ram.addr       = storeAddr;
           while (~n[$cache_line_width+2$,1]) {
@@ -186,33 +188,36 @@ $$end
             ram.wenable  = 1;
             // vvvvv NOTE: on first iteration spramN.data_out is not ready yet,
             // however the QPSRAM controller does not access it immediately
+            //
+            // WARNING: watchout if increasing QPSRAM clock at 2x! (may be ok)
+            //
             ram.wdata    = ~cache0_hit
                         ? {spram1.data_out,spram0.data_out} >> {n[0,2],3b0}
                         : {spram3.data_out,spram2.data_out} >> {n[0,2],3b0};
             // next?
             if (ram.data_next) {
-              __write("%x,",ram.wdata);
+              //__write("%x,",ram.wdata);
               // next
               n = n + 1;
             }
             // read in cache 0
-            spram0.addr    = {line0_id,n[2,$cache_line_width$]};
-            spram1.addr    = {line0_id,n[2,$cache_line_width$]};
+            spram0.addr    = {qline0_id,n[2,$cache_line_width$]};
+            spram1.addr    = {qline0_id,n[2,$cache_line_width$]};
             // read in cache 1
-            spram2.addr    = {line1_id,n[2,$cache_line_width$]};
-            spram3.addr    = {line1_id,n[2,$cache_line_width$]};
+            spram2.addr    = {qline1_id,n[2,$cache_line_width$]};
+            spram3.addr    = {qline1_id,n[2,$cache_line_width$]};
           }
           ram.wenable  = 0; // stop writting
           __display(" ");
         }
         // fetch new line
         uint$ramW$ fetchAddr =
-          ~cache0_hit ? {mem0.addr[$cache_line_width$,$cache_addr_w$],
-                                  $cache_line_width$b0}
-                      : {mem1.addr[$cache_line_width$,$cache_addr_w$],
-                                  $cache_line_width$b0};
+          ~cache0_hit ? {qaddr0[$cache_line_width$,$cache_addr_w$],
+                                $cache_line_width$b0}
+                      : {qaddr1[$cache_line_width$,$cache_addr_w$],
+                                $cache_line_width$b0};
         uint$cache_line_width+2+1$ n = 0;
-        __display("=> [cache %b] fetching from @%x in line %d",cache0_hit,fetchAddr,~cache0_hit ? line0_id : line1_id);
+        __display("=> [cache %b] fetching from @%x in line %d",cache0_hit,fetchAddr,~cache0_hit ? qline0_id : qline1_id);
         ram.in_ready = 1;
         ram.addr     = fetchAddr;
         while (~n[$cache_line_width+2$,1]) {
@@ -220,10 +225,10 @@ $$end
           if (ram.data_next) {
             uint4  wmask   = 2b11 << {n[0,1],1b0};
             uint16 wdata   = ram.rdata << {n[0,1],3b0};
-            __write("%x,",ram.rdata);
+            //__write("%x,",ram.rdata);
             // cache 0
-            spram0.addr    = {line0_id,n[2,$cache_line_width$]};
-            spram1.addr    = {line0_id,n[2,$cache_line_width$]};
+            spram0.addr    = {qline0_id,n[2,$cache_line_width$]};
+            spram1.addr    = {qline0_id,n[2,$cache_line_width$]};
             spram0.data_in = wdata;
             spram1.data_in = wdata;
             spram0.wmask   = wmask;
@@ -232,8 +237,8 @@ $$end
             spram1.wenable = ~cache0_hit &  n[1,1];
             // __write("%b:%x,",spram1.wenable,wdata);
             // cache 1
-            spram2.addr    = {line1_id,n[2,$cache_line_width$]};
-            spram3.addr    = {line1_id,n[2,$cache_line_width$]};
+            spram2.addr    = {qline1_id,n[2,$cache_line_width$]};
+            spram3.addr    = {qline1_id,n[2,$cache_line_width$]};
             spram2.data_in = wdata;
             spram3.data_in = wdata;
             spram2.wmask   = wmask;
@@ -247,30 +252,37 @@ $$end
         __display(" ");
         // update cache register
         if (~cache0_hit) {
-          cache0_lines_addr[line0_id] = mem0.addr[$cache_line_width$,$cache_addr_w$];
-          cache0_lines_dirty[line0_id] = 0;
+          cache0_lines_addr[qline0_id] = qaddr0[$cache_line_width$,$cache_addr_w$];
+          cache0_lines_dirty[qline0_id] = 0;
         } else {
-          cache1_lines_addr[line1_id] = mem1.addr[$cache_line_width$,$cache_addr_w$];
-          cache1_lines_dirty[line1_id] = 0;
+          cache1_lines_addr[qline1_id] = qaddr1[$cache_line_width$,$cache_addr_w$];
+          cache1_lines_dirty[qline1_id] = 0;
         }
         $$for l=0,num_cache_lines-1 do
         // __display("=> cache line %d status 0:@%x(%b) 1:@%x(%b)",$l$,cache0_lines_addr[$l$],cache0_lines_dirty[$l$],cache1_lines_addr[$l$],cache1_lines_dirty[$l$]);
         $$end
         update_lines_done = 1;
-        write_cycle       = (|mem0.wenable)|(|mem1.wenable);
+        write_cycle       = (|qwen0)|(|qwen1);
+        // __display("cache done.");
       } else {
         // no cache miss
         // maintain dirty flag
-        cache0_lines_dirty[line0_id] = cache0_lines_dirty[line0_id] | (|mem0.wenable);
-        cache1_lines_dirty[line1_id] = cache1_lines_dirty[line1_id] | (|mem1.wenable);
+        cache0_lines_dirty[qline0_id] = cache0_lines_dirty[qline0_id] | (|qwen0);
+        cache1_lines_dirty[qline1_id] = cache1_lines_dirty[qline1_id] | (|qwen1);
       }
     }
+
   }
 
   always_after {
     // note that cache lines have to be updated next cycle (latency helps fmax)
     update_lines_todo = ~reset & (~cache0_hit|~cache1_hit) & ~update_lines_done;
     update_lines_done = 0;
+    // register inputs from memory interfaces: improves fmax and 'free'
+    // as cache update always occurs a cycle after memory interfaces change
+    qline0_id = line0_id;     qline1_id = line1_id;
+    qaddr0    = mem0.addr;    qaddr1    = mem1.addr;
+    qwen0     = mem0.wenable; qwen1     = mem1.wenable;
   }
 
 }
@@ -292,12 +304,14 @@ $$if not VERILATOR then
 $$end
 )
 $$if not SIMULATION then
-<@cpu_clock> {
+<@cpu_clock,!rst> {
   // clock
-  uint1 cpu_clock  = uninitialized;
+  uint1 cpu_clock = uninitialized;
+  uint1 rst       = uninitialized;
   pll clk_gen (
     clock_in  <: clock,
-    clock_out :> cpu_clock
+    clock_out :> cpu_clock,
+    reset     :> rst
   );
 $$else
 {
@@ -323,50 +337,36 @@ $$end
     mem0    <:> mem0io,     mem1    <:> mem1io,
   );
 
-  // ram
-  // - intermediate interfaces to perform memory mapping on the RAM
-  bram_io dmemio;
-  bram uint32 dmem<"bram_wmask_byte">[1024] = $datainit$;
-  // rom (code)
-  bram_io imemio;
-  bram uint32 imem<"bram_wmask_byte">[1024] = $meminit$;
-  //               ^^^^^^^^^^^^^^^
-  //  uses template "bram_wmask_byte", that turns wenable into a byte mask
-
   // cpu
-  // rv32i_cpu_swirl cpu( dmem <:> dmemio, imem <:> imemio );
+/*
+$$if not ICE40 then
+  uint1 clock_test <: clock & ~cache.wait;
+  rv32i_cpu_swirl cpu<@clock_test>( imem <:> mem0io, dmem <:> mem1io );
+$$else
+  uint1 clock_test(0);
+  uint1 clock_en <: cpu_clock & ~cache.wait;
+  sb_gb _(user <: clock_en, buffered :> clock_test);
+  rv32i_cpu_swirl cpu<@clock_test>( imem <:> mem0io, dmem <:> mem1io );
+$$end
+*/
+  rv32i_cpu_swirl cpu( imem <:> mem0io, dmem <:> mem1io, stall_cpu <: cache.wait );
 
   // io mapping
   always_before {
-    leds = mem0io.rdata ^ mem1io.rdata;
-/*
-	  // ---- peripherals access
-    dmem.wenable  = dmemio.wenable & {4{~dmemio.addr[11,1]}};
-		//                             ^ no BRAM write if in peripheral addresses
-		prev_mem_addr = dmemio.addr;
-		prev_mem_rw   = dmemio.wenable[0,1];
-    dmemio.rdata  = dmem.rdata;
-    dmem.wdata    = dmemio.wdata;
-    dmem.addr     = dmemio.addr;
-    // ---- instruction memory
-    imem.addr     = imemio.addr;
-    imemio.rdata  = imem.rdata;
     // ---- memory mapping to peripherals: writes
-    if (dmemio.wenable != 0 & dmemio.addr[11,1]) {
-      leds      = dmem.wdata[0,5] & {5{dmemio.addr[0,1]}};
+    if (mem1io.wenable != 0 & mem1io.addr[11,1] & ~cache.wait) {
+      leds      = mem1io.wdata[0,5] & {5{mem1io.addr[0,1]}};
 $$if SIMULATION then
-      if (dmemio.addr[0,1]) {
-        __display("[cycle %d] LEDs: %b (%d)",cycle,leds,dmem.wdata);
-        if (dmem.wdata == 32hffffffff) { __finish(); }
+      if (mem1io.addr[0,1]) {
+        __display("[cycle %d] LEDs: %b (%d)",cycle,leds,mem1io.wdata);
+        if (mem1io.wdata == 32hffffffff) { __finish(); }
       }
-      if (dmemio.addr[4,1]) {
-			  __display("[cycle %d] SPI write %b",cycle,dmem.wdata[0,3]);
-			}
 $$end
     }
-*/
+
 $$if SIMULATION then
-    // write test
+/*
+    // cache test
     mem0io.wdata   = 32hfaab0123;
     mem0io.wenable = 4b1100;
     if (~cache.wait) {
@@ -374,13 +374,14 @@ $$if SIMULATION then
       mem0io.addr    = ((cycle>>2)&1) ? 16384 : 0;
       mem1io.addr    = mem1io.addr + 19;
     }
+*/
     cycle = cycle + 1;
 $$end
   }
 
   algorithm {
 $$if SIMULATION and not BARE then
-	  while (cycle < 15000) { }
+	  while (cycle < 50000) { }
     __display("stopping at cycle %d",cycle);
     //while (1) { }
 $$else
