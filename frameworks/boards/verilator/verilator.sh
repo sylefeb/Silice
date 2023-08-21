@@ -92,26 +92,9 @@ VERILATOR_LIB_DIR=$SILICE_DIR/../frameworks/verilator/
 cp    $VERILATOR_LIB_DIR/verilator_callbacks.h .
 cp -R $SILICE_DIR/../src/libs/LibSL-small/src/LibSL .
 
-VERILATOR_BASE="$VERILATOR_LIB_DIR/verilator_main.cpp $VERILATOR_LIB_DIR/verilator_data.cpp $LIBSL_DIR/Image/ImageFormat_TGA.cpp $LIBSL_DIR/Image/Image.cpp $LIBSL_DIR/Image/tga.cpp $LIBSL_DIR/Math/Vertex.cpp $LIBSL_DIR/Math/Math.cpp $LIBSL_DIR/StlHelpers/StlHelpers.cpp $LIBSL_DIR/CppHelpers/CppHelpers.cpp $LIBSL_DIR/System/System.cpp $VERILATOR_LIB_DIR/display.cpp $VERILATOR_LIB_DIR/sdr_sdram.cpp $VERILATOR_LIB_DIR/VgaChip.cpp $VERILATOR_LIB_DIR/ParallelScreen.cpp $VERILATOR_LIB_DIR/SPIScreen.cpp"
+VERILATOR_GFX_SRC=" $LIBSL_DIR/Image/ImageFormat_TGA.cpp $LIBSL_DIR/Image/Image.cpp $LIBSL_DIR/Image/tga.cpp $LIBSL_DIR/Math/Vertex.cpp $LIBSL_DIR/Math/Math.cpp $LIBSL_DIR/StlHelpers/StlHelpers.cpp $LIBSL_DIR/CppHelpers/CppHelpers.cpp $LIBSL_DIR/System/System.cpp"
 
-VERILATOR_LIB_SRC="$VERILATOR_BASE"
-
-DEFINES=""
-if [[ -n "${VGA}" ]]; then
-  DEFINES+="-CFLAGS -DVGA "
-fi
-if [[ -n "${SDRAM}" ]]; then
-  DEFINES+="-CFLAGS -DSDRAM "
-fi
-if [[ -n "${SPISCREEN}" ]]; then
-  DEFINES+="-CFLAGS -DSPISCREEN "
-fi
-if [[ -n "${OLED}" ]]; then
-  DEFINES+="-CFLAGS -DSPISCREEN "
-fi
-if [[ -n "${PARALLEL_SCREEN}" ]]; then
-  DEFINES+="-CFLAGS -DPARALLEL_SCREEN "
-fi
+VERILATOR_LIB_SRC="$VERILATOR_LIB_DIR/verilator_main.cpp $VERILATOR_LIB_DIR/verilator_data.cpp $VERILATOR_LIB_DIR/display.cpp"
 VERILATOR_LIB="verilator_main"
 
 if test -f "$1.cpp"; then
@@ -125,6 +108,32 @@ if test -f "$1.cpp"; then
 	fi
 else
 	touch custom.h
+fi
+
+DEFINES=""
+if [[ -n "${VGA}" ]]; then
+  DEFINES+="-CFLAGS -DVGA "
+  VERILATOR_LIB_SRC+=$VERILATOR_GFX_SRC
+  VERILATOR_LIB_SRC+=" $VERILATOR_LIB_DIR/VgaChip.cpp"
+fi
+if [[ -n "${SDRAM}" ]]; then
+  DEFINES+="-CFLAGS -DSDRAM "
+  VERILATOR_LIB_SRC+=" $VERILATOR_LIB_DIR/sdr_sdram.cpp"
+fi
+if [[ -n "${SPISCREEN}" ]]; then
+  DEFINES+="-CFLAGS -DSPISCREEN "
+  VERILATOR_LIB_SRC+=$VERILATOR_GFX_SRC
+  VERILATOR_LIB_SRC+=" $VERILATOR_LIB_DIR/SPIScreen.cpp"
+fi
+if [[ -n "${OLED}" ]]; then
+  DEFINES+="-CFLAGS -DSPISCREEN "
+  VERILATOR_LIB_SRC+=$VERILATOR_GFX_SRC
+  VERILATOR_LIB_SRC+=" $VERILATOR_LIB_DIR/SPIScreen.cpp"
+fi
+if [[ -n "${PARALLEL_SCREEN}" ]]; then
+  DEFINES+="-CFLAGS -DPARALLEL_SCREEN "
+  VERILATOR_LIB_SRC+=$VERILATOR_GFX_SRC
+  VERILATOR_LIB_SRC+=" $VERILATOR_LIB_DIR/ParallelScreen.cpp"
 fi
 
 echo "using verilator framework $VERILATOR_LIB"
