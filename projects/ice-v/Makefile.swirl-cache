@@ -1,0 +1,10 @@
+
+.DEFAULT: SOCs/ice-v-soc-swirl-cache.si
+#		cp ./build/code.bin data.raw
+		silice-make.py -s SOCs/ice-v-soc-swirl-cache.si -b $@ -p basic -o BUILD_$(subst :,_,$@) $(ARGS)
+
+brot: SOCs/ice-v-soc-swirl-cache.si
+		silice-make.py -s SOCs/ice-v-soc-swirl-cache.si -b $@ -p basic,qpsram -o BUILD_$(subst :,_,$@) $(ARGS)
+
+clean:
+	rm -rf BUILD_*
