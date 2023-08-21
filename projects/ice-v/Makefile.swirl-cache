@@ -1,6 +1,7 @@
 
 .DEFAULT: SOCs/ice-v-soc-swirl-cache.si
-		cp ./compile/build/code.bin data.raw
+		# cp ./compile/build/code.bin data.raw
+		time dd if=/dev/urandom of=data.raw bs=1 count=65536
 		silice-make.py -s SOCs/ice-v-soc-swirl-cache.si -b $@ -p basic -o BUILD_$(subst :,_,$@) $(ARGS)
 
 icebreaker: SOCs/ice-v-soc-swirl-cache.si

@@ -81,7 +81,7 @@ unit cache(
   bram_provider mem0,
   bram_provider mem1,
   // wait goes high when cache cannot answer immediately
-  output  uint1 wait(1),
+  output! uint1 wait(1),
   // qpsram io
   inout   uint1 ram_io0,  inout   uint1 ram_io1,
   inout   uint1 ram_io2,  inout   uint1 ram_io3,
@@ -103,21 +103,28 @@ $$else
 $$end
 $$end
 
+$$init_value=''
+$$for b=1,cache_addr_w do
+$$  init_value = '1' .. init_value
+$$end
+$$init_value = (cache_addr_w+1) .. 'b0' .. init_value
+
   // cache mapping
-  uint$cache_addr_w$ cache0_lines_addr [$num_cache_lines$] = {pad(-1)};
-  uint1              cache0_lines_dirty[$num_cache_lines$] = {pad(0)};
-  uint$cache_addr_w$ cache1_lines_addr [$num_cache_lines$] = {pad(-1)};
-  uint1              cache1_lines_dirty[$num_cache_lines$] = {pad(0)};
+  bram uint$cache_addr_w+1$ cache0_lines[$num_cache_lines$] = {pad($init_value$)};
+  bram uint$cache_addr_w+1$ cache1_lines[$num_cache_lines$] = {pad($init_value$)};
+  //                     ^ dirty bit
 
   // determines whether requested addr match the corresponding cache line
 $$for c=0,1 do
-  uint$num_cache_lines_w$ line$c$_id    <:  mem$c$.addr[$cache_line_width$,$num_cache_lines_w$];
-  uint1                   cache$c$_hit <:: :mem$c$.addr[$cache_line_width$,$cache_addr_w$]
-                                         == cache$c$_lines_addr[line$c$_id];
+  uint$num_cache_lines_w$ line$c$_id    <: mem$c$.addr[$cache_line_width$,$num_cache_lines_w$];
+  uint1                   cache$c$_hit <:: qaddr$c$[$cache_line_width$,$cache_addr_w$]
+                                        == cache$c$_lines.rdata[0,$cache_addr_w$];
   uint$num_cache_lines_w$ qline$c$_id(0);
   uint$ramW$              qaddr$c$(0);
   uint4                   qwen$c$(0);
 $$end
+
+  uint32 cycle(0);
 
   // external RAM
   qpsram_ram ram(
@@ -128,39 +135,41 @@ $$end
 
   uint1 update_lines_todo(0);
   uint1 update_lines_done(0);
-  uint1 write_cycle(0);   // additional cycle after a cache line update
-                          // so that the write in SPRAM occurs
 
   always_before {
-    ram.in_ready     = 0; // maintain low, pulse high to read/write
-    ram.init         = 0; // maintain low, pulse high to init
-    // if both caches miss, raise wait immediately
-    wait             = reset | (~cache0_hit | ~cache1_hit) | write_cycle;
-    //                 ^^^^^ wait during reset too
+    cache0_lines.addr    = line0_id;
+    cache1_lines.addr    = line1_id;
+    cache0_lines.wenable = 0;
+    cache1_lines.wenable = 0;
+    ram.in_ready         = 0; // maintain low, pulse high to read/write
+    ram.init             = 0; // maintain low, pulse high to init
     // default lookup
-    mem0.rdata       = {spram1.data_out,spram0.data_out};
-    mem1.rdata       = {spram3.data_out,spram2.data_out};
-    spram0.addr      = {line0_id,:mem0.addr[0,$cache_line_width$]};
-    spram1.addr      = {line0_id,:mem0.addr[0,$cache_line_width$]};
-    spram2.addr      = {line1_id,:mem1.addr[0,$cache_line_width$]};
-    spram3.addr      = {line1_id,:mem1.addr[0,$cache_line_width$]};
-    spram0.wmask     = {{2{mem0.wenable[1,1]}},{2{mem0.wenable[0,1]}}};
-    spram1.wmask     = {{2{mem0.wenable[3,1]}},{2{mem0.wenable[2,1]}}};
-    spram0.wenable   = (|mem0.wenable) & (~wait | write_cycle);
-    spram1.wenable   = (|mem0.wenable) & (~wait | write_cycle);
-    spram0.data_in   = mem0.wdata[ 0,16];
-    spram1.data_in   = mem0.wdata[16,16];
-    spram2.wmask     = {{2{mem1.wenable[1,1]}},{2{mem1.wenable[0,1]}}};
-    spram3.wmask     = {{2{mem1.wenable[3,1]}},{2{mem1.wenable[2,1]}}};
-    spram2.wenable   = (|mem1.wenable) & (~wait | write_cycle);
-    spram3.wenable   = (|mem1.wenable) & (~wait | write_cycle);
-    spram2.data_in   = mem1.wdata[ 0,16];
-    spram3.data_in   = mem1.wdata[16,16];
-    write_cycle      = 0;
+    mem0.rdata           = {spram1.data_out,spram0.data_out};
+    mem1.rdata           = {spram3.data_out,spram2.data_out};
+    spram0.addr          = {line0_id,:mem0.addr[0,$cache_line_width$]};
+    spram1.addr          = {line0_id,:mem0.addr[0,$cache_line_width$]};
+    spram2.addr          = {line1_id,:mem1.addr[0,$cache_line_width$]};
+    spram3.addr          = {line1_id,:mem1.addr[0,$cache_line_width$]};
+    spram0.wmask         = {{2{mem0.wenable[1,1]}},{2{mem0.wenable[0,1]}}};
+    spram1.wmask         = {{2{mem0.wenable[3,1]}},{2{mem0.wenable[2,1]}}};
+    spram0.wenable       = (|mem0.wenable) & (~wait);
+    spram1.wenable       = (|mem0.wenable) & (~wait);
+    spram0.data_in       = mem0.wdata[ 0,16];
+    spram1.data_in       = mem0.wdata[16,16];
+    spram2.wmask         = {{2{mem1.wenable[1,1]}},{2{mem1.wenable[0,1]}}};
+    spram3.wmask         = {{2{mem1.wenable[3,1]}},{2{mem1.wenable[2,1]}}};
+    spram2.wenable       = (|mem1.wenable) & (~wait);
+    spram3.wenable       = (|mem1.wenable) & (~wait);
+    spram2.data_in       = mem1.wdata[ 0,16];
+    spram3.data_in       = mem1.wdata[16,16];
+    // if both caches miss, raise wait
+    wait                 = reset | (~cache0_hit|~cache1_hit);
+    //                     ^^^^^ wait during reset too
   }
 
   algorithm <autorun> {
-    // init QPSRAM
+
+    // init QPSRAM     NOTE: assume already initialized for now
     // ram.init = 1;
     // while (ram.busy) {}
     // main loop
@@ -168,18 +177,18 @@ $$end
     while (1) {
       if (update_lines_todo) {
         // there is a pending cache miss
-        __display("=> cache miss %b|%b",~cache0_hit,~cache1_hit);
+        __display("[%d] => cache miss %b|%b %x|%x",cycle,~cache0_hit,~cache1_hit,qaddr0,qaddr1);
         // if line is dirty, store back
         //                  vvvvv start by cache0, then cache1
-        uint1 line_dirty = ~cache0_hit ? cache0_lines_dirty[qline0_id]
-                                       : cache1_lines_dirty[qline1_id];
+        uint1 line_dirty = ~cache0_hit ? cache0_lines.rdata[$cache_addr_w$,1]
+                                       : cache1_lines.rdata[$cache_addr_w$,1];
         if (line_dirty) {
           // store back line as it was written to
           uint$ramW$ storeAddr =
-            ~cache0_hit ? {cache0_lines_addr[qline0_id],$cache_line_width$b0}
-                        : {cache1_lines_addr[qline1_id],$cache_line_width$b0};
+            ~cache0_hit ? {cache0_lines.rdata,$cache_line_width$b0}
+                        : {cache1_lines.rdata,$cache_line_width$b0};
           uint$cache_line_width+2+1$ n = 0;
-          __display("=> [cache %b] writing at @%x from line %d",cache0_hit,storeAddr,~cache0_hit ? qline0_id : qline1_id);
+          __display("[%d] => [cache %b] writing at @%x from line %d",cycle,cache0_hit,storeAddr,~cache0_hit ? qline0_id : qline1_id);
           // write start addr
           ram.addr       = storeAddr;
           while (~n[$cache_line_width+2$,1]) {
@@ -217,7 +226,8 @@ $$end
                       : {qaddr1[$cache_line_width$,$cache_addr_w$],
                                 $cache_line_width$b0};
         uint$cache_line_width+2+1$ n = 0;
-        __display("=> [cache %b] fetching from @%x in line %d",cache0_hit,fetchAddr,~cache0_hit ? qline0_id : qline1_id);
+        __display("[%d] +> cache miss %b|%b %x|%x",cycle,~cache0_hit,~cache1_hit,qaddr0,qaddr1);
+        __display("[%d] => [cache %b] fetching from @%x in line %d",cycle,cache0_hit,fetchAddr,~cache0_hit ? qline0_id : qline1_id);
         ram.in_ready = 1;
         ram.addr     = fetchAddr;
         while (~n[$cache_line_width+2$,1]) {
@@ -252,30 +262,29 @@ $$end
         __display(" ");
         // update cache register
         if (~cache0_hit) {
-          cache0_lines_addr[qline0_id] = qaddr0[$cache_line_width$,$cache_addr_w$];
-          cache0_lines_dirty[qline0_id] = 0;
+          cache0_lines.wdata   = {1b0,qaddr0[$cache_line_width$,$cache_addr_w$]};
+          cache0_lines.wenable = 1;
         } else {
-          cache1_lines_addr[qline1_id] = qaddr1[$cache_line_width$,$cache_addr_w$];
-          cache1_lines_dirty[qline1_id] = 0;
+          cache1_lines.wdata   = {1b0,qaddr1[$cache_line_width$,$cache_addr_w$]};
+          cache1_lines.wenable = 1;
         }
-        $$for l=0,num_cache_lines-1 do
-        // __display("=> cache line %d status 0:@%x(%b) 1:@%x(%b)",$l$,cache0_lines_addr[$l$],cache0_lines_dirty[$l$],cache1_lines_addr[$l$],cache1_lines_dirty[$l$]);
-        $$end
-        update_lines_done = 1;
-        write_cycle       = (|qwen0)|(|qwen1);
-        // __display("cache done.");
+++:     // wait for cache lines bram to be written
+        update_lines_done = 1; // done
+         __display("[%d] cache done.",cycle);
       } else {
         // no cache miss
         // maintain dirty flag
-        cache0_lines_dirty[qline0_id] = cache0_lines_dirty[qline0_id] | (|qwen0);
-        cache1_lines_dirty[qline1_id] = cache1_lines_dirty[qline1_id] | (|qwen1);
+        cache0_lines.wdata   = {(|qwen0),$cache_addr_w$b0} | cache0_lines.rdata;
+        cache0_lines.wenable = 1;
+        cache1_lines.wdata   = {(|qwen1),$cache_addr_w$b0} | cache1_lines.rdata;
+        cache1_lines.wenable = 1;
       }
     }
 
   }
 
   always_after {
-    // note that cache lines have to be updated next cycle (latency helps fmax)
+    // note that cache lines have to be updated next cycle
     update_lines_todo = ~reset & (~cache0_hit|~cache1_hit) & ~update_lines_done;
     update_lines_done = 0;
     // register inputs from memory interfaces: improves fmax and 'free'
@@ -283,6 +292,8 @@ $$end
     qline0_id = line0_id;     qline1_id = line1_id;
     qaddr0    = mem0.addr;    qaddr1    = mem1.addr;
     qwen0     = mem0.wenable; qwen1     = mem1.wenable;
+
+    cycle = cycle + 1;
   }
 
 }
@@ -338,18 +349,7 @@ $$end
   );
 
   // cpu
-/*
-$$if not ICE40 then
-  uint1 clock_test <: clock & ~cache.wait;
-  rv32i_cpu_swirl cpu<@clock_test>( imem <:> mem0io, dmem <:> mem1io );
-$$else
-  uint1 clock_test(0);
-  uint1 clock_en <: cpu_clock & ~cache.wait;
-  sb_gb _(user <: clock_en, buffered :> clock_test);
-  rv32i_cpu_swirl cpu<@clock_test>( imem <:> mem0io, dmem <:> mem1io );
-$$end
-*/
-  rv32i_cpu_swirl cpu( imem <:> mem0io, dmem <:> mem1io, stall_cpu <: cache.wait );
+//  rv32i_cpu_swirl cpu( imem <:> mem0io, dmem <:> mem1io, stall_cpu <: cache.wait );
 
   // io mapping
   always_before {
@@ -365,16 +365,17 @@ $$end
     }
 
 $$if SIMULATION then
-/*
-    // cache test
+  $$if true then
+    // cache tests
     mem0io.wdata   = 32hfaab0123;
-    mem0io.wenable = 4b1100;
+    // mem0io.wenable = 41111;
     if (~cache.wait) {
-      __display("[%d] 0: %x 1: %x",cycle,mem0io.rdata,mem1io.rdata);
-      mem0io.addr    = ((cycle>>2)&1) ? 16384 : 0;
-      mem1io.addr    = mem1io.addr + 19;
+      // mem0io.addr    = ((cycle>>2)&1) ? 16384 : 0;
+      mem0io.addr    = mem0io.addr + 256;
+      mem1io.addr    = mem1io.addr + 128;
+      __display("[%d] 0: %x 1: %x next: 0@%x 1@%x",cycle,mem0io.rdata,mem1io.rdata,mem0io.addr,mem1io.addr);
     }
-*/
+  $$end
     cycle = cycle + 1;
 $$end
   }
