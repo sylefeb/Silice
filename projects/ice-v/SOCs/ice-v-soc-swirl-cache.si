@@ -119,6 +119,7 @@ $$for c=0,1 do
   uint$num_cache_lines_w$ line$c$_id    <: mem$c$.addr[$cache_line_width$,$num_cache_lines_w$];
   uint1                   cache$c$_hit <:: qaddr$c$[$cache_line_width$,$cache_addr_w$]
                                         == cache$c$_lines.rdata[0,$cache_addr_w$];
+  // registers for memory interface inputs
   uint$num_cache_lines_w$ qline$c$_id(0);
   uint$ramW$              qaddr$c$(0);
   uint4                   qwen$c$(0);
@@ -137,10 +138,12 @@ $$end
   uint1 update_lines_done(0);
 
   always_before {
+    // cache lookup
     cache0_lines.addr    = line0_id;
     cache1_lines.addr    = line1_id;
     cache0_lines.wenable = 0;
     cache1_lines.wenable = 0;
+    // ram access
     ram.in_ready         = 0; // maintain low, pulse high to read/write
     ram.init             = 0; // maintain low, pulse high to init
     // default lookup
@@ -152,17 +155,17 @@ $$end
     spram3.addr          = {line1_id,:mem1.addr[0,$cache_line_width$]};
     spram0.wmask         = {{2{mem0.wenable[1,1]}},{2{mem0.wenable[0,1]}}};
     spram1.wmask         = {{2{mem0.wenable[3,1]}},{2{mem0.wenable[2,1]}}};
-    spram0.wenable       = (|mem0.wenable) & (~wait);
-    spram1.wenable       = (|mem0.wenable) & (~wait);
+    spram0.wenable       = (|mem0.wenable) & (cache0_hit);
+    spram1.wenable       = (|mem0.wenable) & (cache0_hit);
     spram0.data_in       = mem0.wdata[ 0,16];
     spram1.data_in       = mem0.wdata[16,16];
     spram2.wmask         = {{2{mem1.wenable[1,1]}},{2{mem1.wenable[0,1]}}};
     spram3.wmask         = {{2{mem1.wenable[3,1]}},{2{mem1.wenable[2,1]}}};
-    spram2.wenable       = (|mem1.wenable) & (~wait);
-    spram3.wenable       = (|mem1.wenable) & (~wait);
+    spram2.wenable       = (|mem1.wenable) & (cache1_hit);
+    spram3.wenable       = (|mem1.wenable) & (cache1_hit);
     spram2.data_in       = mem1.wdata[ 0,16];
     spram3.data_in       = mem1.wdata[16,16];
-    // if both caches miss, raise wait
+    // if both caches missed, raise wait
     wait                 = reset | (~cache0_hit|~cache1_hit);
     //                     ^^^^^ wait during reset too
   }
@@ -217,7 +220,7 @@ $$end
             spram3.addr    = {qline1_id,n[2,$cache_line_width$]};
           }
           ram.wenable  = 0; // stop writting
-          __display(" ");
+          //__display(" ");
         }
         // fetch new line
         uint$ramW$ fetchAddr =
@@ -259,7 +262,7 @@ $$end
             n = n + 1;
           }
         }
-        __display(" ");
+        //__display(" ");
         // update cache register
         if (~cache0_hit) {
           cache0_lines.wdata   = {1b0,qaddr0[$cache_line_width$,$cache_addr_w$]};
@@ -272,11 +275,10 @@ $$end
         update_lines_done = 1; // done
          __display("[%d] cache done.",cycle);
       } else {
-        // no cache miss
-        // maintain dirty flag
-        cache0_lines.wdata   = {(|qwen0),$cache_addr_w$b0} | cache0_lines.rdata;
+        // if no cache miss maintain dirty flag
+        cache0_lines.wdata   = {(|qwen0) & cache0_hit,$cache_addr_w$b0} | cache0_lines.rdata;
         cache0_lines.wenable = 1;
-        cache1_lines.wdata   = {(|qwen1),$cache_addr_w$b0} | cache1_lines.rdata;
+        cache1_lines.wdata   = {(|qwen1) & cache1_hit,$cache_addr_w$b0} | cache1_lines.rdata;
         cache1_lines.wenable = 1;
       }
     }
@@ -368,11 +370,11 @@ $$if SIMULATION then
   $$if true then
     // cache tests
     mem0io.wdata   = 32hfaab0123;
-    // mem0io.wenable = 41111;
+    mem0io.wenable = 4b1111;
     if (~cache.wait) {
       // mem0io.addr    = ((cycle>>2)&1) ? 16384 : 0;
-      mem0io.addr    = mem0io.addr + 256;
-      mem1io.addr    = mem1io.addr + 128;
+      mem0io.addr    = mem1io.addr >> 1;
+      mem1io.addr    = mem1io.addr + 1;
       __display("[%d] 0: %x 1: %x next: 0@%x 1@%x",cycle,mem0io.rdata,mem1io.rdata,mem0io.addr,mem1io.addr);
     }
   $$end
@@ -382,7 +384,7 @@ $$end
 
   algorithm {
 $$if SIMULATION and not BARE then
-	  while (cycle < 50000) { }
+	  while (cycle < 16500) { }
     __display("stopping at cycle %d",cycle);
     //while (1) { }
 $$else
