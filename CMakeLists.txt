@@ -142,6 +142,11 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" AND
     message(FATAL_ERROR "Silice requires g++ 8 at least")
 endif()
 
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=format -Werror=format-security")
+endif()
+
+
 set(STD_FS_LIB "")
 # ==== The test below is based on https://github.com/pybind/pybind11/blob/master/tests/CMakeLists.txt
 # It is under a BSD-style license, see https://github.com/pybind/pybind11/blob/master/LICENSE
