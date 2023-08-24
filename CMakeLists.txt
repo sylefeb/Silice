@@ -143,7 +143,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" AND
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=format -Werror=format-security")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wno-attributes -Wno-deprecated-declarations")
 endif()
 
 
