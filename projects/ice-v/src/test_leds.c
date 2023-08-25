@@ -24,6 +24,7 @@ void main()
     *LEDS = l;
     // for (i=0;i<655360;i++) { asm volatile ("nop;"); }
     for (i=0;i<655360;i++) {  }
+    // for (i=0;i<32;i++) {  }
   }
 
 }

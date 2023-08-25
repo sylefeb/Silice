@@ -8,7 +8,7 @@
 // Clocks
 $$if ICEBREAKER then
 $$ICE40 = 1
-import('../../common/plls/icebrkr_15_lock.v')
+import('../../common/plls/icebrkr_25_lock.v')
 import('../../common/ice40_spram.v')
 import('../../common/ice40_sb_gb.v')
 $$elseif not SIMULATION then
@@ -21,8 +21,9 @@ $$config['bram_wmask_byte_wenable_width'] = 'data'
 $$data_addr = 4096
 $$dofile('pre_include_compiled.lua')
 
-$$addrW = 24
-$$ramW  = 24 -- actual memory address width (<= addrW)
+$$addrW  = 25
+$$periph = addrW - 1
+$$ramW   = 24 -- actual memory address width (<= addrW)
 
 // include the processor
 $$ICEV_FAST_SHIFT = 1
@@ -55,7 +56,7 @@ interface bram_provider
   input   addr,
 }
 
-$$cache_line_width      = 10
+$$cache_line_width      = 8
 $$cache_line_size_words = 1<<cache_line_width
 $$cache_line_size_bytes = 1<<(cache_line_width+2)
 $$num_cache_lines       = 1<<(14-cache_line_width)
@@ -75,6 +76,8 @@ $$       .. ' cache lines of ' .. cache_line_size_words .. ' int32')
 //   code is not loaded/generated and then executed. Otherwiwe a software
 //   cache flush is required.
 // TODO: Implement a mechanism to avoid this issue.
+// NOTE: when writting, the read value is undertermined (it will be either the
+//       previously stored value or if a cache line was update the written one)
 //
 unit cache(
   // bram interfaces
@@ -334,7 +337,7 @@ $$end
 	uint$addrW$ prev_mem_addr(0);
 	uint1       prev_mem_rw(0);
 $$if SIMULATION then
-   uint32 cycle(0);
+   uint32 cycle(0);  uint32 last_cycle(0);
 $$end
 
 $$if VERILATOR then
@@ -350,24 +353,40 @@ $$end
     mem0    <:> mem0io,     mem1    <:> mem1io,
   );
 
+  // in-the-middle data interface for peripheral mapping
+  bram_io data;
+
   // cpu
-//  rv32i_cpu_swirl cpu( imem <:> mem0io, dmem <:> mem1io, stall_cpu <: cache.wait );
+  rv32i_cpu_swirl cpu( imem <:> mem0io, dmem <:> data, stall_cpu <: cache.wait );
 
   // io mapping
   always_before {
-    // ---- memory mapping to peripherals: writes
-    if (mem1io.wenable != 0 & mem1io.addr[11,1] & ~cache.wait) {
-      leds      = mem1io.wdata[0,5] & {5{mem1io.addr[0,1]}};
+    // ---- memory mapping, masking away peripherals
+    uint1 on_periph = data.addr[$periph$,1];
+    mem1io.wenable  = on_periph ? 0 : data.wenable;
+    mem1io.wdata    = data.wdata;
+    mem1io.addr     = on_periph ? mem1io.addr : data.addr;
+    data.rdata      = mem1io.rdata;
+    // ---- peripherals
 $$if SIMULATION then
-      if (mem1io.addr[0,1]) {
-        __display("[cycle %d] LEDs: %b (%d)",cycle,leds,mem1io.wdata);
-        if (mem1io.wdata == 32hffffffff) { __finish(); }
+    if (mem1io.wenable != 0) {
+      // __display("[cycle %d] write %x @%x",cycle,mem1io.wdata,mem1io.addr);
+    }
+$$end
+    if ((data.wenable != 0) & on_periph) {
+      leds      = data.wdata[0,5] & {5{data.addr[0,1]}};
+$$if SIMULATION then
+      if (data.addr[0,1]) {
+        __display("[cycle %d (%d)] LEDs: %b (%d)",cycle,cycle - last_cycle,leds,data.wdata);
+        last_cycle = cycle;
+        if (data.wdata == 32hffffffff) { __finish(); }
       }
 $$end
     }
 
 $$if SIMULATION then
-  $$if true then
+/*
+  $$if false then
     // cache tests
     mem0io.wdata   = 32hfaab0123;
     mem0io.wenable = 4b1111;
@@ -378,13 +397,14 @@ $$if SIMULATION then
       __display("[%d] 0: %x 1: %x next: 0@%x 1@%x",cycle,mem0io.rdata,mem1io.rdata,mem0io.addr,mem1io.addr);
     }
   $$end
+*/
     cycle = cycle + 1;
 $$end
   }
 
   algorithm {
 $$if SIMULATION and not BARE then
-	  while (cycle < 16500) { }
+	  while (cycle < 35000) { }
     __display("stopping at cycle %d",cycle);
     //while (1) { }
 $$else
