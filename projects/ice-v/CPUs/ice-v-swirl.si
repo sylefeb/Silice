@@ -244,21 +244,23 @@ $$end
       // [data hazards] case (c) detection
       // instruction in stage 3 will write on a register used now
       // (checks with exec.rd and exec.write_rd as seen in stage 3)
-      if (~stall_cpu) {
-        if (~hold) {
-          uint1     rs1_eq_rd(0); // is rs1 equal to rd from stage 3?
-          uint1     rs2_eq_rd(0); // is rs2 equal to rd from stage 3?
-          rs1_eq_rd =  Rtype(instr).rs1 == exec.write_rd;
-          rs2_eq_rd = (Rtype(instr).rs2 == exec.write_rd) & has_rs2;
-          //                   not all instructions use rs2 ^^^^^^^
-          // on such a data hazard we hold the pipeline one cycle
+      if (~hold) {
+        uint1     rs1_eq_rd(0); // is rs1 equal to rd from stage 3?
+        uint1     rs2_eq_rd(0); // is rs2 equal to rd from stage 3?
+        rs1_eq_rd =  Rtype(instr).rs1 == exec.write_rd;
+        rs2_eq_rd = (Rtype(instr).rs2 == exec.write_rd) & has_rs2;
+        //                   not all instructions use rs2 ^^^^^^^
+        // on such a data hazard we hold the pipeline one cycle
+        if (~stall_cpu) {
           hold      = (rs1_eq_rd|rs2_eq_rd) & ~exec.no_rd
                     // all the conditions below mean there is in fact no hazard
                     & ~stage3_bubble & ~reset & ~refetch & ~exec.working;
-        } else {
-          // holding, keep the same values on ALU inputs     vvvv
-          xa_regR = 0; xa_regW = 0; xa_regW_prev = 0; xa_keep = 1;
-          xb_regR = 0; xb_regW = 0; xb_regW_prev = 0; xb_keep = 1;
+        }
+      } else {
+        // holding, keep the same values on ALU inputs     vvvv
+        xa_regR = 0; xa_regW = 0; xa_regW_prev = 0; xa_keep = 1;
+        xb_regR = 0; xb_regW = 0; xb_regW_prev = 0; xb_keep = 1;
+        if (~stall_cpu) {
           hold    = 0; // release the hold
         }
       }
@@ -304,9 +306,9 @@ $$end
       // (checks with rd and write_rd from stage 4)
       if (~no_rd &  Rtype(instr).rs1 == rd) {
 $$if DEBUG_swirl then
-      if (~stall_cpu) {
-        __display("[2] *** data hazard (b) on rs1 *** rs1[%d] rs2[%d] rd(stage4)[%d]",Rtype(instr).rs1,Rtype(instr).rs2,rd);
-      }
+        if (~stall_cpu) {
+          __display("[2] *** data hazard (b) on rs1 *** rs1[%d] rs2[%d] rd(stage4)[%d]",Rtype(instr).rs1,Rtype(instr).rs2,rd);
+        }
 $$end
         xa_regR = 0; xa_regW = 1; xa_regW_prev = 0; xa_keep = 0;
       }
@@ -347,14 +349,24 @@ $$else
       dmem.addr  = (exec.store|exec.load)&~bubble&~stall_cpu ? (exec.n >> 2) : dmem.addr;
       // ^^ if a cache is used, we preserve dmem.addr when not accessing dmem
 $$end
-      if (exec.store & ~bubble & ~jumping) {
-        //                        ^^^^^^ if stage 4 jumps, cancel store
-        // build write mask depending on SB, SH, SW
-        // assumes aligned, e.g. SW => next_addr[0,2] == 2
-        dmem.wenable = ( { { 2{exec.op[0,2]==2b10} },
-                           exec.op[0,1] | exec.op[1,1], 1b1
-                         } ) << exec.n[0,2];
+      //if (stall_cpu) {
+      //  __display("[3] instr: %x @%x (exec.store:%b bubble:%b jumping:%b)",instr,pc<<2,exec.store,bubble,jumping);
+      //}
+      uint4 prev_wenable(0);
+      if (stall_cpu) {
+        // maintain wenable if stalled
+        dmem.wenable = prev_wenable;
+      } else {
+        if (exec.store & ~bubble & ~jumping) {
+          //                        ^^^^^^ if stage 4 jumps, cancel store
+          // build write mask depending on SB, SH, SW
+          // assumes aligned, e.g. SW => next_addr[0,2] == 2
+          dmem.wenable = ( { { 2{exec.op[0,2]==2b10} },
+                            exec.op[0,1] | exec.op[1,1], 1b1
+                          } ) << exec.n[0,2];
+        }
       }
+      prev_wenable   = dmem.wenable;
       if (~stall_cpu) {
         // decoder outputs to trickle down the pipeline towards stage 4
         no_rd      = exec.no_rd | bubble;
@@ -418,6 +430,7 @@ $$end
       //                 ^^^^^^ reset refetch if done at prev cycle
       jumping         ^= refetch;
       refetch_addr     = jump ? (alu_n>>2) : pcp1; // new address if jumping
+      exec.cancel      = refetch; // cancel any pending ALU op
 
 $$if DEBUG_swirl then
       if (~stall_cpu) {
@@ -494,7 +507,7 @@ unit decode_and_ALU_swirl(
   // instruction, program counter and registers
   input  uint32 instr,   input  uint$addrW$ pc, input int32 xa, input int32 xb,
   // trigger: pulsed high when the decoder + ALU should start
-  input  uint1  trigger,
+  input  uint1  trigger, input uint1 cancel,
   // outputs all information the processor needs to decide what to do next
   output! uint3  op,    output! uint5  write_rd, output!  uint1  no_rd,
   output! uint1  jump,  output! uint1  load,     output!  uint1  store,
@@ -576,6 +589,7 @@ $$if not ICEV_FAST_SHIFT then
                         : {__signed(1b0),r[1,31]}) : {r[0,31],__signed(1b0)};
       }
     }
+    if (cancel) { shamt = 0; }
     working = (shamt != 0);
 $$end
     // all ALU operations
@@ -594,6 +608,9 @@ $$end
     }
     // ====================== Mul Div
 $$if ICEV_MULDIV then
+$$  if not ICEV_FAST_SHIFT then
+$$    error('ICEV_MULDIV requires ICEV_FAST_SHIFT')
+$$  end
     // mul div
     if (muldiv) {
       //__display("[cycle %d] dividing:%b working:%b isdone(div):%b",cycle,dividing,working,isdone(div));
@@ -603,17 +620,21 @@ $$if ICEV_MULDIV then
           r        = xa * xb;
         }
         case 3b100: { // DIV
-          if (~working & ~dividing & trigger) {
-            // __display("[cycle %d] DIVISION trigger",cycle);
+          if (trigger) {
+            $$if DEBUG_swirl then
+            __display("[cycle %d] DIVISION trigger",cycle);
+            $$end
             working  = 1;
             dividing = 1;
             div <- (xa,xb);
           } else {
             if (isdone(div) & dividing) {
-              // __display("[cycle %d] DIVISION %d / %d = %d",cycle,
-              //            div.inum,div.iden,div.ret);
-              dividing    = 0;
-              working     = 0;
+              $$if DEBUG_swirl then
+              __display("[cycle %d] DIVISION %d / %d = %d",cycle,
+                          div.inum,div.iden,div.ret);
+              $$end
+              dividing = 0;
+              working  = 0;
             }
           }
           r        = div.ret;
@@ -623,6 +644,7 @@ $$if ICEV_MULDIV then
     } else {
 		  dividing = 0;
 		}
+    if (cancel) { working = 0; dividing = 0; }
 $$end
     // ====================== Comparator for branching
     switch (op[1,2]) {

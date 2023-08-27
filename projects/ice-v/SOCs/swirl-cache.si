@@ -100,16 +100,18 @@ $$end
 
   uint1 update_lines_todo(0);
   uint1 update_lines_done(0);
+  uint1 write_cycle(0);
 
   always_before {
-    /*
+/*
     __display("[%d] >> cache status in: @%x|@%x q: @%x|@%x miss: %b|%b ln: %x|%x",
                 cycle,mem0.addr<<2,mem1.addr<<2,
                 qaddr0<<2,qaddr1<<2,
                 ~cache0_hit,~cache1_hit,
                 cache0_lines.rdata, cache1_lines.rdata);
     __display("[%d] >> cache status in: todo: %b",cycle,update_lines_todo);
-    */
+    __display("[%d] >> cache status in: wen1: %b wdata:%x",cycle,mem1.wenable,mem1.wdata);
+*/
     // cache lookup
     cache0_lines.addr    = line0_id;
     cache1_lines.addr    = line1_id;
@@ -138,8 +140,9 @@ $$end
     spram2.data_in       = mem1.wdata[ 0,16];
     spram3.data_in       = mem1.wdata[16,16];
     // if both caches missed, raise wait
-    wait                 = reset | ~cache0_hit | ~cache1_hit;
-    //                     ^^^^^ wait during reset too
+    wait                 = reset | ~cache0_hit | ~cache1_hit | write_cycle;
+    //                     ^^^^^ wait during reset too         ^^^^^^^^^^^
+    write_cycle          = 0; // additional cycle for writes, after an update
     //if (~cache0_hit | ~cache1_hit) {
     //  __display("[%d] >> cache miss %b|%b %x|%x",cycle,~cache0_hit,~cache1_hit,qaddr0<<2,qaddr1<<2);
     //}
@@ -248,7 +251,8 @@ $$end
         }
 ++:     // wait for cache lines bram to be written
         update_lines_done = 1; // done
-         __display("[%d] cache done.",cycle);
+        write_cycle = 1; // TODO: only if indeed writing ...
+        __display("[%d] cache done.",cycle);
       } else {
         // if no cache miss maintain dirty flag
         cache0_lines.wdata   = {(|qwen0) & cache0_hit,$cache_addr_w$b0} | cache0_lines.rdata;

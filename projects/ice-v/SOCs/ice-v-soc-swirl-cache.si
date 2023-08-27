@@ -113,7 +113,7 @@ $$end
     // ---- peripherals
 $$if SIMULATION then
     if ((data.wenable != 0) & ~on_periph) {
-      __display("[cycle %d] write %x @%x",cycle,data.wdata,data.addr);
+    //  __display("[cycle %d] write %x @%x",cycle,data.wdata,data.addr);
     }
 $$end
     if ((data.wenable != 0) & on_periph) {
@@ -153,9 +153,9 @@ $$end
 
   algorithm {
 $$if SIMULATION and not BARE then
-    while (1) { }
-	  //while (cycle < 15000) { }
-    //__display("stopping at cycle %d",cycle);
+    //while (1) { }
+	  while (cycle < 15000) { }
+    __display("stopping at cycle %d",cycle);
 $$else
     while (1) { }
 $$end
