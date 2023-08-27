@@ -152,12 +152,13 @@ $$end
       leds      = mem.wdata[0,5] & {5{memio.addr[0,1]}};
 $$if SIMULATION then
       if (memio.addr[0,1]) {
-        __display("[cycle %d] LEDs: %b (%d)",cycle,leds,mem.wdata);
         if (mem.wdata == 32hffffffff) { __finish(); }
+        // __display("[cycle %d] LEDs: %b (%d)",cycle,leds,mem.wdata);
+        else { __write("%c",mem.wdata[0,8]); }
       }
 $$end
 $$if OLED then
-      // if (memio.addr[1,1]) { __display("[cycle %d] OLED: byte %x",cycle,displ_byte); }
+      if (memio.addr[1,1]) { __display("[cycle %d] OLED: byte %x",cycle,displ_byte); }
       // command
       displ_en     = (mem.wdata[9,1] | mem.wdata[10,1]) & memio.addr[1,1];
       // reset
