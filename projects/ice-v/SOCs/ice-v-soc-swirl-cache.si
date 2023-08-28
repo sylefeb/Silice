@@ -15,6 +15,9 @@ $$elseif not SIMULATION then
 $$error('This SOC does not support the selected board.')
 $$end
 
+$$uart_in_clock_freq_mhz = 25
+$include('../../common/uart.si')
+
 $$config['bram_wmask_byte_wenable_width'] = 'data'
 
 $$addrW  = 25
@@ -60,6 +63,8 @@ $$if not VERILATOR then
   output  uint1 ram_clk,
   output  uint1 ram_csn,
   output  uint2 ram_bank(2b00),
+  input   uint1 uart_rx,
+  output  uint1 uart_tx,
 $$end
 )
 $$if not SIMULATION then
@@ -102,15 +107,22 @@ $$end
   // cpu
   rv32i_cpu_swirl cpu( imem <:> mem0io, dmem <:> data, stall_cpu <: cache.wait );
 
+  // uart
+  uart_out uo;
+$$if not SIMULATION then
+  uart_sender usend(io <:> uo,uart_tx :> uart_tx);
+$$end
+
   // io mapping
   always_before {
     // ---- memory mapping, masking away peripherals
-    uint1 on_periph = data.addr[$periph$,1];
-    mem1io.wenable  = on_periph ? 0 : data.wenable;
-    mem1io.wdata    = data.wdata;
-    mem1io.addr     = on_periph ? mem1io.addr : data.addr;
-    data.rdata      = mem1io.rdata;
+    uint1 on_periph  = data.addr[$periph$,1];
+    mem1io.wenable   = on_periph ? 0 : data.wenable;
+    mem1io.wdata     = data.wdata;
+    mem1io.addr      = on_periph ? mem1io.addr : data.addr;
+    data.rdata       = mem1io.rdata;
     // ---- peripherals
+    uo.data_in_ready = 0; // maintain low, pulse high to send
 $$if SIMULATION then
     if ((data.wenable != 0) & ~on_periph) {
     //  __display("[cycle %d] write %x @%x",cycle,data.wdata,data.addr);
@@ -128,7 +140,13 @@ $$if SIMULATION then
           last_cycle = cycle;
 $$end
         }
-        case 2: { __write("%c",data.wdata[0,8]); }
+        case 2: {
+          uo.data_in       = data.wdata[0,8];
+          uo.data_in_ready = 1;
+$$if SIMULATION then
+          __write("%c",data.wdata[0,8]);
+$$end
+        }
       }
       }
     }
@@ -153,9 +171,9 @@ $$end
 
   algorithm {
 $$if SIMULATION and not BARE then
-    //while (1) { }
-	  while (cycle < 15000) { }
-    __display("stopping at cycle %d",cycle);
+    while (1) { }
+	  //while (cycle < 15000) { }
+    //__display("stopping at cycle %d",cycle);
 $$else
     while (1) { }
 $$end

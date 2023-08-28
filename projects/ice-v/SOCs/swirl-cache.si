@@ -89,7 +89,9 @@ $$for c=0,1 do
   uint4                   qwen$c$(0);
 $$end
 
+$$if SIMULATION then
   uint32 cycle(0);
+$$end
 
   // external RAM
   qpsram_ram ram(
@@ -158,7 +160,9 @@ $$end
     while (1) {
       if (update_lines_todo) {
         // there is a pending cache miss
+$$if SIMULATION then
         __display("[%d] => cache miss %b|%b %x|%x",cycle,~cache0_hit,~cache1_hit,qaddr0<<2,qaddr1<<2);
+$$end
         // if line is dirty, store back
         //                  vvvvv start by cache0, then cache1
         uint1 line_dirty = ~cache0_hit ? cache0_lines.rdata[$cache_addr_w$,1]
@@ -169,7 +173,9 @@ $$end
             ~cache0_hit ? {cache0_lines.rdata,$cache_line_width$b0}
                         : {cache1_lines.rdata,$cache_line_width$b0};
           uint$cache_line_width+2+1$ n = 0;
+$$if SIMULATION then
           __display("[%d] => [cache %b] writing at @%x from line %d",cycle,cache0_hit,storeAddr,~cache0_hit ? qline0_id : qline1_id);
+$$end
           // write start addr
           ram.addr       = storeAddr;
           while (~n[$cache_line_width+2$,1]) {
@@ -207,8 +213,10 @@ $$end
                       : {qaddr1[$cache_line_width$,$cache_addr_w$],
                                 $cache_line_width$b0};
         uint$cache_line_width+2+1$ n = 0;
+$$if SIMULATION then
         __display("[%d] +> cache miss %b|%b %x|%x",cycle,~cache0_hit,~cache1_hit,qaddr0<<2,qaddr1<<2);
         __display("[%d] => [cache %b] fetching from @%x in line %d",cycle,cache0_hit,fetchAddr,~cache0_hit ? qline0_id : qline1_id);
+$$end
         ram.in_ready = 1;
         ram.addr     = fetchAddr;
         while (~n[$cache_line_width+2$,1]) {
@@ -252,7 +260,9 @@ $$end
 ++:     // wait for cache lines bram to be written
         update_lines_done = 1; // done
         write_cycle = 1; // TODO: only if indeed writing ...
+$$if SIMULATION then
         __display("[%d] cache done.",cycle);
+$$end
       } else {
         // if no cache miss maintain dirty flag
         cache0_lines.wdata   = {(|qwen0) & cache0_hit,$cache_addr_w$b0} | cache0_lines.rdata;
@@ -284,7 +294,9 @@ $$end
                 );
     __display("[%d] >> cache status out: todo: %b",cycle,update_lines_todo);
     */
+$$if SIMULATION then
     cycle = cycle + 1;
+$$end
   }
 
 }
