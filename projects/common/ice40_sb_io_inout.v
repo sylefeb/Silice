@@ -7,7 +7,7 @@ module sb_io_inout #(parameter TYPE=6'b1101_00) (
   );
 
   SB_IO #(
-    .PIN_TYPE(TYPE) // 1100_00
+    .PIN_TYPE(TYPE)
   ) sbio (
       .PACKAGE_PIN(pin),
 			.OUTPUT_ENABLE(oe),

@@ -102,8 +102,8 @@ $$end
   );
 
 $$if ICE40 then
-  uint2 slot_zero(2b00);
-  ice40_warmboot wboot(slot <: slot_zero);
+  uint2 slot_boot(2b01);
+  ice40_warmboot wboot(slot <: slot_boot);
 $$end
 
   uint1  enabled(0);
