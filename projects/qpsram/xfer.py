@@ -20,9 +20,18 @@ if op == 'w':
   print("writing")
 elif op == 'r':
   print("reading")
+elif op == 'b':
+  print("reboot")
 else:
   print("unknown command ",op)
-  os.exit(-1)
+  sys.exit()
+
+# if boot, send it now
+packet = bytearray()
+if op == 'b':
+  packet.append(0xE5)
+  ser.write(packet)
+  sys.exit()
 
 # address
 addr = int(sys.argv[3], 0)
@@ -37,7 +46,6 @@ elif op == 'w':
 print("size is         ",size)
 
 # send start tag
-packet = bytearray()
 if op == 'w':
   packet.append(0xD5)
 else:
