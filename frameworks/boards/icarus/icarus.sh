@@ -33,7 +33,7 @@ rm build* trace.fst trace.fst.hier
 
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
 
-iverilog -o build -pfileline=1 build.v
+iverilog -g2012 -o build -pfileline=1 build.v
 vvp build -fst
 
 echo "===================================="

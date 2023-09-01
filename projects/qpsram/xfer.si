@@ -9,6 +9,13 @@
 
 $$ bank_width = 23
 
+$$if SIMULATION then
+$$print("simulating ICE40 cells")
+$$ICE40_SIMULATION = 1
+$$ICE40 = 1
+append('../../tools/fpga-binutils/mingw64/bin/share/ice40/cells_sim.v')
+$$end
+
 $$if ICESTICK then
   import('../common/plls/icestick_100.v')
   $$uart_in_clock_freq_mhz = 100
@@ -26,6 +33,8 @@ $$elseif ULX3S then
 $$elseif BROT then
   import('../common/plls/brot_50_lock.v')
   $$uart_in_clock_freq_mhz = 50
+$$else
+  $$uart_in_clock_freq_mhz = 100
 $$end
 
 $$if ICE40 then
@@ -35,7 +44,7 @@ $$end
 
 $include('../common/qpsram2x.si')
 
-$$uart_bauds = 500000
+$$uart_bauds = 115200 -- 500000
 $include('../common/uart.si')
 
 unit main(
@@ -133,6 +142,20 @@ $$for bank=0,3 do
     ram_bank = $bank$;
     ram.init = 1;
     while (ram.busy) {}
+$$end
+
+$$if SIMULATION then
+    // test
+    ram.addr     = {1b1,{$bank_width${1b1}}};
+    ram_bank     = 2b00;
+    ram.in_ready = 1;
+    ram.wdata    = 8h55;
+    ram.wenable  = 1;
+    while (ram.busy) {}
+++:
+++:
+++:
+    __finish();
 $$end
 
     while (1) {

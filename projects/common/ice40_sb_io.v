@@ -11,7 +11,7 @@ module sb_io(
   ) sbio (
       .PACKAGE_PIN(pin),
       .D_OUT_0(out),
-      .OUTPUT_CLK(clock),
+      .OUTPUT_CLK(clock)
   );
 
 endmodule
