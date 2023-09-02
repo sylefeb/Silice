@@ -37,8 +37,9 @@ $$cache_addr_w          = ramW-cache_line_width
 $$print('<<cache configuration>> ' .. num_cache_lines
 $$       .. ' cache lines of ' .. cache_line_size_words .. ' int32')
 
-// ==== cache unit ====
-//
+// --------------------------------------------------
+// cache unit
+// --------------------------------------------------
 unit cache(
   // bram interfaces
   bram_provider mem0,
@@ -46,7 +47,9 @@ unit cache(
   // wait goes high when cache cannot answer immediately
   // this happens the cycle after the missed address is set
   output! uint1 wait(1),
-  // qpsram io
+  // clock 2x for ram
+  input uint1  clock2x,
+  // ram io
   inout   uint1 ram_io0,  inout   uint1 ram_io1,
   inout   uint1 ram_io2,  inout   uint1 ram_io3,
   output  uint1 ram_clk,  output  uint1 ram_csn,
@@ -94,11 +97,13 @@ $$if SIMULATION then
 $$end
 
   // external RAM
-  qpsram_ram ram(
+  qpsram_ram ram<@clock2x>(
     ram_csn  :> ram_csn,    ram_clk  :> ram_clk,
     ram_io0 <:> ram_io0,    ram_io1 <:> ram_io1,
     ram_io2 <:> ram_io2,    ram_io3 <:> ram_io3,
   );
+  uint8 reg_ram_rdata(0);
+  uint8 reg_ram_datanext(0);
 
   uint1 update_lines_todo(0);
   uint1 update_lines_done(0);
@@ -191,7 +196,7 @@ $$end
                         ? {spram1.data_out,spram0.data_out} >> {n[0,2],3b0}
                         : {spram3.data_out,spram2.data_out} >> {n[0,2],3b0};
             // next?
-            if (ram.data_next) {
+            if (reg_ram_datanext) {
               //__write("%x,",ram.wdata);
               // next
               n = n + 1;
@@ -221,9 +226,9 @@ $$end
         ram.addr     = fetchAddr;
         while (~n[$cache_line_width+2$,1]) {
           ram.in_ready = 1;
-          if (ram.data_next) {
+          if (reg_ram_datanext) {
             uint4  wmask   = 2b11 << {n[0,1],1b0};
-            uint16 wdata   = ram.rdata << {n[0,1],3b0};
+            uint16 wdata   = reg_ram_rdata << {n[0,1],3b0};
             //__write("%x,",ram.rdata);
             // cache 0
             spram0.addr    = {qline0_id,n[2,$cache_line_width$]};
@@ -283,6 +288,9 @@ $$end
     qline0_id = line0_id;     qline1_id = line1_id;
     qaddr0    = mem0.addr;    qaddr1    = mem1.addr;
     qwen0     = mem0.wenable; qwen1     = mem1.wenable;
+    // cross clock domain
+    reg_ram_rdata    = ram.rdata;
+    reg_ram_datanext = ram.data_next;
     /*
     __display("[%d] >> cache status out: @%x|@%x q: @%x|@%x miss: %b|%b ln: %x|%x ln@: %x|%x  lnw: %b|%b",
                 cycle,mem0.addr<<2,mem1.addr<<2,
@@ -300,3 +308,5 @@ $$end
   }
 
 }
+
+// --------------------------------------------------

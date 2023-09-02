@@ -18,16 +18,9 @@ void f_putchar(int c)
 void main()
 {
   int n = 0;
-  //print_string("hello world");
   // for (int i = 0 ; i < 32 ; ++i) {
   while (1) {
     printf("hello world %d\n",n+=13);
   }
-  //printf("hello world %x\n",n++);
-  //printf("hello world %x\n",n++);
-
-  //f_putchar('A');
-  //f_putchar('B');
-  //f_putchar('C');
   *LEDS = 0xffffffff;
 }
