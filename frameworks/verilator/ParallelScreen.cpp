@@ -115,7 +115,7 @@ void ParallelScreen::cmd_idle_ILI9341()
 void ParallelScreen::cmd_mode_ILI9341()
 {
   if (m_byte != 0x55) {
-    fprintf(stderr,"ParallelScreen error, only supported mode on ILI9341 is 16 bits per pixel\n");
+    fprintf(stderr,"ParallelScreen error, only supported mode on ILI9341 is 16 bits per pixel (got 0x%x, expected 0x55)\n");
     exit(-1);
   }
   set_idle();

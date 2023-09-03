@@ -182,7 +182,7 @@ $$if SIMULATION then
           __display("[%d] => [cache %b] writing at @%x from line %d",cycle,cache0_hit,storeAddr,~cache0_hit ? qline0_id : qline1_id);
 $$end
           // write start addr
-          ram.addr       = storeAddr;
+          ram.addr       = {storeAddr,2b00};
           while (~n[$cache_line_width+2$,1]) {
             // maintain write status
             ram.in_ready = 1;
@@ -223,13 +223,13 @@ $$if SIMULATION then
         __display("[%d] => [cache %b] fetching from @%x in line %d",cycle,cache0_hit,fetchAddr,~cache0_hit ? qline0_id : qline1_id);
 $$end
         ram.in_ready = 1;
-        ram.addr     = fetchAddr;
+        ram.addr     = {fetchAddr,2b00};
         while (~n[$cache_line_width+2$,1]) {
           ram.in_ready = 1;
           if (reg_ram_datanext) {
             uint4  wmask   = 2b11 << {n[0,1],1b0};
             uint16 wdata   = reg_ram_rdata << {n[0,1],3b0};
-            //__write("%x,",ram.rdata);
+            // __write("%x,",ram.rdata);
             // cache 0
             spram0.addr    = {qline0_id,n[2,$cache_line_width$]};
             spram1.addr    = {qline0_id,n[2,$cache_line_width$]};
@@ -253,7 +253,7 @@ $$end
             n = n + 1;
           }
         }
-        //__display(" ");
+        // __display(" ");
         // update cache register
         if (~cache0_hit) {
           cache0_lines.wdata   = {1b0,qaddr0[$cache_line_width$,$cache_addr_w$]};
