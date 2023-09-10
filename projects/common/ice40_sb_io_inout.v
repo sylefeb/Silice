@@ -1,3 +1,6 @@
+`ifndef ICE40_SB_IO_INOUT
+`define ICE40_SB_IO_INOUT
+
 module sb_io_inout #(parameter TYPE=6'b1101_00) (
   input        clock,
 	input        oe,
@@ -18,5 +21,7 @@ module sb_io_inout #(parameter TYPE=6'b1101_00) (
   );
 
 endmodule
+
+`endif
 
 // http://www.latticesemi.com/~/media/LatticeSemi/Documents/TechnicalBriefs/SBTICETechnologyLibrary201504.pdf

@@ -1,3 +1,6 @@
+`ifndef ICE40_SB_IO_IN_DDR_8
+`define ICE40_SB_IO_IN_DDR_8
+
 module sb_io_in_ddr_8(
   input        clock,
 	output [7:0] in,
@@ -13,5 +16,7 @@ module sb_io_in_ddr_8(
   );
 
 endmodule
+
+`endif
 
 // http://www.latticesemi.com/~/media/LatticeSemi/Documents/TechnicalBriefs/SBTICETechnologyLibrary201504.pdf

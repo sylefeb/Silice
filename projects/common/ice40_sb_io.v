@@ -1,3 +1,6 @@
+`ifndef ICE40_SB_IO
+`define ICE40_SB_IO
+
 module sb_io(
   input        clock,
   input        out,
@@ -15,5 +18,7 @@ module sb_io(
   );
 
 endmodule
+
+`endif
 
 // http://www.latticesemi.com/~/media/LatticeSemi/Documents/TechnicalBriefs/SBTICETechnologyLibrary201504.pdf
