@@ -3,7 +3,8 @@
 
 module sb_io_in_ddr(
   input  clock,
-	output in,
+	output in0,
+	output in1,
   input  pin
   );
 
@@ -11,7 +12,8 @@ module sb_io_in_ddr(
     .PIN_TYPE(6'b0000_00)
   ) sbio (
       .PACKAGE_PIN(pin),
-			.D_IN_0(in),
+      .D_IN_0(in0),
+			.D_IN_1(in1),
       .INPUT_CLK(clock)
   );
 

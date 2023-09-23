@@ -172,6 +172,7 @@ void ParallelScreen::cmd_write_ram()
     m_rgb[0] <<= 3;      m_rgb[1] <<= 2;      m_rgb[2] <<= 3;
     m_framebuffer.pixel<LibSL::Memory::Array::Wrap>(
                                 m_x_cur,m_y_cur) = m_rgb;
+    m_framebuffer_changed = true; // update every pixel
   }
   ++m_step;
   if (m_step > 2) {

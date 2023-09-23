@@ -3,9 +3,9 @@
 // https://github.com/sylefeb/Silice
 // @sylefeb 2019
 
-$$VGA_800_600   = nil
+$$VGA_800_600   = 1
 $$VGA_1024_768  = nil
-$$VGA_1920_1080 = 1
+$$VGA_1920_1080 = nil
 
 // VGA driver
 $include('../common/vga.si')

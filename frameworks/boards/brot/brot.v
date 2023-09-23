@@ -230,16 +230,35 @@ M_main __main(
   .out_uart_tx(GPIO0),
   .in_uart_rx(GPIO1),
 `endif
+// -----------------------------------------------------------------------------
+/*
+PMOD com wiring:
+out fpga     in fpga
+PMOD_B10 <-> PMOD_A1
+PMOD_B9  <-> PMOD_A2
+PMOD_B8  <-> PMOD_A3
+PMOD_B7  <-> PMOD_A4
+PMOD_B4  <-> PMOD_A7
+PMOD_B3  <-> PMOD_A8
+PMOD_B2  <-> PMOD_A9
+
+PMOD_A3  <-> PMOD_B4
+PMOD_A4  <-> PMOD_B3
+
+PMOD_A8 is on a global buffer on the 'in fpga' and has to be used for the clock
+
+*/
 `ifdef PMOD_COM_OUT
-  .out_com_data({PMOD_B10,PMOD_B9,PMOD_B8,PMOD_B7,PMOD_B4,PMOD_B3,PMOD_B2,PMOD_B1}),
-  .out_com_clock(PMOD_A3),
+  .out_com_data({PMOD_B10,PMOD_B9,PMOD_B8,PMOD_B7,PMOD_B4,PMOD_A3,PMOD_B2,PMOD_B1}),
+  .out_com_clock(PMOD_B3),
   .out_com_valid(PMOD_A4),
 `endif
 `ifdef PMOD_COM_IN
-  .in_com_data({PMOD_A1,PMOD_A2,PMOD_A3,PMOD_A4,PMOD_A7,PMOD_A8,PMOD_A9,PMOD_A10}),
-  .in_com_clock(PMOD_B4),
+  .in_com_data({PMOD_A1,PMOD_A2,PMOD_A3,PMOD_A4,PMOD_A7,PMOD_B4,PMOD_A9,PMOD_A10}),
+  .in_com_clock(PMOD_A8),
   .in_com_valid(PMOD_B3),
 `endif
+// -----------------------------------------------------------------------------
 `ifdef PMOD_DSPI
   .out_sf_csn(PMOD_A7),
   .inout_sf_io0(PMOD_A8),

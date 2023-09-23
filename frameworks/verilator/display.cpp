@@ -54,6 +54,24 @@ std::mutex g_Mutex;         // Mutex to lock the chip during rendering
 
 // ----------------------------------------------------------------------------
 
+void refresh()
+{
+  glTexSubImage2D( GL_TEXTURE_2D,0,0,0,
+                g_Chip->framebuffer().w(),g_Chip->framebuffer().h(),
+                GL_RGBA,GL_UNSIGNED_BYTE,
+                g_Chip->framebuffer().pixels().raw());
+  glBegin(GL_QUADS);
+  glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f, 0.0f);
+  glTexCoord2f(1.0f, 0.0f); glVertex2f(1.0f, 0.0f);
+  glTexCoord2f(1.0f, 1.0f); glVertex2f(1.0f, 1.0f);
+  glTexCoord2f(0.0f, 1.0f); glVertex2f(0.0f, 1.0f);
+  glEnd();
+  // swap buffers
+  glutSwapBuffers();
+}
+
+// ----------------------------------------------------------------------------
+
 void simul()
 {
 #ifdef TRACE_FST
@@ -92,18 +110,7 @@ void render()
   // has the framebuffer changed?
   if (g_Chip->framebufferChanged()) {
     // yes: refresh frame
-    glTexSubImage2D( GL_TEXTURE_2D,0,0,0,
-                  g_Chip->framebuffer().w(),g_Chip->framebuffer().h(),
-                  GL_RGBA,GL_UNSIGNED_BYTE,
-                  g_Chip->framebuffer().pixels().raw());
-    glBegin(GL_QUADS);
-    glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f, 0.0f);
-    glTexCoord2f(1.0f, 0.0f); glVertex2f(1.0f, 0.0f);
-    glTexCoord2f(1.0f, 1.0f); glVertex2f(1.0f, 1.0f);
-    glTexCoord2f(0.0f, 1.0f); glVertex2f(0.0f, 1.0f);
-    glEnd();
-    // swap buffers
-    glutSwapBuffers();
+    refresh();
   }
   // ask glut to immediately redraw
   glutPostRedisplay();
