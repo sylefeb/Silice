@@ -246,7 +246,6 @@ PMOD_A3  <-> PMOD_B4
 PMOD_A4  <-> PMOD_B3
 
 PMOD_A8 is on a global buffer on the 'in fpga' and has to be used for the clock
-
 */
 `ifdef PMOD_COM_OUT
   .out_com_data({PMOD_B10,PMOD_B9,PMOD_B8,PMOD_B7,PMOD_B4,PMOD_A3,PMOD_B2,PMOD_B1}),

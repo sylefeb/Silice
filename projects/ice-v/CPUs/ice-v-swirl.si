@@ -367,21 +367,21 @@ $$end
         }
       }
       prev_wenable   = dmem.wenable;
-      if (~stall_cpu) {
-        // decoder outputs to trickle down the pipeline towards stage 4
-        no_rd      = exec.no_rd | bubble;
-        //                      ^^^^ disables data hazard in stage 2 on a bubble
-        rd         = exec.write_rd;
-        jump       = exec.jump & ~bubble;
-        load       = exec.load;
-        intop      = exec.intop;
-        alu_n      = exec.n;
-        alu_r      = exec.r;
-        alu_val    = exec.val;
-        op         = exec.op;
-        storeAddr  = exec.storeAddr;
-        storeVal   = exec.storeVal;
-      }
+      //if (~stall_cpu) {
+      // decoder outputs to trickle down the pipeline towards stage 4
+      no_rd      = exec.no_rd | bubble;
+      //                      ^^^^ disables data hazard in stage 2 on a bubble
+      jump       = exec.jump & ~bubble;
+      //}
+      rd         = exec.write_rd;
+      load       = exec.load;
+      intop      = exec.intop;
+      alu_n      = exec.n;
+      alu_r      = exec.r;
+      alu_val    = exec.val;
+      op         = exec.op;
+      storeAddr  = exec.storeAddr;
+      storeVal   = exec.storeVal;
       // track bpred
       prev_bpred = bpred;
       prev_instr = instr;
@@ -415,13 +415,15 @@ $$if ICEV_VERILATOR_TRACE then
 			}
 $$end
 $$if DEBUG_swirl then
+    /*if (cycle > 484369)*/ {
       if (~stall_cpu) {
-        __display("[4] instr: %x @%x (bubble:%b jump:%b bpred:%b) reinstr:%d",instr,pc<<2,bubble,jump,bpred,reinstr);
+        __display("[4] instr: %x @%x (bubble:%b jump:%b bpred:%b load:%b) reinstr:%d",instr,pc<<2,bubble,jump,bpred,load,reinstr);
         if (~bubble & ~refetch & ~reset & ~stall_cpu) {
           __display("[4] ++++ %x (@%x) jump %b, wreg:[%d]=%x (%b) reinstr:%d",
             instr,pc<<2,jump,Rtype(instr).rd,xregsA.wdata1,xregsA.wenable1,reinstr);
         }
       }
+    }
 $$end
       // signal a jump if needed (flushes pipeline and jumps)
       refetch          = stall_cpu ? refetch :
