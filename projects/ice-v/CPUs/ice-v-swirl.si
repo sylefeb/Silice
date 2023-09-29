@@ -321,6 +321,11 @@ $$end
         xb_regR = 0; xb_regW = 1; xb_regW_prev = 0; xb_keep = 0;
         //           ^^^^^^^^^^^ selects value being written
       }
+      // on a stall, keep ALU input registers the same
+      if (stall_cpu) {
+        xa_regR = 0; xa_regW = 0; xa_regW_prev = 0; xa_keep = 1;
+        xb_regR = 0; xb_regW = 0; xb_regW_prev = 0; xb_keep = 1;
+      }
       // trigger ALU if not in bubble (used by multi-cycle shifts, div)
       exec.trigger  = ~bubble;
     } -> { // ==== stage 3
@@ -367,12 +372,10 @@ $$end
         }
       }
       prev_wenable   = dmem.wenable;
-      //if (~stall_cpu) {
       // decoder outputs to trickle down the pipeline towards stage 4
       no_rd      = exec.no_rd | bubble;
       //                      ^^^^ disables data hazard in stage 2 on a bubble
       jump       = exec.jump & ~bubble;
-      //}
       rd         = exec.write_rd;
       load       = exec.load;
       intop      = exec.intop;
