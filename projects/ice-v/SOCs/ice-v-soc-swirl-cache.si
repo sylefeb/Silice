@@ -213,7 +213,7 @@ $$end
   algorithm {
 $$if SIMULATION and not BARE then
     //while (1) { }
-	  while (cycle < 1000000) { }
+	  while (cycle < 10000) { }
     __display("stopping at cycle %d",cycle);
 $$else
     while (1) { }
