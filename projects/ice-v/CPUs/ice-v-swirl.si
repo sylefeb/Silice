@@ -25,7 +25,7 @@ $$end
 $$ICEV_BRANCH_PRED      = 1
 
 // set to 1 for a copious amount of debug output in simulation
-$$DEBUG_swirl           = nil
+$$DEBUG_swirl           = 1
 
 // --------------------------------------------------
 // bitfield for easier decoding of instructions
@@ -159,6 +159,8 @@ $$end
     xregsA.wenable1  = 0;
     // maintain memory write low
     dmem.wenable      = 0;
+    // just stalled ?
+    uint1 on_stall  = stall_cpu & ~refetch;
 
     // CPU pipeline
 
@@ -192,8 +194,9 @@ $$if ICEV_BRANCH_PRED then
                             : {{20{instr[31,1]}},instr[7,1],instr[25,6],instr[8,4],1b0};
       bpred_n         = addr_a + addr_imm;
 $$end
-      imem.addr       = refetch          ? refetch_addr :
-                      (~bubble & ~reset) ?
+      imem.addr       = stall_cpu        ? imem.addr // fix it during stall
+                      : refetch          ? refetch_addr
+                      : (~bubble & ~reset) ?
 $$if ICEV_BRANCH_PRED then
                       (bpred ? (bpred_n>>2) : (pc[0,$addrW$] + 1))
 $$else
@@ -201,7 +204,7 @@ $$else
 $$end
                       : pc;
 $$if DEBUG_swirl then
-      if (~stall_cpu) {
+      if (~stall_cpu | on_stall) {
         __display("[1] instr: %x @%x (bubble:%b reset:%b refetch:%b hold:%b stall_cpu:%b alu:%b rs1 %d rs2 %d)",
           instr,pc<<2,bubble,reset,refetch,hold,stall_cpu,exec.working,xregsA.addr0,xregsB.addr0);
         if (bpred) {
@@ -258,12 +261,12 @@ $$end
       // update bubble
       bubble       = (bubble | refetch | exec.working | hold);
 $$if DEBUG_swirl then
-      if (~stall_cpu) {
+      if (~stall_cpu | on_stall) {
         __display("[2] instr: %x @%x (bubble:%b bpred:%b) rA:%x rB:%x",instr,pc<<2,bubble,bpred,xregsA.rdata0,xregsB.rdata0);
       }
 $$end
 $$if DEBUG_swirl then
-      if (~stall_cpu) {
+      if (~stall_cpu | on_stall) {
         if (hold) {
           __display("[2] *** data hazard (c) *** rs1[%d] rs2[%d](%b) rd(stage3)[%d]",Rtype(instr).rs1,Rtype(instr).rs2,has_rs2,exec.write_rd);
         }
@@ -274,7 +277,7 @@ $$end
       // the value is thus incorrect, use the previously written value instead
       if (Rtype(instr).rs1 == xregsA.addr1 & reg_was_written) {
 $$if DEBUG_swirl then
-        if (~stall_cpu) {
+        if (~stall_cpu | on_stall) {
           __display("[2] *** data hazard (a) on rs1 *** rs1[%d] rs2[%d] rd_was[%d]",Rtype(instr).rs1,Rtype(instr).rs2,xregsA.addr1);
         }
 $$end
@@ -283,7 +286,7 @@ $$end
       }
       if (Rtype(instr).rs2 == xregsA.addr1 & reg_was_written & has_rs2) {
 $$if DEBUG_swirl then
-        if (~stall_cpu) {
+        if (~stall_cpu | on_stall) {
           __display("[2] *** data hazard (a) on rs2 *** rs1[%d] rs2[%d] rd_was[%d]",Rtype(instr).rs1,Rtype(instr).rs2,xregsA.addr1);
         }
 $$end
@@ -295,7 +298,7 @@ $$end
       // (checks with rd and write_rd from stage 4)
       if (~no_rd &  Rtype(instr).rs1 == rd) {
 $$if DEBUG_swirl then
-        if (~stall_cpu) {
+        if (~stall_cpu | on_stall) {
           __display("[2] *** data hazard (b) on rs1 *** rs1[%d] rs2[%d] rd(stage4)[%d]",Rtype(instr).rs1,Rtype(instr).rs2,rd);
         }
 $$end
@@ -303,7 +306,7 @@ $$end
       }
       if (~no_rd & (Rtype(instr).rs2 == rd) & has_rs2) { // same for rs2
 $$if DEBUG_swirl then
-        if (~stall_cpu) {
+        if (~stall_cpu | on_stall) {
           __display("[2] *** data hazard (b) on rs2 *** rs1[%d] rs2[%d] rd(stage4)[%d]",Rtype(instr).rs1,Rtype(instr).rs2,rd);
         }
 $$end
@@ -320,7 +323,7 @@ $$end
       bubble         = ((bubble & ~alu_was_working) | refetch | exec.working);
       stage3_bubble ^= bubble;
 $$if DEBUG_swirl then
-      if (~stall_cpu) {
+      if (~stall_cpu | on_stall) {
         __display("[3] instr: %x @%x (bubble:%b bpred:%b)",instr,pc<<2,bubble,bpred);
       }
 $$end
@@ -376,39 +379,39 @@ $$end
                        | (storeVal  ? alu_val            : 32b0)
                        | (load      ? loaded             : 32b0)
                        | (intop     ? alu_r              : 32b0);
+      uint1 instr_done = ~bubble & ~refetch & ~reset;
 $$if ICEV_VERILATOR_TRACE then
       // this is used by SOCs/ice-v-cmp, to track retired instr. and compare CPUs
-      if (~bubble & ~refetch & ~reset & ~stall_cpu) {
+      if (instr_done) {
 				__verilog("$c32(\"cpu_retires(3,\",%,\",\",%,\",\",%,\",\",%,\");\");",
           pc<<2,instr,Rtype(instr).rd,xregsA.wdata1);
         reinstr = reinstr + 1;
 			}
 $$end
 $$if DEBUG_swirl then
-    if (~stall_cpu) {
+    if (~stall_cpu | on_stall) {
       __display("[4] instr: %x @%x (bubble:%b jump:%b bpred:%b load:%b) reinstr:%d",instr,pc<<2,bubble,jump,bpred,load,reinstr);
-      if (~bubble & ~refetch & ~reset) {
+      if (instr_done) {
         __display("[4] ++++ %x (@%x) jump %b, wreg:[%d]=%x (%b) reinstr:%d",
           instr,pc<<2,jump,Rtype(instr).rd,xregsA.wdata1,xregsA.wenable1,reinstr);
       }
     }
 $$end
       // signal a jump if needed (flushes pipeline and jumps)
-      uint1 on_stall   = stall_cpu & ~refetch; // just stalled
       refetch          = stall_cpu             // on a stall trigger (and hold) a refetch
                        | ( ( jump ^ bpred )    // jump prediction failed
                          & ~refetch & ~bubble );
       //                 ^^^^^^ reset refetch if done at prev cycle
-      jumping         ^= refetch;
+      jumping         ^= refetch; // warn stage 3 (cancel any store)
+      exec.cancel      = refetch; // cancel any pending ALU op on refetch
       // new address on refetch
-      refetch_addr     = stall_cpu ? (on_stall ? pc : refetch_addr) // fix pc
-                       : jump      ? (alu_n>>2) // jump destination
-                       : pcp1;                  // next by address
-      // cancel any pending ALU op on refetch
-      exec.cancel      = refetch;
+      refetch_addr     = (stall_cpu & ~on_stall) ? refetch_addr // fix pc
+                       : jump       ? (alu_n>>2)   // jump destination
+                       : instr_done ? pcp1         // next by address
+                      :  pc;                       // stay on same
 
 $$if DEBUG_swirl then
-      if (~stall_cpu) {
+      if (~stall_cpu | on_stall) {
         if (bpred & ~refetch) {
           __display("[4] pc @%x branch predicted towards @%x (jump %b)",pc<<2,alu_n,jump);
         }
