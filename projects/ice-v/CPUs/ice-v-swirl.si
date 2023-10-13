@@ -25,7 +25,7 @@ $$end
 $$ICEV_BRANCH_PRED      = 1
 
 // set to 1 for a copious amount of debug output in simulation
-$$DEBUG_swirl           = 1
+$$DEBUG_swirl           = nil
 
 // --------------------------------------------------
 // bitfield for easier decoding of instructions
@@ -157,10 +157,10 @@ $$end
     reg_was_written  = xregsA.wenable1;
     // maintain register wenable low (pulsed when necessary)
     xregsA.wenable1  = 0;
-    // maintain memory write low
-    dmem.wenable      = 0;
+    // maintain memory write low, or to its previous state if stalled
+    dmem.wenable      = stall_cpu ? dmem.wenable : 0;
     // just stalled ?
-    uint1 on_stall  = stall_cpu & ~refetch;
+    uint1 on_stall    = stall_cpu & ~refetch;
 
     // CPU pipeline
 
@@ -172,7 +172,8 @@ $$if ICEV_BRANCH_PRED then
       uint$addrW+2$ bpred_n(0);
 $$end
 $$if DEBUG_swirl then
-      __display("[1] cycle:%d imem.addr:%x stall_cpu:%b refetch:%b refetch_addr:%x pc:%x",cycle,imem.addr<<2,stall_cpu,refetch,refetch_addr<<2,pc<<2);
+      __display("[1] cycle:%d stall_cpu:%b refetch:%b refetch_addr:%x pc:%x",cycle,stall_cpu,refetch,refetch_addr<<2,pc<<2);
+      __display("[1] cycle:%d imem.addr:%x imem.rdata:%x dmem.addr:%x dmem.rdata:%x",cycle,imem.addr<<2,imem.rdata,dmem.addr<<2,dmem.rdata,);
 $$end
       // capture pc, instr in pipeline
       pc       = (exec.working | hold) ? pc    : imem.addr;
@@ -334,7 +335,6 @@ $$else
       dmem.addr  = (exec.store|exec.load)&~bubble ? (exec.n >> 2) : dmem.addr;
       // ^^ if a cache is used, we preserve dmem.addr when not accessing dmem
 $$end
-      uint4 prev_wenable(0);
       if (exec.store & ~bubble & ~jumping) {
         //                        ^^^^^^ if stage 4 jumps, cancel store
         // build write mask depending on SB, SH, SW
@@ -343,7 +343,6 @@ $$end
                           exec.op[0,1] | exec.op[1,1], 1b1
                         } ) << exec.n[0,2];
       }
-      prev_wenable   = dmem.wenable;
       // decoder outputs to trickle down the pipeline towards stage 4
       no_rd      = exec.no_rd | bubble;
       //                      ^^^^ disables data hazard in stage 2 on a bubble
