@@ -220,7 +220,7 @@ $$end
         uint$cache_line_width+2+1$ n = 0;
 $$if SIMULATION then
         __display("[%d] +> cache miss %b|%b %x|%x",cycle,~cache0_hit,~cache1_hit,qaddr0<<2,qaddr1<<2);
-        __display("[%d] => [cache %b] fetching from @%x in line %d",cycle,cache0_hit,fetchAddr,~cache0_hit ? qline0_id : qline1_id);
+        __display("[%d] => [cache %b] fetching from @%x in line %d",cycle,cache0_hit,fetchAddr<<2,~cache0_hit ? qline0_id : qline1_id);
 $$end
         ram.in_ready = 1;
         ram.addr     = {fetchAddr,2b00};
@@ -264,7 +264,7 @@ $$end
         }
 ++:     // wait for cache lines bram to be written
         update_lines_done = 1; // done
-        write_cycle = 1; // TODO: only if indeed writing ...
+        write_cycle       = 1; // TODO: only if indeed writing ...
 $$if SIMULATION then
         __display("[%d] cache done.",cycle);
 $$end
