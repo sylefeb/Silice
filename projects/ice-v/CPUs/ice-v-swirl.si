@@ -370,17 +370,17 @@ $$end
         case 2b10:{ loaded = aligned;   }
         default:  { loaded = {32{1bx}}; } // don't care
       }
+      uint1 instr_done = ~bubble & ~refetch & ~reset & ~(on_stall & load);
+      //                       redo the load on a stall ^^^^^^^^^^^^^^^
+      //         (even though this could be imem and not dmem stalling)
       // register write back
-      xregsA.wenable1  = ~no_rd & ~bubble & ~refetch;
+      xregsA.wenable1  = ~no_rd & instr_done;
       xregsA.addr1     = rd;
       xregsA.wdata1    = (jump      ? ((pcp1)<<2)        : 32b0)
                        | (storeAddr ? alu_n              : 32b0)
                        | (storeVal  ? alu_val            : 32b0)
                        | (load      ? loaded             : 32b0)
                        | (intop     ? alu_r              : 32b0);
-      uint1 instr_done = ~bubble & ~refetch & ~reset & ~(on_stall & load);
-      //                       redo the load on a stall ^^^^^^^^^^^^^^^
-      //         (even though this could be imem and not dmem stalling)
 $$if ICEV_VERILATOR_TRACE then
       // this is used by SOCs/ice-v-cmp, to track retired instr. and compare CPUs
       if (instr_done) {
@@ -396,6 +396,9 @@ $$if DEBUG_swirl then
         __display("[4] ++++ %x (@%x) jump %b, wreg:[%d]=%x (%b) reinstr:%d",
           instr,pc<<2,jump,Rtype(instr).rd,xregsA.wdata1,xregsA.wenable1,reinstr);
       }
+    }
+    if (xregsA.wenable1) {
+      __display("[4] wreg:[%d]=%x",Rtype(instr).rd,xregsA.wdata1);
     }
 $$end
 
