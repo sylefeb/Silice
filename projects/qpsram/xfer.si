@@ -152,6 +152,12 @@ $$if SIMULATION then
     ram.wdata    = 8h55;
     ram.wenable  = 1;
     while (ram.busy) {}
+    ram.addr     = {1b1,{$bank_width${1b1}}};
+    ram_bank     = 2b00;
+    ram.in_ready = 1;
+    ram.wdata    = 8h7A;
+    ram.wenable  = 1;
+    while (ram.busy) {}
 ++:
 ++:
 ++:

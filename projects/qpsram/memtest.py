@@ -12,7 +12,7 @@ from tqdm import tqdm
 read_packed_size = 32
 
 if len(sys.argv) < 4:
-  print("xfer.py <port> <addr> <size>")
+  print("memtest.py <port> <addr> <size>")
   sys.exit()
 
 # open serial port
