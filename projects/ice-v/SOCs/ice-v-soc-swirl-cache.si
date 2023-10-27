@@ -45,14 +45,16 @@ unit pll(
   output  uint1 clock1x,
   output  uint1 rst
 ) {
-  uint2 counter(0);
-  uint8 reset_counter(255);
+  uint2       counter(0);
+  uint8       reset_counter(255);
   passthrough _(inv <: clock, outv :> clock2x);
-  always {
-    rst           = (reset_counter != 0);
-    reset_counter = (reset_counter != 0) ? reset_counter-1 : 0;
-    clock1x = counter[0,1]; // x2 slower
-    counter = counter + 1;
+  algorithm <autorun> {
+    while (1) {
+      rst           = (reset_counter != 8d0);
+      reset_counter = (reset_counter != 8d0) ? (reset_counter-1) : 0;
+      clock1x       = counter[0,1]; // x2 slower
+      counter       = counter + 1;
+    }
   }
 }
 $$end
@@ -83,7 +85,7 @@ $include('swirl-cache.si')
 
 unit main( // I guess this is the SOC :-D
   output uint5 leds,
-$$if not VERILATOR then
+$$if not SIMULATION then
   inout   uint1 ram_io0,
   inout   uint1 ram_io1,
   inout   uint1 ram_io2,
@@ -114,7 +116,7 @@ $$else
   uint1 clock1x = uninitialized;
   uint1 clock2x = uninitialized;
   uint1 rst     = uninitialized;
-  pll clkgen<@clock>(
+  pll clkgen<@clock,!reset>(
     clock1x :> clock1x,
     clock2x :> clock2x,
     rst     :> rst
@@ -213,7 +215,7 @@ $$end
   algorithm {
 $$if SIMULATION and not BARE then
     //while (1) { }
-	  while (cycle < 10000) { }
+	  while (cycle < 1000000) { }
     __display("stopping at cycle %d",cycle);
 $$else
     while (1) { }

@@ -102,8 +102,9 @@ $$end
     ram_io0 <:> ram_io0,    ram_io1 <:> ram_io1,
     ram_io2 <:> ram_io2,    ram_io3 <:> ram_io3,
   );
+  uint1 reg_ram_datanext(0);
+  adapt_data_next _<@clock2x>(data_next_2x <: ram.data_next, data_next :> reg_ram_datanext);
   uint8 reg_ram_rdata(0);
-  uint8 reg_ram_datanext(0);
 
   uint1 update_lines_todo(0);
   uint1 update_lines_done(0);
@@ -290,7 +291,6 @@ $$end
     qwen0     = mem0.wenable; qwen1     = mem1.wenable;
     // cross clock domain
     reg_ram_rdata    = ram.rdata;
-    reg_ram_datanext = ram.data_next;
     /*
     __display("[%d] >> cache status out: @%x|@%x q: @%x|@%x miss: %b|%b ln: %x|%x ln@: %x|%x  lnw: %b|%b",
                 cycle,mem0.addr<<2,mem1.addr<<2,
@@ -307,6 +307,20 @@ $$if SIMULATION then
 $$end
   }
 
+}
+
+// --------------------------------------------------
+// unit to adapt data next signal across clock domain
+// - should run at 2x
+// --------------------------------------------------
+
+unit adapt_data_next(input uint1 data_next_2x, output uint1 data_next)
+{
+  uint2 dnext(0);
+  always {
+    dnext     = data_next_2x ? 2b11 : {1b0,dnext[1,1]};
+    data_next = dnext[0,1];
+  }
 }
 
 // --------------------------------------------------
