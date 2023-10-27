@@ -208,6 +208,8 @@ $$end
         vdta.wdata              = wdata;
         vdta.wenable            = wenable & continue;
         vdta.addr               = vdta.addr + 1;
+  $$elseif ICARUS then
+        rdata                   = cycle[0,8];
   $$else
         rdata                   = spi.read;
   $$end
