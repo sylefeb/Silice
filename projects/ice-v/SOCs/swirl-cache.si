@@ -197,13 +197,12 @@ $$end
     write_fault          = ((|mem0.wenable) & ~cache0_canwrite)
                          | ((|mem1.wenable) & ~cache1_canwrite);
 
-    if (cache1_hit & (|mem1.wenable) & ~cache1_canwrite) {
-      //__display("[%d] cache1 write fault @%x <= %x (line: %d,%d prev@%x)",cycle,mem1.addr<<2,mem1.wdata,line1_id,qline1_id,qaddr1);
-    }
-    if (spram2.wenable) {
-      //__display("[%d] cache1 write on line @%x <= %x",cycle,mem1.addr<<2,mem1.wdata);
-    }
-
+    //if (cache1_hit & (|mem1.wenable) & ~cache1_canwrite) {
+    //  __display("[%d] cache1 write fault @%x <= %x (line: %d,%d prev@%x)",cycle,mem1.addr<<2,mem1.wdata,line1_id,qline1_id,qaddr1);
+    //}
+    //if (spram2.wenable) {
+    //  __display("[%d] cache1 write on line @%x <= %x",cycle,mem1.addr<<2,mem1.wdata);
+    //}
     //if (~cache0_hit | ~cache1_hit) {
     //  __display("[%d] >> cache miss %b|%b %x|%x",cycle,~cache0_hit,~cache1_hit,qaddr0<<2,qaddr1<<2);
     //}
