@@ -11,15 +11,44 @@
 //   This is ok when using mem0 for instructions and mem1 for data as long as
 //   code is not loaded/generated and then executed. Otherwiwe a software
 //   cache flush is required.
-// TODO: Implement a mechanism to avoid this issue.
-// NOTE: when writting, the read value is undertermined (it will be either the
-//       previously stored value or if a cache line was update the written one)
+// TODO: Implement a mechanism to avoid this issue?
+// NOTE: when writing, the read value is undertermined (it is the previously
+//       stored value but this is subject to change)
 //
 // https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
-/// TODO: write needs to be rechecked for the 2x case (latency on reg_ram_datanext)
-///       (first value may be incorrect?)
+/*
+
+How does this work?
+-------------------
+
+This is a double 32bits cache storing data in SPRAM (64KB each). Both caches
+work the same and can be used for data/instructions for instance. Beware they
+do not 'see' each other when a line at a same address is mapped by both (so
+keep instructions read only).
+As both caches operate the same, the description next considers only cache 0.
+
+The cache uses a simple direct mapping. A BRAM (cache0_lines) stores the upper
+parts of the cache line addresses. An example setup is cache lines of 256x32bits,
+on 64 cache lines.
+
+Reading:
+-------
+The read is performed while cache0_lines is accessed. If the upper address
+match, it's a hit. Otherwise, bad luck, wait goes high immediately. On the next
+cycle the cache will start the process of writing back (if needed) the current
+line content, and then reading the new content, before releasing wait.
+
+Writing:
+-------
+We cannot perform the writes blindly, as we first have to know whether the
+current line is the correct one. However we do know which line was previously
+accessed, and if it has not changed (still the same line) we can check the upper
+addresses immediately. Otherwise we have no choice but to raise wait for one
+cycle, until the result from looking up cache0_lines is available.
+
+*/
 
 // from the outside the cache acts as a BRAM when filled
 interface bram_provider
@@ -51,7 +80,7 @@ unit cache(
   // this happens the cycle after the missed address is set
   output! uint1 wait(1),
   // clock 2x for ram
-  input uint1  clock2x,
+  input   uint1 clock2x,
   // ram io
   inout   uint1 ram_io0,  inout   uint1 ram_io1,
   inout   uint1 ram_io2,  inout   uint1 ram_io3,
@@ -84,11 +113,14 @@ $$init_value = (cache_addr_w+1) .. 'b0' .. init_value
   bram uint$cache_addr_w+1$ cache1_lines[$num_cache_lines$] = {pad($init_value$)};
   //                     ^ dirty bit
 
-  // determines whether requested addr match the corresponding cache line
 $$for c=0,1 do
+  // determines whether requested addr match the corresponding cache line
   uint$num_cache_lines_w$ line$c$_id    <: mem$c$.addr[$cache_line_width$,$num_cache_lines_w$];
   uint1                   cache$c$_hit <:: qaddr$c$[$cache_line_width$,$cache_addr_w$]
-                                        == cache$c$_lines.rdata[0,$cache_addr_w$];
+                                        == :cache$c$_lines.rdata[0,$cache_addr_w$];
+  uint1                   cache$c$_canwrite <:: (:line$c$_id == qline$c$_id)
+                                        && :mem$c$.addr[$cache_line_width$,$cache_addr_w$]
+                                        == :cache$c$_lines.rdata[0,$cache_addr_w$];
   // registers for memory interface inputs
   uint$num_cache_lines_w$ qline$c$_id(0);
   uint$ramW$              qaddr$c$(0);
@@ -109,11 +141,13 @@ $$end
                                   rdata_2x     <: ram.rdata);
   uint1 reg_ram_datanext(0);
   uint8 reg_ram_rdata(0);
+  uint1 reg_ram_wstream(0);
 
   uint1 update_lines_todo(0);
   uint1 update_lines_done(0);
   uint1 write_cycle(0);
   uint1 keep_wait(0);
+  uint1 write_fault(0);
 
   always_before {
 /*
@@ -123,7 +157,8 @@ $$end
                 ~cache0_hit,~cache1_hit,
                 cache0_lines.rdata, cache1_lines.rdata);
     __display("[%d] >> cache status in: todo: %b",cycle,update_lines_todo);
-    __display("[%d] >> cache status in: wen1: %b wdata:%x",cycle,mem1.wenable,mem1.wdata);
+    __display("[%d] >> cache status in: wen0: %b wdata0:%x",cycle,mem0.wenable,mem0.wdata);
+    __display("[%d] >> cache status in: wen1: %b wdata1:%x",cycle,mem1.wenable,mem1.wdata);
 */
     // cache lookup
     cache0_lines.addr    = line0_id;
@@ -133,6 +168,7 @@ $$end
     // ram access
     ram.in_ready         = 0; // maintain low, pulse high to read/write
     ram.init             = 0; // maintain low, pulse high to init
+    ram.wenable          = 0; // maintain low, set high when writing
     // default lookup
     mem0.rdata           = {spram1.data_out,spram0.data_out};
     mem1.rdata           = {spram3.data_out,spram2.data_out};
@@ -142,21 +178,32 @@ $$end
     spram3.addr          = {line1_id,mem1.addr[0,$cache_line_width$]};
     spram0.wmask         = {{2{mem0.wenable[1,1]}},{2{mem0.wenable[0,1]}}};
     spram1.wmask         = {{2{mem0.wenable[3,1]}},{2{mem0.wenable[2,1]}}};
-    spram0.wenable       = (|mem0.wenable) & (cache0_hit);
-    spram1.wenable       = (|mem0.wenable) & (cache0_hit);
+    spram0.wenable       = (|mem0.wenable) & cache0_canwrite;
+    spram1.wenable       = (|mem0.wenable) & cache0_canwrite;
     spram0.data_in       = mem0.wdata[ 0,16];
     spram1.data_in       = mem0.wdata[16,16];
     spram2.wmask         = {{2{mem1.wenable[1,1]}},{2{mem1.wenable[0,1]}}};
     spram3.wmask         = {{2{mem1.wenable[3,1]}},{2{mem1.wenable[2,1]}}};
-    spram2.wenable       = (|mem1.wenable) & (cache1_hit);
-    spram3.wenable       = (|mem1.wenable) & (cache1_hit);
+    spram2.wenable       = (|mem1.wenable) & cache1_canwrite;
+    spram3.wenable       = (|mem1.wenable) & cache1_canwrite;
     spram2.data_in       = mem1.wdata[ 0,16];
     spram3.data_in       = mem1.wdata[16,16];
     // if both caches missed, raise wait
-    wait                 = reset | ~cache0_hit | ~cache1_hit | write_cycle | keep_wait;
-    //                     ^^^^^ wait during reset too         ^^^^^^^^^^^
+    wait                 = reset | ~cache0_hit | ~cache1_hit
+    //                     ^^^^^ wait during reset
+                         | write_cycle | keep_wait | write_fault;
     write_cycle          = 0; // additional cycle for writes, after an update
     keep_wait            = 0; // see note where set
+    write_fault          = ((|mem0.wenable) & ~cache0_canwrite)
+                         | ((|mem1.wenable) & ~cache1_canwrite);
+
+    if (cache1_hit & (|mem1.wenable) & ~cache1_canwrite) {
+      //__display("[%d] cache1 write fault @%x <= %x (line: %d,%d prev@%x)",cycle,mem1.addr<<2,mem1.wdata,line1_id,qline1_id,qaddr1);
+    }
+    if (spram2.wenable) {
+      //__display("[%d] cache1 write on line @%x <= %x",cycle,mem1.addr<<2,mem1.wdata);
+    }
+
     //if (~cache0_hit | ~cache1_hit) {
     //  __display("[%d] >> cache miss %b|%b %x|%x",cycle,~cache0_hit,~cache1_hit,qaddr0<<2,qaddr1<<2);
     //}
@@ -197,14 +244,12 @@ $$end
             // vvvvv NOTE: on first iteration spramN.data_out is not ready yet,
             // however the QPSRAM controller does not access it immediately
             //
-            // WARNING: watchout if increasing QPSRAM clock at 2x! (may be ok)
-            //
             ram.wdata    = ~cache0_hit
                         ? {spram1.data_out,spram0.data_out} >> {n[0,2],3b0}
                         : {spram3.data_out,spram2.data_out} >> {n[0,2],3b0};
             // next?
-            if (reg_ram_datanext) { ///////// CHECK: too much latency due to reg?
-              //__write("%x,",ram.wdata);
+            if (reg_ram_wstream) {
+              // __write("%x,",ram.wdata);
               // next
               n = n + 1;
             }
@@ -215,8 +260,9 @@ $$end
             spram2.addr    = {qline1_id,n[2,$cache_line_width$]};
             spram3.addr    = {qline1_id,n[2,$cache_line_width$]};
           }
-          ram.wenable  = 0; // stop writting
-          //__display(" ");
+          // __display(" ");
+++:       // this one cycle pause is needed before starting to read, otherwise
+          // data_next from the write remains visible to the read (latencies)
         }
         // fetch new line
         uint$ramW$ fetchAddr =
@@ -229,14 +275,13 @@ $$if SIMULATION then
         __display("[%d] +> cache miss %b|%b %x|%x",cycle,~cache0_hit,~cache1_hit,qaddr0<<2,qaddr1<<2);
         __display("[%d] => [cache %b] fetching from @%x in line %d",cycle,cache0_hit,fetchAddr<<2,~cache0_hit ? qline0_id : qline1_id);
 $$end
-        ram.in_ready = 1;
         ram.addr     = {fetchAddr,2b00};
         while (~n[$cache_line_width+2$,1]) {
           ram.in_ready = 1;
           if (reg_ram_datanext) {
             uint4  wmask   = 2b11 << {n[0,1],1b0};
             uint16 wdata   = reg_ram_rdata << {n[0,1],3b0};
-            // __write("%x,",ram.rdata);
+            // __write("%x,", reg_ram_rdata);
             // cache 0
             spram0.addr    = {qline0_id,n[2,$cache_line_width$]};
             spram1.addr    = {qline0_id,n[2,$cache_line_width$]};
@@ -246,7 +291,6 @@ $$end
             spram1.wmask   = wmask;
             spram0.wenable = ~cache0_hit & ~n[1,1];
             spram1.wenable = ~cache0_hit &  n[1,1];
-            // __write("%b:%x,",spram1.wenable,wdata);
             // cache 1
             spram2.addr    = {qline1_id,n[2,$cache_line_width$]};
             spram3.addr    = {qline1_id,n[2,$cache_line_width$]};
@@ -281,11 +325,16 @@ $$if SIMULATION then
         __display("[%d] cache done.",cycle);
 $$end
       } else {
-        // if no cache miss maintain dirty flag
-        cache0_lines.wdata   = {(|qwen0) & cache0_hit,$cache_addr_w$b0} | cache0_lines.rdata;
-        cache0_lines.wenable = (|qwen0) & cache0_hit;
-        cache1_lines.wdata   = {(|qwen1) & cache1_hit,$cache_addr_w$b0} | cache1_lines.rdata;
-        cache1_lines.wenable = (|qwen1) & cache1_hit;
+        // if no cache miss, maintain dirty flag
+        uint1 upd_line0      = (|mem0.wenable) & cache0_canwrite;
+        uint1 upd_line1      = (|mem1.wenable) & cache1_canwrite;
+$$if SIMULATION then
+        // __display("[%d] dirty status update %b|%b",cycle,upd_line0,upd_line1);
+$$end
+        cache0_lines.wdata   = {upd_line0,$cache_addr_w$b0} | cache0_lines.rdata;
+        cache0_lines.wenable = upd_line0;
+        cache1_lines.wdata   = {upd_line1,$cache_addr_w$b0} | cache1_lines.rdata;
+        cache1_lines.wenable = upd_line1;
       }
     }
 
@@ -301,9 +350,10 @@ $$end
     qaddr0    = mem0.addr;    qaddr1    = mem1.addr;
     qwen0     = mem0.wenable; qwen1     = mem1.wenable;
     // cross clock domain
-    reg_ram_datanext = adapt.data_next;
-    reg_ram_rdata    = adapt.rdata;
-    /*
+    reg_ram_datanext    = adapt.data_next;
+    reg_ram_rdata       = adapt.rdata;
+    reg_ram_wstream     = ram.wstream_1x;
+/*
     __display("[%d] >> cache status out: @%x|@%x q: @%x|@%x miss: %b|%b ln: %x|%x ln@: %x|%x  lnw: %b|%b",
                 cycle,mem0.addr<<2,mem1.addr<<2,
                 qaddr0<<2,qaddr1<<2,
@@ -313,7 +363,7 @@ $$end
                 cache0_lines.wenable, cache1_lines.wenable,
                 );
     __display("[%d] >> cache status out: todo: %b",cycle,update_lines_todo);
-    */
+*/
 $$if SIMULATION then
     cycle = cycle + 1;
 $$end
@@ -334,7 +384,7 @@ unit adapt_data_next(
   always {
     dnext      = data_next_2x ? 2b11 : {1b0,dnext[1,1]};
     data_next  = dnext[0,1];
-    rdata      = rdata_2x;
+    rdata      = data_next_2x ? rdata_2x : rdata;
   }
 }
 

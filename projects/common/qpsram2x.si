@@ -105,12 +105,18 @@ $$end
 unit qpsram_ram(
   input   uint1  in_ready, // set high to start reading/writting
   input   uint1  init,     // pulse high to initiate QPI mode on the QPSRAM chip
-  input   uint24 addr,         // address to be written (24 bits is 16 MB)
-  output  uint8  rdata,        // read byte
-  input   uint8  wdata,        // byte to be written
-  input   uint1  wenable,      // set high if writting
-  output  uint1  busy(0),      // high during operation
-  output  uint1  data_next(0), // pulses high when next byte is ready/needed
+  input   uint24 addr,          // address to be written (24 bits is 16 MB)
+  output  uint8  rdata,         // read byte
+  input   uint8  wdata,         // byte to be written
+  input   uint1  wenable,       // set high if writting
+  output  uint1  busy(0),       // high during operation
+  output  uint1  data_next(0),  // pulses high when next byte is ready/needed
+  output  uint1  wstream_1x(0), // goes high when data should start
+                                // streaming in every cycle from a 1x host; this
+                                // is necessary as data_next latency otherwise
+                                // makes streaming impossible from a 1x host
+                                // wstream_1x is expected to go through a 1x reg
+                                // before being used by host
   // QPSRAM io pins
   output  uint1  ram_csn(1),  output  uint1  ram_clk,
   inout   uint1  ram_io0,     inout   uint1  ram_io1,
@@ -171,6 +177,7 @@ $$end
         stage                   = 0; //  wait
         wait                    = 16; //_ 2 cycles
         after                   = sending[0,1] ? 3 : 2;
+        wstream_1x              = wstream_1x | (sending[0,1] & wenable); // 1x write stream should start now
         sending                 = sending >> 1;
         }
       case 3: { // ---- setup read/write delay
@@ -199,6 +206,7 @@ $$if VERILATOR then
         if (wenable) {
           vdta.wenable = 1;
           vdta.wdata   = spi.send;
+          // __display("[qpsram|%d] first written byte: %x @%x",cycle,vdta.wdata,vdta.addr);
         }
 $$end
       }
@@ -208,12 +216,18 @@ $$end
         vdta.wdata              = wdata;
         vdta.wenable            = wenable & continue;
         vdta.addr               = vdta.addr + 1;
+        //if (wenable) {
+        //  __display("[qpsram|%d] written byte: %x @%x",cycle,vdta.wdata,vdta.addr);
+        //} else {
+        //  __display("[qpsram|%d] read byte   : %x @%x",cycle,vdta.rdata,vdta.addr - 1);
+        //}
   $$elseif ICARUS then
-        rdata                   = cycle[0,8];
+        rdata                   = cycle[0,8]; // dummy data for icarus sum
   $$else
         rdata                   = spi.read;
   $$end
         data_next               = 1;
+        wstream_1x              = continue;
         spi.trigger             = continue;
         spi.send                = wdata;
         busy                    = continue;
@@ -255,7 +269,7 @@ $$end
 // Physical layer, sends one byte every two cycle in QPI mode
 // -------------------------------------------------------------
 
-algorithm qpsram_qspi(
+unit qpsram_qspi(
   input  uint8 send,           // byte to be sent
   input  uint1 trigger,        // trigger: set to high to start operation
   input  uint1 send_else_read, // set to high if sending, low if reading
