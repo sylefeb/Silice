@@ -304,7 +304,6 @@ $$if ICE40 then
   sb_io_inout _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[2,1],  in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
   sb_io_inout _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[3,1],  in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
   sb_io       _<TYPE=6b110000>(clock <: clock, out <:: chip_select_1, pin :> csn);
-  //sb_io_ddr   _(clock <: clock, out_0 <:: chip_select, out_1 <:: chip_select, pin :> csn);
 $$end
 $$if ECP5 then
   // ---- Lattice ecp5 implementation using vendor specific primitives
@@ -313,8 +312,7 @@ $$if ECP5 then
   ecp5_inout _(clock <: clock, oe  <:: io_oe[1,1],  in :> io_i[1,1], out <:: io_o[1,1], pin <:> io1);
   ecp5_inout _(clock <: clock, oe  <:: io_oe[2,1],  in :> io_i[2,1], out <:: io_o[2,1], pin <:> io2);
   ecp5_inout _(clock <: clock, oe  <:: io_oe[3,1],  in :> io_i[3,1], out <:: io_o[3,1], pin <:> io3);
-  ecp5_out   _(clock <: clock, out <:: chip_select, pin :> csn);
-  /////////////////////// TODO
+  ecp5_out   _(clock <: clock, out <:: chip_select_1, pin :> csn);
 $$end
 $$if ICARUS then
 
