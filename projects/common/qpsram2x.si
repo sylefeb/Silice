@@ -294,7 +294,7 @@ unit qpsram_qspi(
   uint1 enable(0); uint1 enable_delay(0);
   // setup registered tristate ios
   uint4 io_oe(0); uint4 io_i(0); uint4 io_o(0);
-  uint1 chip_select(1); uint1 chip_select_1(1); uint1 chip_select_2(1); uint1 chip_select_3(1); uint1 chip_select_4(1); uint1 chip_select_5(1);
+  uint1 chip_select(1); uint1 chip_select_1(1);
 $$if ICE40 then
   // ---- Lattice ice40 implementation using vendor specific primitives
   uint1 zero(0);
@@ -333,10 +333,6 @@ $$end
     osc           = ~trigger_delay ? 1b0 : ~osc;
     enable_delay  = enable;
     enable        = trigger;
-    chip_select_5 = ~ enable & chip_select_4;
-    chip_select_4 = ~ enable & chip_select_3;
-    chip_select_3 = ~ enable & chip_select_2;
-    chip_select_2 = ~ enable & chip_select_1;
     chip_select_1 = ~ enable & chip_select;
     chip_select   = ~ enable;
 
