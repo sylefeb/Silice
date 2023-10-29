@@ -439,12 +439,13 @@ $$end
               | xb_regW      ? xregsA.wdata1 : 32b0
               | xb_regW_prev ? xregsB.wdata1 : 32b0;
     // what to write on a store
-    dmem.wdata = (xb_regW ? xregsA.wdata1 : xb) << {exec.n[0,2],3b000};
-    //                                     ^^---------\
+    dmem.wdata = stall_cpu ? dmem.wdata
+               : (xb_regW ? xregsA.wdata1 : xb) << {exec.n[0,2],3b000};
+    //                                      ^^---------\
     // capture xb from stage 2 so that stage 3 assign above sees the correct value
 $$if DEBUG_swirl then
     if (dmem.wenable) {
-      __display("[3] store @%x = %x",dmem.addr,dmem.wdata);
+      __display("[3] store @%x = %x",dmem.addr<<2,dmem.wdata);
     }
 $$end
     xb        = exec.xb;

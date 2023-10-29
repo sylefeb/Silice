@@ -71,6 +71,7 @@ packet.append(size_m1&255)
 ser.write(packet)
 
 if op == 'r':
+  f = open('read.bytes', 'wb')
   # read data
   i = 0
   ba = bytearray()
@@ -78,6 +79,7 @@ if op == 'r':
     b = ser.read(1)
     if len(b) == 0:
       break
+    f.write(b)
     print("{:02X}".format(int.from_bytes(b,byteorder='little')),end=" ")
     ba.append(int.from_bytes(b,byteorder='little'))
     i = i + 1
@@ -85,6 +87,7 @@ if op == 'r':
       i = 0
       print(" ",bytes(ba))
       ba = bytearray()
+  f.close()
 elif op == 'w':
   # send data
   packet = bytearray()
