@@ -198,7 +198,7 @@ $$else
 $$  if qpsram_fast then
                                             16 : 6;
 $$  else
-                                            16 : 7;  // icebreaker, icestick <= 60 use 8, faster 7
+                                            16 : 7;  // icebreaker, icestick <= 60 MHz
 $$  end
 $$end
         after                   = 4;
