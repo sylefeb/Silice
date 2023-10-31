@@ -89,6 +89,7 @@ $$end
 //
 //  **IMPORTANT**: If the QPSRAM chip has just been powered up, pulse `init`
 //  once to initialize the QPI mode, and wait for `busy` to be low again.
+//  Do not leave init floating!
 //
 //            >>> Otherwise the interface will NOT work <<<
 //
@@ -125,7 +126,6 @@ unit qpsram_ram(
 
   uint32 sendvec(0);
 
-  // qpsram_qspi spi<reginputs>(
   qpsram_qspi spi(
     clk     :> ram_clk,
     csn     :> ram_csn,
@@ -240,11 +240,11 @@ $$if SIMULATION then
         //__display("[%d] qpsram [4] (%x|%x) w:%b in_ready:%b accept_in:%b",cycle,rdata,wdata,wenable,in_ready,accept_in);
 $$end
       }
-    case 5: {
-      stage = 0;
-      wait  = 14;
-      after = 1;
-    }
+      case 5: {
+        stage = 0;
+        wait  = 14;
+        after = 1;
+      }
     } // switch
 
     // start sending?
