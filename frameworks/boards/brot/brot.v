@@ -139,6 +139,12 @@ module top(
   inout  PMOD_A9,
   output PMOD_A10,
 `endif
+`ifdef SYNC_IN
+  input PMOD_A1,
+`endif
+`ifdef SYNC_OUT
+  output PMOD_B9,
+`endif
   input  CLK_48
   );
 
@@ -230,6 +236,12 @@ M_main __main(
   .out_uart_tx(GPIO0),
   .in_uart_rx(GPIO1),
 `endif
+`ifdef SYNC_IN
+  .in_sync(PMOD_A1),
+`endif
+`ifdef SYNC_OUT
+  .out_sync(PMOD_B9),
+`endif
 // -----------------------------------------------------------------------------
 /*
 PMOD com wiring:
@@ -265,5 +277,6 @@ PMOD_A8 is on a global buffer on the 'in fpga' and has to be used for the clock
 `endif
   .in_run(run_main)
 );
+// -----------------------------------------------------------------------------
 
 endmodule

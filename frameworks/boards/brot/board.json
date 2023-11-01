@@ -15,7 +15,9 @@
         {"set"    : "pmod_com_out", "define" : "PMOD_COM_OUT=1"},
         {"set"    : "pmod_com_in", "define" : "PMOD_COM_IN=1"},
         {"set"    : "parallel_screen", "define" : "PARALLEL_SCREEN=1"},
-        {"set"    : "qpsram", "define" : "QPSRAM=1"}
+        {"set"    : "qpsram", "define" : "QPSRAM=1"},
+        {"set"    : "sync_in",  "define" : "SYNC_IN=1"},
+        {"set"    : "sync_out", "define" : "SYNC_OUT=1"}
       ],
       "builders": [
         {
