@@ -106,7 +106,11 @@ $$end
 unit qpsram_ram(
   input   uint1  in_ready, // set high to start reading/writting
   input   uint1  init,     // pulse high to initiate QPI mode on the QPSRAM chip
-  input   uint24 addr,          // address to be written (24 bits is 16 MB)
+$$if SIMULATION then
+  input   uint32 addr, // 32bits for large simulations (hardware may have banks)
+$$else
+  input   uint24 addr, // address to be written (24bits is 16 MB)
+$$end
   output  uint8  rdata,         // read byte
   input   uint8  wdata,         // byte to be written
   input   uint1  wenable,       // set high if writting
