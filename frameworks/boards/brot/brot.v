@@ -207,34 +207,34 @@ M_main __main(
   .inout_pmod({PMOD_A10,PMOD_A9,PMOD_A8,PMOD_A7,PMOD_A4,PMOD_A3,PMOD_A2,PMOD_A1}),
 `endif
 `ifdef SPIFLASH
-  .out_sf_csn(SPI_SS_FLASH),
-  .out_sf_clk(SPI_SCK),
+  .out_sf_csn (SPI_SS_FLASH),
+  .out_sf_clk (SPI_SCK),
   .out_sf_mosi(SPI_MOSI),
-  .in_sf_miso(SPI_MISO),
+  .in_sf_miso (SPI_MISO),
 `endif
 `ifdef QPSRAM
-  .out_ram_csn(SPI_SS_RAM),
+  .out_ram_csn  (SPI_SS_RAM),
   .inout_ram_io0(SPI_MOSI),
   .inout_ram_io1(SPI_MISO),
   .inout_ram_io2(SPI_IO2),
   .inout_ram_io3(SPI_IO3),
-  .out_ram_clk(SPI_SCK),
-  .out_ram_bank(qpsram_unused),
+  .out_ram_clk  (SPI_SCK),
+  .out_ram_bank (qpsram_unused),
 `endif
 `ifdef PARALLEL_SCREEN
   .out_prlscreen_d({GPIO6,GPIO7,GPIO4,GPIO5,GPIO2,GPIO3,GPIO0,GPIO1}),
   .out_prlscreen_resn(PMOD_B1),
-  .out_prlscreen_csn(PMOD_B7),
-  .out_prlscreen_rs(PMOD_B2),
-  .out_prlscreen_clk(PMOD_B8),
+  .out_prlscreen_csn (PMOD_B7),
+  .out_prlscreen_rs  (PMOD_B2),
+  .out_prlscreen_clk (PMOD_B8),
 `endif
 `ifdef UART
   .out_uart_tx(PMOD_B9),
-  .in_uart_rx(PMOD_B10),
+  .in_uart_rx (PMOD_B10),
 `endif
 `ifdef UART2
   .out_uart_tx(GPIO0),
-  .in_uart_rx(GPIO1),
+  .in_uart_rx (GPIO1),
 `endif
 `ifdef SYNC_IN
   .in_sync(PMOD_A1),
@@ -242,7 +242,6 @@ M_main __main(
 `ifdef SYNC_OUT
   .out_sync(PMOD_B9),
 `endif
-// -----------------------------------------------------------------------------
 /*
 PMOD com wiring:
 out fpga     in fpga
