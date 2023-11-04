@@ -27,7 +27,7 @@ $$end
 // --------------------------------------------------
 
 $$if SIMULATION then
-$$VERBOSE = nil
+$$TRACE   = nil
 $$end
 
 $$ print("--------------- Ice-V-ram ---------------")
@@ -124,10 +124,10 @@ $$end
   // uint1 load_store   <: (exec.load | exec.store);
 
 
-$$if VERBOSE then
+$$if TRACE then
   uint32 cycle(0);
   uint32 last_cycle(0);
-  uint1  debug(0);
+  uint1  trace(0);
 $$end
 
   int32 write_back(0);
@@ -143,12 +143,6 @@ $$end
 
   // always block, done every cycle
   always {
-$$if VERBOSE then
-    if (~reset) {
-      //__display("\n[cycle %d] ---------------- stage: %b ----- exec.working:%b mem.done:%b(%b|%b)=%h(@%h)",cycle,stage,exec.working,mem.done,reqmem,reqmem_done,mem.rdata,mem.addr);
-      //__display("[cycle %d] RAM, reqmem_done:%d, reqmem: %b",cycle,reqmem_done,reqmem);
-    }
-$$end
     // maintain request valid low
     mem.req_valid   = 0;
     do_load_store   = 0;
@@ -182,10 +176,6 @@ $$end
     // (pulsed when necessary)
     xregsA.wenable = 0;
 
-$$if VERBOSE then
-    // __display("[cycle %d] ====== stage:%b reset:%b pc:%h mem.done:%b",cycle,stage,reset,pc,mem.done);
-$$end
-
     // four states: F, T, LS1, LS2/commit
     onehot (stage) {
       case 0: {
@@ -195,22 +185,13 @@ $$end
         pc            = reqmem_done ? mem.addr  : pc;
         // instruction fetch done?
         instr_trigger = reqmem_done;
-$$if VERBOSE then
+$$if TRACE then
         if (instr_trigger) {
-          //if (cycle-last_cycle < 18) {
-            __display("[cycle %d] (0) F instr:%h (@%h) [elapsed: %d cycles]",cycle,instr,pc<<2,cycle-last_cycle);
-            debug = 1;
-          //}
-          last_cycle = cycle;
+          trace = 1;
         }
 $$end
       }
       case 1: {
-  $$if VERBOSE then
-        if (instr_trigger) {
-          // __display("[cycle %d] (0) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,instr,pc,xregsA.addr,xregsA.rdata,xregsB.addr,xregsB.rdata);
-        }
-  $$end
         // ---- T
         // registers are now in, triggers exec
         exec.trigger  = instr_trigger;
@@ -229,26 +210,24 @@ $$end
         mem.wenable     = exec.store;
         mem.byte_size   = 1 << exec.op[0,2]; // gives 4,2 or 1
         mem.byte_offset = exec.n[0,2];
-$$if VERBOSE then
-        if (debug) {
-          // __display("[cycle %d] load: %b store: %b",cycle,exec.load,exec.store);
-          if (mem.req_valid) {
-            // __display("[cycle %d] (0) LS1(%b) @%h = %h (wen:%b)",cycle,mem.req_valid,mem.addr,mem.wdata,mem.wenable);
-          }
-        }
-$$end
       }
       case 3: {
         // ---- LS2/commit
         // may wait on RAM
         // commit result
-        xregsA.wenable = ~exec.no_rd & ~reqmem_pending;
-        //                              ^^^^^^^^^^^^^^
-        //                           wait on RAM if request pending
-$$if VERBOSE then
-        if (xregsA.wenable & debug) {
-          __display("[cycle %d] (0) LS2/C xr[%d]=%h (mem.rdata:%x)",cycle,exec.write_rd,write_back,mem.rdata);
-          debug = 0;
+        xregsA.wenable = ~exec.no_rd & ~reqmem_pending & ~exec.working;
+        //                              ^^^^^^^^^^^^^^   ^^^^^^^^^^^^^
+        //              wait on RAM if request pending   wait on working ALU
+$$if TRACE then
+        if (trace & ~reqmem_pending & ~exec.working) {
+          __write("instr:%h (@%h) ",instr,pc<<2);
+          last_cycle = cycle;
+          if (xregsA.wenable) {
+            __display("  x[%d]=%h",exec.write_rd,write_back);
+          } else {
+            __display("");
+          }
+          trace = 0;
         }
 $$end
         // prepare instruction fetch
@@ -257,7 +236,7 @@ $$end
         //                 ^^^^^^^^^^^^^^
         //                wait on RAM from load/store
         mem.addr       = do_fetch ? (exec.jump ? (exec.n >> 2) : pc_plus1)
-                                  : mem.addr; // <= preserve addr is RAM is busy
+                                  : mem.addr; // <= preserve addr if RAM is busy
         mem.req_valid  = do_fetch;
       }
     }
@@ -276,10 +255,6 @@ $$end
     //            ^^^^^^^    ^^^^^^^         ^^^^^^^^^^^^^^
     //            on fetch,  on load/store,  or previous still active
 
-$$if VERBOSE then
-    // if (reset) { __display("[cycle %d] reset (reqmem:%b reqmem_done:%b)",cycle,reqmem,reqmem_done); }
-$$end
-
     // write back data to both register BRAMs
     xregsA.wdata    = write_back;      xregsB.wdata   = write_back;
     // xregsB written when xregsA is
@@ -287,11 +262,11 @@ $$end
     // write to write_rd, else track instruction register
     xregsA.addr     = xregsA.wenable ? exec.write_rd : Rtype(instr).rs1;
     xregsB.addr     = xregsA.wenable ? exec.write_rd : Rtype(instr).rs2;
-$$if VERBOSE then
-    // __display("[cycle %d] mem @%h (req:%b pending:%b) w:%b ",cycle,mem.addr,mem.req_valid,reqmem_pending,mem.wenable);
-$$end
 
-$$if VERBOSE then
+$$if TRACE then
+    if (mem.wenable) {
+      __display("store @%x = %x",mem.addr<<2,mem.wdata<<{mem.byte_offset,3b000});
+    }
     cycle = cycle + 1;
 $$end
 
@@ -365,12 +340,6 @@ $$end
                         |  (store  ? imm_s : 32b0);
   always {
     uint1 j(0); // temp variables for and comparator
-
-$$if VERBOSE then
-    if (trigger) {
-      // __display("[cycle %d] %h @%h xa=%h xb=%h",cycle,instr,pc,xa,xb);
-    }
-$$end
 
     // ==== set decoder outputs depending on incoming instructions
     // load/store?
@@ -459,12 +428,6 @@ $$if ICEV_MULDIV then
     } else {
 		  dividing = 0;
 		}
-$$end
-
-$$if VERBOSE then
-    if (trigger) {
-      // __display("[cycle %d] load %b store %b",cycle,load,store);
-    }
 $$end
 
     // ====================== Comparator for branching

@@ -25,7 +25,8 @@ $$end
 $$ICEV_BRANCH_PRED      = 1
 
 // set to 1 for a copious amount of debug output in simulation
-$$DEBUG_swirl           = nil
+$$DEBUG_swirl     = nil
+$$TRACE_swirl     = nil
 
 // --------------------------------------------------
 // bitfield for easier decoding of instructions
@@ -146,14 +147,19 @@ $$end
 $$if SIMULATION then
   uint32 cycle(0);  uint32 reinstr(0);
 $$end
+$$if TRACE_swirl then
+  uint32 last_cycle(0);
+$$end
 $$if not ICEV_STALL then
-  uint1 stall_cpu(0); // stall disabled, never used
+  uint1 stall_cpu(0);  // stall disabled, never used
+$$else
+  uint1 refetching(0); //  tracks if a refetch is in progress
 $$end
 
   always {
 
 $$if DEBUG_swirl then
-    uint1 debug_on = 1;
+    uint1 debug_on = 1; // (cycle > 88430 && cycle < 90000);
 $$end
 
     // tracks whether a register was written cycle before
@@ -177,7 +183,7 @@ $$if ICEV_BRANCH_PRED then
 $$end
 $$if DEBUG_swirl then
 if (debug_on) {
-      __display("[1] cycle:%d stall_cpu:%b refetch:%b refetch_addr:%x pc:%x",cycle,stall_cpu,refetch,refetch_addr<<2,pc<<2);
+      __display("[1] cycle:%d stall_cpu:%b refetch:%b refetch_addr:%x refetching:%b pc:%x",cycle,stall_cpu,refetch,refetch_addr<<2,refetching,pc<<2);
       __display("[1] cycle:%d imem.addr:%x imem.rdata:%x dmem.addr:%x dmem.rdata:%x",cycle,imem.addr<<2,imem.rdata,dmem.addr<<2,dmem.rdata);
 }
 $$end
@@ -308,6 +314,7 @@ if (debug_on) {
 }
 $$end
         xb_regR = 0; xb_regW = 0; xb_regW_prev = 1; xb_keep = 0; // same for rs2
+        //                        ^^^^^^^^^^^^^ selects value previously written
       }
       // [data hazards] case (b) detection
       // instruction in stage 4 writes on a register used now
@@ -322,6 +329,7 @@ if (debug_on) {
 }
 $$end
         xa_regR = 0; xa_regW = 1; xa_regW_prev = 0; xa_keep = 0;
+        //           ^^^^^^^^^^^ selects value being written
       }
       if (~no_rd & (Rtype(instr).rs2 == rd) & has_rs2) { // same for rs2
 $$if DEBUG_swirl then
@@ -426,19 +434,39 @@ if (debug_on) {
     }
 }
 $$end
+$$if TRACE_swirl then
+    if (instr_done) {
+      __write("instr:%h (@%h) ",instr,pc<<2);
+      last_cycle = cycle;
+      if (xregsA.wenable1) {
+        __display("  x[%d]=%h",xregsA.addr1,xregsA.wdata1);
+      } else {
+        __display("");
+      }
+    }
+$$end
 
       // signal a jump if needed (flushes pipeline and jumps)
       refetch          = stall_cpu             // on a stall trigger (and hold) a refetch
                        | ( ( jump ^ bpred )    // jump prediction failed
                          & ~refetch & ~bubble );
       //                 ^^^^^^ reset refetch if done at prev cycle
+$$if ICEV_STALL then
+      // indicates whether a refetch is in progress
+      // (on a stall, refetch at the ongoing refetch if one is in progress)
+      uint1 was_refetching = refetching & ~instr_done;
+      refetching       = refetch | was_refetching;
+$$end
       jumping         ^= refetch; // warn stage 3 (cancel any store)
       exec.cancel      = refetch; // cancel any pending ALU op on refetch
       // new address on refetch
-      refetch_addr     = (stall_cpu & ~on_stall) ? refetch_addr // fix pc
+      refetch_addr     = ~refetch | was_refetching | (stall_cpu & ~on_stall) ? refetch_addr // keep the refetch_addr
                        : jump       ? (alu_n>>2)   // jump destination
                        : instr_done ? pcp1         // next by address
-                      :  pc;                       // stay on same
+                       : pc;                       // stay on same
+      //if (debug_on || ((pc<<2) == 32h0b50)) {
+      //  __display("[!] cycle:%d refetch:%b (jump:%b pred:%b) refetch_addr:%h on_stall:%b",cycle,refetch,jump,bpred,refetch_addr<<2,on_stall);
+      //}
 
 $$if DEBUG_swirl then
 if (debug_on) {
@@ -467,7 +495,7 @@ $$end
               | xb_regW_prev ? xregsB.wdata1 : 32b0;
     // what to write on a store
     dmem.wdata = stall_cpu ? dmem.wdata
-               : (xb_regW ? xregsA.wdata1 : xb) << {exec.n[0,2],3b000};
+               : (/*xb_regW  ? xregsA.wdata1 :*/ xb) << {exec.n[0,2],3b000};
     //                                      ^^---------\
     // capture xb from stage 2 so that stage 3 assign above sees the correct value
 $$if DEBUG_swirl then
@@ -477,7 +505,12 @@ if (debug_on) {
     }
 }
 $$end
-    xb        = exec.xb;
+$$if TRACE_swirl then
+    if ((|dmem.wenable) & ~stall_cpu) {
+      __display("store @%x = %x",dmem.addr<<2,dmem.wdata);
+    }
+$$end
+    xb         = exec.xb;
     // register bank B follows A writes
     xregsB.wenable1 = xregsA.wenable1;
     xregsB.wdata1   = xregsA.wdata1;
@@ -634,7 +667,7 @@ $$  end
         case 3b100: { // DIV
           if (trigger) {
             $$if DEBUG_swirl then
-            __display("[cycle %d] DIVISION trigger",cycle);
+            //__display("[cycle %d] DIVISION trigger",cycle);
             $$end
             working  = 1;
             dividing = 1;
@@ -642,8 +675,8 @@ $$  end
           } else {
             if (isdone(div) & dividing) {
               $$if DEBUG_swirl then
-              __display("[cycle %d] DIVISION %d / %d = %d",cycle,
-                          div.inum,div.iden,div.ret);
+              //__display("[cycle %d] DIVISION %d / %d = %d",cycle,
+              //           div.inum,div.iden,div.ret);
               $$end
               dividing = 0;
               working  = 0;
