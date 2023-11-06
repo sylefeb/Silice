@@ -89,7 +89,10 @@ interface icev_ram_user {
 unit icev_ram(
   icev_ram_user mem,
 $$if ICEV_USERDATA then
-  input uint32  user_data
+  input uint32  user_data,
+$$end
+$$if TRACE then
+  input uint1 trace_on,
 $$end
 ) {
 
@@ -186,8 +189,10 @@ $$end
         // instruction fetch done?
         instr_trigger = reqmem_done;
 $$if TRACE then
-        if (instr_trigger) {
-          trace = 1;
+        if (trace_on) {
+          if (instr_trigger) {
+            trace = 1;
+          }
         }
 $$end
       }
@@ -213,28 +218,35 @@ $$end
       }
       case 3: {
         // ---- LS2/commit
-        // may wait on RAM
+        uint1 instr_done = ~reqmem_pending & ~exec.working;
+        //                  ^^^^^^^^^^^^^^    ^^^^^^^^^^^^^
+        //  wait on RAM if request pending   wait on working ALU
         // commit result
         xregsA.wenable = ~exec.no_rd & ~reqmem_pending & ~exec.working;
-        //                              ^^^^^^^^^^^^^^   ^^^^^^^^^^^^^
-        //              wait on RAM if request pending   wait on working ALU
 $$if TRACE then
-        if (trace & ~reqmem_pending & ~exec.working) {
-          __write("instr:%h (@%h) ",instr,pc<<2);
-          last_cycle = cycle;
-          if (xregsA.wenable) {
-            __display("  x[%d]=%h",exec.write_rd,write_back);
-          } else {
-            __display("");
+        if (trace_on) {
+          if (trace & instr_done) {
+            __write("@%h %h ",pc<<2,instr);
+            last_cycle = cycle;
+            if (xregsA.wenable) {
+              __display("x[%d]=%h",exec.write_rd,write_back);
+            } else {
+              __display("");
+            }
+            trace = 0;
           }
-          trace = 0;
         }
+$$end
+$$if ICEV_VERILATOR_TRACE then
+      // this is used to track retired instr. and compare CPUs
+      if (instr_done) {
+				__verilog("$c32(\"cpu_retires(4,\",%,\",\",%,\",\",%,\",\",%,\");\");",
+          pc<<2,instr,Rtype(instr).rd,write_back);
+			}
 $$end
         // prepare instruction fetch
         // instruction fetch in progress
-        do_fetch       = ~reqmem_pending & ~reset;
-        //                 ^^^^^^^^^^^^^^
-        //                wait on RAM from load/store
+        do_fetch       = instr_done & ~reset;
         mem.addr       = do_fetch ? (exec.jump ? (exec.n >> 2) : pc_plus1)
                                   : mem.addr; // <= preserve addr if RAM is busy
         mem.req_valid  = do_fetch;
@@ -264,8 +276,10 @@ $$end
     xregsB.addr     = xregsA.wenable ? exec.write_rd : Rtype(instr).rs2;
 
 $$if TRACE then
-    if (mem.wenable) {
-      __display("store @%x = %x",mem.addr<<2,mem.wdata<<{mem.byte_offset,3b000});
+    if (trace_on) {
+      if (mem.wenable) {
+        __display("store @%x = %x",mem.addr<<2,mem.wdata<<{mem.byte_offset,3b000});
+      }
     }
     cycle = cycle + 1;
 $$end

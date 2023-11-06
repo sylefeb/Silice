@@ -112,6 +112,9 @@ $$if ICEV_STALL then
   // optional feature to stall the CPU (e.g. while filling a cache)
   input uint1 stall_cpu,
 $$end
+$$if TRACE_swirl then
+  input uint1 trace_on,
+$$end
 ) {
 
   // register file, uses two BRAMs to fetch two registers at once
@@ -152,14 +155,13 @@ $$if TRACE_swirl then
 $$end
 $$if not ICEV_STALL then
   uint1 stall_cpu(0);  // stall disabled, never used
-$$else
-  uint1 refetching(0); //  tracks if a refetch is in progress
 $$end
+  uint1 refetching(0); //  tracks if a refetch is in progress
 
   always {
 
 $$if DEBUG_swirl then
-    uint1 debug_on = 1; // (cycle > 88430 && cycle < 90000);
+    uint1 debug_on = (cycle > 40885000);
 $$end
 
     // tracks whether a register was written cycle before
@@ -201,7 +203,8 @@ $$if ICEV_BRANCH_PRED then
       jinstr          = instr[ 4, 3] == 3b110;
       jal             = instr[2,2]   == 2b11;
       branch          = instr[2,2]   == 2b00;
-      bpred           = jinstr & (jal|branch);
+      bpred           = jinstr & (jal|branch) & ~refetching;
+      //                 no bpred if refetching ^^^^ cache may ping-pong
       addr_a          = __signed({1b0,pc[0,$addrW-1$],2b0});
       addr_imm        = jal ? {{12{instr[31,1]}},instr[12,8],instr[20,1],instr[21,10],1b0}
                             : {{20{instr[31,1]}},instr[7,1],instr[25,6],instr[8,4],1b0};
@@ -369,11 +372,19 @@ $$end
       if (exec.store & ~bubble & ~jumping) {
         //                        ^^^^^^ if stage 4 jumps, cancel store
         // build write mask depending on SB, SH, SW
-        // assumes aligned, e.g. SW => next_addr[0,2] == 2
+        // assumes aligned SW
         dmem.wenable = ( { { 2{exec.op[0,2]==2b10} },
                           exec.op[0,1] | exec.op[1,1], 1b1
                         } ) << exec.n[0,2];
       }
+$$if SIMULATION then
+      // check for unaligned loads (unsupported)
+      if ((exec.load & ~bubble & ~jumping)
+        & (exec.op[0,2]==2b10) & (exec.n[0,2] != 2b00)) {
+        __display("[cycle %d] ERROR @%h %h, unaligned lw from @%h",cycle,pc<<2,instr,exec.n);
+        __finish();
+      }
+$$end
       // decoder outputs to trickle down the pipeline towards stage 4
       no_rd      = exec.no_rd | bubble;
       //                      ^^^^ disables data hazard in stage 2 on a bubble
@@ -435,13 +446,15 @@ if (debug_on) {
 }
 $$end
 $$if TRACE_swirl then
-    if (instr_done) {
-      __write("instr:%h (@%h) ",instr,pc<<2);
-      last_cycle = cycle;
-      if (xregsA.wenable1) {
-        __display("  x[%d]=%h",xregsA.addr1,xregsA.wdata1);
-      } else {
-        __display("");
+    if (trace_on) {
+      if (instr_done) {
+        __write("@%h %h ",pc<<2,instr);
+        last_cycle = cycle;
+        if (xregsA.wenable1) {
+          __display("x[%d]=%h",xregsA.addr1,xregsA.wdata1);
+        } else {
+          __display("");
+        }
       }
     }
 $$end
@@ -506,8 +519,10 @@ if (debug_on) {
 }
 $$end
 $$if TRACE_swirl then
-    if ((|dmem.wenable) & ~stall_cpu) {
-      __display("store @%x = %x",dmem.addr<<2,dmem.wdata);
+    if (trace_on) {
+      if ((|dmem.wenable) & ~stall_cpu) {
+        __display("store @%x = %x",dmem.addr<<2,dmem.wdata);
+      }
     }
 $$end
     xb         = exec.xb;
