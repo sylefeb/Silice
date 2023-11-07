@@ -75,12 +75,14 @@ module top(
   output SPI_SS_FLASH,
   output SPI_MOSI,
   input  SPI_MISO,
+  output SPI_SS_RAM,  // unselect psram as lines are shared (disallowed together)
 `endif
 `ifdef SPIFLASH_DSPI
   output SPI_SCK,
   output SPI_SS_FLASH,
   inout  SPI_MOSI,
   inout  SPI_MISO,
+  output SPI_SS_RAM,  // unselect psram as lines are shared (disallowed together)
 `endif
 `ifdef PMOD_DSPI
   output PMOD_A7,
@@ -95,11 +97,7 @@ module top(
   inout  SPI_MISO,
   inout  SPI_IO2,
   inout  SPI_IO3,
-`ifndef SPIFLASH
-`ifndef SPIFLASH_DSPI
-  output SPI_SS_FLASH, // if spiflash not used, we want to unselect it
-`endif
-`endif
+  output SPI_SS_FLASH, // unselect spiflash as lines are shared (disallowed together)
 `endif
 `ifdef PARALLEL_SCREEN
   output GPIO0,
@@ -189,11 +187,27 @@ wire run_main;
 assign run_main = 1'b1;
 
 `ifdef QPSRAM
-wire [1:0] qpsram_unused;
-`ifndef SPIFLASH
-`ifndef SPIFLASH_DSPI
+wire [1:0] psram_unused;
 assign SPI_SS_FLASH = 1'b1;
+`ifdef SPIFLASH
+`error_cannot_use_spiflash_and_qpsram_together
 `endif
+`ifdef SPIFLASH_DSPI
+`error_cannot_use_spiflash_and_qpsram_together
+`endif
+`endif
+
+`ifdef SPIFLASH
+assign SPI_SS_RAM = 1'b1;
+`ifdef QPSRAM
+`error_cannot_use_spiflash_and_qpsram_together
+`endif
+`endif
+
+`ifdef SPIFLASH_DSPI
+assign SPI_SS_RAM = 1'b1;
+`ifdef QPSRAM
+`error_cannot_use_spiflash_and_qpsram_together
 `endif
 `endif
 
@@ -230,6 +244,12 @@ M_main __main(
   .inout_sf_io0(SPI_MOSI),
   .inout_sf_io1(SPI_MISO),
 `endif
+`ifdef PMOD_DSPI
+  .out_sf_csn(PMOD_A7),
+  .inout_sf_io0(PMOD_A8),
+  .inout_sf_io1(PMOD_A9),
+  .out_sf_clk(PMOD_A10),
+`endif
 `ifdef QPSRAM
   .out_ram_csn  (SPI_SS_RAM),
   .inout_ram_io0(SPI_MOSI),
@@ -237,7 +257,7 @@ M_main __main(
   .inout_ram_io2(SPI_IO2),
   .inout_ram_io3(SPI_IO3),
   .out_ram_clk  (SPI_SCK),
-  .out_ram_bank (qpsram_unused),
+  .out_ram_bank (psram_unused),
 `endif
 `ifdef PARALLEL_SCREEN
   .out_prlscreen_d({GPIO6,GPIO7,GPIO4,GPIO5,GPIO2,GPIO3,GPIO0,GPIO1}),
@@ -286,12 +306,6 @@ PMOD_A8 is on a global buffer on the 'in fpga' and has to be used for the clock
   .in_com_valid(PMOD_B3),
 `endif
 // -----------------------------------------------------------------------------
-`ifdef PMOD_DSPI
-  .out_sf_csn(PMOD_A7),
-  .inout_sf_io0(PMOD_A8),
-  .inout_sf_io1(PMOD_A9),
-  .out_sf_clk(PMOD_A10),
-`endif
   .in_run(run_main)
 );
 // -----------------------------------------------------------------------------
