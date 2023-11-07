@@ -314,7 +314,13 @@ $$end
           if (reg_ram_datanext) {
             uint4  wmask   = 2b11 << {n[0,1],1b0};
             uint16 wdata   = reg_ram_rdata << {n[0,1],3b0};
-            // __write("%x,", reg_ram_rdata);
+            $$if SIMULATION then
+              //uint32 full = ram.addr + n;
+              //if (full[8,16] == 16h14cd || debug_on) {
+              //  __display("load @%x = %x (cache %b, line %d, cycle %d)",full,reg_ram_rdata,cache0_hit,~cache0_hit ? qline0_id : qline1_id,cycle);
+              //}
+              // __write("%x,", reg_ram_rdata);
+            $$end
             // cache 0
             spram0.addr    = {qline0_id,n[2,$cache_line_w$]};
             spram1.addr    = {qline0_id,n[2,$cache_line_w$]};
@@ -331,8 +337,8 @@ $$end
             spram3.data_in = wdata;
             spram2.wmask   = wmask;
             spram3.wmask   = wmask;
-            spram2.wenable = ~cache1_hit & ~n[1,1];
-            spram3.wenable = ~cache1_hit &  n[1,1];
+            spram2.wenable = cache0_hit & ~n[1,1];
+            spram3.wenable = cache0_hit &  n[1,1];
             // next
             n = n + 1;
           }
