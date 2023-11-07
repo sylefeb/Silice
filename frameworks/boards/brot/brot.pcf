@@ -91,7 +91,7 @@ set_io USB_DN		  31
 set_io USB_DP		  32
 set_io USB_DP_PU	34
 
-# SPI
+# SPI (both QPSRAM and MMOD, selected with SPI_SS_RAM, SPI_SS_FLASH)
 set_io SPI_SS_FLASH	16
 set_io SPI_SS_RAM		37 # G1
 set_io SPI_SCK			15

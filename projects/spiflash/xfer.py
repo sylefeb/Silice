@@ -22,7 +22,7 @@ elif op == 'r':
   print("reading")
 else:
   print("unknown command ",op)
-  os.exit(-1)
+  sys.exit()
 
 # address
 addr = int(sys.argv[3], 0)

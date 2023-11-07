@@ -75,17 +75,31 @@ module top(
   output SPI_SS_FLASH,
   output SPI_MOSI,
   input  SPI_MISO,
-  output SPI_IO2,
-  output SPI_IO3,
+`endif
+`ifdef SPIFLASH_DSPI
+  output SPI_SCK,
+  output SPI_SS_FLASH,
+  inout  SPI_MOSI,
+  inout  SPI_MISO,
+`endif
+`ifdef PMOD_DSPI
+  output PMOD_A7,
+  inout  PMOD_A8,
+  inout  PMOD_A9,
+  output PMOD_A10,
 `endif
 `ifdef QPSRAM
   output SPI_SCK,
   output SPI_SS_RAM,
-  output SPI_SS_FLASH,
   inout  SPI_MOSI,
   inout  SPI_MISO,
   inout  SPI_IO2,
   inout  SPI_IO3,
+`ifndef SPIFLASH
+`ifndef SPIFLASH_DSPI
+  output SPI_SS_FLASH, // if spiflash not used, we want to unselect it
+`endif
+`endif
 `endif
 `ifdef PARALLEL_SCREEN
   output GPIO0,
@@ -133,12 +147,6 @@ module top(
   input PMOD_B3,
   input PMOD_B4,
 `endif
-`ifdef PMOD_DSPI
-  output PMOD_A7,
-  inout  PMOD_A8,
-  inout  PMOD_A9,
-  output PMOD_A10,
-`endif
 `ifdef SYNC_IN
   input PMOD_A1,
 `endif
@@ -182,7 +190,11 @@ assign run_main = 1'b1;
 
 `ifdef QPSRAM
 wire [1:0] qpsram_unused;
+`ifndef SPIFLASH
+`ifndef SPIFLASH_DSPI
 assign SPI_SS_FLASH = 1'b1;
+`endif
+`endif
 `endif
 
 `ifdef BASIC
@@ -211,6 +223,12 @@ M_main __main(
   .out_sf_clk (SPI_SCK),
   .out_sf_mosi(SPI_MOSI),
   .in_sf_miso (SPI_MISO),
+`endif
+`ifdef SPIFLASH_DSPI
+  .out_sf_csn  (SPI_SS_FLASH),
+  .out_sf_clk  (SPI_SCK),
+  .inout_sf_io0(SPI_MOSI),
+  .inout_sf_io1(SPI_MISO),
 `endif
 `ifdef QPSRAM
   .out_ram_csn  (SPI_SS_RAM),
