@@ -161,7 +161,7 @@ $$end
   always {
 
 $$if DEBUG_swirl then
-    uint1 debug_on = (cycle > 40885000);
+    uint1 debug_on = 0; // (cycle > 40333206) && (cycle < 40339206);
 $$end
 
     // tracks whether a register was written cycle before
@@ -379,9 +379,9 @@ $$end
       }
 $$if SIMULATION then
       // check for unaligned loads (unsupported)
-      if ((exec.load & ~bubble & ~jumping)
+      if ((exec.load|exec.store) & ~bubble & ~jumping
         & (exec.op[0,2]==2b10) & (exec.n[0,2] != 2b00)) {
-        __display("[cycle %d] ERROR @%h %h, unaligned lw from @%h",cycle,pc<<2,instr,exec.n);
+        __display("[cycle %d] ERROR @%h %h, unaligned access (%b) @%h",cycle,pc<<2,instr,exec.store,exec.n);
         __finish();
       }
 $$end
@@ -519,7 +519,8 @@ if (debug_on) {
 }
 $$end
 $$if TRACE_swirl then
-    if (trace_on) {
+    //uint32 full = dmem.addr<<2;
+    if (trace_on /*|| full[8,16] == 16h14cd*/) {
       if ((|dmem.wenable) & ~stall_cpu) {
         __display("store @%x = %x",dmem.addr<<2,dmem.wdata);
       }
