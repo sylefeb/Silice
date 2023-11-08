@@ -259,7 +259,9 @@ $$if false then
   sio.data_in  = 0;
   sio.in_valid = 1;
   while (!sio.done) { }
+  $$if SIMULATION then
   __display("sio.data_out = %h",sio.data_out);
+  $$end
   leds = sio.data_out[56,8];
 $$end
 
@@ -289,12 +291,16 @@ $$if true then
 $$if TEST_r128w8 or TEST_r16w16 then
         if (sio.data_out[0,8] != count[0,8]) {
           leds = 8b01010101;
+          $$if SIMULATION then
           __display("ERROR AT %h",count);
+          $$end
         }
 $$else
         if (sio.data_out[0,64] != (64h1122aabbccddeeff ^ count ^ (count<<32))) {
           leds = 8b01010101;
+          $$if SIMULATION then
           __display("ERROR AT %h",count);
+          $$end
         }
 $$end
         $$if SIMULATION then

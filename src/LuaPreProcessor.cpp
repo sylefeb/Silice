@@ -1055,7 +1055,7 @@ void LuaPreProcessor::decomposeSource(
       if (w == "unit" || w == "algorithm" || w == "algorithm#" || w == "circuitry") {
         std::string name = parser.readString("( \t\r");
         if (name.empty()) {
-          throw Fatal((w + " has no name").c_str()); // TODO: improve error report (line)
+          throw Fatal("%s",(w + " has no name").c_str()); // TODO: improve error report (line)
         }
         cerr << "functionalizing " << w << ' ' << name << '\n';
         if (w == "algorithm#") {

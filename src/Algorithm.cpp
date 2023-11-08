@@ -6326,7 +6326,7 @@ void Algorithm::checkExpressions(const t_instantiation_context &ictx,antlr4::tre
       if (A != m_InstancedBlueprints.end()) { // algorithm?
         Algorithm *alg = dynamic_cast<Algorithm*>(A->second.blueprint.raw());
         if (alg == nullptr) {
-          reportError(sourceloc(async), "called instance '%s' is not an algorithm", async->IDENTIFIER()->getText().c_str());
+          reportError(sourceloc(sync), "called instance '%s' is not an algorithm", sync->joinExec()->IDENTIFIER()->getText().c_str());
         } else {
           // if parameters are given, check, otherwise we allow call without parameters (bindings may exist)
           if (!sync->callParamList()->expression_0().empty()) {
@@ -6364,7 +6364,7 @@ void Algorithm::checkExpressions(const t_instantiation_context &ictx,antlr4::tre
       if (A != m_InstancedBlueprints.end()) { // algorithm?
         Algorithm *alg = dynamic_cast<Algorithm*>(A->second.blueprint.raw());
         if (alg == nullptr) {
-          reportError(sourceloc(async), "joined instance '%s' is not an algorithm", async->IDENTIFIER()->getText().c_str());
+          reportError(sourceloc(join), "joined instance '%s' is not an algorithm", join->IDENTIFIER()->getText().c_str());
         } else {
           // if parameters are given, check, otherwise we allow call without parameters (bindings may exist)
           if (!join->callParamList()->expression_0().empty()) {
