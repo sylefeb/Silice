@@ -37,6 +37,9 @@ $$config['bram_wenable_width'] = '1'
 $$config['dualport_bram_wenable0_width'] = 'data'
 $$config['dualport_bram_wenable1_width'] = 'data'
 $$config['reg_init_zero'] = '1'
+$$config['__display_supported'] = 'yes'
+$$config['__write_supported']   = 'yes'
+$$config['__finish_supported']  = 'yes'
 
 `timescale 1ns / 1ps
 

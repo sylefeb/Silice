@@ -35,6 +35,9 @@ $$NUM_LEDS    = 8
 $$SIMULATION  = 1
 $$color_depth = 6
 $$color_max   = 63
+$$config['__display_supported'] = 'yes'
+$$config['__write_supported']   = 'yes'
+$$config['__finish_supported']  = 'yes'
 
 `timescale 1ns / 1ps
 `default_nettype none

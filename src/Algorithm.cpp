@@ -8134,24 +8134,28 @@ void Algorithm::writeBlock(std::string prefix, t_writer_context &w,
     } {
       auto display = dynamic_cast<siliceParser::DisplayContext *>(a.instr);
       if (display) {
-        if (display->DISPLAY() != nullptr) {
-          w.out << "$display(";
-        } else if (display->DISPLWRITE() != nullptr) {
-          w.out << "$write(";
-        }
-        w.out << display->STRING()->getText();
-        if (display->callParamList() != nullptr) {
-          std::vector<t_call_param> params;
-          getCallParams(display->callParamList(),params, &block->context);
-          for (auto p : params) {
-            if (std::holds_alternative<std::string>(p.what)) {
-              w.out << "," << rewriteIdentifier(prefix, std::get<std::string>(p.what), "", &block->context, ictx, sourceloc(display), FF_Q, true, _dependencies, _ff_usage);
-            } else {
-              w.out << "," << rewriteExpression(prefix, p.expression, a.__id, &block->context, ictx, FF_Q, true, _dependencies, _ff_usage);
+        // check support
+        std::string instr = display->DISPLAY() != nullptr ? "display" : "write";
+        auto C = CONFIG.keyValues().find("__" + instr + "_supported");
+        if (C->second != "yes") {
+          warn(Standard, sourceloc(display), ("__" + instr + " not supported on this target, ignored").c_str());
+        } else {
+          // add to code
+          w.out << "$" << instr << "(";
+          w.out << display->STRING()->getText();
+          if (display->callParamList() != nullptr) {
+            std::vector<t_call_param> params;
+            getCallParams(display->callParamList(), params, &block->context);
+            for (auto p : params) {
+              if (std::holds_alternative<std::string>(p.what)) {
+                w.out << "," << rewriteIdentifier(prefix, std::get<std::string>(p.what), "", &block->context, ictx, sourceloc(display), FF_Q, true, _dependencies, _ff_usage);
+              } else {
+                w.out << "," << rewriteExpression(prefix, p.expression, a.__id, &block->context, ictx, FF_Q, true, _dependencies, _ff_usage);
+              }
             }
           }
+          w.out << ");" << nxl;
         }
-        w.out << ");" << nxl;
       }
     } {
       auto inline_v = dynamic_cast<siliceParser::Inline_vContext *>(a.instr);
@@ -8187,7 +8191,14 @@ void Algorithm::writeBlock(std::string prefix, t_writer_context &w,
     } {
       auto finish = dynamic_cast<siliceParser::FinishContext *>(a.instr);
       if (finish) {
-        w.out << "$finish();" << nxl;
+        // check support
+        auto C = CONFIG.keyValues().find("__finish_supported");
+        if (C->second != "yes") {
+          warn(Standard, sourceloc(finish), "__finish not supported on this target, ignored");
+        } else {
+          // add to code
+          w.out << "$finish();" << nxl;
+        }
       }
     } {
       auto stall = dynamic_cast<siliceParser::StallContext *>(a.instr);
