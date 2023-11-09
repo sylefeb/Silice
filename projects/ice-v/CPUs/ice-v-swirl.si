@@ -674,13 +674,14 @@ $$  if not ICEV_FAST_SHIFT then
 $$    error('ICEV_MULDIV requires ICEV_FAST_SHIFT')
 $$  end
     // mul div
-    uint1  mulh   = op == 3b001;
-    uint1  mulhsu = op == 3b010;
-    uint1  signa  = xa[31,1];
-    uint1  signb  = xb[31,1]; // vvvvvvvvvv keep the sign?
-    int33  ma     = {signa & (mulh | mulhsu),xa};
-    int33  mb     = {signb &  mulh,          xb};
-    int64  mul    = ma * mb;  // multiply
+    uint1  mulh    = op == 3b001;
+    uint1  mulhsu  = op == 3b010;
+    uint1  signa   = xa[31,1];
+    uint1  signb   = xb[31,1]; // vvvvvvvvvv keep the sign?
+    int33  ma      = {signa & (mulh | mulhsu),xa};
+    int33  mb      = {signb &  mulh,          xb};
+    int64  mul     = ma * mb;  // multiply
+    uint1  signdiv = ~ op[0,1];
     if (muldiv) {
       //__display("[cycle %d] dividing:%b working:%b isdone(div):%b",cycle,dividing,working,isdone(div));
       if (~op[2,1]) {
@@ -694,7 +695,7 @@ $$  end
           $$end
           working  = 1;
           dividing = 1;
-          div <- ( signa?-xa:xa, signb?-xb:xb );
+          div <- ( (signdiv&signa)?-xa:xa, (signdiv&signb)?-xb:xb );
         } else {
           if (isdone(div) & dividing) {
             $$if DEBUG_swirl then
@@ -706,7 +707,7 @@ $$  end
           }
         }
         // division result
-        uint1 div_negate = ~ op[0,1]/*DIVU*/ & (signa ^ signb) /*DIV*/;
+        uint1 div_negate = signdiv/*DIVU*/ & (signa ^ signb) /*DIV*/;
         if (op[1,1]) {  // REM,REMU
           r        = div_negate ? -div.rem : div.rem;
         } else {        // DIV,DIVU
