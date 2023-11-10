@@ -26,7 +26,7 @@ $$end
 $$ICEV_BRANCH_PRED = 1
 
 // set to 1 for a copious amount of debug output in simulation
-$$DEBUG_swirl      = 1
+$$DEBUG_swirl      = nil
 $$TRACE_swirl      = nil
 
 // --------------------------------------------------
@@ -162,7 +162,7 @@ $$end
   always {
 
 $$if DEBUG_swirl then
-    uint1 debug_on = 1; // (cycle > 40333206) && (cycle < 40339206);
+    uint1 debug_on = 1; // {pc,2b00} > 24h01b050 && {pc,2b00} < 24h01b05f; // (cycle > 40333206) && (cycle < 40339206);
 $$end
 
     // tracks whether a register was written cycle before
@@ -223,7 +223,7 @@ $$end
 $$if DEBUG_swirl then
 if (debug_on) {
       if (~stall_cpu | on_stall) {
-        __display("[1] instr: %x @%x (bubble:%b reset:%b refetch:%b hold:%b stall_cpu:%b alu:%b rs1 %d rs2 %d)",
+        __display("[1] instr: %x @%x (bubble:%b reset:%b refetch:%b hold:%b stall_cpu:%b alu_busy:%b rs1 %d rs2 %d)",
           instr,pc<<2,bubble,reset,refetch,hold,stall_cpu,exec.working,xregsA.addr0,xregsB.addr0);
         if (bpred) {
           __display("[1] pc @%x following branch to @%x",pc<<2,imem.addr<<2);
@@ -270,7 +270,7 @@ $$end
         // on such a data hazard we hold the pipeline one cycle
         hold      = (rs1_eq_rd|rs2_eq_rd) & ~exec.no_rd
                   // all the conditions below mean there is in fact no hazard
-                  & ~stage3_bubble & ~reset & ~refetch & ~exec.working;
+                  & ~stage3_bubble & ~reset & ~refetch & ~exec.working & ~bubble;
       } else {
         // holding, keep the same values on ALU inputs     vvvv
         xa_regR = 0; xa_regW = 0; xa_regW_prev = 0; xa_keep = 1;
@@ -278,7 +278,7 @@ $$end
         hold    = 0; // release the hold
       }
       // update bubble
-      bubble       = (bubble | refetch | exec.working | hold);
+      bubble    = (bubble | refetch | exec.working | hold);
 $$if DEBUG_swirl then
 if (debug_on) {
       if (~stall_cpu | on_stall) {
@@ -616,25 +616,25 @@ $$end
   int$addrW+3$ addr_imm <: (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
                         |  (branch ? imm_b : 32b0) | ((JALR|load) ? imm_i : 32b0)
                         |  (store  ? imm_s : 32b0);
-  // ==== set decoder outputs depending on incoming instructions
-  // load/store?
-  load         := opcode == 5b00000;   store        := opcode == 5b01000;
-  // operator for load/store           // register to write to?
-  op           := Rtype(instr).op;     write_rd     := Rtype(instr).rd;
-  // do we have to write a result to a register?
-  no_rd        := branch  | store  | (Rtype(instr).rd == 5b0);
-  // integer operations                // store next address?
-  intop        := (IntImm | IntReg);   storeAddr    := AUIPC;
-  // value to store directly
-  val          := LUI ? imm_u : cycle;
-  // store value?
-  storeVal     := LUI | CSR;
-  // branch instruction?
-  is_branch    := branch;
 
   always {
-    uint1 j(0); // temp variables for and comparator
+    // ==== set decoder outputs depending on incoming instructions
+    // load/store?
+    load         = opcode == 5b00000;   store        = opcode == 5b01000;
+    // operator for load/store           // register to write to?
+    op           = Rtype(instr).op;     write_rd     = Rtype(instr).rd;
+    // do we have to write a result to a register?
+    no_rd        = branch  | store  | (Rtype(instr).rd == 5b0);
+    // integer operations                // store next address?
+    intop        = (IntImm | IntReg);   storeAddr    = AUIPC;
+    // value to store directly
+    val          = LUI ? imm_u : cycle;
+    // store value?
+    storeVal     = LUI | CSR;
+    // branch instruction?
+    is_branch    = branch;
     // ====================== ALU
+    uint1 j(0); // temp variables for and comparator
 $$if not ICEV_FAST_SHIFT then
     // shift (one bit per clock)
     if (trigger) {
@@ -674,8 +674,8 @@ $$  if not ICEV_FAST_SHIFT then
 $$    error('ICEV_MULDIV requires ICEV_FAST_SHIFT')
 $$  end
     // mul div
-    uint1  mulh    = op == 3b001;
-    uint1  mulhsu  = op == 3b010;
+    uint1  mulh    = op[0,2] == 2b01;
+    uint1  mulhsu  = op[0,2] == 2b10;
     uint1  signa   = xa[31,1];
     uint1  signb   = xb[31,1]; // vvvvvvvvvv keep the sign?
     int33  ma      = {signa & (mulh | mulhsu),xa};
@@ -699,15 +699,15 @@ $$  end
         } else {
           if (isdone(div) & dividing) {
             $$if DEBUG_swirl then
-            __display("[cycle %d] DIVISION %d / %d = %d",cycle,
-                       div.inum,div.iden,div.ret);
+            //__display("[cycle %d] DIVISION %d / %d = %d",cycle,
+            //           div.inum,div.iden,div.ret);
             $$end
             dividing = 0;
             working  = 0;
           }
         }
         // division result
-        uint1 div_negate = signdiv/*DIVU*/ & (signa ^ signb) /*DIV*/;
+        uint1 div_negate = signdiv/*DIV|REM*/ & (signa ^ signb);
         if (op[1,1]) {  // REM,REMU
           r        = div_negate ? -div.rem : div.rem;
         } else {        // DIV,DIVU
