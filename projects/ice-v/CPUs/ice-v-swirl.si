@@ -23,10 +23,8 @@ $$div_remainder = 1
 $include('../../common/divint_std.si')
 $$end
 
-$$ICEV_BRANCH_PRED = 1
-
 // set to 1 for a copious amount of debug output in simulation
-$$DEBUG_swirl      = nil
+$$DEBUG_swirl      = 1
 $$TRACE_swirl      = nil
 
 // --------------------------------------------------
@@ -179,11 +177,6 @@ $$end
 
     { // pipeline is contained within this block
     { // ==== stage 1
-$$if ICEV_BRANCH_PRED then
-      uint1         jinstr(0);  uint1 jal(0);             uint1 branch(0);
-      int$addrW+3$  addr_a(0);  int$addrW+3$ addr_imm(0);
-      uint$addrW+2$ bpred_n(0);
-$$end
 $$if DEBUG_swirl then
 if (debug_on) {
       __display("[1] cycle:%d stall_cpu:%b refetch:%b refetch_addr:%x refetching:%b pc:%x",cycle,stall_cpu,refetch,refetch_addr<<2,refetching,pc<<2);
@@ -199,27 +192,22 @@ $$end
       // setup register read
       xregsA.addr0    = Rtype(instr).rs1;
       xregsB.addr0    = Rtype(instr).rs2;
-      // fetch next
-$$if ICEV_BRANCH_PRED then
-      jinstr          = instr[ 4, 3] == 3b110;
-      jal             = instr[2,2]   == 2b11;
-      branch          = instr[2,2]   == 2b00;
+      // branch prediction
+      uint1 jinstr    = instr[ 4, 3] == 3b110;
+      uint1 jal       = instr[2,2]   == 2b11;
+      uint1 branch    = instr[2,2]   == 2b00;
       bpred           = jinstr & (jal|branch) & ~refetching;
       //                 no bpred if refetching ^^^^ cache may ping-pong
-      addr_a          = __signed({1b0,pc[0,$addrW-1$],2b0});
-      addr_imm        = jal ? {{12{instr[31,1]}},instr[12,8],instr[20,1],instr[21,10],1b0}
+      int$addrW+3$ addr_a   = __signed({1b0,pc[0,$addrW-1$],2b0});
+      int$addrW+3$ addr_imm = jal ? {{12{instr[31,1]}},instr[12,8],instr[20,1],instr[21,10],1b0}
                             : {{20{instr[31,1]}},instr[7,1],instr[25,6],instr[8,4],1b0};
-      bpred_n         = addr_a + addr_imm;
-$$end
-      imem.addr       = stall_cpu        ? imem.addr // fix it during stall
-                      : refetch          ? refetch_addr
-                      : (~bubble & ~reset) ?
-$$if ICEV_BRANCH_PRED then
-                      (bpred ? (bpred_n>>2) : (pc[0,$addrW$] + 1))
-$$else
-                      (pc[0,$addrW$] + 1)
-$$end
-                      : pc;
+      uint$addrW+2$ bpred_n = addr_a + addr_imm;
+      // fetch next
+      imem.addr       = stall_cpu          ? imem.addr    // fix it during stall
+                      : refetch            ? refetch_addr // go to refetch addr
+                      : (~bubble & ~reset) ?              // follow prediction
+                        (bpred ? (bpred_n>>2) : (pc[0,$addrW$] + 1))
+                      : pc;                               // next by pc
 $$if DEBUG_swirl then
 if (debug_on) {
       if (~stall_cpu | on_stall) {
