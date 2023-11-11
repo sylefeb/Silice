@@ -176,7 +176,7 @@ $$end
     // CPU pipeline
 
     { // pipeline is contained within this block
-    { // ==== stage 1
+    { // ==== stage 1 ==========================================================
 $$if DEBUG_swirl then
 if (debug_on) {
       __display("[1] cycle:%d stall_cpu:%b refetch:%b refetch_addr:%x refetching:%b pc:%x",cycle,stall_cpu,refetch,refetch_addr<<2,refetching,pc<<2);
@@ -223,7 +223,7 @@ $$end
       alu_was_working vv= exec.working;
       //              |-> assign after pipeline, stages will only see it next cycle
 
-    } -> { // ==== stage 2
+    } -> { // ==== stage 2 =====================================================
       // maintain bpred on bubbles
       uint1 prev_bpred(0);
       // for data hazard detection
@@ -336,7 +336,7 @@ $$end
       }
       // trigger ALU if not in bubble (used by multi-cycle shifts, div)
       exec.trigger  = ~bubble;
-    } -> { // ==== stage 3
+    } -> { // ==== stage 3 =====================================================
       uint1          prev_bpred(0);
       // propagate bpred
       bpred          = exec.working ? prev_bpred : bpred;
@@ -389,7 +389,7 @@ $$end
       storeVal   = exec.storeVal;
       // track bpred
       prev_bpred = bpred;
-    } -> { // ==== stage 4
+    } -> { // ==== stage 4 =====================================================
       sameas(pc) pcp1 = pc + 1;
       // decodes values loaded from memory (if any)
       int32  loaded(0);
