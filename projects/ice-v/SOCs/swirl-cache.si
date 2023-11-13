@@ -77,7 +77,7 @@ interface bram_provider
 //                       |
 //                       cache_addr_start
 //
-$$cache_line_w          = 8 -- has to be < 14
+$$cache_line_w          = 3 -- has to be < 14
 $$cache_line_size       = 1 << cache_line_w
 $$num_cache_lines_w     = (14 - cache_line_w)
 $$num_cache_lines       = 1 << num_cache_lines_w
@@ -383,11 +383,12 @@ $$else
             uint16 wdata   = reg_ram_rdata << {n[0,1],3b0};
 $$end
             $$if SIMULATION then
-              //uint32 full = ram.addr + n;
-              //if (full[8,16] == 16h14cd || debug_on) {
-              //  __display("load @%x = %x (cache %b, line %d, cycle %d)",full,reg_ram_rdata,cache0_hit,~cache0_hit ? qline0_id : qline1_id,cycle);
-              //}
-              // __write("%x,", reg_ram_rdata);
+            //uint32 full = ram.addr + n;
+            //if (debug_on) {
+            //  __display("[cache|%d] load @%x = %x (cache %b, line %d, cycle %d, n %d, ram:%b rom:%b)",
+            //            cycle,full,reg_ram_rdata,cache0_hit,~cache0_hit ? qline0_id : qline1_id,cycle,n,reg_ram_datanext,rom.rdata_available);
+            //}
+            // __write("%x,", reg_ram_rdata);
             $$end
             // cache 0
             spram0.addr    = {qline0_id,n[2,$cache_line_w$]};
@@ -487,11 +488,11 @@ unit adapt_data_next(
   input uint1 data_next_2x,  output uint1 data_next,
   input uint8 rdata_2x,      output uint8 rdata)
 {
-  uint2 dnext(0);
+  uint2  dnext(0);
   always {
-    dnext      = data_next_2x ? 2b11 : {1b0,dnext[1,1]};
-    data_next  = dnext[0,1];
+    dnext      = data_next_2x ? 2b11     : {1b0,dnext[1,1]};
     rdata      = data_next_2x ? rdata_2x : rdata;
+    data_next  = dnext[0,1];
   }
 }
 
