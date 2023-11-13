@@ -637,9 +637,9 @@ $$if ICEV_MULDIV then
     uint1  mulhsu  = op[0,2] == 2b10;
     uint1  signa   = xa[31,1];
     uint1  signb   = xb[31,1]; // vvvvvvvvvv keep the sign?
-    int33  ma      = {signa & (mulh | mulhsu),xa};
-    int33  mb      = {signb &  mulh,          xb};
-    int64  mul     = ma * mb;  // multiply
+    int33 ma      = {signa & (mulh | mulhsu),xa};
+    int33 mb      = {signb &  mulh,          xb};
+    int64 mul     = ma * mb;  // multiply
     uint1  signdiv = ~ op[0,1];
     if (muldiv) {
       //__display("[cycle %d] dividing:%b working:%b isdone(div):%b",cycle,dividing,working,isdone(div));
