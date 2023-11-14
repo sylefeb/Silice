@@ -97,9 +97,9 @@ $$print("====== ice-v swirl (pipeline, data bypass, rdcycle) ======")
 // - the register written by stage 4 at this cycle            [case b]
 // - none of the above: we have to wait and hold the pipeline [case c]
 //
-// case a) input register value incorrect
+// case a) input register value incorrect due to write at i-1
 //    due to [write at i-1] => mux
-// case b) setup register value incorrect, ALU and store
+// case b) setup register value incorrect due to write at i
 //    due to [write at i  ] => mux
 // case c) instruction in stage 3 /will/ invalidate a setup register
 //    due to [write at i+1] => hold
