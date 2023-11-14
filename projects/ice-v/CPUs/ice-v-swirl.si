@@ -40,14 +40,14 @@ $$print("====== ice-v swirl (pipeline, data bypass, rdcycle) ======")
 //
 // Four stages pipeline
 // --------------------
-// Stage 1, in: instruction, setup: reg read A,B reg write bit, next fetch
-//   => [registers read] =>
+// Stage 1, in: instruction, setup: reg read A,B, next fetch
+//   => [registers read]       =>
 // Stage 2, in: reg A,B,     setup: ALU+decode (trigger)
 //   => [decode+ALU performed] =>
 // Stage 3, in: ALU done,    setup: load/store, read ALU output
 //   => [load/store performed] =>
 // Stage 4, in: ALU + load,  setup: reg write, refetch if jump
-//   => [register written] =>
+//   => [register written]     =>
 //
 // Compiling a demo
 // ----------------
@@ -89,12 +89,19 @@ $$print("====== ice-v swirl (pipeline, data bypass, rdcycle) ======")
 //  input register value: given as input to the stage
 //  setup register value: set by stage as input to next stage
 //
-// Data hazards are all detected at stage 2:
-// a) input register value incorrect
+// Data hazards are all detected at stage 2. Stage 2 is responsible for
+// giving the register values to the ALU. The key question is where to read
+// the values from:
+// - the register BRAM setup at cycle 1                       [no hazard]
+// - the register written by stage 4 at the previous cycle    [case a]
+// - the register written by stage 4 at this cycle            [case b]
+// - none of the above: we have to wait and hold the pipeline [case c]
+//
+// case a) input register value incorrect
 //    due to [write at i-1] => mux
-// b) setup register value incorrect, ALU and store
+// case b) setup register value incorrect, ALU and store
 //    due to [write at i  ] => mux
-// c) instruction in stage 3 /will/ invalidate a setup register
+// case c) instruction in stage 3 /will/ invalidate a setup register
 //    due to [write at i+1] => hold
 //    - holds and inserts a bubble so that ALU skips one cycle
 //    - will mux on a case b at i+1
@@ -162,8 +169,7 @@ $$if DEBUG_swirl then
 $$end
 
     // tracks whether a register was written cycle before
-    uint1 reg_was_written(0);
-    reg_was_written  = xregsA.wenable1;
+    uint1 reg_was_written = xregsA.wenable1;
     // maintain register wenable low (pulsed when necessary)
     xregsA.wenable1  = 0;
     // maintain memory write low, or to its previous state if stalled
@@ -245,14 +251,14 @@ $$end
       xa_regR = 1; xa_regW = 0; xa_regW_prev = 0; xa_keep = 0;
       xb_regR = 1; xb_regW = 0; xb_regW_prev = 0; xb_keep = 0;
       // [data hazards] case (c) detection
-      // instruction in stage 3 will write on a register used now
+      // instruction in stage 3 will (next cycle) write on a register needed now
       // (checks with exec.rd and exec.write_rd as seen in stage 3)
       if (~hold) {
-        uint1     rs1_eq_rd(0); // is rs1 equal to rd from stage 3?
-        uint1     rs2_eq_rd(0); // is rs2 equal to rd from stage 3?
-        rs1_eq_rd =  Rtype(instr).rs1 == exec.write_rd;
-        rs2_eq_rd = (Rtype(instr).rs2 == exec.write_rd) & has_rs2;
-        //                   not all instructions use rs2 ^^^^^^^
+        // is rs1 equal to rd from stage 3?
+        uint1 rs1_eq_rd =  Rtype(instr).rs1 == exec.write_rd;
+        // is rs2 equal to rd from stage 3?
+        uint1 rs2_eq_rd = (Rtype(instr).rs2 == exec.write_rd) & has_rs2;
+        //                         not all instructions use rs2 ^^^^^^^
         // on such a data hazard we hold the pipeline one cycle
         hold      = (rs1_eq_rd|rs2_eq_rd) & ~exec.no_rd
                   // all the conditions below mean there is in fact no hazard
@@ -282,8 +288,9 @@ if (debug_on) {
 }
 $$end
       // [data hazards] case (a) detection
-      // instruction in stage 3 wrote on input registers read after stage 1
-      // the value is thus incorrect, use the previously written value instead
+      // instruction retired in stage 4 (previous cycle) wrote on input
+      // registers read after stage 1; we have to use the previously written
+      // value instead of that coming out of BRAM
       if (Rtype(instr).rs1 == xregsA.addr1 & reg_was_written) {
 $$if DEBUG_swirl then
 if (debug_on) {
@@ -307,8 +314,8 @@ $$end
         //                        ^^^^^^^^^^^^^ selects value previously written
       }
       // [data hazards] case (b) detection
-      // instruction in stage 4 writes on a register used now
-      // the value is thus outdated, use the written value instead
+      // instruction in stage 4 writes on a register needed now;
+      // we use the value being written to the register
       // (checks with rd and write_rd from stage 4)
       if (~no_rd &  Rtype(instr).rs1 == rd) {
 $$if DEBUG_swirl then
