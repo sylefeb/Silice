@@ -14,20 +14,21 @@ SRC_FILE=`cygpath $1`
 *)
 esac
 
+LDFLAGS="-LDFLAGS --static "
+
 # LDFLAGS for OpenGL (VGA / SPIscreen)
 case "$(uname -s)" in
 MINGW*)
-LDFLAGS="-LDFLAGS -lopengl32 -LDFLAGS -lfreeglut"
+LDFLAGS+="-LDFLAGS -lopengl32 -LDFLAGS -lglfw3 -LDFLAGS -lgdi32"
 ;;
 Darwin*)
 #nproc doesn't work on mac, so alias an equivalent command
 alias nproc="sysctl -n hw.logicalcpu"
-
 #add openGL frameworks
-LDFLAGS='-LDFLAGS -framework -LDFLAGS OpenGL -LDFLAGS -framework -LDFLAGS GLUT -LDFLAGS -pthread'
+LDFLAGS+='-LDFLAGS -framework -LDFLAGS OpenGL -LDFLAGS -framework -LDFLAGS glfw3 -LDFLAGS -pthread'
 ;;
 *)
-LDFLAGS="-LDFLAGS -lGL -LDFLAGS -lglut -LDFLAGS -pthread"
+LDFLAGS+="-LDFLAGS -lGL -LDFLAGS -lglfw3 -LDFLAGS -pthread"
 ;;
 esac
 
@@ -43,7 +44,7 @@ else
   export MAKE=mingw32-make
 fi
 
-export PATH=$PATH:$SILICE_DIR/../tools/fpga-binutils/mingw64/bin/:$SILICE_DIR
+export PATH=$PATH:$SILICE_DIR/../tools/oss-cad-suite/:$SILICE_DIR
 
 if [[ -z "${VERILATOR_ROOT}" ]]; then
 case "$(uname -s)" in
@@ -51,7 +52,7 @@ Linux)
 unset VERILATOR_ROOT
 ;;
 *)
-# export VERILATOR_ROOT=$SILICE_DIR/../tools/fpga-binutils/mingw64/
+export VERILATOR_ROOT=$SILICE_DIR/../tools/oss-cad-suite/share/verilator/
 ;;
 esac
 echo "VERILATOR_ROOT is set to ${VERILATOR_ROOT}"

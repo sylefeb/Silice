@@ -34,10 +34,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #ifdef __APPLE__
 #include <OpenGL/gl.h>
-#include <GLUT/glut.h>
+#include <GLFW/glfw3.h>
 #else
 #include <GL/gl.h>
-#include <GL/glut.h>
+#include <GLFW/glfw3.h>
 #endif
 
 // ----------------------------------------------------------------------------
@@ -66,8 +66,6 @@ void refresh()
   glTexCoord2f(1.0f, 1.0f); glVertex2f(1.0f, 1.0f);
   glTexCoord2f(0.0f, 1.0f); glVertex2f(0.0f, 1.0f);
   glEnd();
-  // swap buffers
-  glutSwapBuffers();
 }
 
 // ----------------------------------------------------------------------------
@@ -112,8 +110,6 @@ void render()
     // yes: refresh frame
     refresh();
   }
-  // ask glut to immediately redraw
-  glutPostRedisplay();
 }
 
 // ----------------------------------------------------------------------------
@@ -121,20 +117,23 @@ void render()
 void display_loop(DisplayChip *chip)
 {
   g_Chip = chip;
-  // glut window
-  int   argc=0;
-  char *argv[1] = {NULL};
-  glutInit(&argc, argv);
-  glutInitDisplayMode(GLUT_RGBA | GLUT_SINGLE);
-  if (g_Chip->framebuffer().w() <= 320) {
-    glutInitWindowSize(2*g_Chip->framebuffer().w(),
-                       2*g_Chip->framebuffer().h());
-  } else {
-    glutInitWindowSize(g_Chip->framebuffer().w(),
-                       g_Chip->framebuffer().h());
+  // glfw window
+  if (!glfwInit()) {
+    fprintf(stderr,"ERROR: cannot initialize glfw.");
+    exit(-1);
   }
-  glutCreateWindow("Silice verilator framework");
-  glutDisplayFunc(render);
+  GLFWwindow* window = NULL;
+  if (g_Chip->framebuffer().w() <= 320) {
+    window = glfwCreateWindow(2*g_Chip->framebuffer().w(),
+                              2*g_Chip->framebuffer().h(),
+                              "Silice verilator framework", NULL, NULL);
+  } else {
+    window = glfwCreateWindow(g_Chip->framebuffer().w(),
+                              g_Chip->framebuffer().h(),
+                              "Silice verilator framework", NULL, NULL);
+  }
+  glfwMakeContextCurrent(window);
+  glfwSwapInterval(1);
   // prepare texture
   glGenTextures(1,&g_FBtexture);
   glBindTexture(GL_TEXTURE_2D,g_FBtexture);
@@ -150,7 +149,6 @@ void display_loop(DisplayChip *chip)
   glEnable(GL_TEXTURE_2D);
   glColor3f(1.0f,1.0f,1.0f);
   // setup view
-  glViewport(0,0,g_Chip->framebuffer().w(),g_Chip->framebuffer().h());
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
   glOrtho(0.0f, 1.0f, 1.0f, 0.0f, -1.0f, 1.0f);
@@ -159,7 +157,17 @@ void display_loop(DisplayChip *chip)
   // start simulation in a thread
   std::thread th(simul);
   // enter main loop
-  glutMainLoop();
+  while (!glfwWindowShouldClose(window)) {
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+    glViewport(0, 0, width, height);
+    render();
+    glfwSwapBuffers(window);
+    glfwPollEvents();
+  }
+  // terminate
+  glfwDestroyWindow(window);
+  glfwTerminate();
 }
 
 // ----------------------------------------------------------------------------
