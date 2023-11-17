@@ -22,7 +22,7 @@ $include('../../common/divint_std.si')
 $$end
 
 // set to 1 for a copious amount of debug output in simulation
-$$DEBUG_swirl      = nil
+$$DEBUG_swirl      = 1
 $$TRACE_swirl      = nil
 
 // --------------------------------------------------
@@ -44,9 +44,11 @@ $$print("====== ice-v swirl (pipeline, data bypass, rdcycle) ======")
 //   => [registers read]       =>
 // Stage 2, in: reg A,B,     setup: ALU+decode (trigger)
 //   => [decode+ALU performed] =>
-// Stage 3, in: ALU done,    setup: load/store, read ALU output
+// Stage 3, in: ALU done,    setup: read ALU output
+//   => [ALU output registered]
+// Stage 4, in: ALU output (registered), setup: load/store
 //   => [load/store performed] =>
-// Stage 4, in: ALU + load,  setup: reg write, refetch if jump
+// Stage 5, in: ALU + load,  setup: reg write, refetch if jump
 //   => [register written]     =>
 //
 // Compiling a demo
@@ -84,7 +86,7 @@ $$print("====== ice-v swirl (pipeline, data bypass, rdcycle) ======")
 // Data hazards, at cycle i
 // ------------------------
 //
-// Note: registers are only written at stage 4
+// Note: registers are only written at stage 5
 //
 //  input register value: given as input to the stage
 //  setup register value: set by stage as input to next stage
@@ -93,8 +95,8 @@ $$print("====== ice-v swirl (pipeline, data bypass, rdcycle) ======")
 // giving the register values to the ALU. The key question is where to read
 // the values from:
 // - the register BRAM setup at cycle 1                       [no hazard]
-// - the register written by stage 4 at the previous cycle    [case a]
-// - the register written by stage 4 at this cycle            [case b]
+// - the register written by stage 5 at the previous cycle    [case a]
+// - the register written by stage 5 at this cycle            [case b]
 // - none of the above: we have to wait and hold the pipeline [case c]
 //
 // case a) input register value incorrect due to write at i-1
@@ -132,15 +134,18 @@ $$end
   // stage 2 => stage 3
   int32         xb(0);
   // stage 3 => stage 4
-  int32         alu_r(0);         int32  alu_val(0);   uint1  no_rd(0);
-  uint1         jump(0);          uint1  load(0);
+  int32         alu_r(0);         int32  alu_val(0);
+  uint1         jump(0);          uint1  load(0);      uint1  store(0);
   uint$addrW+2$ alu_n(0);         uint1  storeAddr(0); uint1  storeVal(0);
-  uint1  intop(0);                uint3  op(0);        uint5  rd(0);
-  // stage 4 => stage 3
+  uint1         intop(0);         uint3  op(0);
+  uint1         no_rd_3(0);       uint5  rd_3(0);
+  // stage 4 => stage 5
+  uint1         no_rd_4(0);       uint5  rd_4(0);
+  // stage 5 => stage 3
   uint1         jumping(0);
   // pipeline control signals
-  uint1         hold(0);            uint1 bubble(0);
-  uint$addrW$   refetch_addr(0);    uint1 refetch(0);   uint1 stage3_bubble(0);
+  uint1         hold(0);            uint1 bubble(0);    uint1 stage3_bubble(0);
+  uint$addrW$   refetch_addr(0);    uint1 refetch(0);   uint1 stage4_bubble(0);
   uint1         alu_was_working(0); uint1 bpred(0);
 
   // what to write in decoder + ALU register inputs
@@ -251,23 +256,41 @@ $$end
       xa_regR = 1; xa_regW = 0; xa_regW_prev = 0; xa_keep = 0;
       xb_regR = 1; xb_regW = 0; xb_regW_prev = 0; xb_keep = 0;
       // [data hazards] case (c) detection
-      // instruction in stage 3 will (next cycle) write on a register needed now
+      // instruction in stage 3 will (cycle+2) write on a register needed now
+      // instruction in stage 4 will (cycle+1) write on a register needed now
       // (checks with exec.rd and exec.write_rd as seen in stage 3)
-      if (~hold) {
-        // is rs1 equal to rd from stage 3?
-        uint1 rs1_eq_rd =  Rtype(instr).rs1 == exec.write_rd;
-        // is rs2 equal to rd from stage 3?
-        uint1 rs2_eq_rd = (Rtype(instr).rs2 == exec.write_rd) & has_rs2;
-        //                         not all instructions use rs2 ^^^^^^^
-        // on such a data hazard we hold the pipeline one cycle
-        hold      = (rs1_eq_rd|rs2_eq_rd) & ~exec.no_rd
-                  // all the conditions below mean there is in fact no hazard
-                  & ~stage3_bubble & ~reset & ~refetch & ~exec.working & ~bubble;
-      } else {
+      // is rs1 equal to rd from stage 3?
+      uint1 rs1_eq_rd_3 =  Rtype(instr).rs1 == exec.write_rd;
+      // is rs2 equal to rd from stage 3?
+      uint1 rs2_eq_rd_3 = (Rtype(instr).rs2 == exec.write_rd) & has_rs2;
+      //                         not all instructions use rs2 ^^^^^^^
+      // is rs1 equal to rd in stage 4? //     vvvv value from stage 3 cycle i-1
+      uint1 rs1_eq_rd_4 =  Rtype(instr).rs1 == rd_3;
+      // is rs2 equal to rd in stage 4?
+      uint1 rs2_eq_rd_4 = (Rtype(instr).rs2 == rd_3) & has_rs2;
+      // on such a data hazard we hold the pipeline one cycle
+      hold      = (((rs1_eq_rd_3|rs2_eq_rd_3) & ~exec.no_rd & ~stage3_bubble)
+                  |((rs1_eq_rd_4|rs2_eq_rd_4) & ~no_rd_3    & ~stage4_bubble))
+                // all the conditions below mean there is in fact no hazard
+                & ~reset & ~refetch & ~exec.working & ~bubble;
+$$if DEBUG_swirl then
+if (debug_on) {
+    if (~stall_cpu | on_stall) {
+      if (hold) {
+        if ((rs1_eq_rd_3|rs2_eq_rd_3)  & ~exec.no_rd & ~stage3_bubble) {
+          __display("[2] *** data hazard (c,3) *** rs1[%d] rs2[%d](%b) rd(stage3)[%d]",Rtype(instr).rs1,Rtype(instr).rs2,has_rs2,exec.write_rd);
+        }
+        if ((rs1_eq_rd_4|rs2_eq_rd_4)  & ~no_rd_3    & ~stage4_bubble) {
+          __display("[2] *** data hazard (c,4) *** rs1[%d] rs2[%d](%b) rd(stage4)[%d]",Rtype(instr).rs1,Rtype(instr).rs2,has_rs2,rd_3);
+        }
+      }
+    }
+}
+$$end
+      if (hold) {
         // holding, keep the same values on ALU inputs     vvvv
         xa_regR = 0; xa_regW = 0; xa_regW_prev = 0; xa_keep = 1;
         xb_regR = 0; xb_regW = 0; xb_regW_prev = 0; xb_keep = 1;
-        hold    = 0; // release the hold
       }
       // update bubble
       bubble    = (bubble | refetch | exec.working | hold);
@@ -278,17 +301,8 @@ if (debug_on) {
       }
 }
 $$end
-$$if DEBUG_swirl then
-if (debug_on) {
-      if (~stall_cpu | on_stall) {
-        if (hold) {
-          __display("[2] *** data hazard (c) *** rs1[%d] rs2[%d](%b) rd(stage3)[%d]",Rtype(instr).rs1,Rtype(instr).rs2,has_rs2,exec.write_rd);
-        }
-      }
-}
-$$end
       // [data hazards] case (a) detection
-      // instruction retired in stage 4 (previous cycle) wrote on input
+      // instruction retired in stage 5 (previous cycle) wrote on input
       // registers read after stage 1; we have to use the previously written
       // value instead of that coming out of BRAM
       if (Rtype(instr).rs1 == xregsA.addr1 & reg_was_written) {
@@ -314,25 +328,25 @@ $$end
         //                        ^^^^^^^^^^^^^ selects value previously written
       }
       // [data hazards] case (b) detection
-      // instruction in stage 4 writes on a register needed now;
+      // instruction in stage 5 writes on a register needed now;
       // we use the value being written to the register
-      // (checks with rd and write_rd from stage 4)
-      if (~no_rd &  Rtype(instr).rs1 == rd) {
+      // (checks with rd and write_rd from stage 5)
+      if (~no_rd_4 &  Rtype(instr).rs1 == rd_4) {
 $$if DEBUG_swirl then
 if (debug_on) {
         if (~stall_cpu | on_stall) {
-          __display("[2] *** data hazard (b) on rs1 *** rs1[%d] rs2[%d] rd(stage4)[%d]",Rtype(instr).rs1,Rtype(instr).rs2,rd);
+          __display("[2] *** data hazard (b) on rs1 *** rs1[%d] rs2[%d] rd(stage4)[%d]",Rtype(instr).rs1,Rtype(instr).rs2,rd_4);
         }
 }
 $$end
         xa_regR = 0; xa_regW = 1; xa_regW_prev = 0; xa_keep = 0;
         //           ^^^^^^^^^^^ selects value being written
       }
-      if (~no_rd & (Rtype(instr).rs2 == rd) & has_rs2) { // same for rs2
+      if (~no_rd_4 & (Rtype(instr).rs2 == rd_4) & has_rs2) { // same for rs2
 $$if DEBUG_swirl then
 if (debug_on) {
         if (~stall_cpu | on_stall) {
-          __display("[2] *** data hazard (b) on rs2 *** rs1[%d] rs2[%d] rd(stage4)[%d]",Rtype(instr).rs1,Rtype(instr).rs2,rd);
+          __display("[2] *** data hazard (b) on rs2 *** rs1[%d] rs2[%d] rd(stage4)[%d]",Rtype(instr).rs1,Rtype(instr).rs2,rd_4);
         }
 }
 $$end
@@ -351,40 +365,17 @@ $$end
 $$if DEBUG_swirl then
 if (debug_on) {
       if (~stall_cpu | on_stall) {
-        __display("[3] instr: %x @%x (bubble:%b bpred:%b)",instr,pc<<2,bubble,bpred);
+        __display("[3] instr: %x @%x (bubble:%b bpred:%b alu_r:%d)",instr,pc<<2,bubble,bpred,alu_r);
       }
 }
 $$end
-      // memory address from which to load/store
-$$if not ICEV_STALL then
-      dmem.addr  = (exec.n >> 2);
-$$else
-      dmem.addr  = (exec.store|exec.load) & ~bubble & ~jumping
-                 ? (exec.n >> 2) : dmem.addr;
-      // ^^ if a cache is used, we preserve dmem.addr when not accessing dmem
-$$end
-      if (exec.store & ~bubble & ~jumping) {
-        //                        ^^^^^^ if stage 4 jumps, cancel store
-        // build write mask depending on SB, SH, SW
-        // assumes aligned SW
-        dmem.wenable = ( { { 2{exec.op[0,2]==2b10} },
-                          exec.op[0,1] | exec.op[1,1], 1b1
-                        } ) << exec.n[0,2];
-      }
-$$if SIMULATION then
-      // check for unaligned loads (unsupported)
-      if ((exec.load|exec.store) & ~bubble & ~jumping
-        & (exec.op[0,2]==2b10) & (exec.n[0,2] != 2b00)) {
-        __display("[cycle %d] ERROR @%h %h, unaligned access (%b) @%h",cycle,pc<<2,instr,exec.store,exec.n);
-        __finish();
-      }
-$$end
-      // decoder outputs to trickle down the pipeline towards stage 4
-      no_rd      = exec.no_rd | bubble;
-      //                      ^^^^ disables data hazard in stage 2 on a bubble
+      // decoder outputs to trickle down the pipeline towards stage 5
+      no_rd_3    = exec.no_rd | bubble;
+      //                        ^^^^ disables data hazard in stage 2 on a bubble
+      rd_3       = exec.write_rd;
       jump       = exec.jump & ~bubble;
-      rd         = exec.write_rd;
       load       = exec.load;
+      store      = exec.store;
       intop      = exec.intop;
       alu_n      = exec.n;
       alu_r      = exec.r;
@@ -395,6 +386,45 @@ $$end
       // track bpred
       prev_bpred = bpred;
     } -> { // ==== stage 4 =====================================================
+
+$$if DEBUG_swirl then
+if (debug_on) {
+      if (~stall_cpu | on_stall) {
+        __display("[4] instr: %x @%x (bubble:%b bpred:%b alu_r:%d)",instr,pc<<2,bubble,bpred,alu_r);
+      }
+}
+$$end
+
+      rd_4           = rd_3;
+      no_rd_4        = no_rd_3 | bubble;
+      //                         ^^^^ disables data hazard in stage 2 on a bubble
+      stage4_bubble ^= bubble;
+      // memory address from which to load/store
+$$if not ICEV_STALL then
+      dmem.addr  = (alu_n >> 2);
+$$else
+      dmem.addr  = (store|load) & ~bubble & ~jumping
+                 ? (alu_n >> 2) : dmem.addr;
+      // ^^ if a cache is used, we preserve dmem.addr when not accessing dmem
+$$end
+      if (store & ~bubble & ~jumping) {
+        //                        ^^^^^^ if stage 5 jumps, cancel store
+        // build write mask depending on SB, SH, SW
+        // assumes aligned SW
+        dmem.wenable = ( { { 2{op[0,2]==2b10} },
+                          op[0,1] | op[1,1], 1b1
+                        } ) << alu_n[0,2];
+      }
+$$if SIMULATION then
+      // check for unaligned loads (unsupported)
+      if ((load|store) & ~bubble & ~jumping
+        & (op[0,2]==2b10) & (alu_n[0,2] != 2b00)) {
+        __display("[cycle %d] ERROR @%h %h, unaligned access (%b) @%h",cycle,pc<<2,instr,store,alu_n);
+        __finish();
+      }
+$$end
+
+    } -> { // ==== stage 5 =====================================================
       sameas(pc) pcp1 = pc + 1;
       // decodes values loaded from memory (if any)
       int32  loaded(0);
@@ -410,8 +440,8 @@ $$end
       //                       redo the load on a stall ^^^^^^^^^^^^^^^
       //         (even though this could be imem and not dmem stalling)
       // register write back
-      xregsA.wenable1  = ~no_rd & instr_done;
-      xregsA.addr1     = rd;
+      xregsA.wenable1  = ~no_rd_4 & instr_done;
+      xregsA.addr1     = rd_4;
       xregsA.wdata1    = (jump      ? ((pcp1)<<2)        : 32b0)
                        | (storeAddr ? alu_n              : 32b0)
                        | (storeVal  ? alu_val            : 32b0)
@@ -428,14 +458,14 @@ $$end
 $$if DEBUG_swirl then
 if (debug_on) {
     if (~stall_cpu | on_stall) {
-      __display("[4] instr: %x @%x (bubble:%b jump:%b bpred:%b load:%b) reinstr:%d",instr,pc<<2,bubble,jump,bpred,load,reinstr);
+      __display("[5] instr: %x @%x (bubble:%b jump:%b bpred:%b load:%b) reinstr:%d",instr,pc<<2,bubble,jump,bpred,load,reinstr);
       if (instr_done) {
-        __display("[4] ++++ %x (@%x) jump %b, wreg:[%d]=%x (%b) reinstr:%d",
+        __display("[5] ++++ %x (@%x) jump %b, wreg:[%d]=%x (%b) reinstr:%d",
           instr,pc<<2,jump,Rtype(instr).rd,xregsA.wdata1,xregsA.wenable1,reinstr);
       }
     }
     if (xregsA.wenable1) {
-      __display("[4] wreg:[%d]=%x",Rtype(instr).rd,xregsA.wdata1);
+      __display("[5] wreg:[%d]=%x",Rtype(instr).rd,xregsA.wdata1);
     }
 }
 $$end
@@ -479,10 +509,10 @@ $$if DEBUG_swirl then
 if (debug_on) {
       if (~stall_cpu | on_stall) {
         if (bpred & ~refetch) {
-          __display("[4] pc @%x branch predicted towards @%x (jump %b)",pc<<2,alu_n,jump);
+          __display("[5] pc @%x branch predicted towards @%x (jump %b)",pc<<2,alu_n,jump);
         }
         if (refetch) {
-          __display("[4] REFETCH to @%x (stall_cpu %b jump %b bpred %b)",refetch_addr<<2,stall_cpu,jump,bpred);
+          __display("[5] REFETCH to @%x (stall_cpu %b jump %b bpred %b)",refetch_addr<<2,stall_cpu,jump,bpred);
         }
       }
 }
@@ -491,7 +521,7 @@ $$end
     } // end of pipeline
 
     // set decoder+ALU inputs
-    // (out of pipeline to get up-to-date value of xregsA.wdata1 from stage 4)
+    // (out of pipeline to get up-to-date value of xregsA.wdata1 from stage 5)
     exec.xa   = xa_keep      ? exec.xa       : 32b0
               | xa_regR      ? xregsA.rdata0 : 32b0
               | xa_regW      ? xregsA.wdata1 : 32b0
