@@ -79,8 +79,8 @@ $$print("====== ice-v swirl (pipeline, data bypass, rdcycle) ======")
 // On a jump the entire pipeline is flushed (see refetch and refetch_addr).
 //
 // There is a little bit of additional complexity due to the ALU since
-// shifts are performed one cycle at a time to save LUTs. When the ALU
-// is busy the entire pipeline holds (see exec.working and alu_was_working).
+// divisions are performed over multiple cycles. When the ALU is busy the entire
+// pipeline holds.
 //
 // ------------------------
 // Data hazards, at cycle i
@@ -148,7 +148,7 @@ $$end
   // pipeline control signals
   uint1         hold(0);            uint1 bubble(0);    uint1 stage3_bubble(0);
   uint$addrW$   refetch_addr(0);    uint1 refetch(0);   uint1 stage4_bubble(0);
-  uint1         alu_was_working(0); uint1 bpred(0);
+  uint1         bpred(0);
 
   // what to write in decoder + ALU register inputs
   // these are mutually exclusive choices; see exec.xa = ... after pipeline
@@ -173,7 +173,7 @@ $$end
   always {
 
 $$if DEBUG_swirl then
-    uint1 debug_on = nretired > 3145018;
+    uint1 debug_on = 1; // nretired > 3145018;
 $$end
 
     // tracks whether a register was written cycle before
@@ -196,11 +196,12 @@ if (debug_on) {
 }
 $$end
       // capture pc, instr in pipeline
-      pc       = (exec.working | hold) ? pc    : imem.addr;
-      instr    = (exec.working | hold) ? instr : imem.rdata;
-      //         ^^^^^^^^^^^^^^^^^^^^^ hold if ALU is busy or hazard (c)
-      // insert a bubble on a refetch or ALU busy or reset
-      bubble   = (refetch | exec.working | reset);
+      pc       = (hold | exec.working) ? pc    : imem.addr;
+      instr    = (hold | exec.working) ? instr : imem.rdata;
+      //         ^^^^ hold if hazard (c)
+      //                 ^^^^^^^^^^^^ hold immediately if ALU busy
+      // insert a bubble on refetch, hold or reset
+      bubble          = (refetch | reset);
       // setup register read
       xregsA.addr0    = Rtype(instr).rs1;
       xregsB.addr0    = Rtype(instr).rs2;
@@ -231,9 +232,6 @@ if (debug_on) {
       }
 }
 $$end
-      // remember ALU was just busy
-      alu_was_working vv= exec.working;
-      //              |-> assign after pipeline, stages will only see it next cycle
 
     } -> { // ==== stage 2 =====================================================
       // maintain bpred on bubbles
@@ -241,12 +239,12 @@ $$end
       // for data hazard detection
       uint1 has_rs2(0); uint1 store(0);
       // give instruction, pc and registers to decoder+ALU
-      instr        = (exec.working | hold) ? exec.instr : instr;
-      pc           = (exec.working | hold) ? exec.pc    : pc;
+      instr        = (hold | exec.working) ? exec.instr : instr;
+      pc           = (hold | exec.working) ? exec.pc    : pc;
       exec.instr   = instr;
       exec.pc      = pc;
       // propagate bpred
-      bpred        = ((exec.working | hold) ? prev_bpred : bpred);
+      bpred        = (hold | exec.working) ? prev_bpred : bpred;
       prev_bpred   = bpred;
       // data hazards detection
       // -> we decode just enough from the instruction for detection
@@ -273,9 +271,10 @@ $$end
       uint1 rs2_eq_rd_4 = (Rtype(instr).rs2 == rd_3) & has_rs2;
       // on such a data hazard we hold the pipeline one cycle
       hold      = (((rs1_eq_rd_3|rs2_eq_rd_3) & ~exec.no_rd & ~stage3_bubble)
-                  |((rs1_eq_rd_4|rs2_eq_rd_4) & ~no_rd_3    & ~stage4_bubble))
+                  |((rs1_eq_rd_4|rs2_eq_rd_4) & ~no_rd_3    & ~stage4_bubble)
+                  |exec.working)
                 // all the conditions below mean there is in fact no hazard
-                & ~reset & ~refetch & ~exec.working & ~bubble;
+                & ~reset & ~refetch & ~bubble;
 $$if DEBUG_swirl then
 if (debug_on) {
     if (~stall_cpu | on_stall) {
@@ -286,12 +285,15 @@ if (debug_on) {
         if ((rs1_eq_rd_4|rs2_eq_rd_4)  & ~no_rd_3    & ~stage4_bubble) {
           __display("[2] *** data hazard (c,4) *** rs1[%d] rs2[%d](%b) rd(stage4)[%d]",Rtype(instr).rs1,Rtype(instr).rs2,has_rs2,rd_3);
         }
+        if (exec.working) {
+          __display("[2] *** data hazard (c,alu)");
+        }
       }
     }
 }
 $$end
       // update bubble
-      bubble    = (bubble | refetch | exec.working | hold);
+      bubble    = bubble | refetch | hold;
 $$if DEBUG_swirl then
 if (debug_on) {
       if (~stall_cpu | on_stall) {
@@ -352,13 +354,16 @@ $$end
         //           ^^^^^^^^^^^ selects value being written
       }
       // trigger ALU if not in bubble (used by multi-cycle shifts, div)
-      exec.trigger  = ~bubble;
+      exec.trigger          = ~bubble & ~alu_was_working;
+      uint1 alu_was_working = exec.working;
     } -> { // ==== stage 3 =====================================================
       uint1          prev_bpred(0);
       // propagate bpred
-      bpred          = exec.working ? prev_bpred : bpred;
-      // start a bubble on refetch or ALU busy
-      bubble         = ((bubble & ~alu_was_working) | refetch | exec.working);
+      bpred          = (bubble | exec.working) ? prev_bpred : bpred;
+      // start a bubble on refetch
+      bubble         = bubble | refetch | exec.working;
+      //                                  ^^^^^^^^^^^^ create a bubble as instr
+      //                                  is just out of stage 2 and ALU is busy
       stage3_bubble ^= bubble;
 $$if DEBUG_swirl then
 if (debug_on) {
@@ -387,7 +392,7 @@ $$end
       xb         = exec.xb;
     } -> { // ==== stage 4 =====================================================
       // start a bubble on refetch or ALU busy
-      bubble         = ((bubble & ~alu_was_working) | refetch | exec.working);
+      bubble     = (bubble | refetch);
 $$if DEBUG_swirl then
 if (debug_on) {
       if (~stall_cpu | on_stall) {
