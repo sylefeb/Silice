@@ -29,7 +29,7 @@
             {
                 "icepack_options": ["-s"],
                 "yosys_synth_options": ["-dsp","-abc9","-device u","-top top"],
-                "nextpnr_options": ["--up5k", "--freq 12", "--package sg48", "-r", "--opt-timing"],
+                "nextpnr_options": ["--up5k", "--freq 12", "--package sg48", "-r"],
                 "pnr": "next"
             }
           ],

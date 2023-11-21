@@ -241,6 +241,7 @@ $$end
       // give instruction, pc and registers to decoder+ALU
       instr        = (hold | exec.working) ? exec.instr : instr;
       pc           = (hold | exec.working) ? exec.pc    : pc;
+      //                     ^^^^^^^^^^^^ hold immediately if ALU busy
       exec.instr   = instr;
       exec.pc      = pc;
       // propagate bpred
@@ -374,7 +375,7 @@ if (debug_on) {
 $$end
       // decoder outputs to trickle down the pipeline towards stage 5
       no_rd_3    = exec.no_rd | bubble;
-      //                        ^^^^ disables data hazard in stage 2 on a bubble
+      //                        ^^^ disables data hazard in stage 2 on a bubble
       rd_3       = exec.write_rd;
       jump       = exec.jump & ~bubble;
       load       = exec.load;
@@ -403,7 +404,7 @@ $$end
       // record rd, no_rd for the stage (used in hazard detection)
       rd_4           = rd_3;
       no_rd_4        = no_rd_3 | bubble;
-      //                         ^^^^ disables data hazard in stage 2 on a bubble
+      //                         ^^^ disables data hazard in stage 2 on a bubble
       stage4_bubble ^= bubble;
       // value to store
       xb_store    = xb;
@@ -423,6 +424,7 @@ $$end
         dmem.wenable = ( { { 2{op[0,2]==2b10} },
                           op[0,1] | op[1,1], 1b1
                         } ) << alu_n[0,2];
+
       }
 $$if SIMULATION then
       // check for unaligned loads (unsupported)
@@ -687,10 +689,13 @@ $$if ICEV_MULDIV then
     uint1  mulhsu  = op[0,2] == 2b10;
     uint1  signa   = xa[31,1];
     uint1  signb   = xb[31,1]; // vvvvvvvvvv keep the sign?
-    int33 ma      = {signa & (mulh | mulhsu),xa};
-    int33 mb      = {signb &  mulh,          xb};
-    int64 mul     = ma * mb;  // multiply
-    uint1  signdiv = ~ op[0,1];
+    int33 ma       = {signa & (mulh | mulhsu),xa};
+    int33 mb       = {signb &  mulh,          xb};
+    int64 mul      = ma * mb;  // multiply
+    uint1 signdiv  = ~ op[0,1];
+    working        = (working | (trigger & muldiv & op[2,1]))
+                   & ~cancel
+                   & ~(working & isdone(div));
     if (muldiv) {
       //__display("[cycle %d] dividing:%b working:%b isdone(div):%b",cycle,dividing,working,isdone(div));
       if (~op[2,1]) {
@@ -702,16 +707,7 @@ $$if ICEV_MULDIV then
           $$if DEBUG_swirl then
           //__display("[cycle %d] DIVISION trigger",cycle);
           $$end
-          working  = 1;
           div <- ( (signdiv&signa)?-xa:xa, (signdiv&signb)?-xb:xb );
-        } else {
-          if (isdone(div) & working) {
-            $$if DEBUG_swirl then
-            //__display("[cycle %d] DIVISION %d / %d = %d",cycle,
-            //           div.inum,div.iden,div.ret);
-            $$end
-            working  = 0;
-          }
         }
         // division result
         uint1 div_negate = signdiv/*DIV|REM*/ & (signa ^ signb);
@@ -721,10 +717,7 @@ $$if ICEV_MULDIV then
           r        = div_negate ? -div.ret : div.ret;
         }
       }
-		} else {
-      working = 0;
-    }
-    if (cancel) { working = 0; }
+		}
 $$end
     // ====================== Comparator for branching
     switch (op[1,2]) {
