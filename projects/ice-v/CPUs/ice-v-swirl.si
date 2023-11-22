@@ -22,7 +22,7 @@ $include('../../common/divint_std.si')
 $$end
 
 // set to 1 for a copious amount of debug output in simulation
-$$DEBUG_swirl      = 1
+$$DEBUG_swirl      = nil
 $$TRACE_swirl      = nil
 
 // --------------------------------------------------
@@ -697,9 +697,9 @@ $$if ICEV_MULDIV then
                    & ~cancel
                    & ~(working & isdone(div));
     if (muldiv) {
-      if (op[2,1]) {
-        __display("[cycle %d] trigger:%b working:%b isdone(div):%b",cycle,trigger,working,isdone(div));
-      }
+      //if (op[2,1]) {
+      //  __display("[cycle %d] trigger:%b working:%b isdone(div):%b",cycle,trigger,working,isdone(div));
+      //}
       if (op[2,1] & trigger) {
         // DIV, DIVU, REM, REMU
         $$if DEBUG_swirl then
@@ -712,12 +712,12 @@ $$if ICEV_MULDIV then
       // result
       uint1 div_negate = signdiv/*DIV|REM*/ & (signa ^ signb);
       uint1 ret_h      = mulh | mulhsu;
-      r = ((~op[2,1] &  ret_h)       ? mul[32,32] : 32b0) // MULH, MULHSU, MULHU
-        | ((~op[2,1] & ~ret_h)       ? mul[ 0,32] : 32b0) // MUL
-        | (( div_negate &  op[1,1] ) ? -div.rem   : 32b0)
-        | ((~div_negate &  op[1,1] ) ?  div.rem   : 32b0)
-        | (( div_negate & ~op[1,1] ) ? -div.ret   : 32b0)
-        | ((~div_negate & ~op[1,1] ) ?  div.ret   : 32b0);
+      r = ((~op[2,1] &  ret_h)                  ? mul[32,32] : 32b0) // MULH, MULHSU, MULHU
+        | ((~op[2,1] & ~ret_h)                  ? mul[ 0,32] : 32b0) // MUL
+        | (( op[2,1] &  div_negate &  op[1,1] ) ? -div.rem   : 32b0)
+        | (( op[2,1] & ~div_negate &  op[1,1] ) ?  div.rem   : 32b0)
+        | (( op[2,1] &  div_negate & ~op[1,1] ) ? -div.ret   : 32b0)
+        | (( op[2,1] & ~div_negate & ~op[1,1] ) ?  div.ret   : 32b0);
 		}
 $$end
     // ====================== Comparator for branching
