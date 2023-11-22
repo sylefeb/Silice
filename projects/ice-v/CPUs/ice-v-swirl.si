@@ -697,9 +697,9 @@ $$if ICEV_MULDIV then
     uint1 signdiv  = ~ op[0,1];
     uint1 divdone      = isdone(div) & ~prev_divdone; // pulses on div done
     uint1 prev_divdone = isdone(div);
-    if (muldiv & working & divdone) {
-      __display("DIVISION %d / %d = %d (%d)\n",div.inum,div.iden,div.ret,div.rem);
-    }
+    //if (muldiv & working & divdone) {
+    //  __display("DIVISION %d / %d = %d (%d)\n",div.inum,div.iden,div.ret,div.rem);
+    //}
     working        = (working | (trigger & op[2,1]))
                    &  muldiv
                    & ~cancel
