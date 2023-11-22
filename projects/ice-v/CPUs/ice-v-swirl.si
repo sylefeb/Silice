@@ -22,7 +22,7 @@ $include('../../common/divint_std.si')
 $$end
 
 // set to 1 for a copious amount of debug output in simulation
-$$DEBUG_swirl      = nil
+$$DEBUG_swirl      = 1
 $$TRACE_swirl      = nil
 
 // --------------------------------------------------
@@ -173,7 +173,7 @@ $$end
   always {
 
 $$if DEBUG_swirl then
-    uint1 debug_on = cycle > 95753466; // nretired > 3145018;
+    uint1 debug_on = 1; // cycle > 95753466; // nretired > 3145018;
 $$end
 
     // tracks whether a register was written cycle before
@@ -601,6 +601,8 @@ $$end
 // fairly large multiplexer due to data hazards bypass.
 // See also ../../learn-silice/AlgoInOuts.md
 //
+// The ALU outputs are registered by stage 3, before
+// entering stage 4, allowing a better fmax.
 // --------------------------------------------------
 
 unit decode_and_ALU_swirl(
@@ -694,9 +696,10 @@ $$if ICEV_MULDIV then
     int64 mul      = ma * mb;  // multiply
     uint1 signdiv  = ~ op[0,1];
     working        = (working | (trigger & op[2,1]))
-                   & ~cancel
                    &  muldiv
+                   & ~cancel
                    & ~(working & isdone(div));
+    // uint1 reg_divdone = isdone(div);
     if (trigger) { // div restarts each trigger
       div.inum = (signdiv&signa) ? -xa : xa;
       div.iden = (signdiv&signb) ? -xb : xb;
