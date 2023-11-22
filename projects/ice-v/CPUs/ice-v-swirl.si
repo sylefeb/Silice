@@ -22,7 +22,7 @@ $include('../../common/divint_std.si')
 $$end
 
 // set to 1 for a copious amount of debug output in simulation
-$$DEBUG_swirl      = nil
+$$DEBUG_swirl      = 1
 $$TRACE_swirl      = nil
 
 // --------------------------------------------------
@@ -173,7 +173,7 @@ $$end
   always {
 
 $$if DEBUG_swirl then
-    uint1 debug_on = 1; // nretired > 3145018;
+    uint1 debug_on = cycle > 95753466; // nretired > 3145018;
 $$end
 
     // tracks whether a register was written cycle before
@@ -697,18 +697,23 @@ $$if ICEV_MULDIV then
                    & ~cancel
                    & ~(working & isdone(div));
     if (muldiv) {
-      //__display("[cycle %d] dividing:%b working:%b isdone(div):%b",cycle,dividing,working,isdone(div));
+      if (op[2,1]) {
+        __display("[cycle %d] trigger:%b working:%b isdone(div):%b",cycle,trigger,working,isdone(div));
+      }
       if (op[2,1] & trigger) {
         // DIV, DIVU, REM, REMU
         $$if DEBUG_swirl then
         //__display("[cycle %d] DIVISION trigger",cycle);
         $$end
-        div <- ( (signdiv&signa)?-xa:xa, (signdiv&signb)?-xb:xb );
+        div.inum = (signdiv&signa) ? -xa : xa;
+        div.iden = (signdiv&signb) ? -xb : xb;
+        div <- ();
       }
       // result
       uint1 div_negate = signdiv/*DIV|REM*/ & (signa ^ signb);
-      r = ((~op[2,1] &  (|op[0,2]))  ? mul[32,32] : 32b0) // MULH, MULHSU, MULHU
-        | ((~op[2,1] & ~(|op[0,2]))  ? mul[ 0,32] : 32b0) // MUL
+      uint1 ret_h      = mulh | mulhsu;
+      r = ((~op[2,1] &  ret_h)       ? mul[32,32] : 32b0) // MULH, MULHSU, MULHU
+        | ((~op[2,1] & ~ret_h)       ? mul[ 0,32] : 32b0) // MUL
         | (( div_negate &  op[1,1] ) ? -div.rem   : 32b0)
         | ((~div_negate &  op[1,1] ) ?  div.rem   : 32b0)
         | (( div_negate & ~op[1,1] ) ? -div.ret   : 32b0)
