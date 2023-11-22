@@ -698,25 +698,21 @@ $$if ICEV_MULDIV then
                    & ~(working & isdone(div));
     if (muldiv) {
       //__display("[cycle %d] dividing:%b working:%b isdone(div):%b",cycle,dividing,working,isdone(div));
-      if (~op[2,1]) {
-        // MUL, MULH, MULHSU, MULHU
-        r = (|op[0,2]) ? mul[32,32] : mul[0,32];
-      } else {
+      if (op[2,1] & trigger) {
         // DIV, DIVU, REM, REMU
-        if (trigger) {
-          $$if DEBUG_swirl then
-          //__display("[cycle %d] DIVISION trigger",cycle);
-          $$end
-          div <- ( (signdiv&signa)?-xa:xa, (signdiv&signb)?-xb:xb );
-        }
-        // division result
-        uint1 div_negate = signdiv/*DIV|REM*/ & (signa ^ signb);
-        if (op[1,1]) {  // REM,REMU
-          r        = div_negate ? -div.rem : div.rem;
-        } else {        // DIV,DIVU
-          r        = div_negate ? -div.ret : div.ret;
-        }
+        $$if DEBUG_swirl then
+        //__display("[cycle %d] DIVISION trigger",cycle);
+        $$end
+        div <- ( (signdiv&signa)?-xa:xa, (signdiv&signb)?-xb:xb );
       }
+      // result
+      uint1 div_negate = signdiv/*DIV|REM*/ & (signa ^ signb);
+      r = ((~op[2,1] &  (|op[0,2]))  ? mul[32,32] : 32b0) // MULH, MULHSU, MULHU
+        | ((~op[2,1] & ~(|op[0,2]))  ? mul[ 0,32] : 32b0) // MUL
+        | (( div_negate &  op[1,1] ) ? -div.rem   : 32b0)
+        | ((~div_negate &  op[1,1] ) ?  div.rem   : 32b0)
+        | (( div_negate & ~op[1,1] ) ? -div.ret   : 32b0)
+        | ((~div_negate & ~op[1,1] ) ?  div.ret   : 32b0);
 		}
 $$end
     // ====================== Comparator for branching
