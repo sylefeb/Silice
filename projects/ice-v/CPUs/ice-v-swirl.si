@@ -22,7 +22,7 @@ $include('../../common/divint_std.si')
 $$end
 
 // set to 1 for a copious amount of debug output in simulation
-$$DEBUG_swirl      = 1
+$$DEBUG_swirl      = nil
 $$TRACE_swirl      = nil
 
 // --------------------------------------------------
@@ -369,7 +369,7 @@ $$end
 $$if DEBUG_swirl then
 if (debug_on) {
       if (~stall_cpu | on_stall) {
-        __display("[3] instr: %x @%x (bubble:%b bpred:%b alu_r:%d)",instr,pc<<2,bubble,bpred,alu_r);
+        __display("[3] instr: %x @%x (bubble:%b bpred:%b exec.r:%d)",instr,pc<<2,bubble,bpred,exec.r);
       }
 }
 $$end
@@ -468,7 +468,7 @@ $$end
 $$if DEBUG_swirl then
 if (debug_on) {
     if (~stall_cpu | on_stall) {
-      __display("[5] instr: %x @%x (bubble:%b jump:%b bpred:%b load:%b) nretired:%d",instr,pc<<2,bubble,jump,bpred,load,nretired);
+      __display("[5] instr: %x @%x (bubble:%b jump:%b bpred:%b load:%b alu_r:%d) nretired:%d",instr,pc<<2,bubble,jump,bpred,load,alu_r,nretired);
       if (instr_done) {
         __display("[5] ++++ %x (@%x) jump %b, wreg:[%d]=%x (%b) nretired:%d",
           instr,pc<<2,jump,Rtype(instr).rd,xregsA.wdata1,xregsA.wenable1,nretired);
@@ -695,11 +695,15 @@ $$if ICEV_MULDIV then
     int33 mb       = {signb &  mulh,           xb};
     int64 mul      = ma * mb;  // multiply
     uint1 signdiv  = ~ op[0,1];
+    uint1 divdone      = isdone(div) & ~prev_divdone; // pulses on div done
+    uint1 prev_divdone = isdone(div);
+    if (muldiv & working & divdone) {
+      __display("DIVISION %d / %d = %d (%d)\n",div.inum,div.iden,div.ret,div.rem);
+    }
     working        = (working | (trigger & op[2,1]))
                    &  muldiv
                    & ~cancel
-                   & ~(working & isdone(div));
-    // uint1 reg_divdone = isdone(div);
+                   & ~(working & divdone);
     if (trigger) { // div restarts each trigger
       div.inum = (signdiv&signa) ? -xa : xa;
       div.iden = (signdiv&signb) ? -xb : xb;
