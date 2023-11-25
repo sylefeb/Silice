@@ -1906,6 +1906,25 @@ Algorithm::t_combinational_block *Algorithm::splitOrContinueBlock(siliceParser::
 
 // -------------------------------------------------
 
+bool Algorithm::isInWhileBody(antlr4::tree::ParseTree* node)
+{
+  if (node == nullptr) {
+    return false;
+  }
+  auto wnode = dynamic_cast<siliceParser::WhileLoopContext*>(node->parent);
+  auto pnode = dynamic_cast<siliceParser::PipelineContext*> (node->parent);
+  if (wnode != nullptr) {
+    return true;
+  } else if (pnode != nullptr) {
+    if (hasPipeline(pnode)) {
+      return false;
+    }
+  }
+  return isInWhileBody(node->parent);
+}
+
+// -------------------------------------------------
+
 Algorithm::t_combinational_block *Algorithm::gatherBreakLoop(siliceParser::BreakLoopContext* brk, t_combinational_block *_current, t_gather_context *_context)
 {
   // current goes to after while
@@ -1914,6 +1933,10 @@ Algorithm::t_combinational_block *Algorithm::gatherBreakLoop(siliceParser::Break
   }
   _current->next(_context->break_to);
   _context->break_to->is_state = true;
+  // verify this is not within a pipeline stage
+  if (!isInWhileBody(brk)) {
+    reportError(sourceloc(brk->BREAK()), "cannot break from a pipeline stage");
+  }
   // track line for fsm reporting
   {
     auto lns = instructionLines(brk);

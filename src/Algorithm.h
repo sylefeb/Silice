@@ -804,6 +804,8 @@ private:
     bool hasPipeline(antlr4::tree::ParseTree* tree) const;
     /// \brief split current block (state present) or continue current with the next instruction list
     t_combinational_block *splitOrContinueBlock(siliceParser::InstructionListItemContext* ilist, t_combinational_block *_current, t_gather_context *_context);
+    /// \brief returns true if node is in a loop body
+    bool isInWhileBody(antlr4::tree::ParseTree* node);
     /// \brief gather a break from loop
     t_combinational_block *gatherBreakLoop(siliceParser::BreakLoopContext* brk, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather a while block
