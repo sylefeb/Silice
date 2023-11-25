@@ -1,0 +1,21 @@
+circuitry add_two(input i)
+{
+  // starts new pipelines
+  { -> -> }
+  { -> -> }
+}
+
+unit main(output uint8 leds)
+{
+  uint32 cycle=0;
+  algorithm {
+
+    while (cycle<100) {
+    ->
+    () = add_two(cycle); // ERROR: this would next pipelines
+    ->
+
+    }
+  }
+  always_after { cycle = cycle + 1; }
+}

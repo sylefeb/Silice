@@ -7,34 +7,34 @@ algorithm main(output uint8 leds)
 
   while (i < 8) {
 
+    i = i + 1;
+
     {
 
       a = a + 1;
 
       __display("[0] a = %d\tb = %d\tc = %d",a,b,c);
 
-    } -> {
+    ->
 
       __display("[1] a = %d\tb = %d\tc = %d",a,b,c);
 
-    } -> {
+    ->
 
       b ^= a;
       c v= a;
 
       __display("[2] a = %d\tb = %d\tc = %d",a,b,c);
 
-    } -> {
+    ->
 
       __display("[3] a = %d\tb = %d\tc = %d",a,b,c);
 
-    } -> {
+    ->
 
       __display("[4] a = %d\tb = %d\tc = %d\n",a,b,c);
 
     }
-
-    i = i + 1;
 
   }
 

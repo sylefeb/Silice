@@ -1906,7 +1906,7 @@ Algorithm::t_combinational_block *Algorithm::splitOrContinueBlock(siliceParser::
 
 // -------------------------------------------------
 
-bool Algorithm::isInWhileBody(antlr4::tree::ParseTree* node)
+bool Algorithm::isInWhileBody(const antlr4::tree::ParseTree* node) const
 {
   if (node == nullptr) {
     return false;
@@ -2470,6 +2470,30 @@ Algorithm::t_combinational_block *Algorithm::concatenatePipeline(siliceParser::P
 
 // -------------------------------------------------
 
+bool Algorithm::isSpawningNewPipeline(const siliceParser::PipelineContext* pip) const
+{
+  // verifies the tree to check whether this is a new pipeline
+  // spawned within a block, or whether this is a concatenated pipeline
+  // from a circuitry
+  auto parent = pip->parent;
+  while (parent) {
+    auto block = dynamic_cast<siliceParser::BlockContext*>(parent);
+    if (block != nullptr) {
+      // check if new block or in a circuitry
+      auto circuitry = dynamic_cast<siliceParser::CircuitryContext*>(block->parent);
+      if (circuitry == nullptr) {
+        return true;
+      } else {
+        return false;
+      }
+    } else {
+      parent = parent->parent;
+    }
+  }
+}
+
+// -------------------------------------------------
+
 Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::PipelineContext* pip, t_combinational_block *_current, t_gather_context *_context)
 {
   sl_assert(pip->instructionList().size() > 1); // otherwise not a pipeline
@@ -2478,7 +2502,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
   // are we already within a parent pipeline?
   if (_current->context.pipeline_stage == nullptr) {
 
-    // no: create a new pipeline
+    /// no: create a new pipeline
     auto nfo = new t_pipeline_nfo();
     m_Pipelines.push_back(nfo);
     // name of the pipeline
@@ -2634,7 +2658,12 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
 
   } else {
 
-    // yes: expand the parent pipeline
+    /// yes: expand the parent pipeline
+    // check for nesting (forbidden)
+    if (isSpawningNewPipeline(pip)) {
+      reportError(sourceloc(pip), "cannot start a new pipeline from within anonhter pipeline.");
+    }
+    // concatenate pipeline
     auto nfo = _current->context.pipeline_stage->pipeline;
     return concatenatePipeline(pip, _current, _context, nfo);
 

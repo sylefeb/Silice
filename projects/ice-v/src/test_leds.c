@@ -4,6 +4,8 @@
 
 #include "config.h"
 
+void f_putchar(int) {}
+
 void main()
 {
   volatile int i = 0;

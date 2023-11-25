@@ -1,0 +1,31 @@
+circuitry add_two(input i,output o)
+{
+  { // forbidden : starts a new pipeline
+    // stage 1
+    uint8 v = i + 1;
+  ->
+    // stage 2
+    // o = v + 1;
+  ->
+
+  }
+}
+
+unit main(output uint8 leds)
+{
+  uint32 cycle=0;
+  uint8  a    =0;
+  algorithm {
+
+    while (a<3) {
+        // stage 0
+        uint8 v = a;
+        a = a + 1;
+    ->
+    (v) = add_two(v);
+    ->
+
+    }
+  }
+  always_after { cycle = cycle + 1; }
+}
