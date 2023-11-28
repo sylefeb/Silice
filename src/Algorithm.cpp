@@ -2490,6 +2490,7 @@ bool Algorithm::isSpawningNewPipeline(const siliceParser::PipelineContext* pip) 
       parent = parent->parent;
     }
   }
+  return false;
 }
 
 // -------------------------------------------------
