@@ -283,7 +283,7 @@ $$if Solution_SD then
      | ((peripheral_r & sd_access)     ? {31b0,    sd_miso} : 32b0)
 $$end
 $$if Solution_BTN then
-     | ((peripheral_r & button_access) ? {31b0,       btns} : 32b0)
+     | ((peripheral_r & button_access) ? {25b0,       btns} : 32b0)
 $$end
 $$if Solution_STREAM then
      | ((peripheral_r & audio_access)  ? audio_addr_cpu     : 32b0)

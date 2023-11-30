@@ -239,7 +239,7 @@ Encode a music, copy it onto the SDcard and listen to it with the design produce
 by `make step5 FIRMWARE=step5_audio_stream`. The music will be recognizable but
 the quality will be horrendous.
 
-> The music file should be called `music.raw` and place on the SDcard root directory. Prepare the file using `./encode_music.sh <file.mp3>` (ffmpeg has to be installed). Use your favorite `mp3` (or perhaps not, this music is going to go through a grinder ;) ).
+> The music file should be called `music.raw` and place on the SDcard root directory. Prepare the file using `./encode_music.sh file.mp3` (ffmpeg has to be installed). Use your favorite `mp3` (or perhaps not, this music is going to go through a grinder ;) ).
 
 Why is the sound so bad? The onboard DAC is only 4 bits and our music file only
 has 8 bits per sample to start with. We need a way to take into account this
