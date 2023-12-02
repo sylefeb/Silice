@@ -119,11 +119,13 @@ $$if ICEV_STALL then
   input uint1 stall_cpu,
 $$end
 $$if TRACE_swirl then
-  // input uint1 trace_on,
+  input uint1 trace_on,
 $$end
 ) {
 
   // register file, uses two BRAMs to fetch two registers at once
+  //simple_dualport_bram int32 xregsA<"simple_dualport_bram_generic_rw">[32] = {pad(0)};
+  //simple_dualport_bram int32 xregsB<"simple_dualport_bram_generic_rw">[32] = {pad(0)};
   simple_dualport_bram int32 xregsA[32] = {pad(0)};
   simple_dualport_bram int32 xregsB[32] = {pad(0)};
   // ^^^^^^^^^^^^^ dualport so that we can read/write simultaneously
@@ -163,7 +165,6 @@ $$if SIMULATION then
 $$end
 $$if TRACE_swirl then
   uint32 last_cycle(0);
-  uint1 trace_on <:: nretired > 3145018;
 $$end
 $$if not ICEV_STALL then
   uint1 stall_cpu(0);  // stall disabled, never used
@@ -173,7 +174,7 @@ $$end
   always {
 
 $$if DEBUG_swirl then
-    uint1 debug_on = cycle > 106191974; // cycle > 284400; // nretired > 3145018;
+    uint1 debug_on = 1
 $$end
 
     // tracks whether a register was written cycle before
@@ -261,9 +262,10 @@ $$end
                 | (Rtype(instr).opcode[2,5] == 5b11000)  // branch
                 | store;
       // by default we select the register value read after stage 1
-      // (assuming no data haward)
-      xa_regR = ~hold; xa_regW = 0; xa_regW_prev = 0; xa_keep = hold;
-      xb_regR = ~hold; xb_regW = 0; xb_regW_prev = 0; xb_keep = hold;
+      // or keep the values as is on a hold or alu is working
+      uint1 keep = hold | exec.working;
+      xa_regR = ~keep; xa_regW = 0; xa_regW_prev = 0; xa_keep = keep;
+      xb_regR = ~keep; xb_regW = 0; xb_regW_prev = 0; xb_keep = keep;
       // [data hazards] case (c) detection
       // instruction in stage 3 will (cycle+2) write on a register needed now
       // instruction in stage 4 will (cycle+1) write on a register needed now
@@ -302,6 +304,9 @@ if (debug_on) {
 $$end
       // update bubble
       bubble    = bubble | refetch | hold;
+$$if SIMULATION then
+      stage2_bubble         = bubble;
+$$end
 $$if DEBUG_swirl then
 if (debug_on) {
       if (~stall_cpu | on_stall) {
@@ -364,9 +369,6 @@ $$end
       // trigger ALU if not in bubble (used by multi-cycle shifts, div)
       exec.trigger          = ~bubble & ~alu_was_working;
       uint1 alu_was_working = exec.working;
-$$if SIMULATION then
-      stage2_bubble         = bubble;
-$$end
     } -> { // ==== stage 3 =====================================================
       uint1          prev_bpred(0);
       // propagate bpred
@@ -576,17 +578,18 @@ $$if TRACE_swirl then
       }
     }
 $$end
+
     // register bank B follows A writes
     xregsB.wenable1 = xregsA.wenable1;
     xregsB.wdata1   = xregsA.wdata1;
     xregsB.addr1    = xregsA.addr1;
 $$if SIMULATION then
     if (xregsA_conflict_possible & xa_regR & ~stage2_bubble) {
-      __display("[cycle %d] ERROR reading from a written register (A)",cycle);
+      __display("[cycle %d] ERROR reading from a written register (A) @%h",cycle,pc<<2);
       __finish();
     }
     if (xregsB_conflict_possible & xb_regR & ~stage2_bubble & has_rs2) {
-      __display("[cycle %d] ERROR reading from a written register (B)",cycle);
+      __display("[cycle %d] ERROR reading from a written register (B) @%h",cycle,pc<<2);
       __finish();
     }
 $$end

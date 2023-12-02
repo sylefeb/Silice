@@ -36,8 +36,9 @@ $$ cycleW = 32
 
 $$if ICEV_MULDIV then
 $$ print("Ice-V-ram configured with mul and div (*not* full RV32IM)")
-$$div_width  = 32
-$$div_signed = 1
+$$div_width     = 32
+$$div_unsigned  = 1
+$$div_remainder = 1
 $include('../../common/divint_std.si')
 $$end
 
@@ -415,32 +416,36 @@ $$end
 
 $$if ICEV_MULDIV then
     // mul div
+    uint1 mulh     = op[0,2] == 2b01;
+    uint1 mulhsu   = op[0,2] == 2b10;
+    uint1 signa    = xa[31,1];
+    uint1 signb    = xb[31,1]; // vvvvvvvvvv keep the sign?
+    int33 ma       = {signa & (mulh | mulhsu), xa};
+    int33 mb       = {signb &  mulh,           xb};
+    int64 mul      = ma * mb;  // multiply
+    uint1 signdiv  = ~ op[0,1];
+    uint1 divdone      = isdone(div) & ~prev_divdone; // pulses on div done
+    uint1 prev_divdone = isdone(div);
+    //if (muldiv & working & divdone) {
+    //  __display("DIVISION %d / %d = %d (%d)\n",div.inum,div.iden,div.ret,div.rem);
+    //}
+    working        = (working | (trigger & op[2,1]))
+                   &  muldiv
+                   & ~(working & divdone);
+    if (trigger) { // div restarts each trigger
+      div.inum = (signdiv&signa) ? -xa : xa;
+      div.iden = (signdiv&signb) ? -xb : xb;
+      div <- ();
+    }
+    uint1 div_negate = signdiv & (signa ^ signb);
+    uint1 ret_h      = |op[0,2];
     if (muldiv) {
-      // __display("[cycle %d] dividing:%b working:%b isdone(div):%b",cycle,dividing,working,isdone(div));
-      switch ({op}) {
-        case 3b000: { // MUL
-          // __display("MULTIPLICATION %d * %d",xa,xb);
-          r        = xa * xb;
-        }
-        case 3b100: { // DIV
-          if (trigger) {
-            // __display("[cycle %d] DIVISION trigger",cycle);
-            working  = 1;
-            dividing = 1;
-            div <- (xa,xb);
-          } else {
-            if (isdone(div) & dividing) {
-              // __display("[cycle %d] DIVISION %d / %d = %d",cycle,div.inum,div.iden,div.ret);
-              dividing = 0;
-              working  = 0;
-            }
-          }
-          r        = div.ret;
-        }
-        default:   { r = {32{1bx}}; }
-      }
-    } else {
-		  dividing = 0;
+      r = ((~op[2,1] &  ret_h)                  ? mul[32,32] : 32b0) // MULH, MULHSU, MULHU
+        | ((~op[2,1] & ~ret_h)                  ? mul[ 0,32] : 32b0) // MUL
+        | (( op[2,1] &  div_negate &  op[1,1] ) ? -div.rem   : 32b0) // REM
+        | (( op[2,1] & ~div_negate &  op[1,1] ) ?  div.rem   : 32b0) // REMU
+        | (( op[2,1] &  div_negate & ~op[1,1] ) ? -div.ret   : 32b0) // DIV
+        | (( op[2,1] & ~div_negate & ~op[1,1] ) ?  div.ret   : 32b0);// DIVU
 		}
 $$end
 

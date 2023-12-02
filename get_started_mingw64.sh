@@ -38,9 +38,11 @@ pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-glfw
 
 # -------------- retrieve oss-cad-suite package --------------
 OSS_CAD_MONTH=11
-OSS_CAD_DAY=15
+OSS_CAD_DAY=29
 OSS_CAD_YEAR=2023
 
+rm -rf tools/fpga-binutils/
+rm -rf tools/oss-cad-suite/
 wget -c https://github.com/YosysHQ/oss-cad-suite-build/releases/download/$OSS_CAD_YEAR-$OSS_CAD_MONTH-$OSS_CAD_DAY/oss-cad-suite-windows-x64-$OSS_CAD_YEAR$OSS_CAD_MONTH$OSS_CAD_DAY.exe
 cd tools ; ../oss-cad-suite-windows-x64-$OSS_CAD_YEAR$OSS_CAD_MONTH$OSS_CAD_DAY.exe ; cd -
 
