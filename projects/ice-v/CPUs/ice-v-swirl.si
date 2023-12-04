@@ -38,7 +38,7 @@ $$end
 // Risc-V RV32I pipelined CPU
 $$print("====== ice-v swirl (pipeline, data bypass, rdcycle) ======")
 //
-// Four stages pipeline
+// Five stages pipeline
 // --------------------
 // Stage 1, in: instruction, setup: reg read A,B, next fetch
 //   => [registers read]       =>
@@ -67,9 +67,7 @@ $$print("====== ice-v swirl (pipeline, data bypass, rdcycle) ======")
 // Overview
 // --------
 //
-// The CPU has four stages, which deviates a bit from the typical five stages
-// design. I have no specific reason for this apart from this being the most
-// natural evolution of prior IceV version.
+// The CPU has five stages (see above).
 //
 // The pipeline implements bypasses on data hazards, such that it does not have
 // to insert bubbles ('do nothing') in case of potential trouble (see also the
