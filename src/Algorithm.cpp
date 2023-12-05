@@ -1952,12 +1952,6 @@ Algorithm::t_combinational_block *Algorithm::gatherBreakLoop(siliceParser::Break
 
 Algorithm::t_combinational_block *Algorithm::gatherWhile(siliceParser::WhileLoopContext* loop, t_combinational_block *_current, t_gather_context *_context)
 {
-  // pipeline nesting check
-  if (_current->context.pipeline_stage != nullptr) {
-    if (hasPipeline(loop->while_block)) {
-      reportError(sourceloc(loop->while_block),"while loop contains another pipeline: pipelines cannot be nested.");
-    }
-  }
   // while header block
   t_combinational_block *while_header = addBlock("__while" + generateBlockName(), _current, nullptr, sourceloc(loop));
   _current->next(while_header);
@@ -2407,7 +2401,7 @@ Algorithm::t_combinational_block *Algorithm::concatenatePipeline(siliceParser::P
   // go through the pipeline
   // -> for each stage block
   t_combinational_block *prev = _current;
-  bool resume = (_current->context.pipeline_stage != nullptr); // if in an existing pipeline, start by adding to the last stage
+  bool resume = (_current->context.pipeline_stage != nullptr) && !isSpawningNewPipeline(pip); // if in an existing pipeline, start by adding to the last stage
   for (auto b : pip->instructionList()) {
     t_fsm_nfo*             fsm  = nullptr;
     t_pipeline_stage_nfo*  snfo = nullptr;
@@ -2500,10 +2494,10 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
   sl_assert(pip->instructionList().size() > 1); // otherwise not a pipeline
   // inform change log
   CHANGELOG.addPointOfInterest("CL0003", sourceloc(pip));
-  // are we already within a parent pipeline?
-  if (_current->context.pipeline_stage == nullptr) {
+  // are we already within a parent pipeline or spawning a new onesss?
+  if (_current->context.pipeline_stage == nullptr || isSpawningNewPipeline(pip)) {
 
-    /// no: create a new pipeline
+    /// create a new pipeline
     auto nfo = new t_pipeline_nfo();
     m_Pipelines.push_back(nfo);
     // name of the pipeline
@@ -2659,12 +2653,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
 
   } else {
 
-    /// yes: expand the parent pipeline
-    // check for nesting (forbidden)
-    if (isSpawningNewPipeline(pip)) {
-      reportError(sourceloc(pip), "cannot start a new pipeline from within anonhter pipeline.");
-    }
-    // concatenate pipeline
+    /// concatenate to the parent pipeline
     auto nfo = _current->context.pipeline_stage->pipeline;
     return concatenatePipeline(pip, _current, _context, nfo);
 
@@ -3025,15 +3014,6 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(
 
 Algorithm::t_combinational_block *Algorithm::gatherIfElse(siliceParser::IfThenElseContext* ifelse, t_combinational_block *_current, t_gather_context *_context)
 {
-  // pipeline nesting check
-  if (_current->context.pipeline_stage != nullptr) {
-    if (hasPipeline(ifelse->if_block)) {
-      reportError(sourceloc(ifelse->if_block), "conditonal statement (if side) contains another pipeline: pipelines cannot be nested.");
-    }
-    if (hasPipeline(ifelse->else_block)) {
-      reportError(sourceloc(ifelse->else_block), "conditonal statement (else side) contains another pipeline: pipelines cannot be nested.");
-    }
-  }
   // blocks for both sides
   t_combinational_block *if_block = addBlock(generateBlockName(), _current, nullptr, sourceloc(ifelse->if_block));
   t_combinational_block *else_block = addBlock(generateBlockName(), _current, nullptr, sourceloc(ifelse->else_block));
@@ -3067,12 +3047,6 @@ Algorithm::t_combinational_block *Algorithm::gatherIfElse(siliceParser::IfThenEl
 
 Algorithm::t_combinational_block *Algorithm::gatherIfThen(siliceParser::IfThenContext* ifthen, t_combinational_block *_current, t_gather_context *_context)
 {
-  // pipeline nesting check
-  if (_current->context.pipeline_stage != nullptr) {
-    if (hasPipeline(ifthen->if_block)) {
-      reportError(sourceloc(ifthen->if_block), "conditonal statement contains another pipeline: pipelines cannot be nested.");
-    }
-  }
   // blocks for both sides
   t_combinational_block *if_block = addBlock(generateBlockName(), _current, nullptr, sourceloc(ifthen->if_block));
   t_combinational_block *else_block = addBlock(generateBlockName(), _current);
@@ -3100,14 +3074,6 @@ Algorithm::t_combinational_block *Algorithm::gatherIfThen(siliceParser::IfThenCo
 
 Algorithm::t_combinational_block* Algorithm::gatherSwitchCase(siliceParser::SwitchCaseContext* switchCase, t_combinational_block* _current, t_gather_context* _context)
 {
-  // pipeline nesting check
-  if (_current->context.pipeline_stage != nullptr) {
-    for (auto cb : switchCase->caseBlock()) {
-      if (hasPipeline(cb)) {
-        reportError(sourceloc(cb), "switch case contains another pipeline: pipelines cannot be nested.");
-      }
-    }
-  }
   // create a block for after the switch-case
   t_combinational_block* after = addBlock(generateBlockName(), _current, nullptr, sourceloc(switchCase));
   // create a block per case statement
@@ -8720,10 +8686,11 @@ void Algorithm::writeStatelessBlockGraph(
       auto prev = current;
       if (current->context.fsm != nullptr) {
         // if in an algorithm, pipelines are written later
-        std::ostringstream _;
-        t_writer_context wpip(w.pipes,_,w.wires);
-        sl_assert(_.str().empty());
+        std::ostringstream subpip; // child pipelines are written here
+        t_writer_context wpip(w.pipes,subpip,w.wires);
         current = writeStatelessPipeline(prefix, wpip, ictx, current, _q, _dependencies, _ff_usage, _post_dependencies, _lines);
+        // combine any child pipeline with parents
+        w.pipes << subpip.str();
         // also check that blocks between here and next states are empty
         if (!emptyUntilNextStates(current)) {
           reportError(prev->srcloc, "in an algorithm, a pipeline has to be followed by a new cycle.\n"
@@ -9935,9 +9902,8 @@ void Algorithm::writeAsModule(std::ostream& out, const t_instantiation_context& 
     if (stage_id == 0) {
       // parent state active?
       if (fsm->parentBlock->context.fsm != nullptr) {
-        sl_assert(fsm->parentBlock->context.fsm == &m_RootFSM); // no nested pipelines
         out << "  && ((";
-        out << fsmNextState("_", &m_RootFSM);
+        out << fsmNextState("_", fsm->parentBlock->context.fsm);
         out << ')';
         out << " == " << toFSMState(fsm->parentBlock->context.fsm, fsmParentTriggerState(fsm));
         out << ")" << nxl;
