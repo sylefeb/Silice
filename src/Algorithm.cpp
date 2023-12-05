@@ -4270,15 +4270,15 @@ std::string Algorithm::fsmPipelineFirstStageDisable(const t_fsm_nfo *fsm) const
 
 // -------------------------------------------------
 
-std::string Algorithm::fsmNextState(std::string prefix,const t_fsm_nfo *) const
+std::string Algorithm::fsmNextState(std::string prefix,const t_fsm_nfo *fsm) const
 {
   std::string next;
   if (m_AutoRun) { // NOTE: same as isNotCallable() since hasNoFSM() is false
-    next = std::string("( ~") + prefix + ALG_AUTORUN + " ? " + std::to_string(toFSMState(&m_RootFSM, entryState(&m_RootFSM)));
+    next = std::string("( ~") + prefix + ALG_AUTORUN + " ? " + std::to_string(toFSMState(fsm, entryState(fsm)));
   } else {
-    next = std::string("( ~") + ALG_INPUT + "_" + ALG_RUN + " ? " + std::to_string(toFSMState(&m_RootFSM, entryState(&m_RootFSM)));
+    next = std::string("( ~") + ALG_INPUT + "_" + ALG_RUN + " ? " + std::to_string(toFSMState(fsm, entryState(fsm)));
   }
-  next += std::string(" : ") + FF_D + prefix + fsmIndex(&m_RootFSM) + ")";
+  next += std::string(" : ") + FF_D + prefix + fsmIndex(fsm) + ")";
   return next;
 }
 

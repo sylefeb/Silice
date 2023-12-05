@@ -17,15 +17,21 @@ algorithm main(output uint8 leds)
 
       __display("[B] before (%d)",n);
       // stage 1
-      uint5 j = 0;
-      while (j!=4) {
+      uint5 j    = 0;
+      uint1 done = 0;
+      while (~done) {
           // nested pipeline
           __display("[B,A] %d,%d",n,j);
-          j = j + 1;
+          uint8 q = j + 10;
+          j       = j + 1;
         ->
-          __display("[B,B] %d,%d",n,j);
+          __display("[B,B] %d,%d",n,q);
+          q = q + 100;
+        ->
+          __display("[B,C] %d,%d",n,q);
+          if (j == 3) { done = 1; }
       }
-      ++: ////////////////////////////// breaks without, why?
+    ++: ////////////////////////////// breaks without, why?
       __display("[B] after (%d)",n);
 
     ->
