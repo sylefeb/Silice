@@ -17,6 +17,7 @@ algorithm main(output uint8 leds)
       while (j<4) {
           // nested pipeline
           __display("[0] %d,%d",i,j);
+          j = j + 1;
         ->
           __display("[1] %d,%d",i,j);
       }
