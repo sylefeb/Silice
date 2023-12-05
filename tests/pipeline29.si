@@ -1,0 +1,26 @@
+
+// nested pipelines test
+
+algorithm main(output uint8 leds)
+{
+
+  uint5 i = 0;
+  while (i<4) {
+
+      // stage 0
+      i = i + 1;
+
+    ->
+
+      // stage 1
+      uint5 j = 0;
+      while (j<4) {
+          // nested pipeline
+          __display("[0] %d,%d",i,j);
+        ->
+          __display("[1] %d,%d",i,j);
+      }
+
+  }
+
+}
