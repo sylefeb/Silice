@@ -5,22 +5,32 @@ algorithm main(output uint8 leds)
 {
 
   uint5 i = 0;
-  while (i<4) {
+  while (i!=5)
+  {
 
       // stage 0
+      uint5 n = i;
+      __display("[A]        (%d)",n);
       i = i + 1;
 
     ->
 
+      __display("[B] before (%d)",n);
       // stage 1
       uint5 j = 0;
-      while (j<4) {
+      while (j!=4) {
           // nested pipeline
-          __display("[0] %d,%d",i,j);
+          __display("[B,A] %d,%d",n,j);
           j = j + 1;
         ->
-          __display("[1] %d,%d",i,j);
+          __display("[B,B] %d,%d",n,j);
       }
+      ++: ////////////////////////////// breaks without, why?
+      __display("[B] after (%d)",n);
+
+    ->
+
+      __display("[C]       (%d)",n);
 
   }
 
