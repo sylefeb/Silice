@@ -2644,6 +2644,15 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
         insertVar(var, _current->context.parent_scope != nullptr ? _current->context.parent_scope : _current);
       }
     }
+    // if nested, convert parent pipeline trickling into rewrite rules
+    /*
+    // TODO FIXME: this does not work as parent has not yet determined its trickling vios
+    // TODO FIXME: closure on rewrite rules necessary?
+    if (_current->context.pipeline_stage != nullptr) {
+      for (const auto& tv : _current->context.pipeline_stage->pipeline->trickling_vios) {
+        _current->context.vio_rewrites.insert(std::make_pair(tv.first, tricklingVIOName(tv.first, _current->context.pipeline_stage)));
+      }
+    }*/
     // add a block for after pipeline
     t_combinational_block *after = addBlock(generateBlockName(), _current);
     // set next of last stage
