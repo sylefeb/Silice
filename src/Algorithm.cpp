@@ -1404,14 +1404,16 @@ std::string Algorithm::translateVIOName(
         vio = Vrew->second;
       }
     }
-    // then pipeline stage
-    if (bctx->pipeline_stage != nullptr) {
-      const auto& Vpip = bctx->pipeline_stage->pipeline->trickling_vios.find(vio);
-      if (Vpip != bctx->pipeline_stage->pipeline->trickling_vios.end()) {
-        if (bctx->pipeline_stage->stage_id > Vpip->second[0]) {
-          vio = tricklingVIOName(vio, bctx->pipeline_stage);
+    // pipeline stage (recurses through nesting)
+    auto current = bctx->pipeline_stage;
+    while (current != nullptr) {
+      const auto& Vpip = current->pipeline->trickling_vios.find(vio);
+      if (Vpip != current->pipeline->trickling_vios.end()) {
+        if (current->stage_id > Vpip->second[0]) {
+          vio = tricklingVIOName(vio, current);
         }
       }
+      current = current->pipeline->nested_in_parent_stage;
     }
   }
   return vio;
@@ -2502,6 +2504,8 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     m_Pipelines.push_back(nfo);
     // name of the pipeline
     nfo->name = "__pip_" + std::to_string(pip->getStart()->getLine()) + "_" + std::to_string(m_Pipelines.size());
+    // parent if nested
+    nfo->nested_in_parent_stage = _current->context.pipeline_stage;
     // start concatenating (may call gatherPipeline recursively)
     auto last = concatenatePipeline(pip, _current, _context, nfo);
     // now for each stage fsm
@@ -2644,15 +2648,6 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
         insertVar(var, _current->context.parent_scope != nullptr ? _current->context.parent_scope : _current);
       }
     }
-    // if nested, convert parent pipeline trickling into rewrite rules
-    /*
-    // TODO FIXME: this does not work as parent has not yet determined its trickling vios
-    // TODO FIXME: closure on rewrite rules necessary?
-    if (_current->context.pipeline_stage != nullptr) {
-      for (const auto& tv : _current->context.pipeline_stage->pipeline->trickling_vios) {
-        _current->context.vio_rewrites.insert(std::make_pair(tv.first, tricklingVIOName(tv.first, _current->context.pipeline_stage)));
-      }
-    }*/
     // add a block for after pipeline
     t_combinational_block *after = addBlock(generateBlockName(), _current);
     // set next of last stage
