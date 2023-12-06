@@ -1358,7 +1358,13 @@ void Algorithm::gatherDeclarationInstance(siliceParser::DeclarationInstanceConte
         nfo.specializations.autos[str_signed] = tn.base_type == Int ? "signed" : "";
       } else if (m->sparam() != nullptr) {
         std::string p = m->sparam()->IDENTIFIER()->getText();
-        nfo.specializations.params[p] = m->sparam()->NUMBER()->getText();
+        if (m->sparam()->NUMBER()) {
+          nfo.specializations.params[p] = m->sparam()->NUMBER()->getText();
+        } else if (m->sparam()->CONSTANT()) {
+          nfo.specializations.params[p] = rewriteConstant(m->sparam()->CONSTANT()->getText());
+        } else {
+          sl_assert(false);
+        }
       } else {
         reportError(sourceloc(m), "modifier not allowed during instantiation" );
       }
@@ -1916,6 +1922,25 @@ Algorithm::t_combinational_block *Algorithm::splitOrContinueBlock(siliceParser::
 
 // -------------------------------------------------
 
+bool Algorithm::isInWhileBody(const antlr4::tree::ParseTree* node) const
+{
+  if (node == nullptr) {
+    return false;
+  }
+  auto wnode = dynamic_cast<siliceParser::WhileLoopContext*>(node->parent);
+  auto pnode = dynamic_cast<siliceParser::PipelineContext*> (node->parent);
+  if (wnode != nullptr) {
+    return true;
+  } else if (pnode != nullptr) {
+    if (hasPipeline(pnode)) {
+      return false;
+    }
+  }
+  return isInWhileBody(node->parent);
+}
+
+// -------------------------------------------------
+
 Algorithm::t_combinational_block *Algorithm::gatherBreakLoop(siliceParser::BreakLoopContext* brk, t_combinational_block *_current, t_gather_context *_context)
 {
   // current goes to after while
@@ -1924,6 +1949,10 @@ Algorithm::t_combinational_block *Algorithm::gatherBreakLoop(siliceParser::Break
   }
   _current->next(_context->break_to);
   _context->break_to->is_state = true;
+  // verify this is not within a pipeline stage
+  if (!isInWhileBody(brk)) {
+    reportError(sourceloc(brk->BREAK()), "cannot break from a pipeline stage");
+  }
   // track line for fsm reporting
   {
     auto lns = instructionLines(brk);
@@ -1939,12 +1968,6 @@ Algorithm::t_combinational_block *Algorithm::gatherBreakLoop(siliceParser::Break
 
 Algorithm::t_combinational_block *Algorithm::gatherWhile(siliceParser::WhileLoopContext* loop, t_combinational_block *_current, t_gather_context *_context)
 {
-  // pipeline nesting check
-  if (_current->context.pipeline_stage != nullptr) {
-    if (hasPipeline(loop->while_block)) {
-      reportError(sourceloc(loop->while_block),"while loop contains another pipeline: pipelines cannot be nested.");
-    }
-  }
   // while header block
   t_combinational_block *while_header = addBlock("__while" + generateBlockName(), _current, nullptr, sourceloc(loop));
   _current->next(while_header);
@@ -2394,7 +2417,7 @@ Algorithm::t_combinational_block *Algorithm::concatenatePipeline(siliceParser::P
   // go through the pipeline
   // -> for each stage block
   t_combinational_block *prev = _current;
-  bool resume = (_current->context.pipeline_stage != nullptr); // if in an existing pipeline, start by adding to the last stage
+  bool resume = (_current->context.pipeline_stage != nullptr) && !isSpawningNewPipeline(pip); // if in an existing pipeline, start by adding to the last stage
   for (auto b : pip->instructionList()) {
     t_fsm_nfo*             fsm  = nullptr;
     t_pipeline_stage_nfo*  snfo = nullptr;
@@ -2457,15 +2480,40 @@ Algorithm::t_combinational_block *Algorithm::concatenatePipeline(siliceParser::P
 
 // -------------------------------------------------
 
+bool Algorithm::isSpawningNewPipeline(const siliceParser::PipelineContext* pip) const
+{
+  // verifies the tree to check whether this is a new pipeline
+  // spawned within a block, or whether this is a concatenated pipeline
+  // from a circuitry
+  auto parent = pip->parent;
+  while (parent) {
+    auto block = dynamic_cast<siliceParser::BlockContext*>(parent);
+    if (block != nullptr) {
+      // check if new block or in a circuitry
+      auto circuitry = dynamic_cast<siliceParser::CircuitryContext*>(block->parent);
+      if (circuitry == nullptr) {
+        return true;
+      } else {
+        return false;
+      }
+    } else {
+      parent = parent->parent;
+    }
+  }
+  return false;
+}
+
+// -------------------------------------------------
+
 Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::PipelineContext* pip, t_combinational_block *_current, t_gather_context *_context)
 {
   sl_assert(pip->instructionList().size() > 1); // otherwise not a pipeline
   // inform change log
   CHANGELOG.addPointOfInterest("CL0003", sourceloc(pip));
-  // are we already within a parent pipeline?
-  if (_current->context.pipeline_stage == nullptr) {
+  // are we already within a parent pipeline or spawning a new onesss?
+  if (_current->context.pipeline_stage == nullptr || isSpawningNewPipeline(pip)) {
 
-    // no: create a new pipeline
+    /// create a new pipeline
     auto nfo = new t_pipeline_nfo();
     m_Pipelines.push_back(nfo);
     // name of the pipeline
@@ -2621,7 +2669,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
 
   } else {
 
-    // yes: expand the parent pipeline
+    /// concatenate to the parent pipeline
     auto nfo = _current->context.pipeline_stage->pipeline;
     return concatenatePipeline(pip, _current, _context, nfo);
 
@@ -2982,15 +3030,6 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(
 
 Algorithm::t_combinational_block *Algorithm::gatherIfElse(siliceParser::IfThenElseContext* ifelse, t_combinational_block *_current, t_gather_context *_context)
 {
-  // pipeline nesting check
-  if (_current->context.pipeline_stage != nullptr) {
-    if (hasPipeline(ifelse->if_block)) {
-      reportError(sourceloc(ifelse->if_block), "conditonal statement (if side) contains another pipeline: pipelines cannot be nested.");
-    }
-    if (hasPipeline(ifelse->else_block)) {
-      reportError(sourceloc(ifelse->else_block), "conditonal statement (else side) contains another pipeline: pipelines cannot be nested.");
-    }
-  }
   // blocks for both sides
   t_combinational_block *if_block   = addBlock(generateBlockName(), _current, nullptr, sourceloc(ifelse->if_block));
   t_combinational_block *else_block = addBlock(generateBlockName(), _current, nullptr, sourceloc(ifelse->else_block));
@@ -3024,12 +3063,6 @@ Algorithm::t_combinational_block *Algorithm::gatherIfElse(siliceParser::IfThenEl
 
 Algorithm::t_combinational_block *Algorithm::gatherIfThen(siliceParser::IfThenContext* ifthen, t_combinational_block *_current, t_gather_context *_context)
 {
-  // pipeline nesting check
-  if (_current->context.pipeline_stage != nullptr) {
-    if (hasPipeline(ifthen->if_block)) {
-      reportError(sourceloc(ifthen->if_block), "conditonal statement contains another pipeline: pipelines cannot be nested.");
-    }
-  }
   // blocks for both sides
   t_combinational_block *if_block = addBlock(generateBlockName(), _current, nullptr, sourceloc(ifthen->if_block));
   t_combinational_block *else_block = addBlock(generateBlockName(), _current);
@@ -3057,14 +3090,6 @@ Algorithm::t_combinational_block *Algorithm::gatherIfThen(siliceParser::IfThenCo
 
 Algorithm::t_combinational_block* Algorithm::gatherSwitchCase(siliceParser::SwitchCaseContext* switchCase, t_combinational_block* _current, t_gather_context* _context)
 {
-  // pipeline nesting check
-  if (_current->context.pipeline_stage != nullptr) {
-    for (auto cb : switchCase->caseBlock()) {
-      if (hasPipeline(cb)) {
-        reportError(sourceloc(cb), "switch case contains another pipeline: pipelines cannot be nested.");
-      }
-    }
-  }
   // create a block for after the switch-case
   t_combinational_block* after = addBlock(generateBlockName(), _current, nullptr, sourceloc(switchCase));
   // create a block per case statement
@@ -4261,15 +4286,15 @@ std::string Algorithm::fsmPipelineFirstStageDisable(const t_fsm_nfo *fsm) const
 
 // -------------------------------------------------
 
-std::string Algorithm::fsmNextState(std::string prefix,const t_fsm_nfo *) const
+std::string Algorithm::fsmNextState(std::string prefix,const t_fsm_nfo *fsm) const
 {
   std::string next;
   if (m_AutoRun) { // NOTE: same as isNotCallable() since hasNoFSM() is false
-    next = std::string("( ~") + prefix + ALG_AUTORUN + " ? " + std::to_string(toFSMState(&m_RootFSM, entryState(&m_RootFSM)));
+    next = std::string("( ~") + prefix + ALG_AUTORUN + " ? " + std::to_string(toFSMState(fsm, entryState(fsm)));
   } else {
-    next = std::string("( ~") + ALG_INPUT + "_" + ALG_RUN + " ? " + std::to_string(toFSMState(&m_RootFSM, entryState(&m_RootFSM)));
+    next = std::string("( ~") + ALG_INPUT + "_" + ALG_RUN + " ? " + std::to_string(toFSMState(fsm, entryState(fsm)));
   }
-  next += std::string(" : ") + FF_D + prefix + fsmIndex(&m_RootFSM) + ")";
+  next += std::string(" : ") + FF_D + prefix + fsmIndex(fsm) + ")";
   return next;
 }
 
@@ -6414,7 +6439,7 @@ void Algorithm::checkExpressions(const t_instantiation_context &ictx,antlr4::tre
       if (A != m_InstancedBlueprints.end()) { // algorithm?
         Algorithm *alg = dynamic_cast<Algorithm*>(A->second.blueprint.raw());
         if (alg == nullptr) {
-          reportError(sourceloc(async), "called instance '%s' is not an algorithm", async->IDENTIFIER()->getText().c_str());
+          reportError(sourceloc(sync), "called instance '%s' is not an algorithm", sync->joinExec()->IDENTIFIER()->getText().c_str());
         } else {
           // if parameters are given, check, otherwise we allow call without parameters (bindings may exist)
           if (!sync->callParamList()->expression_0().empty()) {
@@ -6452,7 +6477,7 @@ void Algorithm::checkExpressions(const t_instantiation_context &ictx,antlr4::tre
       if (A != m_InstancedBlueprints.end()) { // algorithm?
         Algorithm *alg = dynamic_cast<Algorithm*>(A->second.blueprint.raw());
         if (alg == nullptr) {
-          reportError(sourceloc(async), "joined instance '%s' is not an algorithm", async->IDENTIFIER()->getText().c_str());
+          reportError(sourceloc(join), "joined instance '%s' is not an algorithm", join->IDENTIFIER()->getText().c_str());
         } else {
           // if parameters are given, check, otherwise we allow call without parameters (bindings may exist)
           if (!join->callParamList()->expression_0().empty()) {
@@ -8337,24 +8362,28 @@ void Algorithm::writeBlock(
     } {
       auto display = dynamic_cast<siliceParser::DisplayContext *>(a.instr);
       if (display) {
-        if (display->DISPLAY() != nullptr) {
-          w.out << "$display(";
-        } else if (display->DISPLWRITE() != nullptr) {
-          w.out << "$write(";
-        }
-        w.out << display->STRING()->getText();
-        if (display->callParamList() != nullptr) {
-          std::vector<t_call_param> params;
-          getCallParams(display->callParamList(),params, &block->context);
-          for (auto p : params) {
-            if (std::holds_alternative<std::string>(p.what)) {
-              w.out << "," << rewriteIdentifier(prefix, std::get<std::string>(p.what), "", &block->context, ictx, sourceloc(display), FF_Q, true, _dependencies, _usage);
-            } else {
-              w.out << "," << rewriteExpression(prefix, p.expression, a.__id, &block->context, ictx, FF_Q, true, _dependencies, _usage);
+        // check support
+        std::string instr = display->DISPLAY() != nullptr ? "display" : "write";
+        auto C = CONFIG.keyValues().find("__" + instr + "_supported");
+        if (C->second != "yes") {
+          warn(Standard, sourceloc(display), ("__" + instr + " not supported on this target, ignored").c_str());
+        } else {
+          // add to code
+          w.out << "$" << instr << "(";
+          w.out << display->STRING()->getText();
+          if (display->callParamList() != nullptr) {
+            std::vector<t_call_param> params;
+            getCallParams(display->callParamList(), params, &block->context);
+            for (auto p : params) {
+              if (std::holds_alternative<std::string>(p.what)) {
+                w.out << "," << rewriteIdentifier(prefix, std::get<std::string>(p.what), "", &block->context, ictx, sourceloc(display), FF_Q, true, _dependencies, _usage);
+              } else {
+                w.out << "," << rewriteExpression(prefix, p.expression, a.__id, &block->context, ictx, FF_Q, true, _dependencies, _usage);
+              }
             }
+            w.out << ");" << nxl;
           }
         }
-        w.out << ");" << nxl;
       }
     } {
       auto inline_v = dynamic_cast<siliceParser::Inline_vContext *>(a.instr);
@@ -8390,7 +8419,14 @@ void Algorithm::writeBlock(
     } {
       auto finish = dynamic_cast<siliceParser::FinishContext *>(a.instr);
       if (finish) {
-        w.out << "$finish();" << nxl;
+        // check support
+        auto C = CONFIG.keyValues().find("__finish_supported");
+        if (C->second != "yes") {
+          warn(Standard, sourceloc(finish), "__finish not supported on this target, ignored");
+        } else {
+          // add to code
+          w.out << "$finish();" << nxl;
+        }
       }
     } {
       auto stall = dynamic_cast<siliceParser::StallContext *>(a.instr);
@@ -8862,10 +8898,11 @@ void Algorithm::writeStatelessBlockGraph(
       auto prev = current;
       if (current->context.fsm != nullptr) {
         // if in an algorithm, pipelines are written later
-        std::ostringstream _;
-        t_writer_context wpip(w.pipes,_,w.wires,w.defines);
-        sl_assert(_.str().empty());
+        std::ostringstream subpip; // child pipelines are written here
+        t_writer_context wpip(w.pipes,subpip,w.wires,w.defines);
         current = writeStatelessPipeline(prefix, wpip, ictx, current, _q, _dependencies, _usage, _post_dependencies, _lines);
+        // combine any child pipeline with parents
+        w.pipes << subpip.str();
         // also check that blocks between here and next states are empty
         if (!emptyUntilNextStates(current)) {
           reportError(prev->srcloc, "in an algorithm, a pipeline has to be followed by a new cycle.\n"
@@ -9729,6 +9766,27 @@ void Algorithm::writeAsModule(
     } else {
       out << nfo.blueprint->moduleName(nfo.blueprint_name, "") << ' ';
     }
+    // if verilog module add parameters
+    {
+      const Module* vmod = dynamic_cast<const Module*>(nfo.blueprint.raw());
+      if (vmod != nullptr) {
+        if (!vmod->parameters().empty()) {
+          out << "#(";
+          bool first = true;
+          for (const auto& prm : vmod->parameters()) {
+            if (first) { first = false; out << '\n'; } else { out << ",\n"; }
+            // test if given when instanced, otherwise use default
+            auto P = nfo.specializations.params.find(prm.first);
+            if (P != nfo.specializations.params.end()) {
+              out << '.' << prm.first << '(' << P->second << ")";
+            } else {
+              out << '.' << prm.first << '(' << prm.second << ")";
+            }
+          }
+          out << "\n)\n";
+        }
+      }
+    }
     // instance name
     out << nfo.instance_name << ' ';
     // ports
@@ -10101,9 +10159,8 @@ void Algorithm::writeAsModule(
     if (stage_id == 0) {
       // parent state active?
       if (fsm->parentBlock->context.fsm != nullptr) {
-        sl_assert(fsm->parentBlock->context.fsm == &m_RootFSM); // no nested pipelines
         out << "  && ((";
-        out << fsmNextState("_", &m_RootFSM);
+        out << fsmNextState("_", fsm->parentBlock->context.fsm);
         out << ')';
         out << " == " << toFSMState(fsm->parentBlock->context.fsm, fsmParentTriggerState(fsm));
         out << ")" << nxl;

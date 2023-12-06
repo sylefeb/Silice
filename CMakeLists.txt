@@ -16,6 +16,8 @@ INCLUDE_DIRECTORIES(
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:4194304")
+else()
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --static")
 endif()
 
 set(CMAKE_CXX_STANDARD 17)
@@ -141,6 +143,11 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" AND
    CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8)
     message(FATAL_ERROR "Silice requires g++ 8 at least")
 endif()
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wno-attributes -Wno-deprecated-declarations")
+endif()
+
 
 set(STD_FS_LIB "")
 # ==== The test below is based on https://github.com/pybind/pybind11/blob/master/tests/CMakeLists.txt

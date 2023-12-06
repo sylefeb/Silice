@@ -115,7 +115,7 @@ void ParallelScreen::cmd_idle_ILI9341()
 void ParallelScreen::cmd_mode_ILI9341()
 {
   if (m_byte != 0x55) {
-    fprintf(stderr,"ParallelScreen error, only supported mode on ILI9341 is 16 bits per pixel\n");
+    fprintf(stderr,"ParallelScreen error, only supported mode on ILI9341 is 16 bits per pixel (got 0x%x, expected 0x55)\n");
     exit(-1);
   }
   set_idle();
@@ -172,6 +172,7 @@ void ParallelScreen::cmd_write_ram()
     m_rgb[0] <<= 3;      m_rgb[1] <<= 2;      m_rgb[2] <<= 3;
     m_framebuffer.pixel<LibSL::Memory::Array::Wrap>(
                                 m_x_cur,m_y_cur) = m_rgb;
+    m_framebuffer_changed = true; // update every pixel
   }
   ++m_step;
   if (m_step > 2) {

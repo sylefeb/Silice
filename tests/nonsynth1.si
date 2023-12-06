@@ -1,0 +1,6 @@
+unit main(output uint8 leds)
+{
+  algorithm {
+    __display("hello world");
+  }
+}

@@ -11,6 +11,22 @@
 
 #include "fat_io_lib/src/fat_filelib.h"
 
+void clear_audio()
+{
+  // wait for a buffer swap (sync)
+  int *addr = (int*)(*AUDIO);
+  while (addr == (int*)(*AUDIO)) { }
+  // go ahead
+  for (int b=0 ; b<2 ; ++b) {
+    // read directly in hardware buffer
+    addr = (int*)(*AUDIO);
+    // clear buffer
+    memset(addr,0,512);
+    // wait for buffer swap
+    while (addr == (int*)(*AUDIO)) { }
+  }
+}
+
 void main()
 {
   // install putchar handler for printf

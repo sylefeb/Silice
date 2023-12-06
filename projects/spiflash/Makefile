@@ -5,6 +5,9 @@
 brot: xfer.si
 		silice-make.py -s xfer.si -b $@ -p basic,pmod_dspi,uart2 -o BUILD_$(subst :,_,$@) $(ARGS)
 
+brot_uart2_mmod: xfer.si
+		silice-make.py -s xfer.si -b brot -p basic,uart2,spiflash_dspi -o BUILD_$(subst :,_,$@) $(ARGS)
+
 #icebreaker: xfer.si
 #		silice-make.py -s xfer.si -b $@ -p basic,pmod_dspi,uart -o BUILD_$(subst :,_,$@) $(ARGS)
 

@@ -11,25 +11,26 @@ algorithm main(output uint8 leds)
 
   while (i < 8+2) {
 
+    i = i + 1;
+    pipeline_ready = pipeline_ready + 1;
+
     {
       pipeline_i = i;
       a          = i + 1;
       __display("-----");
       __display("[0] %d",pipeline_i);
-    } -> {
+
+    ->
       if (pipeline_ready >= 1) {
         b = a + 10;
         __display("[1] %d",pipeline_i);
       }
-    } -> {
+    ->
       if (pipeline_ready >= 2) {
         o[pipeline_i*8,8] = b;
         __display("[2] [%d] = %h",pipeline_i,b);
       }
     }
-
-    i = i + 1;
-    pipeline_ready = pipeline_ready + 1;
 
   }
 

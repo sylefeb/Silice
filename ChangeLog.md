@@ -3,6 +3,7 @@
 - [\[CL0002\] Tracker declarations](#cl0002-tracker-declarations)
 - [\[CL0003\] Pipeline syntax](#cl0003-pipeline-syntax)
 - [\[CL0004\] While loops cycle rules](#cl0004-while-loops-cycle-rules)
+- [\[CL0005\] If-else cycle rules](#cl0005-if-else-cycle-rules)
 
 ## [CL0001] Instantiation time pre-processor
 

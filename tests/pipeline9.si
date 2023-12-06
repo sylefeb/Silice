@@ -6,13 +6,13 @@ unit main(output uint8 leds)
 
   algorithm {  while (1) {
 
-    {      // stage 0
+      // stage 0
 
       t = q;
       __display("[cycle %d] in ===== %d",cycle,q);
       q = q + 1;
 
-    } -> { // stage 1
+    -> // stage 1
 
       __display("[cycle %d] 1_A ==== %d",cycle,t);
       uint4 i=0;
@@ -22,11 +22,9 @@ unit main(output uint8 leds)
       }
       __display("[cycle %d] 1_B ==== %d",cycle,t);
 
-    } -> { // stage 2
+    -> // stage 2
 
 			__display("[cycle %d] 2_ ===== %d",cycle,t);
-
-    }
 
   } }
 

@@ -14,7 +14,11 @@ $$div_width_pow2 = clog2(div_width)
 algorithm div$div_width$(
   input  int$div_width$ inum,
   input  int$div_width$ iden,
-  output int$div_width$ ret = 0)
+  output int$div_width$ ret = 0,
+$$if div_remainder then
+  output int$div_width$ rem = 0,
+$$end
+  )
 {
   uint$div_width+1$ ac = uninitialized;
   uint$div_width+1$ diff <:: ac - :den;
@@ -53,5 +57,8 @@ $$end
   }
 $$if not div_unsigned then
   ret = ((inum_neg) ^ (iden_neg)) ? -ret : ret;
+$$end
+$$if div_remainder then
+  rem = ac[1,$div_width$];
 $$end
 }

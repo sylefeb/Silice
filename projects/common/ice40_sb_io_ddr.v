@@ -1,3 +1,6 @@
+`ifndef ICE40_SB_IO_DDR
+`define ICE40_SB_IO_DDR
+
 module sb_io_ddr(
   input        clock,
   input        out_0,
@@ -17,5 +20,7 @@ module sb_io_ddr(
   );
 
 endmodule
+
+`endif
 
 // http://www.latticesemi.com/~/media/LatticeSemi/Documents/TechnicalBriefs/SBTICETechnologyLibrary201504.pdf

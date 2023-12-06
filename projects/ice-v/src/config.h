@@ -24,3 +24,7 @@
 #ifdef ICEBREAKER_SWIRL
 #include "icebreaker-swirl/config.h"
 #endif
+
+#ifdef ICEBREAKER_SWIRL_CACHE
+#include "icebreaker-swirl-cache/config.h"
+#endif

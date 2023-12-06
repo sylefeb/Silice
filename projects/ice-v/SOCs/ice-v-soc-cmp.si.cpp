@@ -61,8 +61,8 @@ void check_and_synch()
   ++ num_retired_synch;
 #if 0
 	// verify coherence
-	if (retired[0].front() == retired[1].front()
-	&&  retired[0].front() == retired[2].front()) {
+	if (  retired[0].front() == retired[1].front()
+	   && retired[1].front() == retired[2].front()) {
 		for (int i = 0 ; i < 3 ; ++i) {
 			retired[i].pop_front();
 		}
@@ -125,8 +125,8 @@ void cpu_retires(int id,unsigned int pc,unsigned int instr,
 		exit (-1);
 	}
 	t_retired_instr ri;
-	ri.pc = pc; ri.instr = instr;
-	ri.rd = rd; ri.val   = val;
+	ri.pc = pc;    ri.instr = instr;
+	ri.rd = rd&31; ri.val   = val;
 	retired[id-1].push_back(ri);
 	++ num_retired[id-1];
 	check_and_synch();

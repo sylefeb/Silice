@@ -1,0 +1,267 @@
+// SL 2020-05 @sylefeb
+//
+// Pipelined RV32I cpu, see ../CPUs/ice-v-swirl.si for notes
+//
+// https://github.com/sylefeb/Silice
+// MIT license, see LICENSE_MIT in Silice repo root
+
+// Clocks
+$$if ICEBREAKER then
+$$ICE40 = 1
+import('../../common/plls/icebrkr_50_lock.v')
+import('../../common/ice40_spram.v')
+import('../../common/ice40_sb_gb.v')
+import('../../common/ice40_half_clock.v')
+$$elseif not SIMULATION then
+$$error('This SOC does not support the selected board.')
+$$end
+
+$$uart_in_clock_freq_mhz = 25
+$include('../../common/uart.si')
+
+$$config['bram_wmask_byte_wenable_width'] = 'data'
+
+$$addrW  = 25
+$$periph = addrW - 1
+$$ramW   = 24 -- actual memory address width (<= addrW)
+
+// include the processor
+$$ICEV_FAST_SHIFT = 1
+$$ICEV_MULDIV     = 1
+$$ICEV_STALL      = 1
+$include('../CPUs/ice-v-swirl.si')
+
+$include('../common/simulation_spram.si')
+
+// --------------------------------------------------
+// PLL for simulation
+// --------------------------------------------------
+
+$$if SIMULATION then
+// PLL for simulation
+import('../common/passthrough.v')
+unit pll(
+  output  uint1 clock2x,
+  output  uint1 clock1x,
+  output  uint1 rst
+) {
+  uint2       counter(0);
+  uint8       reset_counter(255);
+  passthrough _(inv <: clock, outv :> clock2x);
+  algorithm <autorun> {
+    while (1) {
+      rst           = (reset_counter != 8d0);
+      reset_counter = (reset_counter != 8d0) ? (reset_counter-1) : 0;
+      clock1x       = counter[0,1]; // x2 slower
+      counter       = counter + 1;
+    }
+  }
+}
+$$end
+
+// --------------------------------------------------
+// QPSRAM
+// --------------------------------------------------
+
+$include('../common/qpsram2x.si')
+
+group bram_io
+{
+  uint4       wenable(0),
+  int32       wdata(0),
+  int32       rdata(0),
+  uint$addrW$ addr(0),    // boot address
+}
+
+// --------------------------------------------------
+// Cache
+// --------------------------------------------------
+
+$include('swirl-cache.si')
+
+// --------------------------------------------------
+// SOC
+// --------------------------------------------------
+
+unit reset_delay(input uint1 rst, output uint1 rst_delayed(1))
+{
+  uint24 counter(1);
+  always {
+    rst_delayed = rst ? 1 : (rst_delayed & (counter == 0));
+    counter     = rst ? 1 : (counter + 1);
+  }
+}
+
+unit main( // I guess this is the SOC :-D
+  output uint5 leds,
+$$if not SIMULATION then
+  inout   uint1 ram_io0,
+  inout   uint1 ram_io1,
+  inout   uint1 ram_io2,
+  inout   uint1 ram_io3,
+  output  uint1 ram_clk,
+  output  uint1 ram_csn,
+  output  uint2 ram_bank(2b00),
+  input   uint1 uart_rx,
+  output  uint1 uart_tx,
+$$end
+)
+$$if not SIMULATION then
+<@clock1x,!rst> {
+  uint1 clock2x = uninitialized;
+  uint1 pll_rst = uninitialized;
+  uint1 rst     = uninitialized;
+  reset_delay _(rst <: pll_rst, rst_delayed :> rst);
+  pll _(
+    clock_in  <: clock,
+    clock_out :> clock2x,
+    reset     :> pll_rst
+  );
+  uint1 clock1x  = uninitialized;
+  ice40_half_clock hc(
+    clock_in  <: clock2x,
+    clock_out :> clock1x,
+  );
+$$else
+<@clock1x,!rst> {
+  uint1 clock1x = uninitialized;
+  uint1 clock2x = uninitialized;
+  uint1 pll_rst = uninitialized;
+  uint1 rst     = uninitialized;
+  reset_delay _(rst <: pll_rst, rst_delayed :> rst);
+  pll clkgen<@clock,!reset>(
+    clock1x :> clock1x,
+    clock2x :> clock2x,
+    rst     :> pll_rst
+  );
+  // dummy pins for simulation
+  uint1 ram_io0(0);  uint1 ram_io1(0);  uint1 ram_io2(0);
+  uint1 ram_io3(0);  uint1 ram_clk(0);  uint1 ram_csn(0);
+$$end
+
+	// for memory mapping, need to record prev. cycle addr and rw
+	uint$addrW$ prev_mem_addr(0);
+	uint1       prev_mem_rw(0);
+$$if SIMULATION then
+   uint32 cycle(0);  uint32 last_cycle(0);
+$$end
+
+  // cache
+  bram_io mem0io; bram_io mem1io;
+  cache cache( clock2x <: clock2x,
+    ram_csn  :> ram_csn,    ram_clk  :> ram_clk,
+    ram_io0 <:> ram_io0,    ram_io1 <:> ram_io1,
+    ram_io2 <:> ram_io2,    ram_io3 <:> ram_io3,
+    mem0    <:> mem0io,     mem1    <:> mem1io,
+  );
+
+  // in-the-middle data interface for peripheral mapping
+  bram_io data;
+
+  // cpu
+  rv32i_cpu_swirl cpu( imem <:> mem0io, dmem <:> data, stall_cpu <: cache.wait );
+
+  // uart
+  uart_out uo;
+$$if not SIMULATION then
+  uart_sender usend(io <:> uo,uart_tx :> uart_tx);
+$$end
+
+  // io mapping
+  always_before {
+    // ---- memory mapping, masking away peripherals
+    uint1 on_periph  = data.addr[$periph$,1];
+    mem1io.wenable   = on_periph ? 0 : data.wenable;
+    mem1io.wdata     = data.wdata;
+    mem1io.addr      = on_periph ? mem1io.addr : data.addr;
+    data.rdata       = mem1io.rdata;
+    // ---- peripherals
+    uo.data_in_ready = 0; // maintain low, pulse high to send
+$$if SIMULATION then
+    //if ((data.wenable != 0) & ~on_periph) {
+    //  __display("[cycle %d] write %x @%x",cycle,data.wdata,data.addr);
+    //}
+$$end
+    if ((data.wenable != 0) & on_periph) {
+$$if SIMULATION then
+      if (data.wdata == 32hffffffff) { __finish(); } else
+$$end
+      {
+      uint3 select = data.addr[0,3];
+      onehot (select) {
+        case 0: { leds = data.wdata[0,5];
+$$if SIMULATION then
+          __display("[cycle %d (%d)] LEDs: %b (%d)",cycle,cycle - last_cycle,leds,data.wdata);
+          last_cycle = cycle;
+$$end
+        }
+        case 1: {
+          uo.data_in       = data.wdata[0,8];
+          uo.data_in_ready = 1;
+$$if SIMULATION then
+          __write("%c",data.wdata[0,8]);
+$$end
+        }
+        case 2: { }
+      }
+      }
+    }
+
+$$if SIMULATION then
+  /*
+  // cache tests
+  uint2 test_step(0);
+  if (~cache.wait) {
+    mem0io.addr    = (mem0io.addr + 1) & 511;
+    mem0io.wdata   = {16hfaab,cycle[0,16]};
+    mem0io.wenable = 4b1111;
+    // mem0io.addr    = ((cycle>>2)&1) ? 16384 : 0;
+    $$if false then
+    switch (test_step)
+    {
+        case 0: {
+          mem0io.addr    = 0;
+          mem0io.wdata   = {16hfaab,cycle[0,16]};
+          mem0io.wenable = 4b1111;
+        }
+        case 1: {
+          mem0io.addr    = 16384;
+          mem0io.wdata   = {16hbeef,cycle[0,16]};
+          mem0io.wenable = 4b1111;
+        }
+        case 2: {
+          mem0io.addr    = 0;
+          mem0io.wdata   = 32h0;
+          mem0io.wenable = 4b0000;
+        }
+        case 3: {
+          mem0io.addr    = 16384;
+          mem0io.wdata   = 32h0;
+          mem0io.wenable = 4b0000;
+        }
+    }
+    test_step      = test_step + 1;
+    $$end
+    // mem1io.addr    = mem1io.addr + 1;
+    __display("[%d] 0: %x 1: %x next: 0@%x %b|%x 1@%x %b|%x",cycle,mem0io.rdata,mem1io.rdata,mem0io.addr<<2,mem0io.wenable,mem0io.wdata,mem1io.addr<<2,mem1io.wenable,mem1io.wdata);
+  } else {
+    //__display("[%d] cache wait",cycle);
+  }
+  */
+  cycle = cycle + 1;
+$$end
+  }
+
+  algorithm {
+$$if SIMULATION and not BARE then
+    //while (1) { }
+	  while (cycle < 1000) { }
+    __display("stopping at cycle %d",cycle);
+$$else
+    while (1) { }
+$$end
+  }
+
+}
+
+// --------------------------------------------------

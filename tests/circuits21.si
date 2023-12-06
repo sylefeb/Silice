@@ -1,0 +1,20 @@
+circuitry add_two(input i)
+{
+  // starts new pipelines
+  { -> -> __display("hello from A, %d",i); }
+  { -> -> __display("hello from B, %d",i); }
+}
+
+unit main(output uint8 leds)
+{
+  uint32 cycle=0;
+  algorithm {
+
+    while (cycle<100) {
+
+    () = add_two(cycle); // of to add circuitry since no parent pipeline
+
+    }
+  }
+  always_after { cycle = cycle + 1; }
+}

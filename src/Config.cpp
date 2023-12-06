@@ -66,6 +66,10 @@ Config::Config()
   m_KeyValues["simple_dualport_bram_wenable1_type"]  = "uint"; // uint | int | data
   m_KeyValues["simple_dualport_bram_wenable1_width"] = "1"; // 1 | data
 
+  m_KeyValues["__display_supported"]          = "no";
+  m_KeyValues["__write_supported"]            = "no";
+  m_KeyValues["__finish_supported"]           = "no";
+
   // internal options
   m_KeyValues["output_fsm_graph"]             = "1";
 }

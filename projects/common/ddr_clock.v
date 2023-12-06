@@ -1,5 +1,9 @@
 // SL 2021-12-12
 // produces an inverted clock of same frequency through DDR primitives
+
+`ifndef DDR_CLOCK
+`define DDR_CLOCK
+
 module ddr_clock(
         input  clock,
         input  enable,
@@ -54,3 +58,5 @@ end
 `endif
 
 endmodule
+
+`endif

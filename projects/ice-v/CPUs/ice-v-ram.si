@@ -27,7 +27,7 @@ $$end
 // --------------------------------------------------
 
 $$if SIMULATION then
-$$VERBOSE = nil
+$$TRACE   = nil
 $$end
 
 $$ print("--------------- Ice-V-ram ---------------")
@@ -36,8 +36,9 @@ $$ cycleW = 32
 
 $$if ICEV_MULDIV then
 $$ print("Ice-V-ram configured with mul and div (*not* full RV32IM)")
-$$div_width  = 32
-$$div_signed = 1
+$$div_width     = 32
+$$div_unsigned  = 1
+$$div_remainder = 1
 $include('../../common/divint_std.si')
 $$end
 
@@ -51,7 +52,7 @@ bitfield Rtype { uint1 unused1, uint1 sign, uint4 unused2, uint1 muldiv,
 
 
 // --------------------------------------------------
-// Risc-V RV32I CPU with RAM memory interface
+// Risc-V RV32I CPU with 8 bits memory interface
 //
 // ---- CPU stages (same as dual on a single core) ----
 //
@@ -74,7 +75,7 @@ bitfield Rtype { uint1 unused1, uint1 sign, uint4 unused2, uint1 muldiv,
 //
 // ---------------------------------
 
-// interface for ram user
+// 8 bits ram interface
 interface icev_ram_user {
   output  addr,        // memory address
   output  wenable,     // write enable
@@ -89,7 +90,10 @@ interface icev_ram_user {
 unit icev_ram(
   icev_ram_user mem,
 $$if ICEV_USERDATA then
-  input uint32  user_data
+  input uint32  user_data,
+$$end
+$$if TRACE then
+  input uint1 trace_on,
 $$end
 ) {
 
@@ -124,10 +128,10 @@ $$end
   // uint1 load_store   <: (exec.load | exec.store);
 
 
-$$if VERBOSE then
+$$if TRACE then
   uint32 cycle(0);
   uint32 last_cycle(0);
-  uint1  debug(0);
+  uint1  trace(0);
 $$end
 
   int32 write_back(0);
@@ -143,12 +147,6 @@ $$end
 
   // always block, done every cycle
   always {
-$$if VERBOSE then
-    if (~reset) {
-      //__display("\n[cycle %d] ---------------- stage: %b ----- exec.working:%b mem.done:%b(%b|%b)=%h(@%h)",cycle,stage,exec.working,mem.done,reqmem,reqmem_done,mem.rdata,mem.addr);
-      //__display("[cycle %d] RAM, reqmem_done:%d, reqmem: %b",cycle,reqmem_done,reqmem);
-    }
-$$end
     // maintain request valid low
     mem.req_valid   = 0;
     do_load_store   = 0;
@@ -182,10 +180,6 @@ $$end
     // (pulsed when necessary)
     xregsA.wenable = 0;
 
-$$if VERBOSE then
-    // __display("[cycle %d] ====== stage:%b reset:%b pc:%h mem.done:%b",cycle,stage,reset,pc,mem.done);
-$$end
-
     // four states: F, T, LS1, LS2/commit
     onehot (stage) {
       case 0: {
@@ -195,22 +189,15 @@ $$end
         pc            = reqmem_done ? mem.addr  : pc;
         // instruction fetch done?
         instr_trigger = reqmem_done;
-$$if VERBOSE then
-        if (instr_trigger) {
-          //if (cycle-last_cycle < 18) {
-            __display("[cycle %d] (0) F instr:%h (@%h) [elapsed: %d cycles]",cycle,instr,pc<<2,cycle-last_cycle);
-            debug = 1;
-          //}
-          last_cycle = cycle;
+$$if TRACE then
+        if (trace_on) {
+          if (instr_trigger) {
+            trace = 1;
+          }
         }
 $$end
       }
       case 1: {
-  $$if VERBOSE then
-        if (instr_trigger) {
-          // __display("[cycle %d] (0) T %h @%h xa[%d]=%h xb[%d]=%h",cycle,instr,pc,xregsA.addr,xregsA.rdata,xregsB.addr,xregsB.rdata);
-        }
-  $$end
         // ---- T
         // registers are now in, triggers exec
         exec.trigger  = instr_trigger;
@@ -229,35 +216,40 @@ $$end
         mem.wenable     = exec.store;
         mem.byte_size   = 1 << exec.op[0,2]; // gives 4,2 or 1
         mem.byte_offset = exec.n[0,2];
-$$if VERBOSE then
-        if (debug) {
-          // __display("[cycle %d] load: %b store: %b",cycle,exec.load,exec.store);
-          if (mem.req_valid) {
-            // __display("[cycle %d] (0) LS1(%b) @%h = %h (wen:%b)",cycle,mem.req_valid,mem.addr,mem.wdata,mem.wenable);
-          }
-        }
-$$end
       }
       case 3: {
         // ---- LS2/commit
-        // may wait on RAM
+        uint1 instr_done = ~reqmem_pending & ~exec.working;
+        //                  ^^^^^^^^^^^^^^    ^^^^^^^^^^^^^
+        //  wait on RAM if request pending   wait on working ALU
         // commit result
-        xregsA.wenable = ~exec.no_rd & ~reqmem_pending;
-        //                              ^^^^^^^^^^^^^^
-        //                           wait on RAM if request pending
-$$if VERBOSE then
-        if (xregsA.wenable & debug) {
-          __display("[cycle %d] (0) LS2/C xr[%d]=%h (mem.rdata:%x)",cycle,exec.write_rd,write_back,mem.rdata);
-          debug = 0;
+        xregsA.wenable = ~exec.no_rd & ~reqmem_pending & ~exec.working;
+$$if TRACE then
+        if (trace_on) {
+          if (trace & instr_done) {
+            __write("@%h %h ",pc<<2,instr);
+            last_cycle = cycle;
+            if (xregsA.wenable) {
+              __display("x[%d]=%h",exec.write_rd,write_back);
+            } else {
+              __display("");
+            }
+            trace = 0;
+          }
         }
+$$end
+$$if ICEV_VERILATOR_TRACE then
+      // this is used to track retired instr. and compare CPUs
+      if (instr_done) {
+				__verilog("$c32(\"cpu_retires(4,\",%,\",\",%,\",\",%,\",\",%,\");\");",
+          pc<<2,instr,Rtype(instr).rd,write_back);
+			}
 $$end
         // prepare instruction fetch
         // instruction fetch in progress
-        do_fetch       = ~reqmem_pending & ~reset;
-        //                 ^^^^^^^^^^^^^^
-        //                wait on RAM from load/store
+        do_fetch       = instr_done & ~reset;
         mem.addr       = do_fetch ? (exec.jump ? (exec.n >> 2) : pc_plus1)
-                                  : mem.addr; // <= preserve addr is RAM is busy
+                                  : mem.addr; // <= preserve addr if RAM is busy
         mem.req_valid  = do_fetch;
       }
     }
@@ -276,10 +268,6 @@ $$end
     //            ^^^^^^^    ^^^^^^^         ^^^^^^^^^^^^^^
     //            on fetch,  on load/store,  or previous still active
 
-$$if VERBOSE then
-    // if (reset) { __display("[cycle %d] reset (reqmem:%b reqmem_done:%b)",cycle,reqmem,reqmem_done); }
-$$end
-
     // write back data to both register BRAMs
     xregsA.wdata    = write_back;      xregsB.wdata   = write_back;
     // xregsB written when xregsA is
@@ -287,11 +275,13 @@ $$end
     // write to write_rd, else track instruction register
     xregsA.addr     = xregsA.wenable ? exec.write_rd : Rtype(instr).rs1;
     xregsB.addr     = xregsA.wenable ? exec.write_rd : Rtype(instr).rs2;
-$$if VERBOSE then
-    // __display("[cycle %d] mem @%h (req:%b pending:%b) w:%b ",cycle,mem.addr,mem.req_valid,reqmem_pending,mem.wenable);
-$$end
 
-$$if VERBOSE then
+$$if TRACE then
+    if (trace_on) {
+      if (mem.wenable) {
+        __display("store @%x = %x",mem.addr<<2,mem.wdata<<{mem.byte_offset,3b000});
+      }
+    }
     cycle = cycle + 1;
 $$end
 
@@ -342,7 +332,6 @@ $$if ICEV_MULDIV then
   uint1 muldiv    <: IntReg & Rtype(instr).muldiv;        // mul or div
   div32 div<reginputs>;
   uint1 dividing(0);
-  uint1 div_done(0);
 $$end
 
   // ==== select next address adder first input
@@ -366,12 +355,6 @@ $$end
                         |  (store  ? imm_s : 32b0);
   always {
     uint1 j(0); // temp variables for and comparator
-
-$$if VERBOSE then
-    if (trigger) {
-      // __display("[cycle %d] %h @%h xa=%h xb=%h",cycle,instr,pc,xa,xb);
-    }
-$$end
 
     // ==== set decoder outputs depending on incoming instructions
     // load/store?
@@ -433,47 +416,37 @@ $$end
 
 $$if ICEV_MULDIV then
     // mul div
-    div.inum = xa;
-    div.iden = xb;
-    if (muldiv) {
-      //__display("[cycle %d] dividing:%b working:%b isdone(div):%b",cycle,dividing,working,isdone(div));
-      switch ({op}) {
-        case 3b000: { // MUL
-          //__display("MULTIPLICATION %d * %d",xa,xb);
-          r        = ra * rb;
-					dividing = 0; // NOTE: required for hrdwr to work? highly suspicious.
-        }
-        case 3b100: { // DIV
-          if (~working & ~dividing) {
-             //__display("[cycle %d] DIVISION trigger",cycle);
-            working       = 1;
-            dividing      = 1;
-            div <- ();
-          } else {
-            if (isdone(div) & ~div_done) {
-              //__display("[cycle %d] DIVISION %d / %d = %d",cycle,xa,xb,div.ret);
-              div_done    = 1;
-              dividing    = 1;
-            } else {
-              //if (isdone(div)) { __display("[cycle %d] DIVISION done",cycle); }
-              div_done    = 0;
-              dividing    = 0;
-            }
-            working = ~isdone(div);
-          }
-          r        = div.ret;
-        }
-        default:   { r = {32{1bx}}; }
-      }
-    } else {
-		  dividing = 0;
-		}
-$$end
-
-$$if VERBOSE then
-    if (trigger) {
-      // __display("[cycle %d] load %b store %b",cycle,load,store);
+    uint1 mulh     = op[0,2] == 2b01;
+    uint1 mulhsu   = op[0,2] == 2b10;
+    uint1 signa    = xa[31,1];
+    uint1 signb    = xb[31,1]; // vvvvvvvvvv keep the sign?
+    int33 ma       = {signa & (mulh | mulhsu), xa};
+    int33 mb       = {signb &  mulh,           xb};
+    int64 mul      = ma * mb;  // multiply
+    uint1 signdiv  = ~ op[0,1];
+    uint1 divdone      = isdone(div) & ~prev_divdone; // pulses on div done
+    uint1 prev_divdone = isdone(div);
+    //if (muldiv & working & divdone) {
+    //  __display("DIVISION %d / %d = %d (%d)\n",div.inum,div.iden,div.ret,div.rem);
+    //}
+    working        = (working | (trigger & op[2,1]))
+                   &  muldiv
+                   & ~(working & divdone);
+    if (trigger) { // div restarts each trigger
+      div.inum = (signdiv&signa) ? -xa : xa;
+      div.iden = (signdiv&signb) ? -xb : xb;
+      div <- ();
     }
+    uint1 div_negate = signdiv & (signa ^ signb);
+    uint1 ret_h      = |op[0,2];
+    if (muldiv) {
+      r = ((~op[2,1] &  ret_h)                  ? mul[32,32] : 32b0) // MULH, MULHSU, MULHU
+        | ((~op[2,1] & ~ret_h)                  ? mul[ 0,32] : 32b0) // MUL
+        | (( op[2,1] &  div_negate &  op[1,1] ) ? -div.rem   : 32b0) // REM
+        | (( op[2,1] & ~div_negate &  op[1,1] ) ?  div.rem   : 32b0) // REMU
+        | (( op[2,1] &  div_negate & ~op[1,1] ) ? -div.ret   : 32b0) // DIV
+        | (( op[2,1] & ~div_negate & ~op[1,1] ) ?  div.ret   : 32b0);// DIVU
+		}
 $$end
 
     // ====================== Comparator for branching

@@ -39,9 +39,13 @@ OUTP                : 'output';
 
 INOUTP              : 'inout';
 
+PARAMETER           : 'parameter';
+
 NUMBER              : DIGIT+ ;
 
 IDENTIFIER          : LETTER+ (DIGIT|LETTER)* ;
+
+ALPHANUM            : (LETTER|DIGIT|'\'')+ ;
 
 WHITESPACE          : (' ' | '\t') -> skip ;
 
@@ -69,8 +73,12 @@ inout               : INOUTP mod IDENTIFIER ;
 
 inOrOut             : input | output | inout ;
                     
-inOutList           :  (inOrOut ',') * inOrOut | ;
+inOutList           : (inOrOut ',') * inOrOut | ;
 
-vmodule             : 'module' IDENTIFIER '(' inOutList ')' ';' ;
+paramDecl           : PARAMETER name=IDENTIFIER '=' value=(NUMBER|IDENTIFIER|ALPHANUM) | ;
+
+paramList           : '#' '(' paramDecl ( ',' paramDecl )* ')' ;
+
+vmodule             : 'module' IDENTIFIER paramList? '(' inOutList ')' ';' ;
 
 root                : vmodule EOF ;

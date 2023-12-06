@@ -49,7 +49,7 @@ icepack -s build.asc build.bin
 
 echo "========================================================="
 echo "Upload the bitstream with:"
-echo "    webusb_fpga.py BUILD_mch2022/build.bin"
+echo "    fpga.py BUILD_mch2022/build.bin"
 echo ""
 echo "(available at https://github.com/badgeteam/mch2022-tools)"
 echo "========================================================="

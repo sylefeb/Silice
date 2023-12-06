@@ -809,6 +809,8 @@ private:
     bool hasPipeline(antlr4::tree::ParseTree* tree) const;
     /// \brief split current block (state present) or continue current with the next instruction list
     t_combinational_block *splitOrContinueBlock(siliceParser::InstructionListItemContext* ilist, t_combinational_block *_current, t_gather_context *_context);
+    /// \brief returns true if node is in a loop body
+    bool isInWhileBody(const antlr4::tree::ParseTree* node) const;
     /// \brief gather a break from loop
     t_combinational_block *gatherBreakLoop(siliceParser::BreakLoopContext* brk, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather a while block
@@ -819,6 +821,8 @@ private:
     t_combinational_block *gatherSubroutine(siliceParser::SubroutineContext* sub, t_combinational_block *_current, t_gather_context *_context);
     /// \brief concatenate a pipeline to an existing one
     t_combinational_block *concatenatePipeline(siliceParser::PipelineContext* pip, t_combinational_block *_current, t_gather_context *_context, t_pipeline_nfo *nfo);
+    /// \brief returns true if pip is spawning a new pipeline
+    bool isSpawningNewPipeline(const siliceParser::PipelineContext* pip) const;
     /// \brief gather a pipeline
     t_combinational_block *gatherPipeline(siliceParser::PipelineContext* pip, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather a jump

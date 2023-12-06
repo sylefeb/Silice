@@ -12,6 +12,7 @@ then
 	exit
 fi
 
+# -------------- install packages ----------------------------
 pacman -S --noconfirm --needed unzip
 pacman -S --noconfirm --needed wget
 pacman -S --noconfirm --needed make
@@ -28,17 +29,30 @@ pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-dfu-util
 pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-boost
 # pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-nextpnr
 # pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-yosys
+pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-glfw
 
-wget -c https://github.com/sylefeb/fpga-binutils/releases/download/v20230510/fpga-binutils-64.zip
+# -------------- get pre-compile binaries (no longer used) ---
+# wget -c https://github.com/sylefeb/fpga-binutils/releases/download/v20230510/fpga-binutils-64.zip
+# unzip -o fpga-binutils-64.zip -d tools/fpga-binutils/
+# rm fpga-binutils-64.zip
 
-unzip -o fpga-binutils-64.zip -d tools/fpga-binutils/
+# -------------- retrieve oss-cad-suite package --------------
+OSS_CAD_MONTH=11
+OSS_CAD_DAY=29
+OSS_CAD_YEAR=2023
 
-rm fpga-binutils-64.zip
+rm -rf tools/fpga-binutils/
+rm -rf tools/oss-cad-suite/
+wget -c https://github.com/YosysHQ/oss-cad-suite-build/releases/download/$OSS_CAD_YEAR-$OSS_CAD_MONTH-$OSS_CAD_DAY/oss-cad-suite-windows-x64-$OSS_CAD_YEAR$OSS_CAD_MONTH$OSS_CAD_DAY.exe
+cd tools ; ../oss-cad-suite-windows-x64-$OSS_CAD_YEAR$OSS_CAD_MONTH$OSS_CAD_DAY.exe ; cd -
 
+# -------------- compile Silice -----------------------------
 ./compile_silice_mingw64.sh
 
+# -------------- add path to .bashrc ------------------------
 DIR=`pwd`
-echo 'export PATH=$PATH:'$DIR/bin':'$DIR/tools/fpga-binutils/mingw64/bin >> ~/.bashrc
+echo 'export PATH=$PATH:'$DIR/bin >> ~/.bashrc
+echo 'source '$DIR'/tools/oss-cad-suite-env.sh' >> ~/.bashrc
 
 echo ""
 echo "--------------------------------------------------------------------"

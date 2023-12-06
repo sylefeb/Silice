@@ -36,7 +36,7 @@ Both are compiled independently as usual, see the [Makefile](Makefile). This obt
 
 But now let's pack them together, and enable switching when pressing button 1!
 
-First, we modify both designs in the same way. We import a Verilog module [ice40_warmboot.v](ice40_warmboot.v). The Verilog code for this module is straightforward, it simply encapsulates the `SB_WARMBOOT` ice40 primitive:
+First, we modify both designs in the same way. We import a Verilog module [ice40_warmboot.v](../common/ice40_warmboot.v). The Verilog code for this module is straightforward, it simply encapsulates the `SB_WARMBOOT` ice40 primitive:
 
 ```v
 module ice40_warmboot(

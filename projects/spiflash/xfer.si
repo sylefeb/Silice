@@ -15,8 +15,8 @@ $$elseif ICEBREAKER then
   import('../common/plls/icebrkr_50.v')
   $$uart_in_clock_freq_mhz = 50
 $$elseif BROT then
-  import('../common/plls/brot_25_lock.v')
-  $$uart_in_clock_freq_mhz = 25
+  import('../common/plls/brot_50_lock.v')
+  $$uart_in_clock_freq_mhz = 50
 $$elseif ECPIX5 then
   import('../common/plls/ecpix5_50.v')
   $$uart_in_clock_freq_mhz = 50

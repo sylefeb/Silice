@@ -1,0 +1,6 @@
+
+.DEFAULT: $@.si.lpp
+		silice-make.py -s $@.si -b icestick -p basic -o BUILD_$(subst :,_,$@) $(ARGS)
+
+clean:
+	rm -rf BUILD_*

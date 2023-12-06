@@ -1,3 +1,6 @@
+`ifndef ICE40_SB_GB
+`define ICE40_SB_GB
+
 module sb_gb(
   input        user,
   output       buffered
@@ -9,5 +12,7 @@ module sb_gb(
   );
 
 endmodule
+
+`endif
 
 // http://www.latticesemi.com/~/media/LatticeSemi/Documents/TechnicalBriefs/SBTICETechnologyLibrary201504.pdf
