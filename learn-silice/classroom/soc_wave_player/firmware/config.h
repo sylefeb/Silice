@@ -11,3 +11,4 @@ extern volatile int* const UART;
 extern volatile int* const SDCARD;
 extern volatile int* const AUDIO;
 extern volatile int* const BUTTONS;
+extern volatile int* const DISPLAY;

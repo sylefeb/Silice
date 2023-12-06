@@ -9,4 +9,4 @@ void display_set_front_back_color(unsigned char f,unsigned char b);
 void display_putchar(int c);
 void display_refresh();
 void dual_putchar(int c);
-unsigned char *display_framebuffer();
+volatile unsigned char *display_framebuffer();
