@@ -106,10 +106,10 @@ void render()
   // lock the mutex before accessing g_Chip
   std::lock_guard<std::mutex> lock(g_Mutex);
   // has the framebuffer changed?
-  if (g_Chip->framebufferChanged()) {
-    // yes: refresh frame
-    refresh();
-  }
+  //if (g_Chip->framebufferChanged()) {
+  // yes: refresh frame
+  refresh();
+  //}
 }
 
 // ----------------------------------------------------------------------------
