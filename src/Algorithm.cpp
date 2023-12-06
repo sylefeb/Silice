@@ -4263,9 +4263,14 @@ std::string Algorithm::fsmPipelineStageStall(const t_fsm_nfo *fsm) const
   return "_stall_" + fsm->name;
 }
 
-std::string Algorithm::fsmPipelineFirstStageDisable(const t_fsm_nfo *fsm) const
+std::string Algorithm::fsmPipelineFirstStateDisable(const t_fsm_nfo *fsm) const
 {
   return "_1stdisable_" + fsm->name;
+}
+
+std::string Algorithm::fsmPipelineStageReachedEnd(const t_fsm_nfo* fsm) const
+{
+  return "_reachedend_" + fsm->name;
 }
 
 // -------------------------------------------------
@@ -7479,12 +7484,16 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
       out << "reg  [" << stateWidth(fsm) - 1 << ":0] " FF_D << prefix << fsmIndex(fsm)
                                                 << "," FF_Q << prefix << fsmIndex(fsm) << ';' << nxl;
       out << "wire " << fsmPipelineStageReady(fsm) << " = "
-        <<     "(" << FF_Q << prefix << fsmIndex(fsm) << " == " << toFSMState(fsm, lastPipelineStageState(fsm)) << ')'
+        // this condition allows to trigger the stage immediately after it reached its end state
+        <<     "(" << FF_Q << prefix << fsmIndex(fsm) << " == " << toFSMState(fsm, lastPipelineStageState(fsm)) << " && " << FF_Q << prefix << fsmPipelineStageReachedEnd(fsm) << ')'
+        // this condition allows to trigger the stage when idle (becomes idle one cycle after it reached end)
         << " || (" << FF_Q << prefix << fsmIndex(fsm) << " == " << toFSMState(fsm, terminationState(fsm)) << ");" << nxl;
       out << "reg  [0:0] " FF_D << prefix << fsmPipelineStageFull(fsm) << " = 0"
                     << "," FF_Q << prefix << fsmPipelineStageFull(fsm) << " = 0;" << nxl;
       out << "reg  [0:0] " FF_TMP << prefix << fsmPipelineStageStall(fsm) << " = 0;" << nxl;
-      out << "reg  [0:0] " FF_TMP << prefix << fsmPipelineFirstStageDisable(fsm) << " = 0;" << nxl;
+      out << "reg  [0:0] " FF_TMP << prefix << fsmPipelineFirstStateDisable(fsm) << " = 0;" << nxl;
+      out << "reg  [0:0] " FF_D << prefix << fsmPipelineStageReachedEnd(fsm) << " = 0"
+                    << "," FF_Q << prefix << fsmPipelineStageReachedEnd(fsm) << " = 0;" << nxl;
     }
   }
   // state machine caller id (subroutines)
@@ -7765,7 +7774,8 @@ void Algorithm::writeCombinationalAlwaysPre(
     w.out << FF_D   << "_" << fsmIndex(fsm) << " = " << FF_Q << "_" << fsmIndex(fsm) << ';' << nxl;
     w.out << FF_D   << "_" << fsmPipelineStageFull(fsm) << " = " << FF_Q << "_" << fsmPipelineStageFull(fsm) << ';' << nxl;
     w.out << FF_TMP << "_" << fsmPipelineStageStall(fsm) << " = 0;" << nxl;
-    w.out << FF_TMP << "_" << fsmPipelineFirstStageDisable(fsm) << " = 0;" << nxl;
+    w.out << FF_TMP << "_" << fsmPipelineFirstStateDisable(fsm) << " = 0;" << nxl;
+    w.out << FF_D   << "_" << fsmPipelineStageReachedEnd(fsm) << " = 0;" << nxl;
   }
   // instanced algorithms run, maintain high
   for (const auto& iaiordr : m_InstancedBlueprintsInDeclOrder) {
@@ -8317,7 +8327,7 @@ void Algorithm::disableStartingPipelines(std::string prefix, t_writer_context &w
   findAllStartingPipelines(block, pipelines);
   for (auto pip : pipelines) {
     if (!fsmIsEmpty(pip->stages.front()->fsm)) {
-      w.out << FF_TMP << '_' << fsmPipelineFirstStageDisable(pip->stages.front()->fsm) << " = 1;" << nxl;
+      w.out << FF_TMP << '_' << fsmPipelineFirstStateDisable(pip->stages.front()->fsm) << " = 1;" << nxl;
     }
   }
 }
@@ -8348,11 +8358,11 @@ void Algorithm::writeStatelessBlockGraph(
       return;
     }
   } else {
-    // first state of pipeline first stage?
+    // first state of first pipeline stage?
     if (block->context.pipeline_stage) {
       if (block->context.pipeline_stage->stage_id == 0 && !fsmIsEmpty(fsm)) {
         // add conditional on first stage disabled (in case the pipeline is enclosed in a conditional)
-        w.out << "if (~" << FF_TMP << prefix << fsmPipelineFirstStageDisable(fsm) << ") begin " << nxl;
+        w.out << "if (~" << FF_TMP << prefix << fsmPipelineFirstStateDisable(fsm) << ") begin " << nxl;
         enclosed_in_conditional = true;
       }
     }
@@ -8370,6 +8380,8 @@ void Algorithm::writeStatelessBlockGraph(
         if (!fsmIsEmpty(fsm)) {
           // stage full
           w.out << FF_D << '_' << fsmPipelineStageFull(fsm) << " = 1;" << nxl;
+          // reached end
+          w.out << FF_D << "_" << fsmPipelineStageReachedEnd(fsm) << " = 1;" << nxl;
           // first state of pipeline first stage?
           sl_assert(block->context.pipeline_stage);
           if (enclosed_in_conditional) { w.out << "end // 0" << nxl; } // end conditional
@@ -8658,6 +8670,8 @@ void Algorithm::writeStatelessBlockGraph(
         if (!fsmIsEmpty(fsm)) {
           // stage full
           w.out << FF_D << '_' << fsmPipelineStageFull(fsm) << " = 1;" << nxl;
+          // reached end
+          w.out << FF_D << "_" << fsmPipelineStageReachedEnd(fsm) << " = 1;" << nxl;
           // first state of pipeline first stage?
           sl_assert(block->context.pipeline_stage);
           if (enclosed_in_conditional) { w.out << "end // 7" << nxl; } // end conditional
@@ -8679,7 +8693,7 @@ void Algorithm::writeStatelessBlockGraph(
         // in a recursion, pipeline might have been disabled so we re-enable it
         // (otherwise we are sure it was not disabled, no need to manipulate the signal and risk adding logic)
         if (!fsmIsEmpty(current->pipeline_next()->next->context.pipeline_stage->fsm)) {
-          w.out << FF_TMP << '_' << fsmPipelineFirstStageDisable(current->pipeline_next()->next->context.pipeline_stage->fsm) << " = 0;" << nxl;
+          w.out << FF_TMP << '_' << fsmPipelineFirstStateDisable(current->pipeline_next()->next->context.pipeline_stage->fsm) << " = 0;" << nxl;
         }
       }
       // write pipeline

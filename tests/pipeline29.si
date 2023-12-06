@@ -5,7 +5,7 @@ algorithm main(output uint8 leds)
 {
 
   uint5 i = 0;
-  while (i!=5)
+  while (i!=4)
   {
 
       // stage 0
@@ -18,8 +18,7 @@ algorithm main(output uint8 leds)
       __display("[B] before (%d)",n);
       // stage 1
       uint5 j    = 0;
-      uint1 done = 0;
-      while (~done) {
+      while (j != 3) {
           // nested pipeline
           __display("[B,A] %d,%d",n,j);
           uint8 q = j + 10;
@@ -29,15 +28,13 @@ algorithm main(output uint8 leds)
           q = q + 100;
         ->
           __display("[B,C] %d,%d",n,q);
-          if (j == 3) { done = 1; }
       }
-    ++: ////////////////////////////// breaks without, why?
       __display("[B] after (%d)",n);
-
-    ->
-
-      __display("[C]       (%d)",n);
 
   }
 
 }
+
+/*
+
+*/

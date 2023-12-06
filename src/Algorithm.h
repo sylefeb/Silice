@@ -896,14 +896,17 @@ private:
     void fsmGetBlocks(t_fsm_nfo *fsm, std::unordered_set<t_combinational_block *>& _blocks) const;
     /// \brief returns the index name of the fsm
     std::string fsmIndex(const t_fsm_nfo *) const;
-    /// \brief returns the 'ready' signal name of the fsm
+    /// \brief returns the 'ready' signal name of the pipeline stage fsm
     std::string fsmPipelineStageReady(const t_fsm_nfo *) const;
-    /// \brief returns the 'full' signal name of the fsm
+    /// \brief returns the 'full' signal name of the pipeline stage fsm
     std::string fsmPipelineStageFull(const t_fsm_nfo *) const;
-    /// \brief returns the 'stall' signal name of the fsm
+    /// \brief returns the 'stall' signal name of the pipeline stage fsm
     std::string fsmPipelineStageStall(const t_fsm_nfo *) const;
-    /// \brief returns the 'first stage disable' signal name of the fsm
-    std::string fsmPipelineFirstStageDisable(const t_fsm_nfo *) const;
+    /// \brief returns the 'first state disable' signal name of the pipeline stage fsm
+    std::string fsmPipelineFirstStateDisable(const t_fsm_nfo *) const;
+    /// \brief returns the 'end of pipeline stage' signal name of the pipeline stage fsm
+    ///        (signals the stage just passed the end of the last state, pulses once)
+    std::string fsmPipelineStageReachedEnd(const t_fsm_nfo* fsm) const;
     /// \brief returns an expression that evaluates to the fsm next state
     std::string fsmNextState(std::string prefix, const t_fsm_nfo *) const;
     /// \brief returns whether the fsm is empty (no state)
