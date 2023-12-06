@@ -347,6 +347,7 @@ private:
       std::string                               name;
       std::unordered_map<std::string, v2i>      trickling_vios; // v2i: [0] stage at which to start [1] stage at which to stop
       std::vector<struct s_pipeline_stage_nfo*> stages;
+      struct s_pipeline_stage_nfo              *nested_in_parent_stage;
       // track read/written vios
       std::unordered_map<std::string, std::vector<int> > read_at, written_at;
       std::unordered_set<std::string> written_outputs;
