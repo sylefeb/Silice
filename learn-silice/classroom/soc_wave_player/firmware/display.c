@@ -11,8 +11,11 @@ int cursor_y;
 unsigned char front_color;
 unsigned char back_color;
 
-// unsigned char framebuffer[128*128];
+#ifdef HWFBUFFER
 #define framebuffer ((volatile unsigned char *)DISPLAY)
+#else
+unsigned char framebuffer[128*128];
+#endif
 
 volatile unsigned char *display_framebuffer()
 {
@@ -62,7 +65,7 @@ void display_putchar(int c)
 
 void display_refresh()
 {
-#if 0
+#ifndef HWFBUFFER
   unsigned char *ptr = framebuffer;
   for (int i=0;i<128*128;i++) {
     unsigned char c = (*ptr)>>2;

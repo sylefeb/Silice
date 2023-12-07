@@ -78,6 +78,17 @@ endif
 step6.si : hardware/main.si
 	python ../tools/solutions.py -i hardware/main.si -s LED,AUDIO,SCREEN,BTN,SD,STREAM > $@
 
+step7: step7.si
+	make -C firmware $(FIRMWARE) DEFINES="-DHWFBUFFER"
+ifeq ($(BOARD),verilator)
+	silice-make.py -s $@.si -b $(BOARD) -p basic,oled -o BUILD_$(subst :,_,$@) $(ARGS)
+else
+	silice-make.py -s $@.si -b $(BOARD) -p basic,audio,oled,buttons,sdcard -o BUILD_$(subst :,_,$@) $(ARGS)
+endif
+
+step7.si : hardware/main.si
+	python ../tools/solutions.py -i hardware/main.si -s LED,AUDIO,SCREEN,BTN,SD,STREAM,HWFBUFFER > $@
+
 final: final.si
 	make -C firmware $(FIRMWARE)
 ifeq ($(BOARD),verilator)
@@ -87,7 +98,7 @@ else
 endif
 
 final.si : hardware/main.si
-	python ../tools/solutions.py -i hardware/main.si -s LED,AUDIO,SCREEN,BTN,SD,STREAM,PWM > $@
+	python ../tools/solutions.py -i hardware/main.si -s LED,AUDIO,SCREEN,BTN,SD,STREAM,HWFBUFFER,PWM > $@
 
 clean:
 	make -C firmware clean
