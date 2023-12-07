@@ -11,9 +11,13 @@ int cursor_y;
 unsigned char front_color;
 unsigned char back_color;
 
+#ifdef HWFBUFFER
+#define framebuffer ((volatile unsigned char *)DISPLAY)
+#else
 unsigned char framebuffer[128*128];
+#endif
 
-unsigned char *display_framebuffer()
+volatile unsigned char *display_framebuffer()
 {
   return framebuffer;
 }
@@ -61,6 +65,7 @@ void display_putchar(int c)
 
 void display_refresh()
 {
+#ifndef HWFBUFFER
   unsigned char *ptr = framebuffer;
   for (int i=0;i<128*128;i++) {
     unsigned char c = (*ptr)>>2;
@@ -68,6 +73,7 @@ void display_refresh()
     oled_pix(c,c,c);
     oled_wait();
   }
+#endif
 }
 
 void dual_putchar(int c)
