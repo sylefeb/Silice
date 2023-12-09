@@ -2456,7 +2456,7 @@ Algorithm::t_combinational_block *Algorithm::concatenatePipeline(siliceParser::P
       resume = false; // no longer resuming
     } else {
       // set next stage
-      prev->pipeline_next(from, stage_end);
+      prev->pipeline_next(from);
     }
     // advance
     prev = nfo->stages.back()->fsm->lastBlock;
@@ -2812,10 +2812,10 @@ bool Algorithm::isStateLessGraph(const t_combinational_block *head) const
 
 // -------------------------------------------------
 
-bool Algorithm::hasCombinationalExit(const t_combinational_block* head) const
+void Algorithm::findNextStates( t_combinational_block* head, std::set< t_combinational_block*>& _exits) const
 {
-  std::queue< const t_combinational_block* >  q;
-  std::unordered_set< const t_combinational_block* > visited;
+  std::queue< t_combinational_block* >  q;
+  std::unordered_set< t_combinational_block* > visited;
   // initialize queue
   q.push(head);
   // explore
@@ -2823,19 +2823,23 @@ bool Algorithm::hasCombinationalExit(const t_combinational_block* head) const
     auto cur = q.front();
     q.pop();
     visited.insert(cur);
-    // recurse
+    // get children
     std::vector< t_combinational_block* > children;
     cur->getChildren(children);
-    if (children.empty()) {
-      // we reached this combinational block and it has no children
-      // => combinational exit!
-      return true;
+    // ensure while is properly followed
+    if (cur->while_loop()) { //  FIXME? this is due to when a while encloses the pipeline, as we do not explore other fsms
+      children.push_back(cur); // add self
     }
+    // recurse
     for (auto c : children) {
       if (c == nullptr) {
-        // tags a forward ref (jump), non combinational exit => skip
+        sl_assert(false); // jumps should be resolved before
+      } else if (c->context.fsm != head->context.fsm) {
+        // other fsm => exit, store
+        _exits.insert(c);
       } else if (c->is_state) {
-        // state, non combinational exit => skip
+        // state => exit, store
+        _exits.insert(c);
       } else {
         // explore further
         if (visited.count(c) == 0) {
@@ -2844,7 +2848,6 @@ bool Algorithm::hasCombinationalExit(const t_combinational_block* head) const
       }
     }
   }
-  return false;
 }
 
 // -------------------------------------------------
@@ -3043,7 +3046,7 @@ Algorithm::t_combinational_block *Algorithm::gatherIfElse(siliceParser::IfThenEl
   }
   // NOTE: We do not tag 'after' as being a state right now, so that we can then consider
   // whether to collapse it into the 'else' of the conditional in case the 'if' jumps over it.
-  // NOTE: This prevent a special mechanism to avoid code duplication is preventIfElseCodeDup()
+  // NOTE: A special mechanism avoids code duplication, see preventIfElseCodeDup()
   return after;
 }
 
@@ -3070,7 +3073,7 @@ Algorithm::t_combinational_block *Algorithm::gatherIfThen(siliceParser::IfThenCo
   }
   // NOTE: We do not tag 'after' as being a state right now, so that we can then consider
   // whether to collapse it into the 'else' of the conditional in case the 'if' jumps over it.
-  // NOTE: This prevent a special mechanism to avoid code duplication is preventIfElseCodeDup()
+  // NOTE: A special mechanism avoids code duplication, see preventIfElseCodeDup()
   return after;
 }
 
@@ -4146,6 +4149,63 @@ bool Algorithm::preventIfElseCodeDup(t_fsm_nfo* fsm)
 
 // -------------------------------------------------
 
+/*
+  padPipeline ensures that the last state of the pipeline stage fsm only
+  exit towards antoher stage fsm. If not, this implies the last state
+  may loop within the stage (e.g. on itself with a while or using gotos)
+  in which case the pipeline trigger will be incorrect. Such cases require
+  adding a state before termination, and hence preventing collapse of
+  next cycles within while loops and if-else (CL0004, CL0005)
+*/
+bool Algorithm::padPipeline(t_fsm_nfo* fsm)
+{
+  // NOTE: expects stage ids to have been generate
+  bool changed = false;
+  if (!fsmIsEmpty(fsm)) {
+    // get blocks
+    std::unordered_set<t_combinational_block*> blocks;
+    fsmGetBlocks(fsm, blocks);
+    // last state
+    int last_state_id = fsm->lastBlock->parent_state_id;
+    // find the block
+    t_combinational_block* last = nullptr;
+    for (auto b : blocks) {
+      if (b->state_id == last_state_id) {
+        last = b;
+        break;
+      }
+    }
+    // find all possible exits
+    std::set<t_combinational_block*> exits;
+    findNextStates(last, exits);
+    // count exits which are in the same fsm (other are ok; they won't lead to an incorrect pipeline start)
+    int same_fsm_exits = 0;
+    for (auto e : exits) {
+      if (e->context.fsm == fsm) {
+        ++same_fsm_exits;
+      }
+    }
+    // check: multiple exits, and one at least in same fsm
+    if (exits.size() > 1 && same_fsm_exits > 0) {
+      // TODO: can we do better than to explictely list all cases?
+      if (last->while_loop()) {
+        warn(Standard, last->srcloc, "The last state of the pipeline stage loops into the stage, an additional cycle has to be introduced after.");
+        last->while_loop()->after->is_state = true;
+        changed |= true;
+      } else if (last->if_then_else()) {
+        warn(Standard, last->srcloc, "The last state of the pipeline stage loops into the stage, an additional cycle has to be introduced after.");
+        last->if_then_else()->after->is_state = true;
+        changed |= true;
+      } else {
+        sl_assert(false);
+      }
+    }
+  }
+  return changed;
+}
+
+// -------------------------------------------------
+
 void Algorithm::renumberStates(t_fsm_nfo *fsm)
 {
   typedef struct {
@@ -4214,6 +4274,11 @@ void Algorithm::renumberStates(t_fsm_nfo *fsm)
 void Algorithm::generateStates(t_fsm_nfo* fsm)
 {
   renumberStates(fsm);
+  if (fsm != &m_RootFSM) {
+    if (padPipeline(fsm)) { // only on pipeline fsms
+      renumberStates(fsm);
+    }
+  }
   if (preventIfElseCodeDup(fsm)) { // NOTE: commenting this enables code duplication in if/else
     renumberStates(fsm);
   }
@@ -4270,11 +4335,6 @@ std::string Algorithm::fsmPipelineStageStall(const t_fsm_nfo *fsm) const
 std::string Algorithm::fsmPipelineFirstStateDisable(const t_fsm_nfo *fsm) const
 {
   return "_1stdisable_" + fsm->name;
-}
-
-std::string Algorithm::fsmPipelineStageReachedEnd(const t_fsm_nfo* fsm) const
-{
-  return "_reachedend_" + fsm->name;
 }
 
 // -------------------------------------------------
@@ -7487,17 +7547,15 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
     if (!fsmIsEmpty(fsm)) {
       out << "reg  [" << stateWidth(fsm) - 1 << ":0] " FF_D << prefix << fsmIndex(fsm)
                                                 << "," FF_Q << prefix << fsmIndex(fsm) << ';' << nxl;
-      out << "wire " << fsmPipelineStageReady(fsm) << " = "
-        // this condition allows to trigger the stage immediately after it reached its end state
-        <<     "(" << FF_Q << prefix << fsmIndex(fsm) << " == " << toFSMState(fsm, lastPipelineStageState(fsm)) << " && " << FF_Q << prefix << fsmPipelineStageReachedEnd(fsm) << ')'
-        // this condition allows to trigger the stage when idle (becomes idle one cycle after it reached end)
-        << " || (" << FF_Q << prefix << fsmIndex(fsm) << " == " << toFSMState(fsm, terminationState(fsm)) << ");" << nxl;
+      out << "wire " << fsmPipelineStageReady(fsm) << " = ";
+      // this condition allows to trigger the stage immediately after it reached its end state
+      out << "(" << FF_Q << prefix << fsmIndex(fsm) << " == " << toFSMState(fsm, lastPipelineStageState(fsm)) << ')';
+      // this condition allows to trigger the stage when idle (becomes idle one cycle after it reached end)
+      out << " || (" << FF_Q << prefix << fsmIndex(fsm) << " == " << toFSMState(fsm, terminationState(fsm)) << ");" << nxl;
       out << "reg  [0:0] " FF_D << prefix << fsmPipelineStageFull(fsm) << " = 0"
                     << "," FF_Q << prefix << fsmPipelineStageFull(fsm) << " = 0;" << nxl;
       out << "reg  [0:0] " FF_TMP << prefix << fsmPipelineStageStall(fsm) << " = 0;" << nxl;
       out << "reg  [0:0] " FF_TMP << prefix << fsmPipelineFirstStateDisable(fsm) << " = 0;" << nxl;
-      out << "reg  [0:0] " FF_D << prefix << fsmPipelineStageReachedEnd(fsm) << " = 0"
-                    << "," FF_Q << prefix << fsmPipelineStageReachedEnd(fsm) << " = 0;" << nxl;
     }
   }
   // state machine caller id (subroutines)
@@ -7779,7 +7837,6 @@ void Algorithm::writeCombinationalAlwaysPre(
     w.out << FF_D   << "_" << fsmPipelineStageFull(fsm) << " = " << FF_Q << "_" << fsmPipelineStageFull(fsm) << ';' << nxl;
     w.out << FF_TMP << "_" << fsmPipelineStageStall(fsm) << " = 0;" << nxl;
     w.out << FF_TMP << "_" << fsmPipelineFirstStateDisable(fsm) << " = 0;" << nxl;
-    w.out << FF_D   << "_" << fsmPipelineStageReachedEnd(fsm) << " = 0;" << nxl;
   }
   // instanced algorithms run, maintain high
   for (const auto& iaiordr : m_InstancedBlueprintsInDeclOrder) {
@@ -8384,8 +8441,6 @@ void Algorithm::writeStatelessBlockGraph(
         if (!fsmIsEmpty(fsm)) {
           // stage full
           w.out << FF_D << '_' << fsmPipelineStageFull(fsm) << " = 1;" << nxl;
-          // reached end
-          w.out << FF_D << "_" << fsmPipelineStageReachedEnd(fsm) << " = 1;" << nxl;
           // first state of pipeline first stage?
           sl_assert(block->context.pipeline_stage);
           if (enclosed_in_conditional) { w.out << "end // 0" << nxl; } // end conditional
@@ -8674,8 +8729,6 @@ void Algorithm::writeStatelessBlockGraph(
         if (!fsmIsEmpty(fsm)) {
           // stage full
           w.out << FF_D << '_' << fsmPipelineStageFull(fsm) << " = 1;" << nxl;
-          // reached end
-          w.out << FF_D << "_" << fsmPipelineStageReachedEnd(fsm) << " = 1;" << nxl;
           // first state of pipeline first stage?
           sl_assert(block->context.pipeline_stage);
           if (enclosed_in_conditional) { w.out << "end // 7" << nxl; } // end conditional

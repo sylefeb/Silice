@@ -511,9 +511,8 @@ private:
     {
     public:
       t_combinational_block        *next;
-      t_combinational_block        *after;
-      end_action_pipeline_next(t_combinational_block *next_, t_combinational_block *after_) : next(next_), after(after_) { }
-      void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(next); if (after != next) { _ch.push_back(after); } }
+      end_action_pipeline_next(t_combinational_block *next_) : next(next_) { }
+      void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(next); }
       std::string name() const override { return "end_action_pipeline_next";}
     };
 
@@ -610,9 +609,9 @@ private:
       }
       const end_action_goto_and_return_to * goto_and_return_to() const { return dynamic_cast<const end_action_goto_and_return_to*>(end_action); }
 
-      void pipeline_next(t_combinational_block *next, t_combinational_block *after)
+      void pipeline_next(t_combinational_block *next)
       {
-        swap_end(new end_action_pipeline_next(next, after));
+        swap_end(new end_action_pipeline_next(next));
       }
       const end_action_pipeline_next *pipeline_next() const { return dynamic_cast<const end_action_pipeline_next*>(end_action); }
 
@@ -833,8 +832,8 @@ private:
     t_combinational_block *gatherJoinExec(siliceParser::JoinExecContext* join, t_combinational_block *_current, t_gather_context *_context);
     /// \brief tests whether a graph of block is stateless
     bool isStateLessGraph(const t_combinational_block *head) const;
-    /// \brief returns true if the graph has a combinational exit (one path that does not jump to an actual state)
-    bool hasCombinationalExit(const t_combinational_block *head) const;
+    /// \brief returns all the blocks which are next states
+    void findNextStates(t_combinational_block* head, std::set< t_combinational_block*>& _exits) const;
     /// \brief gather an if-then-else
     t_combinational_block *gatherIfElse(siliceParser::IfThenElseContext* ifelse, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather an if-then
@@ -889,6 +888,8 @@ private:
     void resolveForwardJumpRefs();
     /// \brief performs a pass on all ifelse to prevent code duplication of after, returns true if states where changed
     bool preventIfElseCodeDup(t_fsm_nfo* fsm);
+    /// \brief pad pipeline to ensure it ends on a 'simple' state (without multiple possible next state), returns true if states where changed
+    bool padPipeline(t_fsm_nfo* fsm);
     /// \brief performs a numbering pass on the fsm states
     void renumberStates(t_fsm_nfo*);
     /// \brief generates the states of an fsm
@@ -905,9 +906,6 @@ private:
     std::string fsmPipelineStageStall(const t_fsm_nfo *) const;
     /// \brief returns the 'first state disable' signal name of the pipeline stage fsm
     std::string fsmPipelineFirstStateDisable(const t_fsm_nfo *) const;
-    /// \brief returns the 'end of pipeline stage' signal name of the pipeline stage fsm
-    ///        (signals the stage just passed the end of the last state, pulses once)
-    std::string fsmPipelineStageReachedEnd(const t_fsm_nfo* fsm) const;
     /// \brief returns an expression that evaluates to the fsm next state
     std::string fsmNextState(std::string prefix, const t_fsm_nfo *) const;
     /// \brief returns whether the fsm is empty (no state)
