@@ -4420,7 +4420,7 @@ int  Algorithm::fastForwardToFSMState(const t_fsm_nfo* fsm, const t_combinationa
 {
   // fast forward
   block = fastForward(block);
-  if (blockIsEmpty(block) && block == fsm->lastBlock) {
+  if (blockIsEmpty(block) && block == fsm->lastBlock && fsm == &m_RootFSM) {
     // special case of empty block at the end of the algorithm
     return toFSMState(fsm,terminationState(fsm));
   } else {
@@ -8431,6 +8431,9 @@ void Algorithm::writeStatelessBlockGraph(
   // follow the chain
   const t_combinational_block *current = block;
   while (true) {
+    if (current->block_name == "__stage___block_26") {
+      LIBSL_TRACE;
+    }
     // write current block
     writeBlock(prefix, w, ictx, current, _dependencies, _ff_usage, _lines);
     // goto next in chain
