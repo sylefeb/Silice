@@ -256,7 +256,11 @@ $$end
   $$else
         rdata                   = spiflash.read;
   $$end
+$$if FOMU or SIM_FOMU then
         rdata_available         = ~init[0,1];
+$$else
+        rdata_available         = ~init[1,1];
+$$end
         spiflash.trigger        = continue;
         busy                    = continue;
         init                    = {1b0,init[1,1]};
