@@ -121,6 +121,13 @@ namespace Silice {
     /// \brief end parsing
     void endParsing();
 
+    /// \brief writes a static unit in the output stream
+    void writeStaticUnit(
+      AutoPtr<Blueprint>                        bp,
+      const Blueprint::t_instantiation_context& ictx,
+      std::ostream&                            _out,
+      bool                                      first_pass);
+
     /// \brief parses a specific unit ios
     t_parsed_unit parseUnitIOs(std::string to_parse);
     /// \brief parses a unit body (call after parseUnitIOs);

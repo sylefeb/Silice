@@ -3167,7 +3167,6 @@ void Algorithm::addTemporary(std::string vname, siliceParser::Expression_0Contex
   }
   // insert var
   insertVar(var, block);
-  m_VarNames.at(var.name);
   // insert as an expression catcher
   m_ExpressionCatchers.insert(std::make_pair(std::make_pair(expr, block),var.name));
   // insert a custom assignment instruction for this temporary
@@ -4110,7 +4109,7 @@ bool Algorithm::preventIfElseCodeDup(t_fsm_nfo* fsm)
   // detect unreachable blocks
   // NOTE: this is done before as the loop below changes is_state for some block,
   //       and these have to be renumbered
-  std::set<int> unreachable;
+  std::set<size_t> unreachable;
   for (auto b : m_Blocks) {
     if (b->context.fsm == fsm) {
       if (b->state_id == -1 && b->is_state) {
@@ -9419,7 +9418,7 @@ void Algorithm::writeAsModule(std::ostream& out, const t_instantiation_context& 
 
   // module header
   if (ictx.instance_name.empty()) {
-    out << "module " << ictx.top_name << ' ';
+    out << "module " << ictx.top_name << ' '; // FIXME: inelegant, calrify role of top_name
   } else {
     out << "module M_" << m_Name + '_' + ictx.instance_name + ' ';
   }

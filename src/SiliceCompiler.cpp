@@ -635,7 +635,7 @@ void SiliceCompiler::writeFormalTests(std::ostream& _out, const Blueprint::t_ins
   // write formal unit tests
   for (auto name : m_BodyContext->lpp->formalUnits()) {
     Blueprint::t_instantiation_context local_ictx = ictx;
-    local_ictx.top_name = "formal_" + name + "$";
+    local_ictx.top_name = "formal_" + name + "$"; // FIXME: inelegant
     // parse and write unit
     auto bp = parseUnitIOs(name);
     parseUnitBody(bp, local_ictx);
@@ -645,6 +645,22 @@ void SiliceCompiler::writeFormalTests(std::ostream& _out, const Blueprint::t_ins
     // -> second pass
     writeUnit(bp, local_ictx, _out, false);
   }
+}
+
+// -------------------------------------------------
+
+/// \brief writes a static unit in the output stream
+///        NOTE: used by the python framework
+void SiliceCompiler::writeStaticUnit(
+  AutoPtr<Blueprint>                        bp,
+  const Blueprint::t_instantiation_context& ictx,
+  std::ostream&                            _out,
+  bool                                      first_pass)
+{
+  t_parsed_unit pu;
+  pu.body_parser = m_BodyContext;
+  pu.unit        = bp;
+  writeUnit(pu, ictx, _out, first_pass);
 }
 
 // -------------------------------------------------
