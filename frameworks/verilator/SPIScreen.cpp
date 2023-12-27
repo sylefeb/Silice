@@ -204,7 +204,7 @@ void SPIScreen::cmd_write_ram()
     // 6-6-6
     m_rgb[(m_step - 1)] = m_byte;
     if (m_step == 3) {
-      // fprintf(stdout,"666 x %d, y %d\n",m_x_cur,m_y_cur);
+      //fprintf(stdout,"666 x %d, y %d\n",m_x_cur,m_y_cur);
       m_framebuffer.pixel<LibSL::Memory::Array::Wrap>(
                                   m_y_cur,m_x_cur) = m_rgb;
     }

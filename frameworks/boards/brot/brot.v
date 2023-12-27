@@ -220,6 +220,10 @@ assign LED_G = ~lg;
 assign LED_B = ~lb;
 `endif
 
+`ifdef PARALLEL_SCREEN
+wire prlscreen_unused;
+`endif
+
 M_main __main(
   .clock(CLK_48),
   .out_clock(design_clk),
@@ -262,12 +266,12 @@ M_main __main(
 `ifdef PARALLEL_SCREEN
   .out_prlscreen_d({GPIO6,GPIO7,GPIO4,GPIO5,GPIO2,GPIO3,GPIO0,GPIO1}),
   .out_prlscreen_resn(PMOD_B1),
-  .out_prlscreen_csn (PMOD_B7),
+  .out_prlscreen_csn (/*PMOD_B7*/prlscreen_unused),
   .out_prlscreen_rs  (PMOD_B2),
   .out_prlscreen_clk (PMOD_B8),
 `endif
 `ifdef UART
-  .out_uart_tx(PMOD_B9),
+  .out_uart_tx(PMOD_B7),
   .in_uart_rx (PMOD_B10),
 `endif
 `ifdef UART2

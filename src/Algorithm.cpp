@@ -1404,14 +1404,16 @@ std::string Algorithm::translateVIOName(
         vio = Vrew->second;
       }
     }
-    // then pipeline stage
-    if (bctx->pipeline_stage != nullptr) {
-      const auto& Vpip = bctx->pipeline_stage->pipeline->trickling_vios.find(vio);
-      if (Vpip != bctx->pipeline_stage->pipeline->trickling_vios.end()) {
-        if (bctx->pipeline_stage->stage_id > Vpip->second[0]) {
-          vio = tricklingVIOName(vio, bctx->pipeline_stage);
+    // pipeline stage (recurses through nesting)
+    auto current = bctx->pipeline_stage;
+    while (current != nullptr) {
+      const auto& Vpip = current->pipeline->trickling_vios.find(vio);
+      if (Vpip != current->pipeline->trickling_vios.end()) {
+        if (current->stage_id > Vpip->second[0]) {
+          vio = tricklingVIOName(vio, current);
         }
       }
+      current = current->pipeline->nested_in_parent_stage;
     }
   }
   return vio;
@@ -2470,7 +2472,7 @@ Algorithm::t_combinational_block *Algorithm::concatenatePipeline(siliceParser::P
       resume = false; // no longer resuming
     } else {
       // set next stage
-      prev->pipeline_next(from, stage_end);
+      prev->pipeline_next(from);
     }
     // advance
     prev = nfo->stages.back()->fsm->lastBlock;
@@ -2518,6 +2520,8 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
     m_Pipelines.push_back(nfo);
     // name of the pipeline
     nfo->name = "__pip_" + std::to_string(pip->getStart()->getLine()) + "_" + std::to_string(m_Pipelines.size());
+    // parent if nested
+    nfo->nested_in_parent_stage = _current->context.pipeline_stage;
     // start concatenating (may call gatherPipeline recursively)
     auto last = concatenatePipeline(pip, _current, _context, nfo);
     // now for each stage fsm
@@ -2824,10 +2828,10 @@ bool Algorithm::isStateLessGraph(const t_combinational_block *head) const
 
 // -------------------------------------------------
 
-bool Algorithm::hasCombinationalExit(const t_combinational_block* head) const
+void Algorithm::findNextStates( t_combinational_block* head, std::set< t_combinational_block*>& _exits) const
 {
-  std::queue< const t_combinational_block* >  q;
-  std::unordered_set< const t_combinational_block* > visited;
+  std::queue< t_combinational_block* >  q;
+  std::unordered_set< t_combinational_block* > visited;
   // initialize queue
   q.push(head);
   // explore
@@ -2835,19 +2839,23 @@ bool Algorithm::hasCombinationalExit(const t_combinational_block* head) const
     auto cur = q.front();
     q.pop();
     visited.insert(cur);
-    // recurse
+    // get children
     std::vector< t_combinational_block* > children;
     cur->getChildren(children);
-    if (children.empty()) {
-      // we reached this combinational block and it has no children
-      // => combinational exit!
-      return true;
+    // ensure while is properly followed
+    if (cur->while_loop()) { //  FIXME? this is due to when a while encloses the pipeline, as we do not explore other fsms
+      children.push_back(cur); // add self
     }
+    // recurse
     for (auto c : children) {
       if (c == nullptr) {
-        // tags a forward ref (jump), non combinational exit => skip
+        sl_assert(false); // jumps should be resolved before
+      } else if (c->context.fsm != head->context.fsm) {
+        // other fsm => exit, store
+        _exits.insert(c);
       } else if (c->is_state) {
-        // state, non combinational exit => skip
+        // state => exit, store
+        _exits.insert(c);
       } else {
         // explore further
         if (visited.count(c) == 0) {
@@ -2856,7 +2864,6 @@ bool Algorithm::hasCombinationalExit(const t_combinational_block* head) const
       }
     }
   }
-  return false;
 }
 
 // -------------------------------------------------
@@ -3055,7 +3062,7 @@ Algorithm::t_combinational_block *Algorithm::gatherIfElse(siliceParser::IfThenEl
   }
   // NOTE: We do not tag 'after' as being a state right now, so that we can then consider
   // whether to collapse it into the 'else' of the conditional in case the 'if' jumps over it.
-  // NOTE: This prevent a special mechanism to avoid code duplication is preventIfElseCodeDup()
+  // NOTE: A special mechanism avoids code duplication, see preventIfElseCodeDup()
   return after;
 }
 
@@ -3082,7 +3089,7 @@ Algorithm::t_combinational_block *Algorithm::gatherIfThen(siliceParser::IfThenCo
   }
   // NOTE: We do not tag 'after' as being a state right now, so that we can then consider
   // whether to collapse it into the 'else' of the conditional in case the 'if' jumps over it.
-  // NOTE: This prevent a special mechanism to avoid code duplication is preventIfElseCodeDup()
+  // NOTE: A special mechanism avoids code duplication, see preventIfElseCodeDup()
   return after;
 }
 
@@ -3176,7 +3183,6 @@ void Algorithm::addTemporary(std::string vname, siliceParser::Expression_0Contex
   }
   // insert var
   insertVar(var, block);
-  m_VarNames.at(var.name);
   // insert as an expression catcher
   m_ExpressionCatchers.insert(std::make_pair(std::make_pair(expr, block),var.name));
   // insert a custom assignment instruction for this temporary
@@ -4119,7 +4125,7 @@ bool Algorithm::preventIfElseCodeDup(t_fsm_nfo* fsm)
   // detect unreachable blocks
   // NOTE: this is done before as the loop below changes is_state for some block,
   //       and these have to be renumbered
-  std::set<int> unreachable;
+  std::set<size_t> unreachable;
   for (auto b : m_Blocks) {
     if (b->context.fsm == fsm) {
       if ((b->is_state && b->state_id == -1) || b->parent_state_id == -1) {
@@ -4154,6 +4160,63 @@ bool Algorithm::preventIfElseCodeDup(t_fsm_nfo* fsm)
     }
   }
   return (changed);
+}
+
+// -------------------------------------------------
+
+/*
+  padPipeline ensures that the last state of the pipeline stage fsm only
+  exit towards antoher stage fsm. If not, this implies the last state
+  may loop within the stage (e.g. on itself with a while or using gotos)
+  in which case the pipeline trigger will be incorrect. Such cases require
+  adding a state before termination, and hence preventing collapse of
+  next cycles within while loops and if-else (CL0004, CL0005)
+*/
+bool Algorithm::padPipeline(t_fsm_nfo* fsm)
+{
+  // NOTE: expects stage ids to have been generate
+  bool changed = false;
+  if (!fsmIsEmpty(fsm)) {
+    // get blocks
+    std::unordered_set<t_combinational_block*> blocks;
+    fsmGetBlocks(fsm, blocks);
+    // last state
+    int last_state_id = fsm->lastBlock->parent_state_id;
+    // find the block
+    t_combinational_block* last = nullptr;
+    for (auto b : blocks) {
+      if (b->state_id == last_state_id) {
+        last = b;
+        break;
+      }
+    }
+    // find all possible exits
+    std::set<t_combinational_block*> exits;
+    findNextStates(last, exits);
+    // count exits which are in the same fsm (other are ok; they won't lead to an incorrect pipeline start)
+    int same_fsm_exits = 0;
+    for (auto e : exits) {
+      if (e->context.fsm == fsm) {
+        ++same_fsm_exits;
+      }
+    }
+    // check: multiple exits, and one at least in same fsm
+    if (exits.size() > 1 && same_fsm_exits > 0) {
+      // TODO: can we do better than to explictely list all cases?
+      if (last->while_loop()) {
+        warn(Standard, last->srcloc, "The last state of the pipeline stage loops into the stage, an additional cycle has to be introduced after.");
+        last->while_loop()->after->is_state = true;
+        changed |= true;
+      } else if (last->if_then_else()) {
+        warn(Standard, last->srcloc, "The last state of the pipeline stage loops into the stage, an additional cycle has to be introduced after.");
+        last->if_then_else()->after->is_state = true;
+        changed |= true;
+      } else {
+        sl_assert(false);
+      }
+    }
+  }
+  return changed;
 }
 
 // -------------------------------------------------
@@ -4226,6 +4289,11 @@ void Algorithm::renumberStates(t_fsm_nfo *fsm)
 void Algorithm::generateStates(t_fsm_nfo* fsm)
 {
   renumberStates(fsm);
+  if (fsm != &m_RootFSM) {
+    if (padPipeline(fsm)) { // only on pipeline fsms
+      renumberStates(fsm);
+    }
+  }
   if (preventIfElseCodeDup(fsm)) { // NOTE: commenting this enables code duplication in if/else
     renumberStates(fsm);
   }
@@ -4279,7 +4347,7 @@ std::string Algorithm::fsmPipelineStageStall(const t_fsm_nfo *fsm) const
   return "_stall_" + fsm->name;
 }
 
-std::string Algorithm::fsmPipelineFirstStageDisable(const t_fsm_nfo *fsm) const
+std::string Algorithm::fsmPipelineFirstStateDisable(const t_fsm_nfo *fsm) const
 {
   return "_1stdisable_" + fsm->name;
 }
@@ -4367,7 +4435,7 @@ int  Algorithm::fastForwardToFSMState(const t_fsm_nfo* fsm, const t_combinationa
 {
   // fast forward
   block = fastForward(block);
-  if (blockIsEmpty(block) && block == fsm->lastBlock) {
+  if (blockIsEmpty(block) && block == fsm->lastBlock && fsm == &m_RootFSM) {
     // special case of empty block at the end of the algorithm
     return toFSMState(fsm,terminationState(fsm));
   } else {
@@ -7679,13 +7747,15 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
     if (!fsmIsEmpty(fsm)) {
       out << "reg  [" << stateWidth(fsm) - 1 << ":0] " FF_D << prefix << fsmIndex(fsm)
                                                 << "," FF_Q << prefix << fsmIndex(fsm) << ';' << nxl;
-      out << "wire " << fsmPipelineStageReady(fsm) << " = "
-        <<     "(" << FF_Q << prefix << fsmIndex(fsm) << " == " << toFSMState(fsm, lastPipelineStageState(fsm)) << ')'
-        << " || (" << FF_Q << prefix << fsmIndex(fsm) << " == " << toFSMState(fsm, terminationState(fsm)) << ");" << nxl;
+      out << "wire " << fsmPipelineStageReady(fsm) << " = ";
+      // this condition allows to trigger the stage immediately after it reached its end state
+      out << "(" << FF_Q << prefix << fsmIndex(fsm) << " == " << toFSMState(fsm, lastPipelineStageState(fsm)) << ')';
+      // this condition allows to trigger the stage when idle (becomes idle one cycle after it reached end)
+      out << " || (" << FF_Q << prefix << fsmIndex(fsm) << " == " << toFSMState(fsm, terminationState(fsm)) << ");" << nxl;
       out << "reg  [0:0] " FF_D << prefix << fsmPipelineStageFull(fsm) << " = 0"
                     << "," FF_Q << prefix << fsmPipelineStageFull(fsm) << " = 0;" << nxl;
       out << "reg  [0:0] " FF_TMP << prefix << fsmPipelineStageStall(fsm) << " = 0;" << nxl;
-      out << "reg  [0:0] " FF_TMP << prefix << fsmPipelineFirstStageDisable(fsm) << " = 0;" << nxl;
+      out << "reg  [0:0] " FF_TMP << prefix << fsmPipelineFirstStateDisable(fsm) << " = 0;" << nxl;
     }
   }
   // state machine caller id (subroutines)
@@ -7966,7 +8036,7 @@ void Algorithm::writeCombinationalAlwaysPre(
     w.out << FF_D   << "_" << fsmIndex(fsm) << " = " << FF_Q << "_" << fsmIndex(fsm) << ';' << nxl;
     w.out << FF_D   << "_" << fsmPipelineStageFull(fsm) << " = " << FF_Q << "_" << fsmPipelineStageFull(fsm) << ';' << nxl;
     w.out << FF_TMP << "_" << fsmPipelineStageStall(fsm) << " = 0;" << nxl;
-    w.out << FF_TMP << "_" << fsmPipelineFirstStageDisable(fsm) << " = 0;" << nxl;
+    w.out << FF_TMP << "_" << fsmPipelineFirstStateDisable(fsm) << " = 0;" << nxl;
   }
   // instanced algorithms run, maintain high
   for (const auto& iaiordr : m_InstancedBlueprintsInDeclOrder) {
@@ -8526,7 +8596,7 @@ void Algorithm::disableStartingPipelines(std::string prefix, t_writer_context &w
   findAllStartingPipelines(block, pipelines);
   for (auto pip : pipelines) {
     if (!fsmIsEmpty(pip->stages.front()->fsm)) {
-      w.out << FF_TMP << '_' << fsmPipelineFirstStageDisable(pip->stages.front()->fsm) << " = 1;" << nxl;
+      w.out << FF_TMP << '_' << fsmPipelineFirstStateDisable(pip->stages.front()->fsm) << " = 1;" << nxl;
     }
   }
 }
@@ -8557,11 +8627,11 @@ void Algorithm::writeStatelessBlockGraph(
       return;
     }
   } else {
-    // first state of pipeline first stage?
+    // first state of first pipeline stage?
     if (block->context.pipeline_stage) {
       if (block->context.pipeline_stage->stage_id == 0 && !fsmIsEmpty(fsm)) {
         // add conditional on first stage disabled (in case the pipeline is enclosed in a conditional)
-        w.out << "if (~" << FF_TMP << prefix << fsmPipelineFirstStageDisable(fsm) << ") begin " << nxl;
+        w.out << "if (~" << FF_TMP << prefix << fsmPipelineFirstStateDisable(fsm) << ") begin " << nxl;
         enclosed_in_conditional = true;
       }
     }
@@ -8569,6 +8639,9 @@ void Algorithm::writeStatelessBlockGraph(
   // follow the chain
   const t_combinational_block *current = block;
   while (true) {
+    if (current->block_name == "__stage___block_26") {
+      LIBSL_TRACE;
+    }
     // write current block
     writeBlock(prefix, w, ictx, current, _dependencies, _usage, _lines);
     // goto next in chain
@@ -8891,7 +8964,7 @@ void Algorithm::writeStatelessBlockGraph(
         // in a recursion, pipeline might have been disabled so we re-enable it
         // (otherwise we are sure it was not disabled, no need to manipulate the signal and risk adding logic)
         if (!fsmIsEmpty(current->pipeline_next()->next->context.pipeline_stage->fsm)) {
-          w.out << FF_TMP << '_' << fsmPipelineFirstStageDisable(current->pipeline_next()->next->context.pipeline_stage->fsm) << " = 0;" << nxl;
+          w.out << FF_TMP << '_' << fsmPipelineFirstStateDisable(current->pipeline_next()->next->context.pipeline_stage->fsm) << " = 0;" << nxl;
         }
       }
       // write pipeline
@@ -9596,7 +9669,7 @@ void Algorithm::writeAsModule(
 
   // module header
   if (ictx.instance_name.empty()) {
-    out << "module " << ictx.top_name << ' ';
+    out << "module " << ictx.top_name << ' '; // FIXME: inelegant, calrify role of top_name
   } else {
     out << "module M_" << m_Name + '_' + ictx.instance_name + ' ';
   }

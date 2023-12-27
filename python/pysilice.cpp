@@ -151,6 +151,9 @@ public:
     for (auto exp : export_defs) {
       ictx.params[exp.first] = exp.second;
     }
+    // name the instance through the top name FIXME: inelegant
+    ictx.top_name = m_Name;
+    // write source
     if ( ! m_Blueprint.ios_parser.isNull() ) {
       // parse the unit body
       m_Compiler->parseUnitBody(m_Blueprint, ictx);
@@ -165,7 +168,7 @@ public:
       m_Compiler->writeStaticUnit(m_Blueprint.unit, ictx, out, false);
     }
     // return instance
-    return Instance("M_" + m_Name + (postfix.empty() ? "" : ("_" + postfix)), tmp, m_Blueprint);
+    return Instance(m_Name + (postfix.empty() ? "" : ("_" + postfix)), tmp, m_Blueprint);
   }
 
   Instance instantiate(const std::vector<std::tuple<std::string,std::string,std::string> >& export_params)

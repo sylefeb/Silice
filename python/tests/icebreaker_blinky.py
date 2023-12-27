@@ -38,8 +38,8 @@ from litex.soc.cores.video import VideoDVIPHY
 class _CRG(Module):
     def __init__(self, platform, sys_clk_freq):
         self.rst = Signal()
-        self.clock_domains.cd_sys = ClockDomain()
-        self.clock_domains.cd_por = ClockDomain(reset_less=True)
+        self.clock_domains.cd_sys = ClockDomain("sys")
+        self.clock_domains.cd_por = ClockDomain("por",reset_less=True)
 
         # # #
 
@@ -84,7 +84,7 @@ class Design(Module):
 
         d = silice.Design("../../projects/blinky/blinky.si",
                          ["NUM_LEDS=5"])
-        m = d.getUnit("test")
+        m = d.getUnit("main")
         leds = platform.request_all("user_led")
         inst = silice.migen.instantiate(
             m,
