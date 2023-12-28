@@ -8451,8 +8451,8 @@ void Algorithm::writeBlock(
                 w.out << "," << rewriteExpression(prefix, p.expression, a.__id, &block->context, ictx, FF_Q, true, _dependencies, _usage);
               }
             }
-            w.out << ");" << nxl;
           }
+          w.out << ");" << nxl;
         }
       }
     } {
