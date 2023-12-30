@@ -1,0 +1,15 @@
+unit test(output! uint8 a)
+{
+   always {
+     a = 1; // should become a temporary
+   }
+}
+
+unit main(output uint8 leds)
+{
+   algorithm {
+     
+     test t;
+     
+   }
+}

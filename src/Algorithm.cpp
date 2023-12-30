@@ -9412,6 +9412,7 @@ void Algorithm::writeAsModule(std::ostream& out, const t_instantiation_context &
       }
       // demote flip-flop and temporaries
       for (const auto &v : usage.ff_usage) {
+        // check vars
         if (m_VarNames.count(v.first)) { // variable?
           if (!(v.second & e_Q)) { // Q side is never used
             // demote flip-flop
@@ -9437,6 +9438,9 @@ void Algorithm::writeAsModule(std::ostream& out, const t_instantiation_context &
             }
           }
 #endif
+        }
+        // check outputs
+        if (!(v.second & e_Q)) { // Q side is never used
           if (hasNoFSM()) {
             // if there is no FSM, the algorithm is combinational and this output does not need to be registered
             if (m_OutputNames.count(v.first)) {
@@ -9447,7 +9451,7 @@ void Algorithm::writeAsModule(std::ostream& out, const t_instantiation_context &
           } else {
             // check if combinational output can be turned into a temporary
             if (m_OutputNames.count(v.first)) {
-              if ( m_Outputs.at(m_OutputNames.at(v.first)).usage == e_FlipFlop
+              if (m_Outputs.at(m_OutputNames.at(v.first)).usage == e_FlipFlop
                 && m_Outputs.at(m_OutputNames.at(v.first)).combinational) {
                 m_Outputs.at(m_OutputNames.at(v.first)).usage = e_Temporary;
               }
