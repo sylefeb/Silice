@@ -411,13 +411,13 @@ Algorithm::t_combinational_block *Algorithm::addBlock(
 
 // -------------------------------------------------
 
-std::string Algorithm::rewriteConstant(std::string cst) const
+std::string Algorithm::rewriteNumber(std::string cst) const
 {
   int width;
   std::string value;
   char base;
   bool negative;
-  splitConstant(cst, width, base, value, negative);
+  splitNumber(cst, width, base, value, negative);
   return (negative ? "-" : "") + std::to_string(width) + "'" + base + value;
 }
 
@@ -472,7 +472,7 @@ std::string Algorithm::gatherBitfieldValue(siliceParser::InitBitfieldContext* if
   for (auto ne : ifield->namedValue()) {
     verifyMemberBitfield(ne->name->getText(), F->second);
     named_values[ne->name->getText()] = make_pair(
-      (ne->constValue()->CONSTANT() != nullptr), // true if sized constant
+      (ne->constValue()->SIZED_NUMBER() != nullptr), // true if sized constant
       gatherConstValue(ne->constValue()));
   }
   // verify we have all required fields, and only them
@@ -1360,8 +1360,8 @@ void Algorithm::gatherDeclarationInstance(siliceParser::DeclarationInstanceConte
         std::string p = m->sparam()->IDENTIFIER()->getText();
         if (m->sparam()->NUMBER()) {
           nfo.specializations.params[p] = m->sparam()->NUMBER()->getText();
-        } else if (m->sparam()->CONSTANT()) {
-          nfo.specializations.params[p] = rewriteConstant(m->sparam()->CONSTANT()->getText());
+        } else if (m->sparam()->SIZED_NUMBER()) {
+          nfo.specializations.params[p] = rewriteNumber(m->sparam()->SIZED_NUMBER()->getText());
         } else {
           sl_assert(false);
         }
@@ -1503,7 +1503,22 @@ std::string Algorithm::encapsulateIdentifier(std::string var, bool read_access, 
 std::string Algorithm::vioAsDefine(const t_instantiation_context& ictx, const t_var_nfo& v, std::string value) const
 {
   std::string def;
-  def = (v.type_nfo.base_type == Int ? "$signed" : "") + string("(") + varBitWidth(v, ictx) + "\'(" + value + "))";
+  bool sized;
+  if (isNumber(value,sized)) { // NOTE: there seems to be an issue with yosys SystemVerilog sizing of consts, this creates 'clean' constants to avoid it
+    if (sized) {
+      int width; char base; std::string vl; bool negative;
+      splitNumber(value, width, base, vl, negative);
+      def = (negative ? "-" : "") + std::to_string(width) + "\'" + base + vl;
+    } else {
+      int i = atoi(value.c_str());
+      int w =i > 0 ? Utils::justHigherPow2(i) : 1;
+      def   = std::to_string(w) + "\'d" + value;
+    }
+  } else {
+    def = varBitWidth(v, ictx) + "\'(" + value + ")";
+  }
+  // encapsulate
+  def = (v.type_nfo.base_type == Int ? "$signed" : "") + string("(") + def + ")";
   return def;
 }
 
@@ -1643,8 +1658,8 @@ std::string Algorithm::rewriteExpression(
     if (term) {
       if (term->getSymbol()->getType() == siliceParser::IDENTIFIER) {
         return rewriteIdentifier(prefix, expr->getText(), "", bctx, ictx, sourceloc(term), ff, read_access, dependencies, _usage);
-      } else if (term->getSymbol()->getType() == siliceParser::CONSTANT) {
-        return rewriteConstant(expr->getText());
+      } else if (term->getSymbol()->getType() == siliceParser::SIZED_NUMBER) {
+        return rewriteNumber(expr->getText());
       } else if (term->getSymbol()->getType() == siliceParser::REPEATID) {
         if (__id == -1) {
           reportError(sourceloc(term), "__id used outside of repeat block");
@@ -1804,8 +1819,8 @@ bool Algorithm::isConst(antlr4::tree::ParseTree *expr, std::string& _const) cons
       if (atom->NUMBER()) {
         _const = atom->getText();
         return true;
-      } else if (atom->CONSTANT()) {
-        _const = rewriteConstant(atom->getText());
+      } else if (atom->SIZED_NUMBER()) {
+        _const = rewriteNumber(atom->getText());
         return true;
       } else if (atom->WIDTHOF()) {
         std::string vio = atom->base->getText() + (atom->member != nullptr ? "_" + atom->member->getText() : "");
@@ -1817,8 +1832,8 @@ bool Algorithm::isConst(antlr4::tree::ParseTree *expr, std::string& _const) cons
     } else {
       auto term = dynamic_cast<antlr4::tree::TerminalNode*>(expr);
       if (term) {
-        if (term->getSymbol()->getType() == siliceParser::CONSTANT) {
-          _const = rewriteConstant(term->getText());
+        if (term->getSymbol()->getType() == siliceParser::SIZED_NUMBER) {
+          _const = rewriteNumber(term->getText());
           return true;
         } else if (term->getSymbol()->getType() == siliceParser::NUMBER) {
           _const = term->getText();
@@ -1843,8 +1858,8 @@ bool Algorithm::isConst(antlr4::tree::ParseTree *expr, std::string& _const) cons
 
 std::string Algorithm::gatherConstValue(siliceParser::ConstValueContext* ival) const
 {
-  if (ival->CONSTANT() != nullptr) {
-    return rewriteConstant(ival->CONSTANT()->getText());
+  if (ival->SIZED_NUMBER() != nullptr) {
+    return rewriteNumber(ival->SIZED_NUMBER()->getText());
   } else if (ival->NUMBER() != nullptr) {
     std::string sign = ival->minus != nullptr ? "-" : "";
     return sign + ival->NUMBER()->getText();
@@ -7607,46 +7622,6 @@ void Algorithm::writeConstDeclarations(std::string prefix, t_writer_context &w,c
       }
     }
   }
-#if 0
-  for (const auto& v : m_Vars) {
-    if (v.usage != e_Const) continue;
-    if (v.table_size == 0) {
-      writeVerilogDeclaration(out, ictx, "wire", v, string(FF_CST) + prefix + v.name);
-    } else {
-      writeVerilogDeclaration(out, ictx, "wire", v, string(FF_CST) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + ":0]");
-    }
-    if (!v.do_not_initialize) {
-      if (v.table_size == 0) {
-        out << "assign " << FF_CST << prefix << v.name << " = " << varInitValue(v,ictx) << ';' << nxl;
-      } else {
-        sl_assert(v.type_nfo.base_type != Parameterized);
-        ForIndex(i, v.init_values.size()) {
-          out << "assign " << FF_CST << prefix << v.name << '[' << i << ']' << " = " << v.init_values[i] << ';' << nxl;
-        }
-      }
-    } else if (CONFIG.keyValues().count("reg_init_zero")) {
-      if (v.table_size == 0) {
-        // if this is an expression catcher, do not set to 0
-        // NOTE/FIXME: use assigned_as_wire==false instead?
-        bool skip = false;
-        for (auto ec : m_ExpressionCatchers) {
-          if (ec.second == v.name) {
-            skip = true;
-            break;
-          }
-        }
-        if (!v.assigned_as_wire) {
-          out << "assign " << FF_CST << prefix << v.name << " = 0;" << nxl;
-        }
-      } else {
-        sl_assert(v.type_nfo.base_type != Parameterized);
-        ForIndex(i, v.init_values.size()) {
-          out << "assign " << FF_CST << prefix << v.name << '[' << i << ']' << " = 0;" << nxl;
-        }
-      }
-    }
-  }
-#endif
 }
 
 // -------------------------------------------------

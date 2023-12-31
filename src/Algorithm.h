@@ -703,8 +703,8 @@ private:
     bool getVIONfo(std::string vio, t_var_nfo &_nfo) const;
     /// \brief checks whether an identifier is a group VIO
     bool isGroupVIO(std::string var) const;
-    /// \brief rewrites a constant
-    std::string rewriteConstant(std::string cst) const;
+    /// \brief rewrites a number
+    std::string rewriteNumber(std::string cst) const;
     /// \brief returns a string representing the widthof value
     std::string resolveWidthOf(std::string vio, const t_instantiation_context &ictx, const Utils::t_source_loc& srcloc) const override;
     /// \brief adds a combinational block to the list of blocks, performs book keeping

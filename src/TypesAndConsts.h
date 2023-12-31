@@ -60,11 +60,12 @@ namespace Silice
 
   /// \brief splits a type between base type and width
   void splitType(std::string type, t_type_nfo& _type_nfo);
-  /// \brief splits a constant between width, base and value
-  void splitConstant(std::string cst, int& _width, char& _base, std::string& _value, bool& _negative);
-  /// \brief fills the type info of a constant
-  void constantTypeInfo(std::string cst, t_type_nfo& _nfo);
-
+  /// \brief splits a number between width, base and value
+  void splitNumber(std::string cst, int& _width, char& _base, std::string& _value, bool& _negative);
+  /// \brief fills the type info of a number
+  void numberTypeInfo(std::string cst, t_type_nfo& _nfo);
+  /// \brief checks whether the string is a number
+  bool isNumber(std::string cst, bool& _sized);
 };
 
 // -------------------------------------------------
