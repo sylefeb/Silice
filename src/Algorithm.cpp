@@ -1511,14 +1511,15 @@ std::string Algorithm::vioAsDefine(const t_instantiation_context& ictx, const t_
       def = (negative ? "-" : "") + std::to_string(width) + "\'" + base + vl;
     } else {
       int i = atoi(value.c_str());
-      int w =i > 0 ? Utils::justHigherPow2(i) : 1;
+      int w = i > 0 ? (1+Utils::justHigherPow2(i)) : 1;
       def   = std::to_string(w) + "\'d" + value;
     }
   } else {
     def = varBitWidth(v, ictx) + "\'(" + value + ")";
   }
   // encapsulate
-  def = (v.type_nfo.base_type == Int ? "$signed" : "") + string("(") + def + ")";
+  def = /*(v.type_nfo.base_type == Int ? "$signed" : "") + */ string("(") + def + ")";
+  //    ^^^^^^ should be there, but in cases triggers asserts in yosys (https://github.com/YosysHQ/yosys/blob/df65634e07d283202bebfae2e2110724a4d8003f/frontends/ast/genrtlil.cc#L2067)
   return def;
 }
 
