@@ -1,0 +1,22 @@
+
+unit foo(inout uint2 a)
+{
+  always {
+    a.oenable = 2b11;
+    a.o       = 2b01;
+  }
+}
+
+unit main(inout uint2 tmp,output uint8 leds)
+{
+  
+  foo f(
+    a <:> tmp
+  );
+  
+  algorithm {
+    uint1 p = tmp.i & 1b1; // error: tmp is bound
+    __display("hello world");
+  }
+
+}

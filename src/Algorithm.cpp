@@ -1043,15 +1043,16 @@ void Algorithm::getBindings(
         // check if this is a group binding
         if ((bindings->bpBinding()->BDEFINE() != nullptr || bindings->bpBinding()->BDEFINEDBL() != nullptr)) {
           // verify right is an identifier
+          std::string vio;
           if (bindings->bpBinding()->right->IDENTIFIER() == nullptr) {
-            reportError(
-              sourceloc(bindings->bpBinding()),
-              "expecting an identifier on the right side of a group binding");
+            vio = determineAccessedVar(bindings->bpBinding()->right->access(), nullptr);
+          } else {
+            vio = bindings->bpBinding()->right->IDENTIFIER()->getText();
           }
           // inout pins do not bind as groups
-          if (!isInOut(bindings->bpBinding()->right->IDENTIFIER()->getText())) {
+          if (!isInOut(vio)) {
             // check if this is a group
-            auto G = m_VIOGroups.find(bindings->bpBinding()->right->getText());
+            auto G = m_VIOGroups.find(vio);
             if (G != m_VIOGroups.end()) {
               // unfold all bindings, select direction automatically
               // NOTE: some members may not be used, these are excluded during auto-binding
@@ -1059,7 +1060,7 @@ void Algorithm::getBindings(
                 string member = v;
                 t_binding_nfo nfo;
                 nfo.left = bindings->bpBinding()->left->getText() + "_" + member;
-                nfo.right = bindings->bpBinding()->right->IDENTIFIER()->getText() + "_" + member;
+                nfo.right = vio + "_" + member;
                 nfo.srcloc = sourceloc(bindings->bpBinding());
                 nfo.dir = (bindings->bpBinding()->BDEFINE() != nullptr) ? e_Auto : e_AutoQ;
                 _vec_bindings.push_back(nfo);
@@ -1528,7 +1529,15 @@ std::string Algorithm::rewriteIdentifier(
     if (isInput(var)) {
       return encapsulateIdentifier(var, read_access, ALG_INPUT + prefix + var, suffix);
     } else if (isInOut(var)) {
-      reportError(srcloc, "cannot use inouts directly in expressions");
+      if (isInOutAccessed(var)) { // indicates the inout is used in expressions (outside of binding)
+        if (m_VIOToBlueprintInOutsBound.count(var)) {
+          reportError(srcloc, "cannot bind inout %s (already used in unit body)", var.c_str());
+        } else {
+          reportError(srcloc, "cannot use inout %s as-is in expression (use .i, .o or .oenable)", var.c_str());
+        }
+      } else {
+        return encapsulateIdentifier(var, read_access, ALG_INOUT + prefix + var, suffix);
+      }
     } else if (isOutput(var)) {
       auto usage = m_Outputs.at(m_OutputNames.at(var)).usage;
       if (usage == e_Temporary) {
@@ -6078,6 +6087,8 @@ void Algorithm::determineBlueprintBoundVIO(const t_instantiation_context& ictx)
             {
               int iobw = -1;
               string obw = ib.second.blueprint->resolveWidthOf(b.left, ictx, sourceloc(access));
+              //                                                      ^^^^^^
+              /// TODO NOTE: this should produce an instantiation context to support parameterized outputs
               try {
                 iobw = stoi(obw);
               } catch (...) {
@@ -6127,8 +6138,9 @@ void Algorithm::determineBlueprintBoundVIO(const t_instantiation_context& ictx)
           reportError(b.srcloc, "vio '%s' is already bound as the output of another instance", bindingRightIdentifier(b).c_str());
         }
         // record wire name for this inout
+        /// TODO NOTE: move width check here? (curently in writeAsModule, L9720)
         std::string bindpoint = ib.second.instance_prefix + "_" + b.left;
-        m_BlueprintInOutsBoundToVIO[bindpoint] = bindingRightIdentifier(b);
+        m_BlueprintInOutsBoundToVIO[bindpoint] = b.right;
         m_VIOToBlueprintInOutsBound[bindingRightIdentifier(b)] = bindpoint;
       }
     }
@@ -7075,6 +7087,10 @@ std::tuple<t_type_nfo, int> Algorithm::writeIOAccess(
     auto G = m_VIOGroups.find(base);
     if (G != m_VIOGroups.end()) {
       verifyMemberGroup(member, G->second);
+      // verifiy not a bound inout
+      if (m_VIOToBlueprintInOutsBound.count(base)) {
+        reportError(sourceloc(ioaccess),"cannot access bound inout '%s'", base.c_str());
+      }
       // produce the variable name
       std::string vname = base + "_" + member;
       // write
@@ -9323,6 +9339,15 @@ void Algorithm::addToInstantiationContext(const Algorithm *alg, std::string var,
 
 // -------------------------------------------------
 
+bool Algorithm::isInOutAccessed(std::string var) const
+{
+  return m_Vars.at(m_VarNames.at(var + "_o"      )).access != e_NotAccessed
+    ||   m_Vars.at(m_VarNames.at(var + "_oenable")).access != e_NotAccessed
+    ||   m_Vars.at(m_VarNames.at(var + "_i"      )).access != e_NotAccessed;
+}
+
+// -------------------------------------------------
+
 void Algorithm::makeBlueprintInstantiationContext(const t_instanced_nfo& nfo, const t_instantiation_context& ictx, t_instantiation_context& _local_ictx) const
 {
   _local_ictx = ictx;
@@ -9680,11 +9705,37 @@ void Algorithm::writeAsModule(std::ostream& out, const t_instantiation_context& 
       std::string bindpoint = nfo.instance_prefix + "_" + os.name;
       const auto& vio = m_BlueprintInOutsBoundToVIO.find(bindpoint);
       if (vio != m_BlueprintInOutsBoundToVIO.end()) {
-        if (isInOut(vio->second)) {
-          out << '.' << nfo.blueprint->inoutPortName(os.name) << '(' << ALG_INOUT << "_" << vio->second << ")";
+        out << '.' << nfo.blueprint->inoutPortName(os.name) << '(';
+        if (std::holds_alternative<std::string>(vio->second)) {
+          std::string bndid = std::get<std::string>(vio->second);
+          if (isInOut(bndid)) {
+            out << ALG_INOUT << "_" << bndid;
+          } else {
+            out << WIRE << "_" << bndid;
+          }
         } else {
-          out << '.' << nfo.blueprint->inoutPortName(os.name) << '(' << WIRE << "_" << vio->second << ")";
+          // verify width (mismatch not possible with inouts)
+          string iow = nfo.blueprint->resolveWidthOf(os.name, ictx, nfo.srcloc);
+          //                                          ^^^^^^
+          /// TODO NOTE: this should produce an instantiation context to support parameterized inouts!
+          int iiow = -1;
+          try {
+            iiow = stoi(iow);
+          } catch (...) {
+            reportError(nfo.srcloc, "cannot determine width of inout '%s'", os.name.c_str());
+          }
+          auto tw = determineAccessTypeAndWidth(nullptr, std::get<siliceParser::AccessContext*>(vio->second), nullptr);
+          if (tw.width != iiow) {
+            reportError(nfo.srcloc, "cannot bind to inout of different width");
+          }
+          // write access
+          t_vio_dependencies _;
+          writeAccess("_", out, false, std::get<siliceParser::AccessContext*>(vio->second),
+            -1, nullptr, ictx,
+            FF_D, _, ff_input_bindings_usage
+          );
         }
+        out << ")";
       } else {
         reportError(nfo.srcloc, "cannot find algorithm inout binding '%s'", os.name.c_str());
       }

@@ -114,7 +114,7 @@ module top(
   output PMOD_B8,
 `endif
 `ifdef UART
-  output PMOD_B9,  // TX
+  output PMOD_B7,  // TX
   input  PMOD_B10, // RX
 `endif
 `ifdef UART2

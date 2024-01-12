@@ -199,12 +199,15 @@ private:
     /// \brief all inout names, map contains index in m_InOuts
     std::unordered_map<std::string, int > m_InOutNames;
 
+    /// \brief binding point, identifier or access
+    typedef std::variant<std::string, siliceParser::AccessContext*> t_binding_point;
+
     /// \brief VIO bound to blueprint outputs (wires) (vio name => wire name)
-    std::unordered_map<std::string, std::string>  m_VIOBoundToBlueprintOutputs;
+    std::unordered_map<std::string, std::string>      m_VIOBoundToBlueprintOutputs;
     /// \brief module/algorithms inouts bound to VIO (inout => vio name)
-    std::unordered_map<std::string, std::string > m_BlueprintInOutsBoundToVIO;
+    std::unordered_map<std::string, t_binding_point > m_BlueprintInOutsBoundToVIO;
     /// \brief VIO bound to module/algorithms inouts (vio name => inout)
-    std::unordered_map<std::string, std::string > m_VIOToBlueprintInOutsBound;
+    std::unordered_map<std::string, std::string >     m_VIOToBlueprintInOutsBound;
 
     // forward definition of combinational blocks
     class t_combinational_block;
@@ -225,9 +228,6 @@ private:
 
     /// \brief enum binding direction
     enum e_BindingDir { e_Left, e_LeftQ, e_Right, e_BiDir, e_Auto, e_AutoQ };
-
-    /// \brief binding point, identifier or access
-    typedef std::variant<std::string, siliceParser::AccessContext*> t_binding_point;
 
     /// \brief records info about variable bindings
     typedef struct
@@ -548,7 +548,7 @@ private:
       bool                                 no_skip  = false;     // true the state cannot be skipped, even if empty
       int                                  state_id = -1;        // state id, when assigned, -1 otherwise
       int                                  parent_state_id = -1; // parent state id (closest state before)
-      std::vector<t_instr_nfo>             decltrackers;            // list of declaration expressions within block (typically bound exprs, aka wires)
+      std::vector<t_instr_nfo>             decltrackers;         // list of declaration expressions within block (typically bound exprs, aka wires)
       std::vector<t_instr_nfo>             instructions;         // list of instructions within block
       t_end_action                        *end_action = nullptr; // end action to perform
       t_combinational_block_context        context;              // block context: subroutine, parent, etc.
@@ -698,6 +698,8 @@ private:
     bool getVIONfo(std::string vio, t_var_nfo &_nfo) const;
     /// \brief checks whether an identifier is a group VIO
     bool isGroupVIO(std::string var) const;
+    /// \brief returns whether an inout is used by the unit (accessed)
+    bool isInOutAccessed(std::string var) const;
     /// \brief rewrites a constant
     std::string rewriteConstant(std::string cst) const;
     /// \brief returns a string representing the widthof value
