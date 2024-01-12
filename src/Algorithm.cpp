@@ -1271,7 +1271,10 @@ void Algorithm::instantiateBlueprint(t_instanced_nfo& _nfo, const t_instantiatio
     cerr << "instantiating unit '" << _nfo.blueprint_name << "' as '" << _nfo.instance_name << "'\n";
     // parse the unit ios
     try {
-      auto cbp = ictx.compiler->parseUnitIOs(_nfo.blueprint_name);
+      // instantiation context for IO parsing
+      t_instantiation_context local_ictx;
+      makeBlueprintInstantiationContext(_nfo, ictx, local_ictx);
+      auto cbp = ictx.compiler->parseUnitIOs(_nfo.blueprint_name, local_ictx);
       _nfo.parsed_unit = cbp;
       _nfo.blueprint = cbp.unit;
     } catch (Fatal&) {
@@ -1289,15 +1292,9 @@ void Algorithm::instantiateBlueprint(t_instanced_nfo& _nfo, const t_instantiatio
   // finish the unit if non static
   if (!_nfo.parsed_unit.unit.isNull()) {
     // instantiation context
-    t_instantiation_context local_ictx = ictx;
-    for (auto spc : _nfo.specializations.autos) {
-      local_ictx.autos[spc.first] = spc.second; // makes sure new specializations overwrite any existing ones
-    }
-    for (auto spc : _nfo.specializations.params) {
-      local_ictx.params[spc.first] = spc.second;
-    }
+    t_instantiation_context local_ictx;
     // update the instantiation context now that we have the unit ios
-    makeBlueprintInstantiationContext(_nfo, local_ictx, local_ictx);
+    makeBlueprintInstantiationContext(_nfo, ictx, local_ictx);
     // record the specializations
     _nfo.specializations = local_ictx;
     // resolve instanced blueprint inputs/outputs var types
@@ -2911,7 +2908,8 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(
     if (C == m_KnownCircuitries.end()) {
       // attempt dynamic instantiation
       try {
-        auto result = _context->ictx->compiler->parseCircuitryIOs(name);
+        sl_assert(_context->ictx != nullptr);
+        auto result = _context->ictx->compiler->parseCircuitryIOs(name, *_context->ictx);
         m_InstancedCircuitries.push_back(result);
         ioList = result.ioList;
       } catch (Fatal&) {
@@ -6085,10 +6083,12 @@ void Algorithm::determineBlueprintBoundVIO(const t_instantiation_context& ictx)
             // check width of output vs range width
             // -> get output width if possible
             {
+              // produce instantiation context
+              t_instantiation_context local_ictx;
+              makeBlueprintInstantiationContext(ib.second, ictx, local_ictx);
+              // verify width
               int iobw = -1;
-              string obw = ib.second.blueprint->resolveWidthOf(b.left, ictx, sourceloc(access));
-              //                                                      ^^^^^^
-              /// TODO NOTE: this should produce an instantiation context to support parameterized outputs
+              string obw = ib.second.blueprint->resolveWidthOf(b.left, local_ictx, sourceloc(access));
               try {
                 iobw = stoi(obw);
               } catch (...) {
@@ -6137,8 +6137,26 @@ void Algorithm::determineBlueprintBoundVIO(const t_instantiation_context& ictx)
         if (m_VIOBoundToBlueprintOutputs.find(bindingRightIdentifier(b)) != m_VIOBoundToBlueprintOutputs.end()) {
           reportError(b.srcloc, "vio '%s' is already bound as the output of another instance", bindingRightIdentifier(b).c_str());
         }
+        // check width if it is an access
+        auto access = std::get<siliceParser::AccessContext*>(b.right);
+        if (access) {
+          // produce instantiation context
+          t_instantiation_context local_ictx;
+          makeBlueprintInstantiationContext(ib.second, ictx, local_ictx);
+          // verify width (mismatch not possible with inouts)
+          string iow = ib.second.blueprint->resolveWidthOf(b.left, local_ictx, b.srcloc);
+          int iiow = -1;
+          try {
+            iiow = stoi(iow);
+          } catch (...) {
+            reportError(b.srcloc, "cannot determine width of inout '%s'", b.left.c_str());
+          }
+          auto tw = determineAccessTypeAndWidth(nullptr, access, nullptr);
+          if (tw.width != iiow) {
+            reportError(b.srcloc, "cannot bind to inout of different width");
+          }
+        }
         // record wire name for this inout
-        /// TODO NOTE: move width check here? (curently in writeAsModule, L9720)
         std::string bindpoint = ib.second.instance_prefix + "_" + b.left;
         m_BlueprintInOutsBoundToVIO[bindpoint] = b.right;
         m_VIOToBlueprintInOutsBound[bindingRightIdentifier(b)] = bindpoint;
@@ -9351,58 +9369,67 @@ bool Algorithm::isInOutAccessed(std::string var) const
 void Algorithm::makeBlueprintInstantiationContext(const t_instanced_nfo& nfo, const t_instantiation_context& ictx, t_instantiation_context& _local_ictx) const
 {
   _local_ictx = ictx;
-  // parameters for parameterized variables
-  ForIndex(i, nfo.blueprint->parameterized().size()) {
-    string var = nfo.blueprint->parameterized()[i];
-    if (varIsInInstantiationContext(var, nfo.specializations)) {
-      // var has been specialized explicitly already
-      continue;
-    }
-    bool found = false;
-    auto io_nfo = nfo.blueprint->getVIODefinition(var, found);
-    sl_assert(found);
-    if (io_nfo.type_nfo.same_as.empty()) {
-      // a binding is needed to parameterize this io, find it
-      found = false;
-      const auto &b = findBindingLeft(var, nfo.bindings, found);
-      if (!found) {
-        reportError(nfo.srcloc, "io '%s' of instance '%s' is not bound nor specialized, cannot automatically determine it",
-          var.c_str(), nfo.instance_name.c_str());
-      }
-      std::string bound = bindingRightIdentifier(b);
-      t_var_nfo bnfo;
-      if (!getVIONfo(bound, bnfo)) {
-        continue; // NOTE: This is fine, we might be missing a binding that will be later resolved.
-                  //       Later (when writing the output) this is strictly asserted.
-                  //       This will only be an issue if the bound var is actually a paramterized var,
-                  //       however the designer is expected to worry about instantiation order in such cases.
-      }
-      if (bnfo.table_size != 0) {
-        // parameterized vars cannot be tables
+  for (auto spc : nfo.specializations.autos) {
+    _local_ictx.autos [spc.first] = spc.second; // makes sure new specializations overwrite any existing ones
+  }
+  for (auto spc : nfo.specializations.params) {
+    _local_ictx.params[spc.first] = spc.second;
+  }
+  // if the blueprint is defined (not the case before IOs are parsed)
+  if (!nfo.blueprint.isNull()) {
+    // parameters for parameterized variables
+    ForIndex(i, nfo.blueprint->parameterized().size()) {
+      string var = nfo.blueprint->parameterized()[i];
+      if (varIsInInstantiationContext(var, nfo.specializations)) {
+        // var has been specialized explicitly already
         continue;
       }
-      // add to context
-      addToInstantiationContext(this, var, bnfo, _local_ictx, _local_ictx);
+      bool found = false;
+      auto io_nfo = nfo.blueprint->getVIODefinition(var, found);
+      sl_assert(found);
+      if (io_nfo.type_nfo.same_as.empty()) {
+        // a binding is needed to parameterize this io, find it
+        found = false;
+        const auto& b = findBindingLeft(var, nfo.bindings, found);
+        if (!found) {
+          reportError(nfo.srcloc, "io '%s' of instance '%s' is not bound nor specialized, cannot automatically determine it",
+            var.c_str(), nfo.instance_name.c_str());
+        }
+        std::string bound = bindingRightIdentifier(b);
+        t_var_nfo bnfo;
+        if (!getVIONfo(bound, bnfo)) {
+          continue; // NOTE: This is fine, we might be missing a binding that will be later resolved.
+          //       Later (when writing the output) this is strictly asserted.
+          //       This will only be an issue if the bound var is actually a paramterized var,
+          //       however the designer is expected to worry about instantiation order in such cases.
+        }
+        if (bnfo.table_size != 0) {
+          // parameterized vars cannot be tables
+          continue;
+        }
+        // add to context
+        addToInstantiationContext(this, var, bnfo, _local_ictx, _local_ictx);
+      }
+    }
+    // parameters of non-parameterized ios (for pre-processor widthof/signed)
+    Algorithm* alg = dynamic_cast<Algorithm*>(nfo.blueprint.raw());
+    for (auto io : nfo.blueprint->inputs()) {
+      if (io.type_nfo.base_type != Parameterized || !io.type_nfo.same_as.empty()) {
+        addToInstantiationContext(alg, io.name, io, _local_ictx, _local_ictx);
+      }
+    }
+    for (auto io : nfo.blueprint->outputs()) {
+      if (io.type_nfo.base_type != Parameterized || !io.type_nfo.same_as.empty()) {
+        addToInstantiationContext(alg, io.name, io, _local_ictx, _local_ictx);
+      }
+    }
+    for (auto io : nfo.blueprint->inOuts()) {
+      if (io.type_nfo.base_type != Parameterized || !io.type_nfo.same_as.empty()) {
+        addToInstantiationContext(alg, io.name, io, _local_ictx, _local_ictx);
+      }
     }
   }
-  // parameters of non-parameterized ios (for pre-processor widthof/signed)
-  Algorithm *alg = dynamic_cast<Algorithm*>(nfo.blueprint.raw());
-  for (auto io : nfo.blueprint->inputs()) {
-    if (io.type_nfo.base_type != Parameterized || !io.type_nfo.same_as.empty()) {
-      addToInstantiationContext(alg, io.name, io, _local_ictx, _local_ictx);
-    }
-  }
-  for (auto io : nfo.blueprint->outputs()) {
-    if (io.type_nfo.base_type != Parameterized || !io.type_nfo.same_as.empty()) {
-      addToInstantiationContext(alg, io.name, io, _local_ictx, _local_ictx);
-    }
-  }
-  for (auto io : nfo.blueprint->inOuts()) {
-    if (io.type_nfo.base_type != Parameterized || !io.type_nfo.same_as.empty()) {
-      addToInstantiationContext(alg, io.name, io, _local_ictx, _local_ictx);
-    }
-  }
-  // instance context
+  // instance name
   _local_ictx.instance_name = (ictx.instance_name.empty() ? ictx.top_name : ictx.instance_name) + "_" + nfo.instance_name;
 }
 
@@ -9714,20 +9741,6 @@ void Algorithm::writeAsModule(std::ostream& out, const t_instantiation_context& 
             out << WIRE << "_" << bndid;
           }
         } else {
-          // verify width (mismatch not possible with inouts)
-          string iow = nfo.blueprint->resolveWidthOf(os.name, ictx, nfo.srcloc);
-          //                                          ^^^^^^
-          /// TODO NOTE: this should produce an instantiation context to support parameterized inouts!
-          int iiow = -1;
-          try {
-            iiow = stoi(iow);
-          } catch (...) {
-            reportError(nfo.srcloc, "cannot determine width of inout '%s'", os.name.c_str());
-          }
-          auto tw = determineAccessTypeAndWidth(nullptr, std::get<siliceParser::AccessContext*>(vio->second), nullptr);
-          if (tw.width != iiow) {
-            reportError(nfo.srcloc, "cannot bind to inout of different width");
-          }
           // write access
           t_vio_dependencies _;
           writeAccess("_", out, false, std::get<siliceParser::AccessContext*>(vio->second),
