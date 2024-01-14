@@ -6138,8 +6138,8 @@ void Algorithm::determineBlueprintBoundVIO(const t_instantiation_context& ictx)
           reportError(b.srcloc, "vio '%s' is already bound as the output of another instance", bindingRightIdentifier(b).c_str());
         }
         // check width if it is an access
-        auto access = std::get<siliceParser::AccessContext*>(b.right);
-        if (access) {
+        if (std::holds_alternative<siliceParser::AccessContext*>(b.right)) {
+          auto access = std::get<siliceParser::AccessContext*>(b.right);
           // produce instantiation context
           t_instantiation_context local_ictx;
           makeBlueprintInstantiationContext(ib.second, ictx, local_ictx);
