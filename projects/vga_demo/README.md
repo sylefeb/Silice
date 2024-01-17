@@ -1,4 +1,4 @@
-# VGA demo framework, with examples
+# Racing the beam in VGA, framework and demos!
 
 This folder contains a small framework to create VGA demos, shader-style.
 All these demos are racing the beam, e.g. the picture is produced while the VGA
