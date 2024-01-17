@@ -1109,7 +1109,7 @@ algorithm main()
 So what happens? It might seem that `a = a + 1` is the problem here, as
 it writes as a cyclic dependency. In fact, that is not the sole cause.
 On its own, this expression is perfectly fine: for each variable Silice
-tracks to versions, the value at the cycle start and the value being modified (corresponding to a hardware flip-flip DQ pair). So `a = a + 1` in fact means
+tracks two versions: the value at the cycle start and the value being modified (corresponding to a hardware flip-flip DQ pair). So `a = a + 1` in fact means
 *a*<sub>current</sub> = *a*<sub>previous</sub> + 1. In fact, the code describes the circuit to update *a*<sub>previous</sub> from *a*<sub>current</sub>.
 
 The problem here comes from the prior assignment to *a*, `a = b + 1`.
