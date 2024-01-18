@@ -68,6 +68,8 @@ private:
 
   int                     m_x_cur   = 0;
   int                     m_y_cur   = 0;
+  
+  bool                    m_row_major = false;
 
   LibSL::Math::v4b        m_rgb;
 
@@ -77,6 +79,7 @@ private:
 
   void cmd_idle_ILI9341();
   void cmd_mode_ILI9341();
+  void cmd_madctl_ILI9341();
 
   void cmd_start_end(int *p_start,int *p_end,int nbytes);
   void cmd_write_ram();
