@@ -130,12 +130,24 @@ if(WIN32)
 target_link_libraries(silice shlwapi)
 endif(WIN32)
 
-install(TARGETS silice RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/bin)
+# install and paths
+
+if (DEVBUILD)
+
+install(TARGETS silice    RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/bin)
 install(TARGETS libsilice ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/lib)
-install(TARGETS lua ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/lib)
-install(TARGETS lua ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/lib)
-install(TARGETS luabind ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/lib)
-install(TARGETS antlr4_static ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/lib)
+
+else()
+
+install(TARGETS   silice               RUNTIME)
+install(TARGETS   libsilice            ARCHIVE)
+install(FILES     bin/silice-make.py   DESTINATION bin/)
+install(FILES     bin/report-cycles.py DESTINATION bin/)
+install(DIRECTORY frameworks           DESTINATION share/silice/frameworks)
+
+endif()
+
+add_definitions(-DFRAMEWORKS_DEFAULT_PATH=\"${CMAKE_INSTALL_PREFIX}/share/silice/frameworks\")
 
 # compiler checks
 
