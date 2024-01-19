@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.5)
 project(silice)
 
 INCLUDE_DIRECTORIES(
@@ -145,7 +145,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" AND
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wno-attributes -Wno-deprecated-declarations")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=format -Werror=format-security")
 endif()
 
 

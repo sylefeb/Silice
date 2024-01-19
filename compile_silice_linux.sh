@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if ! type "javac" > /dev/null; then
-  echo "Silice compilation requires packages default-jre and default-jdk"
+  echo "Silice compilation requires javac (typically in package default-jdk or jdk-openjdk)"
   exit
 fi
 

@@ -38,7 +38,7 @@ add_dependencies(antlr4_static make_lib_output_dir)
 
 if(CMAKE_SYSTEM_NAME MATCHES "Linux")
   # target_link_libraries(antlr4_shared ${UUID_LIBRARIES})
-  target_link_libraries(antlr4_static ${UUID_LIBRARIES})
+  # target_link_libraries(antlr4_static ${UUID_LIBRARIES})
 elseif(APPLE)
   # target_link_libraries(antlr4_shared ${COREFOUNDATION_LIBRARY})
   target_link_libraries(antlr4_static ${COREFOUNDATION_LIBRARY})
