@@ -6,7 +6,7 @@ Make sure to have python3 and the package termcolor installed
 
 ## Compiling Silice
 
-Install the following packages: `default-jre default-jdk git uuid ossp-uuid`, then:
+Install the following packages: `java git ossp-uuid`, then:
 
 ```
 git clone --recurse-submodules https://github.com/sylefeb/Silice.git

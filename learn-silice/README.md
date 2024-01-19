@@ -605,7 +605,7 @@ Hello world, from a second cycle
 The unit starts as usual (`unit main(output uint8 leds) { ... }`) but then contains
 an algorithm block: `algorithm { ... }`.
 
-Contrary the always blocks, algorithm blocks may contain *multi-cycle constructs*.
+Contrary to the `always` blocks, `algorithm` blocks may contain *multi-cycle constructs*.
 
 Here for instance, we are displaying a first message when the algorithm is launched
 (the `main` algorithm automatically starts): `__display("Hello world, from a first cycle");`.
@@ -657,7 +657,7 @@ In Silice you can declare and use arrays like this:
 Such an array is implemented with logic: internally the circuit produces
 one register per table entry, and then generates a selection circuitry
 that selects where to read/write from the index. That's ok for very small
-array, but this quickly this circuitry becomes large and slow.
+array, but this circuitry quickly becomes large and slow.
 
 To circumvent this, FPGAs include specialized memory, called *BRAM*. A BRAM being
 a memory it needs a bit of time to retrieve data. However, FPGA BRAMs are *very*

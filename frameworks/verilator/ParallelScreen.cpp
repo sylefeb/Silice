@@ -104,6 +104,9 @@ void ParallelScreen::cmd_idle_ILI9341()
       case 0x3A:
         m_command = std::bind( &ParallelScreen::cmd_mode_ILI9341, this );
         break;
+      case 0x36:
+        m_command = std::bind( &ParallelScreen::cmd_madctl_ILI9341, this );
+        break;
       default:
         break;
     }
@@ -117,6 +120,19 @@ void ParallelScreen::cmd_mode_ILI9341()
   if (m_byte != 0x55) {
     fprintf(stderr,"ParallelScreen error, only supported mode on ILI9341 is 16 bits per pixel (got 0x%x, expected 0x55)\n");
     exit(-1);
+  }
+  set_idle();
+}
+
+// ----------------------------------------------------------------------------
+
+void ParallelScreen::cmd_madctl_ILI9341()
+{
+  if ((m_byte & 0x20) != 0) {
+    fprintf(stdout,"screen in row major mode\n");
+    m_row_major = true;
+  } else {
+    m_row_major = false;
   }
   set_idle();
 }
@@ -151,8 +167,9 @@ void ParallelScreen::cmd_start_end(int *p_start,int *p_end,int nbytes)
 void ParallelScreen::cmd_write_ram()
 {
   if (!m_dc) {
-    // exit
-    set_idle();
+    // command
+    cmd_idle_ILI9341();
+    return;
   }
   if (m_step == 0) {
     // first time
@@ -178,13 +195,25 @@ void ParallelScreen::cmd_write_ram()
   if (m_step > 2) {
     // move to next pixel
     m_step = 1;
-    ++ m_y_cur;
-    if (m_y_cur > m_y_end) {
-      m_y_cur = m_y_start;
+    if (!m_row_major) {
+      ++ m_y_cur;
+      if (m_y_cur > m_y_end) {
+        m_y_cur = m_y_start;
+        ++ m_x_cur;
+        if (m_x_cur > m_x_end) {
+          m_x_cur = m_x_start;
+          m_framebuffer_changed = true;
+        }
+      }
+    } else {
       ++ m_x_cur;
-      if (m_x_cur > m_x_end) {
-        m_x_cur = m_x_start;
-        m_framebuffer_changed = true;
+      if (m_x_cur > m_y_end) {
+        m_x_cur = m_y_start;
+        ++ m_y_cur;
+        if (m_y_cur > m_x_end) {
+          m_y_cur = m_x_start;
+          m_framebuffer_changed = true;
+        }
       }
     }
   }

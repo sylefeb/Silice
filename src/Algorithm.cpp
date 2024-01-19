@@ -6138,8 +6138,8 @@ void Algorithm::determineBlueprintBoundVIO(const t_instantiation_context& ictx)
           reportError(b.srcloc, "vio '%s' is already bound as the output of another instance", bindingRightIdentifier(b).c_str());
         }
         // check width if it is an access
-        auto access = std::get<siliceParser::AccessContext*>(b.right);
-        if (access) {
+        if (std::holds_alternative<siliceParser::AccessContext*>(b.right)) {
+          auto access = std::get<siliceParser::AccessContext*>(b.right);
           // produce instantiation context
           t_instantiation_context local_ictx;
           makeBlueprintInstantiationContext(ib.second, ictx, local_ictx);
@@ -9413,19 +9413,21 @@ void Algorithm::makeBlueprintInstantiationContext(const t_instanced_nfo& nfo, co
     }
     // parameters of non-parameterized ios (for pre-processor widthof/signed)
     Algorithm* alg = dynamic_cast<Algorithm*>(nfo.blueprint.raw());
-    for (auto io : nfo.blueprint->inputs()) {
-      if (io.type_nfo.base_type != Parameterized || !io.type_nfo.same_as.empty()) {
-        addToInstantiationContext(alg, io.name, io, _local_ictx, _local_ictx);
+    if (alg != nullptr) {
+      for (auto io : nfo.blueprint->inputs()) {
+        if (io.type_nfo.base_type != Parameterized || !io.type_nfo.same_as.empty()) {
+          addToInstantiationContext(alg, io.name, io, _local_ictx, _local_ictx);
+        }
       }
-    }
-    for (auto io : nfo.blueprint->outputs()) {
-      if (io.type_nfo.base_type != Parameterized || !io.type_nfo.same_as.empty()) {
-        addToInstantiationContext(alg, io.name, io, _local_ictx, _local_ictx);
+      for (auto io : nfo.blueprint->outputs()) {
+        if (io.type_nfo.base_type != Parameterized || !io.type_nfo.same_as.empty()) {
+          addToInstantiationContext(alg, io.name, io, _local_ictx, _local_ictx);
+        }
       }
-    }
-    for (auto io : nfo.blueprint->inOuts()) {
-      if (io.type_nfo.base_type != Parameterized || !io.type_nfo.same_as.empty()) {
-        addToInstantiationContext(alg, io.name, io, _local_ictx, _local_ictx);
+      for (auto io : nfo.blueprint->inOuts()) {
+        if (io.type_nfo.base_type != Parameterized || !io.type_nfo.same_as.empty()) {
+          addToInstantiationContext(alg, io.name, io, _local_ictx, _local_ictx);
+        }
       }
     }
   }
