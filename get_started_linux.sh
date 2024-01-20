@@ -13,6 +13,7 @@ then
 	echo "Exiting."
 	exit
 fi
+echo ""
 
 # -------------- install packages ----------------------------
 # attempt to guess
