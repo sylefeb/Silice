@@ -14,12 +14,10 @@ SRC_FILE=`cygpath $1`
 *)
 esac
 
-LDFLAGS="-LDFLAGS --static "
-
 # LDFLAGS for OpenGL (VGA / SPIscreen)
 case "$(uname -s)" in
 MINGW*)
-LDFLAGS+="-LDFLAGS -lopengl32 -LDFLAGS -lglfw3 -LDFLAGS -lgdi32"
+LDFLAGS+="-LDFLAGS --static -LDFLAGS -lopengl32 -LDFLAGS -lglfw3 -LDFLAGS -lgdi32"
 ;;
 Darwin*)
 #nproc doesn't work on mac, so alias an equivalent command
@@ -28,7 +26,7 @@ alias nproc="sysctl -n hw.logicalcpu"
 LDFLAGS+='-LDFLAGS -framework -LDFLAGS OpenGL -LDFLAGS -framework -LDFLAGS glfw3 -LDFLAGS -pthread'
 ;;
 *)
-LDFLAGS+="-LDFLAGS -lGL -LDFLAGS -lglfw3 -LDFLAGS -pthread"
+LDFLAGS+="-LDFLAGS -lGL -LDFLAGS -lglfw -LDFLAGS -pthread"
 ;;
 esac
 
@@ -79,7 +77,7 @@ if [[ ! -z "${NO_BUILD}" ]]; then
   exit
 fi
 
-LIBSL_DIR=$FRAMEWORKS_DIR../src/libs/LibSL-small/src/LibSL/
+LIBSL_DIR=$FRAMEWORKS_DIR/../src/libs/LibSL-small/src/LibSL/
 VERILATOR_LIB_DIR=$FRAMEWORKS_DIR/verilator/
 
 echo "LIBSL_DIR is set to ${LIBSL_DIR}"
