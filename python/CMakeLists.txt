@@ -29,9 +29,9 @@ add_subdirectory(pybind11)
 
 pybind11_add_module(_silice MODULE pysilice.cpp)
 
-target_link_libraries(_silice libsilice lua luabind antlr4_static)
+target_link_libraries(_silice PRIVATE libsilice lua luabind antlr4_static)
 if(WIN32)
-target_link_libraries(_silice shlwapi)
+target_link_libraries(_silice PRIVATE shlwapi)
 endif(WIN32)
 
 target_compile_definitions(_silice PRIVATE VERSION_INFO="0.1")
@@ -51,3 +51,4 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     target_link_libraries(_silice stdc++fs)
   endif()
 endif()
+

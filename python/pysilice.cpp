@@ -90,7 +90,8 @@ public:
       m_Blueprint.unit = m_Compiler->isStaticBlueprint(m_Name);
       if (m_Blueprint.unit.isNull()) {
         try {
-          m_Blueprint  = m_Compiler->parseUnitIOs(m_Name);
+          Blueprint::t_instantiation_context ictx;
+          m_Blueprint  = m_Compiler->parseUnitIOs(m_Name, ictx);
         } catch (Fatal&) {
           throw Fatal("could not instantiate unit '%s'", m_Name.c_str());
         }

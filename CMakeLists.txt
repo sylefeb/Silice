@@ -151,8 +151,8 @@ if (INSTALL_IN_REPO)
 
 else()
 
-  install(TARGETS   silice                RUNTIME)
-  install(TARGETS   libsilice             ARCHIVE)
+  install(TARGETS   silice                RUNTIME     DESTINATION bin/)
+  install(TARGETS   libsilice             ARCHIVE     DESTINATION bin/)
   install(FILES     bin/silice-make.py    DESTINATION bin/)
   install(FILES     bin/report-cycles.py  DESTINATION bin/)
   install(DIRECTORY frameworks            DESTINATION share/silice/)
