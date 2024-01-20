@@ -29,5 +29,4 @@ cd build-silice
 mingw32-make -j16 install
 
 cd ..
-
 cd ..

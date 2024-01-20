@@ -126,34 +126,45 @@ add_library(libsilice STATIC ${SILICE_CORE})
 add_executable(silice src/silice.cpp)
 # set_target_properties(silice PROPERTIES OUTPUT_NAME "silice")
 target_link_libraries(silice libsilice antlr4_static lua luabind)
+
 if(WIN32)
-target_link_libraries(silice shlwapi)
-endif(WIN32)
+  target_link_libraries(silice shlwapi)
+endif()
 
 # install and paths
 
-if (DEVBUILD)
+if(WIN32)
+  IF(MINGW)
+    set(INSTALL_IN_REPO OFF CACHE BOOL "Install in repository")
+  else()
+    set(INSTALL_IN_REPO ON CACHE BOOL "Install in repository")
+  endif()
+else()
+  set(INSTALL_IN_REPO OFF CACHE BOOL "Install in repository")
+endif()
 
-install(TARGETS silice    RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/bin)
-install(TARGETS libsilice ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/lib)
+if (INSTALL_IN_REPO)
+
+  install(TARGETS silice    RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/bin)
+  install(TARGETS libsilice ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/lib)
+  add_definitions(-DFRAMEWORKS_DEFAULT_PATH=\"${CMAKE_SOURCE_DIR}/frameworks\")
 
 else()
 
-install(TARGETS   silice               RUNTIME)
-install(TARGETS   libsilice            ARCHIVE)
-install(FILES     bin/silice-make.py   DESTINATION bin/)
-install(FILES     bin/report-cycles.py DESTINATION bin/)
-install(DIRECTORY frameworks           DESTINATION share/silice/frameworks)
+  install(TARGETS   silice                RUNTIME)
+  install(TARGETS   libsilice             ARCHIVE)
+  install(FILES     bin/silice-make.py    DESTINATION bin/)
+  install(FILES     bin/report-cycles.py  DESTINATION bin/)
+  install(DIRECTORY frameworks            DESTINATION share/silice/)
+  install(DIRECTORY src/libs/LibSL-small  DESTINATION share/silice/src/libs/)
+  add_definitions(-DFRAMEWORKS_DEFAULT_PATH=\"${CMAKE_INSTALL_PREFIX}/share/silice/frameworks\")
 
 endif()
 
-add_definitions(-DFRAMEWORKS_DEFAULT_PATH=\"${CMAKE_INSTALL_PREFIX}/share/silice/frameworks\")
-
 # compiler checks
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" AND
-   CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8)
-    message(FATAL_ERROR "Silice requires g++ 8 at least")
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8)
+  message(FATAL_ERROR "Silice requires g++ 8 at least")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")

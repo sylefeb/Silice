@@ -339,7 +339,7 @@ void SiliceCompiler::beginParsing(
   }
   // determine frameworks dir if needed
   if (frameworks_dir.empty()) {
-    frameworks_dir = std::string(LibSL::System::Application::executablePath()) + "../frameworks/";
+    frameworks_dir = std::string(FRAMEWORKS_DEFAULT_PATH);
   }
   // extract pre-processor header from framework
   std::string framework_lpp, framework_verilog;
