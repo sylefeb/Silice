@@ -155,9 +155,9 @@ else()
 
   install(TARGETS   silice                RUNTIME     DESTINATION bin/)
   install(TARGETS   libsilice             ARCHIVE     DESTINATION bin/)
-  install(FILES     bin/silice-make.py    PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ DESTINATION bin/)
-  install(FILES     bin/report-cycles.py  PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ DESTINATION bin/)
-  install(DIRECTORY frameworks            DESTINATION share/silice/)
+  install(FILES     bin/silice-make.py    PERMISSIONS WORLD_EXECUTE OWNER_WRITE WORLD_READ DESTINATION bin/)
+  install(FILES     bin/report-cycles.py  PERMISSIONS WORLD_EXECUTE OWNER_WRITE WORLD_READ DESTINATION bin/)
+  install(DIRECTORY frameworks            DESTINATION share/silice/ USE_SOURCE_PERMISSIONS)
   install(DIRECTORY src/libs/LibSL-small  DESTINATION share/silice/src/libs/)
   add_definitions(-DFRAMEWORKS_DEFAULT_PATH=\"${CMAKE_INSTALL_PREFIX}/share/silice/frameworks\")
 
