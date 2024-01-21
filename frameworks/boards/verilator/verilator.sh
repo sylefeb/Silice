@@ -53,6 +53,7 @@ echo "[WARNING] **** VERILATOR_ROOT is NOT set ****"
 else
 echo "VERILATOR_ROOT already defined, using its value"
 fi
+echo "build script: VERILATOR_ROOT = $VERILATOR_ROOT"
 
 # check Verilator support for -Wno-TIMESCALEMOD
 set +e

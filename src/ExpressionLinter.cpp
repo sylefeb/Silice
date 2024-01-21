@@ -220,9 +220,9 @@ void ExpressionLinter::lintBinding(
   ) const
 {
   // check width
-  std::string slw = bp->resolveWidthOf(bnfo.left, local_ictx, bnfo.srcloc);
   int lw = -1;
   e_Type rtype = Parameterized;
+  std::string slw = bp->resolveWidthOf(bnfo.left, local_ictx, bnfo.srcloc);
   try {
     lw = stoi(slw);
   } catch (...) {
@@ -237,12 +237,15 @@ void ExpressionLinter::lintBinding(
     rtype       = rnfo.base_type;
   } else {
     /// TODO: rtype in this case?
-    std::string srw = m_Host->resolveWidthOf(std::get<std::string>(bnfo.right), m_Ictx, bnfo.srcloc);
-    try {
-      rw = stoi(srw);
-    } catch (...) {
-      warn(Standard, bnfo.srcloc, "%s, cannot check binding bit-width", msg.c_str());
-      return;
+    std::string right = std::get<std::string>(bnfo.right);
+    if (right != ALG_CLOCK && right != ALG_RESET) {
+      std::string srw = m_Host->resolveWidthOf(right, m_Ictx, bnfo.srcloc);
+      try {
+        rw = stoi(srw);
+      } catch (...) {
+        warn(Standard, bnfo.srcloc, "%s, cannot check binding bit-width", msg.c_str());
+        return;
+      }
     }
   }
   if (rw != lw) {
