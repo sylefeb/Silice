@@ -12,7 +12,7 @@ Finally, the script appends paths to `.bashrc`.
 
 The `get_started_linux.sh` script calls the scripts `install_dependencies_*.sh` to install dependencies. It attempts to detect your distrib to call the corresponding dependencies installation script, but if that fails you may have to manually install the dependencies. In such a case, please refer to the script's contents to see what is needed. Note that the Java jre/jdk are only required for compilation.
 
-The script also downloads and sets up pre-compiled binaries for the FPGA toolchain (from [oss-cad-suite](https://github.com/YosysHQ/oss-cad-suite-build)). These are placed in the `Silice/tools/`, and environment variables are set by adding a line to the user's `.bashrc`
+The script also downloads and sets up pre-compiled binaries for the FPGA toolchain (from [oss-cad-suite](https://github.com/YosysHQ/oss-cad-suite-build)). These are placed in `/usr/local/shared/silice`, and environment variables are set by adding a line to the user's `.bashrc`.
 
 ## Testing after installation
 
