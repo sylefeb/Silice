@@ -214,21 +214,45 @@ void ExpressionLinter::lintReadback(
 
 void ExpressionLinter::lintBinding(
   std::string                                     msg,
-  Algorithm::e_BindingDir                         dir,
-  const t_source_loc&                             srcloc,
-  const t_type_nfo                               &left,
-  const t_type_nfo                               &right
-) const
+  AutoPtr<Blueprint>                              bp,
+  const Algorithm::t_instantiation_context&       local_ictx,
+  const Algorithm::t_binding_nfo&                 bnfo
+  ) const
 {
-  // check
-  if (left.base_type == Parameterized || right.base_type == Parameterized) {
-    return; // skip if parameterized
+  // check width
+  std::string slw = bp->resolveWidthOf(bnfo.left, local_ictx, bnfo.srcloc);
+  int lw = -1;
+  e_Type rtype = Parameterized;
+  try {
+    lw = stoi(slw);
+  } catch (...) {
+    warn(Standard, bnfo.srcloc, "%s, cannot check binding bit-width", msg.c_str());
+    return;
   }
-  if (left.base_type != right.base_type) {
-     warn(Standard, srcloc, "%s, bindings have inconsistent signedness", msg.c_str());
+  int rw = -1;
+  if (!std::holds_alternative<std::string>(bnfo.right)) {
+    auto access = std::get<siliceParser::AccessContext*>(bnfo.right);
+    auto rnfo   = m_Host->determineAccessTypeAndWidth(nullptr, access, nullptr);
+    rw          = rnfo.width;
+    rtype       = rnfo.base_type;
+  } else {
+    /// TODO: rtype in this case?
+    std::string srw = m_Host->resolveWidthOf(std::get<std::string>(bnfo.right), m_Ictx, bnfo.srcloc);
+    try {
+      rw = stoi(srw);
+    } catch (...) {
+      warn(Standard, bnfo.srcloc, "%s, cannot check binding bit-width", msg.c_str());
+      return;
+    }
   }
-  if (left.width != right.width) {
-     warn(Standard, srcloc, "%s, bindings have inconsistent bit-widths", msg.c_str());
+  if (rw != lw) {
+    warn(Standard, bnfo.srcloc, "%s, bindings have inconsistent bit-widths", msg.c_str());
+  }
+  // check signdness
+  auto lnfo    = bp->determineVIOTypeWidthAndTableSize(bnfo.left, bnfo.srcloc);
+  e_Type ltype = std::get<0>(lnfo).base_type;
+  if (ltype != rtype && rtype != Parameterized && ltype != Parameterized) {
+    warn(Standard, bnfo.srcloc, "%s, bindings have inconsistent signedness", msg.c_str());
   }
 }
 

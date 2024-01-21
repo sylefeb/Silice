@@ -167,11 +167,12 @@ void Algorithm::checkBlueprintsBindings(const t_instantiation_context &ictx) con
       // lint bindings
       {
         ExpressionLinter linter(this, ictx);
+        // produce instantiation context
+        t_instantiation_context local_ictx;
+        makeBlueprintInstantiationContext(bp.second, ictx, local_ictx);
         linter.lintBinding(
           sprint("instance '%s', binding '%s' to '%s'", bp.first.c_str(), br.c_str(), b.left.c_str()),
-          b.dir, b.srcloc,
-          get<0>(bp.second.blueprint->determineVIOTypeWidthAndTableSize(translateVIOName(b.left, nullptr), b.srcloc)),
-          get<0>(determineVIOTypeWidthAndTableSize(translateVIOName(br, nullptr), b.srcloc))
+          bp.second.blueprint, local_ictx, b
         );
       }
     }
@@ -6143,7 +6144,7 @@ void Algorithm::determineBlueprintBoundVIO(const t_instantiation_context& ictx)
           // produce instantiation context
           t_instantiation_context local_ictx;
           makeBlueprintInstantiationContext(ib.second, ictx, local_ictx);
-          // verify width (mismatch not possible with inouts)
+          // verify width (mismatch not allowed with inouts)
           string iow = ib.second.blueprint->resolveWidthOf(b.left, local_ictx, b.srcloc);
           int iiow = -1;
           try {
