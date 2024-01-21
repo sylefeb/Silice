@@ -36,18 +36,23 @@ fi
 OSS_CAD_MONTH=11
 OSS_CAD_DAY=29
 OSS_CAD_YEAR=2023
+OSS_PACKAGE=oss-cad-suite-linux-x64-$OSS_CAD_YEAR$OSS_CAD_MONTH$OSS_CAD_DAY.tgz
 
 rm -rf tools/fpga-binutils/
 rm -rf tools/oss-cad-suite/
-wget -c https://github.com/YosysHQ/oss-cad-suite-build/releases/download/$OSS_CAD_YEAR-$OSS_CAD_MONTH-$OSS_CAD_DAY/oss-cad-suite-linux-x64-$OSS_CAD_YEAR$OSS_CAD_MONTH$OSS_CAD_DAY.tgz
-cd tools ; tar xvfz ../oss-cad-suite-linux-x64-$OSS_CAD_YEAR$OSS_CAD_MONTH$OSS_CAD_DAY.tgz ; cd -
+sudo rm -rf /usr/local/share/silice
+wget -c https://github.com/YosysHQ/oss-cad-suite-build/releases/download/$OSS_CAD_YEAR-$OSS_CAD_MONTH-$OSS_CAD_DAY/$OSS_PACKAGE
+sudo mkdir -p /usr/local/share/silice
+sudo mv $OSS_PACKAGE /usr/local/share/silice/
+sudo cp tools/oss-cad-suite-env.sh /usr/local/share/silice/
+cd /usr/local/share/silice ; sudo tar xvfz ./$OSS_PACKAGE ; sudo rm ./$OSS_PACKAGE ; cd -
 
 # -------------- compile Silice -----------------------------
 ./compile_silice_linux.sh
 
 # -------------- add path to .bashrc ------------------------
 DIR=`pwd`
-echo 'source '$DIR'/tools/oss-cad-suite-env.sh' >> ~/.bashrc
+echo 'source /usr/local/share/silice/oss-cad-suite-env.sh' >> ~/.bashrc
 
 echo ""
 echo "--------------------------------------------------------------------"
