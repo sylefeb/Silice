@@ -51,7 +51,6 @@ cd tools ; ../oss-cad-suite-windows-x64-$OSS_CAD_YEAR$OSS_CAD_MONTH$OSS_CAD_DAY.
 
 # -------------- add path to .bashrc ------------------------
 DIR=`pwd`
-echo 'export PATH=$PATH:'$DIR/bin >> ~/.bashrc
 echo 'source '$DIR'/tools/oss-cad-suite-env.sh' >> ~/.bashrc
 
 echo ""

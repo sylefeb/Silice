@@ -27,7 +27,7 @@ else
 		if [ "$ID" == "debian"  ] || [ "$ID_LIKE" == "debian"  ]; then
 			sudo ./install_dependencies_debian_like.sh
 		else
-			echo "Cannot determine Linux distrib to install dependencies\n(if this fails please run the install_dependencies script that matches your distrib)."			
+			echo "Cannot determine Linux distrib to install dependencies\n(if this fails please run the install_dependencies script that matches your distrib)."
 		fi
 	fi
 fi
@@ -47,7 +47,6 @@ cd tools ; tar xvfz ../oss-cad-suite-linux-x64-$OSS_CAD_YEAR$OSS_CAD_MONTH$OSS_C
 
 # -------------- add path to .bashrc ------------------------
 DIR=`pwd`
-echo 'export PATH=$PATH:'$DIR/bin >> ~/.bashrc
 echo 'source '$DIR'/tools/oss-cad-suite-env.sh' >> ~/.bashrc
 
 echo ""
