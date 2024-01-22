@@ -34,7 +34,7 @@ For projects that do not have a README, please refer to [building the examples](
   - [Driving Neopixels from UART](https://github.com/sylefeb/Silice/tree/draft/projects/neopixel_uart)
 - Audio
   - [hardware streaming audio from sdcard](audio_sdcard_streamer/README.md) (detailed code walkthrough)
-  - [streaming audio from sdcard, with FAT32 and hardware sound buffers](../learn-silice/learn-silice/classroom/soc_wave_player/README.md) (detailed code walkthrough)
+  - [streaming audio from sdcard, with FAT32 and hardware sound buffers](../learn-silice/classroom/soc_wave_player/README.md) (detailed code walkthrough)
   - [I2S PCM audio](i2s_audio/README.md) (detailed code walkthrough)
 - Graphics
   - [VGA racing the beam demos](vga_demo/README.md) (fun to try and hack!)
