@@ -22,6 +22,8 @@ $include('vga_demo_main.si')
 
 // -------------------------
 
+// NOTE: the design entry point is 'main' in 'vga_demo_main.si'
+
 unit frame_display(
   input   uint11 pix_x,       input   uint11 pix_y,
   input   uint1  pix_active,  input   uint1  pix_vblank,
