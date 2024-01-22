@@ -48,13 +48,9 @@ algorithm frame_display(
     while ( ! (px == $H_END-1$ && py == $V_RES-1$) ) {
 
         // ----- pipeline starts here -----
-        int22 R_s(0); int22 B_s(0);
-        int22 R_g(0); int22 B_g(0);
-        int22 R_k(0); int22 B_k(0);
-        int22 R(0);   int22  B(0);
 
-        int22 x = px >> 3;
-        int22 y = py >> 3;
+        int16 x = px >> 3;
+        int16 y = py >> 3;
         // increment pixel coordinates
         py = px == $H_END-1$ ? (py + 1) : py;
         px = px == $H_END-1$ ? 0 : (px + 1);
@@ -64,8 +60,8 @@ algorithm frame_display(
         //-------------------------
         // Section A (2 MUL, 3 ADD)
         //-------------------------
-        int22  u  = x-36;
-        int22  v  = 18-y;
+        int16  u  = x-36;
+        int16  v  = 18-y;
 
       ->  // --- next pipeline stage
 
@@ -83,20 +79,20 @@ algorithm frame_display(
         // Section B, Sphere (4/7 MUL, 5/9 ADD)
         //-------------------------------------
 
-        int22 R = 420;
-        int22 B = 520;
+        int16 R = 420;
+        int16 B = 520;
 
         uint22 t = 5200 + (h<<3);
 
       ->  // --- next pipeline stage
 
-        int22  p = (__signed(t)*u)>>>7;
-        int22  q = (__signed(t)*v)>>>7;
+        int16  p = (__signed(t)*u)>>>7;
+        int16  q = (__signed(t)*v)>>>7;
 
       ->  // --- next pipeline stage
 
         // bounce light
-        int22 w = 18 + (((p*5-q*13))>>>9);
+        int16 w = 18 + (((p*5-q*13))>>>9);
 
       ->  // --- next pipeline stage
 
@@ -115,6 +111,7 @@ algorithm frame_display(
 
       ->  // --- next pipeline stage
 
+        int16 R_s(0); int16 B_s(0);
         // sun/key light
         if( p > -q )
         {
@@ -131,14 +128,15 @@ algorithm frame_display(
         // Section C, Ground (5/9 MUL, 6/9 ADD)
         //-------------------------------------
 
-        int22 R = 150 + 2*v;
-        int22 B = 50;
+        int16 R = 150 + (v<<1);
+        int16 B = 50;
 
-        int22 p = h + 8*v2;
+        int22 p = h + (v2<<3);
         int22 c = 240*(-v) - p;
 
       ->  // --- next pipeline stage
 
+         int22 B_g(0);
         // sky light / ambient occlusion
         int22 o1 = (25*c)>>3;
         int22 o  = (c*(7840-o1)>>>9) - 8560;
@@ -152,9 +150,10 @@ algorithm frame_display(
 
       ->  // --- next pipeline stage
 
+        int22 R_g(0);
         // sun/key light with soft shadow
-        int22 r = c + u*v;
-        int22 d = 3200 - h - (r<<<1);
+        int16 r = c + u*v;
+        int16 d = 3200 - h - (r<<<1);
         if( d>0 ) { R_g = R + d; }
         else      { R_g = R; }
         //-------------------------
@@ -164,7 +163,8 @@ algorithm frame_display(
         //------------------------------
         // Section D, Sky (1 MUL, 2 ADD)
         //------------------------------
-        int22 c = x + (y<<2);
+        int16 R_k(0); int16 B_k(0);
+        int16 c = x + (y<<2);
         R_k = 132 + c;
         B_k = 192 + c;
         //-------------------------
@@ -191,13 +191,13 @@ algorithm frame_display(
         //-------------------------
         // Section E (3 MUL, 1 ADD)
         //-------------------------
-        int22 r = R  < 255 ? R : 255;
-        int22 b = B  < 255 ? B : 255;
+        uint8 r = R  < 255 ? R : 255;
+        uint8 b = B  < 255 ? B : 255;
 
       ->  // --- next pipeline stage
 
-        int22 G = (r*11 + 5*b)>>4;
-        int22 g = G  < 255 ? G : 255;
+        uint16 G = (r*11 + 5*b)>>4;
+        uint8  g = G  < 255 ? G : 255;
         //-------------------------
 
       ->  // --- next pipeline stage
