@@ -9,7 +9,7 @@
 // SL 2024-01-22
 
 $$VGA_640_480 = 1
-$$delay       = 22540
+$$delay       = 27333
 
 $include('vga_demo_main.si')
 
@@ -135,7 +135,11 @@ algorithm frame_display(
 
       ->  // --- next pipeline stage
 
-        int22 c = 240*(-v) - p;
+        // int22 c = 240*(-v) - p;
+        // this one is heavy, we split it in stages
+        int22 c = 240*(-v);
+      ->
+        c       = c - p;
 
       ->  // --- next pipeline stage
 
