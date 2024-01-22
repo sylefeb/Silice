@@ -1,0 +1,20 @@
+// make 258_inout -f Makefile.icebreaker
+
+import('../../projects/common/ice40_sb_io_inout.v')
+
+unit main(output uint5 leds,
+          inout  uint8 sdr_dq)
+
+{
+   uint8 io_oe(0); uint8 io_i(0); uint8 io_o(0);
+
+   sb_io_inout sb_io0(clock <: clock,
+                      oe <: io_oe[0,1],
+                      in :> io_i[0,1],
+                      out <: io_o[0,1],
+                      pin <:> sdr_dq[0,1]);
+ 
+   algorithm {
+     __display("nop");
+   }
+}

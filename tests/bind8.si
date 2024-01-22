@@ -1,0 +1,22 @@
+
+unit foo(output uint3 b,inout uint$W$ a)
+{
+  always {
+    __display("W=%d",$W$);
+    a.oenable = 2b11;
+    a.o       = 2b01;
+  }
+}
+
+unit main(inout uint4 tmp,output uint8 leds)
+{
+
+  foo f<W=2>(
+    a <:> tmp[0,2] // ok, width do match
+  );
+
+  algorithm {
+    __display("hello world");
+  }
+
+}

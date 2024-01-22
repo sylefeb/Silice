@@ -1,7 +1,9 @@
 #!/bin/bash
 echo "--------------------------------------------------------------------"
-echo "This script installs all necessary packages and compiles Silice"
+echo "This script installs necessary packages, compiles and install Silice"
 echo "Please refer to the script source code to see the list of packages"
+echo "--------------------------------------------------------------------"
+echo "     >>>> it will request sudo access to install packages <<<<"
 echo "--------------------------------------------------------------------"
 
 read -p "Please type 'y' to go ahead, any other key to exit: " -n 1 -r
@@ -11,39 +13,42 @@ then
 	echo "Exiting."
 	exit
 fi
+echo ""
 
 # -------------- install packages ----------------------------
-pacman -S --noconfirm --needed unzip
-pacman -S --noconfirm --needed wget
-pacman -S --noconfirm --needed make
-pacman -S --noconfirm --needed python3
-pacman -S --noconfirm --needed python-pip
-pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-riscv64-unknown-elf-toolchain
-pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-iverilog
-pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-gtkwave
-pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-verilator
-pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-openFPGALoader
-pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-dfu-util
-pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-boost
-pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-glfw
+# attempt to guess
+source /etc/os-release
+if [ "$ID" == "arch"  ]; then
+  sudo ./install_dependencies_archlinux.sh
+else
+	if [ "$ID" == "fedora"  ]; then
+		sudo ./install_dependencies_fedora.sh
+	else
+		if [ "$ID" == "debian"  ] || [ "$ID_LIKE" == "debian"  ]; then
+			sudo ./install_dependencies_debian_like.sh
+		else
+			echo "Cannot determine Linux distrib to install dependencies\n(if this fails please run the install_dependencies script that matches your distrib)."
+		fi
+	fi
+fi
 
 # -------------- retrieve oss-cad-suite package --------------
 OSS_CAD_MONTH=11
 OSS_CAD_DAY=29
 OSS_CAD_YEAR=2023
-OSS_PACKAGE=oss-cad-suite-windows-x64-$OSS_CAD_YEAR$OSS_CAD_MONTH$OSS_CAD_DAY.exe
+OSS_PACKAGE=oss-cad-suite-linux-x64-$OSS_CAD_YEAR$OSS_CAD_MONTH$OSS_CAD_DAY.tgz
 
 rm -rf tools/fpga-binutils/
 rm -rf tools/oss-cad-suite/
-rm -rf /usr/local/share/silice
+sudo rm -rf /usr/local/share/silice
 wget -c https://github.com/YosysHQ/oss-cad-suite-build/releases/download/$OSS_CAD_YEAR-$OSS_CAD_MONTH-$OSS_CAD_DAY/$OSS_PACKAGE
-mkdir -p /usr/local/share/silice
-mv $OSS_PACKAGE /usr/local/share/silice/
-cp tools/oss-cad-suite-env.sh /usr/local/share/silice/
-cd /usr/local/share/silice ; ./$OSS_PACKAGE ; rm ./$OSS_PACKAGE ; cd -
+sudo mkdir -p /usr/local/share/silice
+sudo mv $OSS_PACKAGE /usr/local/share/silice/
+sudo cp tools/oss-cad-suite-env.sh /usr/local/share/silice/
+cd /usr/local/share/silice ; sudo tar xvfz ./$OSS_PACKAGE ; sudo rm ./$OSS_PACKAGE ; cd -
 
 # -------------- compile Silice -----------------------------
-./compile_silice_mingw64.sh
+./compile_silice_linux.sh
 
 # -------------- add path to .bashrc ------------------------
 DIR=`pwd`

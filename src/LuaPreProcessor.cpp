@@ -1311,17 +1311,16 @@ void LuaPreProcessor::generateBody(
   // create Lua context
   createLuaContext();
   // execute body (Lua context also contains all unit functions)
-  executeLuaString(lua_code, dst_file, false, ictx);
+  executeLuaString(lua_code, dst_file, ictx);
 
 }
 
 // -------------------------------------------------
 
-void LuaPreProcessor::generateUnitIOSource(std::string unit, std::string dst_file)
+void LuaPreProcessor::generateUnitIOSource(std::string unit, std::string dst_file, const Blueprint::t_instantiation_context& ictx)
 {
   std::string lua_code = "_G['__io__" + unit + "']()\n";
-  Blueprint::t_instantiation_context empty_ictx;
-  executeLuaString(lua_code, dst_file, false, empty_ictx);
+  executeLuaString(lua_code, dst_file, ictx);
 }
 
 // -------------------------------------------------
@@ -1330,7 +1329,7 @@ void LuaPreProcessor::generateUnitSource(
   std::string unit, std::string dst_file, const Blueprint::t_instantiation_context& ictx)
 {
   std::string lua_code = "_G['" + unit + "']()\n";
-  executeLuaString(lua_code, dst_file, true, ictx);
+  executeLuaString(lua_code, dst_file, ictx);
 }
 
 // -------------------------------------------------
@@ -1353,14 +1352,12 @@ void LuaPreProcessor::createLuaContext()
 
 // -------------------------------------------------
 
-void LuaPreProcessor::executeLuaString(std::string lua_code, std::string dst_file, bool has_ictx, const Blueprint::t_instantiation_context& ictx)
+void LuaPreProcessor::executeLuaString(std::string lua_code, std::string dst_file, const Blueprint::t_instantiation_context& ictx)
 {
   // reset line counter
   m_CurOutputLine = 0;
   // prepare instantiation context
-  if (has_ictx) {
-    g_LuaInstCtx.insert(std::make_pair(m_LuaState, ictx));
-  }
+  g_LuaInstCtx.insert(std::make_pair(m_LuaState, ictx));
   // prepare output
   g_LuaOutputs.insert(std::make_pair(m_LuaState, ofstream(dst_file)));
   // execute
@@ -1391,9 +1388,7 @@ void LuaPreProcessor::executeLuaString(std::string lua_code, std::string dst_fil
   // close output
   g_LuaOutputs.at(m_LuaState).close();
   g_LuaOutputs.erase(m_LuaState);
-  if (has_ictx) {
-    g_LuaInstCtx.erase(m_LuaState);
-  }
+  g_LuaInstCtx.erase(m_LuaState);
 }
 
 // -------------------------------------------------

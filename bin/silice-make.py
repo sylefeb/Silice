@@ -27,6 +27,7 @@ import json
 import argparse
 import platform
 import sysconfig
+import subprocess
 # from termcolor import colored
 
 def colored(str,clr,attrs=0):
@@ -43,8 +44,7 @@ parser.add_argument('-l','--list_boards', help="List all available target boards
 parser.add_argument('-r','--root', help="Root directory, use to override default frameworks.")
 parser.add_argument('-D','--defines', help="List of comma-separated defines to pass to Silice, e.g. -D A=0,B=1")
 parser.add_argument('--no_build', help="Only generate verilog output file.", action="store_true")
-parser.add_argument('--no_program', help="Only generate verilog output file and build bitstream.",
-                    action="store_true")
+parser.add_argument('--no_program', help="Only generate verilog output file and build bitstream.", action="store_true")
 parser.add_argument('--reprogram', help="Only program device.", action="store_true")
 
 args = parser.parse_args()
@@ -75,15 +75,28 @@ except FileExistsError:
 os.environ["BUILD_DIR"] = out_dir
 
 # - frameworks directory
-frameworks_dir = os.path.realpath(os.path.join(make_dir,"../frameworks/"))
+frameworks_dirs=list()
+frameworks_dirs.append(os.path.realpath(os.path.join(make_dir,"../frameworks/")))
+frameworks_dirs.append('/usr/local/share/silice/frameworks/')
+if platform.system() == "Windows":
+    if sysconfig.get_platform().startswith("mingw"):
+      frameworks_dirs.append(subprocess.check_output('cygpath -m /usr/local/share/silice/frameworks/').decode('utf-8').strip())
 if args.root:
-  frameworks_dir = os.path.realpath(os.path.abspath(args.root))
-print("* Silice frameworks directory: ",frameworks_dir,"\t\t\t",end='')
-if (os.path.exists(frameworks_dir)):
-    print(colored("[ok]", 'green'))
+  frameworks_dirs.append(os.path.realpath(os.path.abspath(args.root)))
+# search in expected paths
+frameworks_dir = None
+for fdir in frameworks_dirs:
+  if (os.path.exists(fdir)):
+      frameworks_dir = fdir
+      break
+if frameworks_dir == None:
+  print("* Silice frameworks directory: \t\t\t",end='')
+  print(colored("[not found]", 'red'))
+  sys.exit(-1)
 else:
-    print(colored("[not found]", 'red'))
-    sys.exit(-1)
+  print("* Silice frameworks directory: ",frameworks_dir,"\t\t\t",end='')
+  print(colored("[ok]", 'green'))
+  frameworks_dir = fdir
 os.environ["FRAMEWORKS_DIR"] = frameworks_dir
 
 # enter build directory

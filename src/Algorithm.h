@@ -199,12 +199,15 @@ private:
     /// \brief all inout names, map contains index in m_InOuts
     std::unordered_map<std::string, int > m_InOutNames;
 
+    /// \brief binding point, identifier or access
+    typedef std::variant<std::string, siliceParser::AccessContext*> t_binding_point;
+
     /// \brief VIO bound to blueprint outputs (wires) (vio name => wire name)
-    std::unordered_map<std::string, std::string>  m_VIOBoundToBlueprintOutputs;
+    std::unordered_map<std::string, std::string>      m_VIOBoundToBlueprintOutputs;
     /// \brief module/algorithms inouts bound to VIO (inout => vio name)
-    std::unordered_map<std::string, std::string > m_BlueprintInOutsBoundToVIO;
+    std::unordered_map<std::string, t_binding_point > m_BlueprintInOutsBoundToVIO;
     /// \brief VIO bound to module/algorithms inouts (vio name => inout)
-    std::unordered_map<std::string, std::string > m_VIOToBlueprintInOutsBound;
+    std::unordered_map<std::string, std::string >     m_VIOToBlueprintInOutsBound;
 
     // forward definition of combinational blocks
     class t_combinational_block;
@@ -228,9 +231,6 @@ private:
 
     /// \brief enum binding direction
     enum e_BindingDir { e_Left, e_LeftQ, e_Right, e_BiDir, e_Auto, e_AutoQ };
-
-    /// \brief binding point, identifier or access
-    typedef std::variant<std::string, siliceParser::AccessContext*> t_binding_point;
 
     /// \brief records info about variable bindings
     typedef struct
@@ -429,11 +429,11 @@ private:
       t_combinational_block        *if_trail;          // block ending the if branch
       bool                          else_stateless;    // else side is stateless
       t_combinational_block        *else_trail;        // block ending the else branch
-      end_action_if_else(t_instr_nfo test_, 
+      end_action_if_else(t_instr_nfo test_,
                          t_combinational_block *if_next_, bool if_stateless_, t_combinational_block* if_trail_,
                          t_combinational_block *else_next_, bool else_stateless_, t_combinational_block* else_trail_,
                          t_combinational_block *after_)
-        : test(test_), 
+        : test(test_),
           if_next(if_next_), if_stateless(if_stateless_), if_trail(if_trail_),
           else_next(else_next_), else_stateless(else_stateless_), else_trail(else_trail_),
           after(after_) {}
@@ -553,7 +553,7 @@ private:
       bool                                 no_skip  = false;     // true the state cannot be skipped, even if empty
       int                                  state_id = -1;        // state id, when assigned, -1 otherwise
       int                                  parent_state_id = -1; // parent state id (closest state before)
-      std::vector<t_instr_nfo>             decltrackers;            // list of declaration expressions within block (typically bound exprs, aka wires)
+      std::vector<t_instr_nfo>             decltrackers;         // list of declaration expressions within block (typically bound exprs, aka wires)
       std::vector<t_instr_nfo>             instructions;         // list of instructions within block
       t_end_action                        *end_action = nullptr; // end action to perform
       t_combinational_block_context        context;              // block context: subroutine, parent, etc.
@@ -575,7 +575,7 @@ private:
       }
       const end_action_goto_next *next() const { return dynamic_cast<const end_action_goto_next*>(end_action); }
 
-      void if_then_else(t_instr_nfo test, 
+      void if_then_else(t_instr_nfo test,
                         t_combinational_block *if_next, bool if_nocombex, t_combinational_block *if_trail,
                         t_combinational_block *else_next, bool else_nocombex, t_combinational_block* else_trail,
                         t_combinational_block *after)
@@ -705,6 +705,8 @@ private:
     bool isGroupVIO(std::string var) const;
     /// \brief rewrites a number
     std::string rewriteNumber(std::string cst) const;
+    /// \brief returns whether an inout is used by the unit (accessed)
+    bool isInOutAccessed(std::string var) const;
     /// \brief returns a string representing the widthof value
     std::string resolveWidthOf(std::string vio, const t_instantiation_context &ictx, const Utils::t_source_loc& srcloc) const override;
     /// \brief adds a combinational block to the list of blocks, performs book keeping

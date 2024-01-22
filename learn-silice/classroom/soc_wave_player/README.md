@@ -72,7 +72,7 @@ the RISC-V processor.
 The firmware is compiled and embedded when building with `make`.
 To change the firmware source use
 `make stepN FIRMWARE=<src>` where `<src>` is the name of a firmware file
-(without extension) in the subdirectory `firmware`.
+(*without extension*) in the subdirectory `firmware`.
 For instance, to build step 0 with the firmware `firmware/step0_leds.c` use the command: `make step0 FIRMWARE=step0_leds`
 
 > All files `step*.c` or `test*.c`  in `firmware` can be used to generate a firmware. A file prefixed with `step` is meant to be used during the classroom,

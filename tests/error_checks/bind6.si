@@ -1,0 +1,20 @@
+unit foo(inout uint2 a)
+{
+  always {
+    a.oenable = 2b11;
+    a.o       = 2b01;
+  }
+}
+
+unit main(inout uint2 tmp,output uint8 leds)
+{
+  
+  foo f(
+    a <:> tmp[0,1], // error: width mismatch
+  );
+  
+  algorithm {
+    __display("hello world");
+  }
+
+}
