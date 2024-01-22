@@ -13,7 +13,7 @@
 // compute. This version uses binary fixed
 // point instead for computers.
 
-// SL 2024-01-22 Silice port
+// SL 2024-01-22 Silice port from https://www.shadertoy.com/view/XflXDs
 
 $$VGA_640_480 = 1
 $$delay       = 27333
