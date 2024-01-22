@@ -1,0 +1,227 @@
+// Binary version of the Human Shader at
+// https://www.shadertoy.com/view/Dtf3Dl
+//
+// The original Human Shader was designed
+// with decimal fixed point, for humans to
+// compute. This version uses binary fixed
+// point instead for computers.
+
+// SL 2024-01-22
+
+$$VGA_640_480 = 1
+$$delay       = 22540
+
+$include('vga_demo_main.si')
+
+// -------------------------
+
+algorithm frame_display(
+  input   uint11 pix_x,       input   uint11 pix_y,
+  input   uint1  pix_active,  input   uint1  pix_vblank,
+  input   uint1  vga_hs,      input   uint1  vga_vs,
+  output  uint$color_depth$ pix_r,
+  output  uint$color_depth$ pix_g,
+  output  uint$color_depth$ pix_b
+) <autorun> {
+
+  while (1) { // forever
+
+    // ===== Here we synch the pipeline with the vertical sync.
+    //       The pipeline starts during vblank so latency is hidden and
+    //       the first pixel is ready exactly at the right moment.
+    while (~vga_vs) {}
+    while ( vga_vs) {}
+
+    // Wait the 'perfect' delay (obtained in simulation, see marker [1] below)
+    // (adjust delay if number of steps is changed).
+    uint17 wait = 0; while (wait != $delay$) { wait = wait + 1; }
+
+    // ----- start the pipeline! -----
+    // This loop feeds pixel coordinates to the pipeline, the pipeline outputs
+    // pixels directly into the VGA module in the last stage. The delay above
+    // (while (wait ...)) is just right so that the first pixel exits the
+    // pipeline zhen it is needed.
+    // Note that the pipeline computes value for entire VGA rows including
+    // during h-sync, but these pixels in h-sync are discarded (I found it
+    // simpler to do that, and it uses slightly less logic).
+    uint12 px = -1; uint12 py = -1;
+    while ( ! (px == $H_END-1$ && py == $V_RES-1$) ) {
+
+        // ----- pipeline starts here -----
+        int22 R_s(0); int22 B_s(0);
+        int22 R_g(0); int22 B_g(0);
+        int22 R_k(0); int22 B_k(0);
+        int22 R(0);   int22  B(0);
+
+        int22 x = px >> 3;
+        int22 y = py >> 3;
+        // increment pixel coordinates
+        py = px == $H_END-1$ ? (py + 1) : py;
+        px = px == $H_END-1$ ? 0 : (px + 1);
+
+      ->  // --- next pipeline stage
+
+        //-------------------------
+        // Section A (2 MUL, 3 ADD)
+        //-------------------------
+        int22  u  = x-36;
+        int22  v  = 18-y;
+
+      ->  // --- next pipeline stage
+
+        uint22 u2 = u*u;
+        uint22 v2 = v*v;
+
+      ->  // --- next pipeline stage
+
+        uint22 h  = u2 + v2;
+        //-------------------------
+
+      ->  // --- next pipeline stage
+
+        //-------------------------------------
+        // Section B, Sphere (4/7 MUL, 5/9 ADD)
+        //-------------------------------------
+
+        int22 R = 420;
+        int22 B = 520;
+
+        uint22 t = 5200 + (h<<3);
+
+      ->  // --- next pipeline stage
+
+        int22  p = (__signed(t)*u)>>>7;
+        int22  q = (__signed(t)*v)>>>7;
+
+      ->  // --- next pipeline stage
+
+        // bounce light
+        int22 w = 18 + (((p*5-q*13))>>>9);
+
+      ->  // --- next pipeline stage
+
+        if( w>0 ) { R = R + w*w; }
+
+      ->  // --- next pipeline stage
+
+        // sky light / ambient occlusion
+        int22 o = q + 900;
+        R = (R*o)>>>__signed(12);
+        B = (B*o)>>>__signed(12);
+
+      ->  // --- next pipeline stage
+
+        int22 w = (p+q)>>>__signed(3);
+
+      ->  // --- next pipeline stage
+
+        // sun/key light
+        if( p > -q )
+        {
+          R_s = R + w;
+          B_s = B + w;
+        } else {
+          R_s = R;
+          B_s = B;
+        }
+
+      ->  // --- next pipeline stage
+
+        //-------------------------------------
+        // Section C, Ground (5/9 MUL, 6/9 ADD)
+        //-------------------------------------
+
+        int22 R = 150 + 2*v;
+        int22 B = 50;
+
+        int22 p = h + 8*v2;
+        int22 c = 240*(-v) - p;
+
+      ->  // --- next pipeline stage
+
+        // sky light / ambient occlusion
+        int22 o1 = (25*c)>>3;
+        int22 o  = (c*(7840-o1)>>>9) - 8560;
+        if( c>1200 )
+        {
+            R   = (R*o)>>10;
+            B_g = (B*o)>>10;
+        } else {
+            B_g = B;
+        }
+
+      ->  // --- next pipeline stage
+
+        // sun/key light with soft shadow
+        int22 r = c + u*v;
+        int22 d = 3200 - h - (r<<<1);
+        if( d>0 ) { R_g = R + d; }
+        else      { R_g = R; }
+        //-------------------------
+
+      ->  // --- next pipeline stage
+
+        //------------------------------
+        // Section D, Sky (1 MUL, 2 ADD)
+        //------------------------------
+        int22 c = x + (y<<2);
+        R_k = 132 + c;
+        B_k = 192 + c;
+        //-------------------------
+
+      ->  // --- next pipeline stage
+
+        // select sphere/ground/sky
+        if( h < 200 )
+        {
+          R = R_s; B = B_s;
+        }
+        else
+        {
+          if( v<0 )
+          {
+            R = R_g; B = B_g;
+          } else {
+            R = R_k; B = B_k;
+          }
+        }
+
+      ->  // --- next pipeline stage
+
+        //-------------------------
+        // Section E (3 MUL, 1 ADD)
+        //-------------------------
+        int22 r = R  < 255 ? R : 255;
+        int22 b = B  < 255 ? B : 255;
+
+      ->  // --- next pipeline stage
+
+        int22 G = (r*11 + 5*b)>>4;
+        int22 g = G  < 255 ? G : 255;
+        //-------------------------
+
+      ->  // --- next pipeline stage
+
+$$if SIMULATION then
+        // to verify/adjust pixel synch [1]
+        if (pix_y == 0) {
+          __display("x = %d  pix_x = %d (diff: %d)",px,pix_x,__signed(px-pix_x));
+          __display("y = %d  pix_y = %d (diff: %d)",py,pix_y,__signed(py-pix_y));
+        }
+$$end
+
+        // framework uses 6 bpp
+        if (x < $H_RES$) { // do not produce color out of bound, screen may
+                           // otherwise produce weird color artifacts
+          pix_r = r>>2;
+          pix_g = g>>2;
+          pix_b = b>>2;
+        } else {
+          pix_r = 0; pix_g = 0; pix_b = 0;
+        }
+
+      }
+
+    }
+
+}
