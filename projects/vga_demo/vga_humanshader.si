@@ -132,14 +132,31 @@ algorithm frame_display(
         int16 B = 50;
 
         int22 p = h + (v2<<3);
+
+      ->  // --- next pipeline stage
+
         int22 c = 240*(-v) - p;
 
       ->  // --- next pipeline stage
 
-         int22 B_g(0);
         // sky light / ambient occlusion
         int22 o1 = (25*c)>>3;
-        int22 o  = (c*(7840-o1)>>>9) - 8560;
+
+      ->  // --- next pipeline stage
+
+        // int22 o  = (c*(7840-o1)>>>9) - 8560;
+        // this one is heavy, we split it in stages
+
+        int22 o_t1 = (7840-o1);
+      ->
+        int24 o_t2 = c * o_t1;
+        // ^^ needs a bit more width
+      ->
+        int22 o    = (o_t2>>>9) - 8560;
+
+      ->  // --- next pipeline stage
+
+        int22 B_g(0);
         if( c>1200 )
         {
             R   = (R*o)>>10;
@@ -150,10 +167,13 @@ algorithm frame_display(
 
       ->  // --- next pipeline stage
 
-        int22 R_g(0);
         // sun/key light with soft shadow
         int16 r = c + u*v;
         int16 d = 3200 - h - (r<<<1);
+
+      ->  // --- next pipeline stage
+
+        int22 R_g(0);
         if( d>0 ) { R_g = R + d; }
         else      { R_g = R; }
         //-------------------------
