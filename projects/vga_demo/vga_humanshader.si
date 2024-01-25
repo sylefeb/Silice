@@ -16,7 +16,7 @@
 // SL 2024-01-22 Silice port from https://www.shadertoy.com/view/XflXDs
 
 $$VGA_640_480 = 1
-$$delay       = 27333
+$$delay       = 27338
 
 $include('vga_demo_main.si')
 
