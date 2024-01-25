@@ -3,7 +3,9 @@ algorithm main(output uint8 leds)
   int8 i(0); int10 c(0); int10 d(0); int10 e(0);
   int6  a = 6b111000;
   int2  b = 2b10;
-  c := {b,a,2b11};
-  d := {{4{b[1,1]}},a};
-  e := { {2{ {2{b[1,1]}} , a[0,2]} },4b1111};
+  c = {b,a,2b11};
+  d = {{4{b[1,1]}},a};
+  e = { {2{ {2{b[1,1]}} , a[0,2]} },4b1111};
+  __display("%b",d);
+  __finish();
 }

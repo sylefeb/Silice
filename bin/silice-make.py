@@ -290,7 +290,7 @@ elif target_builder['builder'] == 'edalize':
     tool   = target_builder['tool']
 
     # constraint and design files
-    files = [{'name': 'build.v', 'file_type': 'verilogSource'}]
+    files = [{'name': 'build.v', 'file_type': 'systemVerilogSource'}]
     for constr in target_builder['constraints']:
         files.append({'name': board_path + "/" + constr['name'],'file_type': constr['file_type']})
 

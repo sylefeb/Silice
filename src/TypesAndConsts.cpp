@@ -48,24 +48,24 @@ void Silice::splitType(std::string type, t_type_nfo& _type_nfo)
 
 // -------------------------------------------------
 
-void Silice::splitConstant(std::string cst, int& _width, char& _base, std::string& _value, bool& _negative)
+void Silice::splitNumber(std::string cst, int& _width, char& _base, std::string& _value, bool& _negative)
 {
-  std::regex  rx_type("(-?)([[:digit:]]+)([bdh])([[:digit:]a-fA-Fxz]+)");
+  std::regex  rx_type("(-?)([[:digit:]]+)'?([bdh])([[:digit:]a-fA-Fxz]+)");
   std::smatch sm_type;
-  bool ok = std::regex_search(cst, sm_type, rx_type);
+  bool ok   = std::regex_search(cst, sm_type, rx_type);
   sl_assert(ok);
-  _width = atoi(sm_type[2].str().c_str());
-  _base = sm_type[3].str()[0];
-  _value = sm_type[4].str();
+  _width    = atoi(sm_type[2].str().c_str());
+  _base     = sm_type[3].str()[0];
+  _value    = sm_type[4].str();
   _negative = !sm_type[1].str().empty();
 }
 
 // -------------------------------------------------
 
-void Silice::constantTypeInfo(std::string cst, t_type_nfo& _nfo)
+void Silice::numberTypeInfo(std::string cst, t_type_nfo& _nfo)
 {
   int width; char base; std::string value; bool negative;
-  splitConstant(cst, width, base, value, negative);
+  splitNumber(cst, width, base, value, negative);
   _nfo.width = width;
   _nfo.base_type = UInt; // NOTE: constants are always written as unsigned Verilog constants
   int basis = -1;
@@ -74,6 +74,33 @@ void Silice::constantTypeInfo(std::string cst, t_type_nfo& _nfo)
   case 'd': basis = 10; break;
   case 'h': basis = 16; break;
   default: throw Fatal("internal error [%s, %d]", __FILE__, __LINE__); break;
+  }
+}
+
+// -------------------------------------------------
+
+bool Silice::isNumber(std::string cst, bool& _sized)
+{
+  std::regex rx_sized ("(-?)([[:digit:]]+)'?([bdh])([[:digit:]a-fA-Fxz]+)");
+  if (std::regex_match(cst, rx_sized)) {
+    _sized = true;
+    std::regex rx_bin("([0-1xz]+)");
+    std::regex rx_dec("([[:digit:]xz]+)");
+    std::regex rx_hex("([[:digit:]a-fA-Fxz]+)");
+    int width; char base; std::string value; bool negative;
+    splitNumber(cst, width, base, value, negative);
+    switch (base)
+    {
+    case 'b': return std::regex_match(value, rx_bin); break;
+    case 'd': return std::regex_match(value, rx_dec); break;
+    case 'h': return std::regex_match(value, rx_hex); break;
+    }
+    return false;
+  } else {
+    _sized = false;
+    std::regex rx_number("-?[[:digit:]]+");
+    bool b = std::regex_match(cst, rx_number);
+    return b;
   }
 }
 

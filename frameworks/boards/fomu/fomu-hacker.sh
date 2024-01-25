@@ -3,7 +3,7 @@
 # credits: rob-ng15 -- see also https://github.com/rob-ng15/Silice-Playground
 
 case "$(uname -s)" in
-MINGW*|CYGWIN*) 
+MINGW*|CYGWIN*)
 SILICE_DIR=`cygpath $SILICE_DIR`
 BUILD_DIR=`cygpath $BUILD_DIR`
 FRAMEWORKS_DIR=`cygpath $FRAMEWORKS_DIR`
@@ -40,7 +40,7 @@ rm build*
 
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
 
-yosys -D HACKER=1 -p 'synth_ice40 -top top -json build.json' build.v
+yosys -D HACKER=1 -p "read_verilog -sv build.v" -p 'synth_ice40 -top top -json build.json'
 
 nextpnr-ice40 --up5k --package uwg30 --opt-timing --pcf $BOARD_DIR/fomu-hacker.pcf --json build.json --asc build.asc
 
