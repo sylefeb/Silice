@@ -60,8 +60,8 @@ $$if not Solution_PWM then
   }
 $$else
   uint8 counter = 0;
-  uint4 low     = 4b0;
-  uint4 high    = 4b1;
+  uint4 low     = 0;
+  uint4 high    = 15;
   always {
     uint8 frac  = audio_in;
     audio_out   = counter < frac ? high : low;
@@ -129,15 +129,19 @@ $$end
 
 $$if Solution_SCREEN then
   // SPIscreen (OLED) controller chip
-  uint1 displ_dta_or_cmd <: prev_wdata[10,1];
-  uint8 displ_byte       <: prev_wdata[0,8];
   oled display(
-    data_or_command <: displ_dta_or_cmd,
-    byte            <: displ_byte,
     oled_din        :> oled_mosi,
     oled_clk        :> oled_clk,
     oled_dc         :> oled_dc,
   );
+$$end
+$$if Solution_HWFBUFFER then
+  // allocate a BRAM for the display pixels
+  simple_dualport_bram uint8 frame_buffer[$128*128$] = uninitialized;
+  uint1  fb_enabled  = 0;
+  uint14 fb_pixcount = 0;
+  uint3  fb_channel  = 3b010;
+  uint17 fb_wait     = 1;
 $$end
 
 $$if Solution_SPIflash then
@@ -244,6 +248,22 @@ $$if Solution_STREAM then
           );
     audio_counter       = (audio_counter == $PERIOD$) ? 0 : (audio_counter+1);
 $$end
+$$if Solution_HWFBUFFER then
+    // ---- hardware display buffer
+    frame_buffer.wenable1   = 0;
+    display.enable          = fb_enabled & fb_wait[0,1];
+    display.data_or_command = 1;
+    display.byte            = frame_buffer.rdata0;
+    frame_buffer.addr0      = fb_pixcount;
+    fb_channel              = (fb_enabled & fb_wait[0,1])
+                                           ? {fb_channel[0,2],fb_channel[2,1]}
+                                           : fb_channel;
+    fb_wait                 = (fb_enabled) ? {fb_wait[0,16],fb_wait[16,1]}
+                                           : fb_wait;
+    fb_pixcount             = (fb_enabled & fb_wait[0,1] & fb_channel[0,1])
+                                           ? fb_pixcount + 1
+                                           : fb_pixcount;
+$$end
     // ---- check whether the CPU read from or wrote to a peripheral address
     uint1 peripheral   =  prev_mem_addr[$periph_bit$,1];
     uint1 peripheral_r =  peripheral & (prev_mem_rw == 4b0); // reading periph.
@@ -255,7 +275,7 @@ $$if Solution_LED then
     uint1 leds_access            = prev_mem_addr[ 0,1];
 $$end
 $$if Solution_SCREEN then
-    uint1 display_en_access      = prev_mem_addr[ 1,1];
+    uint1 display_direct_access  = prev_mem_addr[ 1,1];
     uint1 display_reset_access   = prev_mem_addr[ 2,1];
 $$end
 $$if Solution_UART then
@@ -270,6 +290,9 @@ $$end
 $$if Solution_BTN then
     uint1 button_access          = prev_mem_addr[ 6,1];
 $$end
+$$if Solution_HWFBUFFER then
+    uint1 framebuffer_access     = prev_mem_addr[$periph_bit-2$,1];
+$$end
 	  // ---- memory access CPU <-> BRAM (reads and writes)
     // reads  RAM, peripherals => CPU
     memio.rdata   = // read data is either from memory or SOC peripherals
@@ -283,7 +306,7 @@ $$if Solution_SD then
      | ((peripheral_r & sd_access)     ? {31b0,    sd_miso} : 32b0)
 $$end
 $$if Solution_BTN then
-     | ((peripheral_r & button_access) ? {31b0,       btns} : 32b0)
+     | ((peripheral_r & button_access) ? {25b0,       btns} : 32b0)
 $$end
 $$if Solution_STREAM then
      | ((peripheral_r & audio_access)  ? audio_addr_cpu     : 32b0)
@@ -295,10 +318,14 @@ $$end
     ram.wdata        = memio.wdata;
     ram.addr         = memio.addr;
     // writes CPU => peripherals
+$$if Solution_HWFBUFFER and Solution_STREAM then
+    if (peripheral_w & ~audio_access & ~framebuffer_access) {
+$$else
 $$if Solution_STREAM then
     if (peripheral_w & ~audio_access) {
 $$else
     if (peripheral_w) {
+$$end
 $$end
 $$if Solution_LED then
       /// LEDs
@@ -306,8 +333,14 @@ $$if Solution_LED then
 $$end
 $$if Solution_SCREEN then
       /// display
-      // -> whether to send command or data
-      display.enable = display_en_access & (prev_wdata[9,1] | prev_wdata[10,1]);
+      if (display_direct_access) {
+        // -> whether to send command or data
+        display.enable          = (prev_wdata[9,1] | prev_wdata[10,1]);
+        // -> byte to send
+        display.byte            = prev_wdata[0,8];
+        // -> data or command
+        display.data_or_command = prev_wdata[10,1];
+      }
       // -> SPIscreen reset
       oled_resn      = ~ (display_reset_access & prev_wdata[0,1]);
 $$end
@@ -366,16 +399,27 @@ $$if SIMULATION then
 $$end
     }
 
-$$if Solution_STREAM then
+$$if Solution_STREAM or Solution_HWFBUFFER then
     if (peripheral_w) {
       uint2 which = prev_mem_rw[1,2] | {2{prev_mem_rw[3,1]}};
       //    ^^^^^ produces 0,1,2,3 based on write mask
+$$if Solution_STREAM then
+      // ---- audio
       audio_buffer.wdata1   = prev_wdata >> {which,3b0};
       //       ^^^ sample to be written ^^ (shift due to 32bits addressing)
       audio_buffer.addr1    = audio_buffer_start_waddr
                             | {prev_mem_addr[0,7],2b0}//addr from CPU (32bits)
                             | which; // sample address
       audio_buffer.wenable1 = audio_access; // write sample
+$$end
+$$if Solution_HWFBUFFER then
+      // ---- display
+      frame_buffer.wenable1 = framebuffer_access;
+      fb_enabled            = fb_enabled | framebuffer_access;
+      frame_buffer.addr1    = {prev_mem_addr[0,12],which}; //addr from CPU (32bits)
+      uint8 clr = prev_wdata[{which,3b000},8]; // get 8 bit channel value
+      frame_buffer.wdata1   = {2b00,clr[2,6]}; // remap to 6 bits per channel
+$$end
     }
 $$end
 

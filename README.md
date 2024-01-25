@@ -1,5 +1,5 @@
 # Silice
-*A language for hardcoding algorithms into FPGA hardware*
+*A language for hardcoding algorithms with pipelines and parallelism into FPGA hardware*
 
 ---
 **Quick links:**

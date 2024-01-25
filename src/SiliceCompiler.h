@@ -121,15 +121,22 @@ namespace Silice {
     /// \brief end parsing
     void endParsing();
 
+    /// \brief writes a static unit in the output stream
+    void writeStaticUnit(
+      AutoPtr<Blueprint>                        bp,
+      const Blueprint::t_instantiation_context& ictx,
+      std::ostream&                            _out,
+      bool                                      first_pass);
+
     /// \brief parses a specific unit ios
-    t_parsed_unit parseUnitIOs(std::string to_parse);
+    t_parsed_unit parseUnitIOs(std::string to_parse, const Blueprint::t_instantiation_context& ictx);
     /// \brief parses a unit body (call after parseUnitIOs);
     void          parseUnitBody(t_parsed_unit& _parsed, const Blueprint::t_instantiation_context& ictx);
 
     /// \brief parses a specific circuitry ios
-    t_parsed_circuitry parseCircuitryIOs(std::string to_parse);
+    t_parsed_circuitry parseCircuitryIOs(std::string to_parse, const Blueprint::t_instantiation_context& ictx);
     /// \brief parses a circuitry body (call after parseCircuitryIOs);
-    void               parseCircuitryBody(t_parsed_circuitry& _parsed,const Blueprint::t_instantiation_context& ictx);
+    void               parseCircuitryBody(t_parsed_circuitry& _parsed, const Blueprint::t_instantiation_context& ictx);
 
     /// \brief returns the static blueprint for 'unit', otherwise null
     AutoPtr<Blueprint> isStaticBlueprint(std::string bpname);

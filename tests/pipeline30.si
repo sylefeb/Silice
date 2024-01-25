@@ -1,0 +1,48 @@
+
+// nested pipelines test
+
+algorithm main(output uint8 leds)
+{
+
+  uint5 i = 0;
+  while (i!=6)
+  {
+
+      // stage 0
+      uint5 n = i;
+      __display("[A]        (%d)",n);
+      i = i + 1;
+
+    ->
+
+    repeat:
+      if (n > 3) {
+        __display("[B] n = %d > 3",n);
+        n = n - 1;
+        goto repeat;
+      }
+      __display("[B] n = %d",n);
+
+  }
+
+}
+
+/*
+
+[A] ( 0)
+[A] ( 1)
+[B] n =  0
+[A] ( 2)
+[B] n =  1
+[A] ( 3)
+[B] n =  2
+[A] ( 4)
+[B] n =  3
+[A] ( 5)
+[B] n =  4 > 3
+[B] n =  3
+[B] n =  5 > 3
+[B] n =  4 > 3
+[B] n =  3
+
+*/

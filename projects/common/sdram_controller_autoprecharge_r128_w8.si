@@ -38,7 +38,6 @@
 
 $$if not SDRAM_COLUMNS_WIDTH then
 $$ if ULX3S then
-$$  -- print('setting SDRAM_COLUMNS_WIDTH=10 for ULX3S with AS4C32M16 chip')
 $$  SDRAM_COLUMNS_WIDTH = 9
 $$  print('setting SDRAM_COLUMNS_WIDTH=9 for ULX3S with AS4C32M16 or IS42S16160G chip')
 $$  print('Note: the AS4C32M16 is only partially used with this setting')
@@ -46,8 +45,8 @@ $$ elseif DE10NANO then
 $$   print('setting SDRAM_COLUMNS_WIDTH=9 for DE10NANO with AS4C16M16 chip')
 $$   SDRAM_COLUMNS_WIDTH =  9
 $$ elseif SIMULATION then
-$$   print('setting SDRAM_COLUMNS_WIDTH=10 for simulation')
-$$   SDRAM_COLUMNS_WIDTH = 10
+$$   print('setting SDRAM_COLUMNS_WIDTH=9 for simulation')
+$$   SDRAM_COLUMNS_WIDTH = 9
 $$ else
 $$   error('SDRAM_COLUMNS_WIDTH not specified')
 $$ end

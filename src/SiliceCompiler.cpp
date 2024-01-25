@@ -339,7 +339,7 @@ void SiliceCompiler::beginParsing(
   }
   // determine frameworks dir if needed
   if (frameworks_dir.empty()) {
-    frameworks_dir = std::string(LibSL::System::Application::executablePath()) + "../frameworks/";
+    frameworks_dir = std::string(FRAMEWORKS_DEFAULT_PATH);
   }
   // extract pre-processor header from framework
   std::string framework_lpp, framework_verilog;
@@ -403,7 +403,7 @@ void SiliceCompiler::endParsing()
 
 // -------------------------------------------------
 
-t_parsed_circuitry SiliceCompiler::parseCircuitryIOs(std::string to_parse)
+t_parsed_circuitry SiliceCompiler::parseCircuitryIOs(std::string to_parse, const Blueprint::t_instantiation_context& ictx)
 {
   t_parsed_circuitry parsed;
 
@@ -419,7 +419,7 @@ t_parsed_circuitry SiliceCompiler::parseCircuitryIOs(std::string to_parse)
     // bind local context
     parsed.ios_parser->bind();
     // pre-process unit IOs (done first to gather intel on parameterized vs static ios
-    m_BodyContext->lpp->generateUnitIOSource(parsed.parsed_circuitry, preprocessed_io);
+    m_BodyContext->lpp->generateUnitIOSource(parsed.parsed_circuitry, preprocessed_io, ictx);
     // gather the unit
     parsed.ios_parser->prepareParser(preprocessed_io);
     auto ios_root = parsed.ios_parser->parser->rootIoList();
@@ -459,7 +459,7 @@ void               SiliceCompiler::parseCircuitryBody(t_parsed_circuitry& _parse
 
 // -------------------------------------------------
 
-t_parsed_unit SiliceCompiler::parseUnitIOs(std::string to_parse)
+t_parsed_unit SiliceCompiler::parseUnitIOs(std::string to_parse, const Blueprint::t_instantiation_context& ictx)
 {
   t_parsed_unit parsed;
 
@@ -479,7 +479,7 @@ t_parsed_unit SiliceCompiler::parseUnitIOs(std::string to_parse)
     // bind local context
     parsed.ios_parser->bind();
     // pre-process unit IOs (done first to gather intel on parameterized vs static ios
-    m_BodyContext->lpp->generateUnitIOSource(parsed.parsed_unit, preprocessed_io);
+    m_BodyContext->lpp->generateUnitIOSource(parsed.parsed_unit, preprocessed_io, ictx);
     // gather the unit
     parsed.ios_parser->prepareParser(preprocessed_io);
     auto ios_root = parsed.ios_parser->parser->rootInOutList();
@@ -635,9 +635,9 @@ void SiliceCompiler::writeFormalTests(std::ostream& _out, const Blueprint::t_ins
   // write formal unit tests
   for (auto name : m_BodyContext->lpp->formalUnits()) {
     Blueprint::t_instantiation_context local_ictx = ictx;
-    local_ictx.top_name = "formal_" + name + "$";
+    local_ictx.top_name = "formal_" + name + "$"; // FIXME: inelegant
     // parse and write unit
-    auto bp = parseUnitIOs(name);
+    auto bp = parseUnitIOs(name, local_ictx);
     parseUnitBody(bp, local_ictx);
     bp.unit->setAsTopMost();
     // -> first pass
@@ -645,6 +645,22 @@ void SiliceCompiler::writeFormalTests(std::ostream& _out, const Blueprint::t_ins
     // -> second pass
     writeUnit(bp, local_ictx, _out, false);
   }
+}
+
+// -------------------------------------------------
+
+/// \brief writes a static unit in the output stream
+///        NOTE: used by the python framework
+void SiliceCompiler::writeStaticUnit(
+  AutoPtr<Blueprint>                        bp,
+  const Blueprint::t_instantiation_context& ictx,
+  std::ostream&                            _out,
+  bool                                      first_pass)
+{
+  t_parsed_unit pu;
+  pu.body_parser = m_BodyContext;
+  pu.unit        = bp;
+  writeUnit(pu, ictx, _out, first_pass);
 }
 
 // -------------------------------------------------
@@ -722,7 +738,7 @@ void SiliceCompiler::run(
     }
     ictx.top_name = "M_" + to_export;
     // parse and write top unit
-    auto bp = parseUnitIOs(to_export);
+    auto bp = parseUnitIOs(to_export, ictx);
     parseUnitBody(bp, ictx);
     bp.unit->setAsTopMost();
     // -> first pass

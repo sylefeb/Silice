@@ -86,7 +86,7 @@ void ReportError::printReport(std::pair<std::string, int> where, std::string msg
 
 // -------------------------------------------------
 
-#if !defined(_WIN32)  && !defined(_WIN64)
+#if !defined(_WIN32) && !defined(_WIN64) && !defined(fopen_s)
 #define fopen_s(f,n,m) ((*f) = fopen(n,m))
 #endif
 

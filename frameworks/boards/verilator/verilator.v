@@ -28,12 +28,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 `define VERILATOR         1
 `define COLOR_DEPTH       6
 `define SDRAM_WORD_WIDTH 16
+`define SIMULATION        1
 
 $$VERILATOR   = 1
 $$NUM_LEDS    = 8
 $$SIMULATION  = 1
 $$color_depth = 6
 $$color_max   = 63
+$$config['__display_supported'] = 'yes'
+$$config['__write_supported']   = 'yes'
+$$config['__finish_supported']  = 'yes'
 
 `timescale 1ns / 1ps
 `default_nettype none

@@ -1,0 +1,11 @@
+
+import('../projects/common/ice40_sb_io_inout.v')
+
+unit main(output uint8 leds,inout uint1 io)
+{
+
+  uint1 one(1); uint1 bla(0); uint1 read(0);
+
+  sb_io_inout _<TYPE=6b110000>(clock <: clock, oe <: one, out <: bla, in :> read, pin <:> io);
+
+}

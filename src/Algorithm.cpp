@@ -167,11 +167,12 @@ void Algorithm::checkBlueprintsBindings(const t_instantiation_context &ictx) con
       // lint bindings
       {
         ExpressionLinter linter(this, ictx);
+        // produce instantiation context
+        t_instantiation_context local_ictx;
+        makeBlueprintInstantiationContext(bp.second, ictx, local_ictx);
         linter.lintBinding(
           sprint("instance '%s', binding '%s' to '%s'", bp.first.c_str(), br.c_str(), b.left.c_str()),
-          b.dir, b.srcloc,
-          get<0>(bp.second.blueprint->determineVIOTypeWidthAndTableSize(translateVIOName(b.left, nullptr), b.srcloc)),
-          get<0>(determineVIOTypeWidthAndTableSize(translateVIOName(br, nullptr), b.srcloc))
+          bp.second.blueprint, local_ictx, b
         );
       }
     }
@@ -1043,15 +1044,16 @@ void Algorithm::getBindings(
         // check if this is a group binding
         if ((bindings->bpBinding()->BDEFINE() != nullptr || bindings->bpBinding()->BDEFINEDBL() != nullptr)) {
           // verify right is an identifier
+          std::string vio;
           if (bindings->bpBinding()->right->IDENTIFIER() == nullptr) {
-            reportError(
-              sourceloc(bindings->bpBinding()),
-              "expecting an identifier on the right side of a group binding");
+            vio = determineAccessedVar(bindings->bpBinding()->right->access(), nullptr);
+          } else {
+            vio = bindings->bpBinding()->right->IDENTIFIER()->getText();
           }
           // inout pins do not bind as groups
-          if (!isInOut(bindings->bpBinding()->right->IDENTIFIER()->getText())) {
+          if (!isInOut(vio)) {
             // check if this is a group
-            auto G = m_VIOGroups.find(bindings->bpBinding()->right->getText());
+            auto G = m_VIOGroups.find(vio);
             if (G != m_VIOGroups.end()) {
               // unfold all bindings, select direction automatically
               // NOTE: some members may not be used, these are excluded during auto-binding
@@ -1059,7 +1061,7 @@ void Algorithm::getBindings(
                 string member = v;
                 t_binding_nfo nfo;
                 nfo.left = bindings->bpBinding()->left->getText() + "_" + member;
-                nfo.right = bindings->bpBinding()->right->IDENTIFIER()->getText() + "_" + member;
+                nfo.right = vio + "_" + member;
                 nfo.srcloc = sourceloc(bindings->bpBinding());
                 nfo.dir = (bindings->bpBinding()->BDEFINE() != nullptr) ? e_Auto : e_AutoQ;
                 _vec_bindings.push_back(nfo);
@@ -1270,7 +1272,10 @@ void Algorithm::instantiateBlueprint(t_instanced_nfo& _nfo, const t_instantiatio
     cerr << "instantiating unit '" << _nfo.blueprint_name << "' as '" << _nfo.instance_name << "'\n";
     // parse the unit ios
     try {
-      auto cbp = ictx.compiler->parseUnitIOs(_nfo.blueprint_name);
+      // instantiation context for IO parsing
+      t_instantiation_context local_ictx;
+      makeBlueprintInstantiationContext(_nfo, ictx, local_ictx);
+      auto cbp = ictx.compiler->parseUnitIOs(_nfo.blueprint_name, local_ictx);
       _nfo.parsed_unit = cbp;
       _nfo.blueprint = cbp.unit;
     } catch (Fatal&) {
@@ -1288,15 +1293,9 @@ void Algorithm::instantiateBlueprint(t_instanced_nfo& _nfo, const t_instantiatio
   // finish the unit if non static
   if (!_nfo.parsed_unit.unit.isNull()) {
     // instantiation context
-    t_instantiation_context local_ictx = ictx;
-    for (auto spc : _nfo.specializations.autos) {
-      local_ictx.autos[spc.first] = spc.second; // makes sure new specializations overwrite any existing ones
-    }
-    for (auto spc : _nfo.specializations.params) {
-      local_ictx.params[spc.first] = spc.second;
-    }
+    t_instantiation_context local_ictx;
     // update the instantiation context now that we have the unit ios
-    makeBlueprintInstantiationContext(_nfo, local_ictx, local_ictx);
+    makeBlueprintInstantiationContext(_nfo, ictx, local_ictx);
     // record the specializations
     _nfo.specializations = local_ictx;
     // resolve instanced blueprint inputs/outputs var types
@@ -1358,7 +1357,13 @@ void Algorithm::gatherDeclarationInstance(siliceParser::DeclarationInstanceConte
         nfo.specializations.autos[str_signed] = tn.base_type == Int ? "signed" : "";
       } else if (m->sparam() != nullptr) {
         std::string p = m->sparam()->IDENTIFIER()->getText();
-        nfo.specializations.params[p] = m->sparam()->NUMBER()->getText();
+        if (m->sparam()->NUMBER()) {
+          nfo.specializations.params[p] = m->sparam()->NUMBER()->getText();
+        } else if (m->sparam()->CONSTANT()) {
+          nfo.specializations.params[p] = rewriteConstant(m->sparam()->CONSTANT()->getText());
+        } else {
+          sl_assert(false);
+        }
       } else {
         reportError(sourceloc(m), "modifier not allowed during instantiation" );
       }
@@ -1398,14 +1403,16 @@ std::string Algorithm::translateVIOName(
         vio = Vrew->second;
       }
     }
-    // then pipeline stage
-    if (bctx->pipeline_stage != nullptr) {
-      const auto& Vpip = bctx->pipeline_stage->pipeline->trickling_vios.find(vio);
-      if (Vpip != bctx->pipeline_stage->pipeline->trickling_vios.end()) {
-        if (bctx->pipeline_stage->stage_id > Vpip->second[0]) {
-          vio = tricklingVIOName(vio, bctx->pipeline_stage);
+    // pipeline stage (recurses through nesting)
+    auto current = bctx->pipeline_stage;
+    while (current != nullptr) {
+      const auto& Vpip = current->pipeline->trickling_vios.find(vio);
+      if (Vpip != current->pipeline->trickling_vios.end()) {
+        if (current->stage_id > Vpip->second[0]) {
+          vio = tricklingVIOName(vio, current);
         }
       }
+      current = current->pipeline->nested_in_parent_stage;
     }
   }
   return vio;
@@ -1520,7 +1527,15 @@ std::string Algorithm::rewriteIdentifier(
     if (isInput(var)) {
       return encapsulateIdentifier(var, read_access, ALG_INPUT + prefix + var, suffix);
     } else if (isInOut(var)) {
-      reportError(srcloc, "cannot use inouts directly in expressions");
+      if (isInOutAccessed(var)) { // indicates the inout is used in expressions (outside of binding)
+        if (m_VIOToBlueprintInOutsBound.count(var)) {
+          reportError(srcloc, "cannot bind inout %s (already used in unit body)", var.c_str());
+        } else {
+          reportError(srcloc, "cannot use inout %s as-is in expression (use .i, .o or .oenable)", var.c_str());
+        }
+      } else {
+        return encapsulateIdentifier(var, read_access, ALG_INOUT + prefix + var, suffix);
+      }
     } else if (isOutput(var)) {
       auto usage = m_Outputs.at(m_OutputNames.at(var)).usage;
       if (usage == e_Temporary) {
@@ -1900,6 +1915,25 @@ Algorithm::t_combinational_block *Algorithm::splitOrContinueBlock(siliceParser::
 
 // -------------------------------------------------
 
+bool Algorithm::isInWhileBody(const antlr4::tree::ParseTree* node) const
+{
+  if (node == nullptr) {
+    return false;
+  }
+  auto wnode = dynamic_cast<siliceParser::WhileLoopContext*>(node->parent);
+  auto pnode = dynamic_cast<siliceParser::PipelineContext*> (node->parent);
+  if (wnode != nullptr) {
+    return true;
+  } else if (pnode != nullptr) {
+    if (hasPipeline(pnode)) {
+      return false;
+    }
+  }
+  return isInWhileBody(node->parent);
+}
+
+// -------------------------------------------------
+
 Algorithm::t_combinational_block *Algorithm::gatherBreakLoop(siliceParser::BreakLoopContext* brk, t_combinational_block *_current, t_gather_context *_context)
 {
   // current goes to after while
@@ -1908,6 +1942,10 @@ Algorithm::t_combinational_block *Algorithm::gatherBreakLoop(siliceParser::Break
   }
   _current->next(_context->break_to);
   _context->break_to->is_state = true;
+  // verify this is not within a pipeline stage
+  if (!isInWhileBody(brk)) {
+    reportError(sourceloc(brk->BREAK()), "cannot break from a pipeline stage");
+  }
   // track line for fsm reporting
   {
     auto lns = instructionLines(brk);
@@ -1923,12 +1961,6 @@ Algorithm::t_combinational_block *Algorithm::gatherBreakLoop(siliceParser::Break
 
 Algorithm::t_combinational_block *Algorithm::gatherWhile(siliceParser::WhileLoopContext* loop, t_combinational_block *_current, t_gather_context *_context)
 {
-  // pipeline nesting check
-  if (_current->context.pipeline_stage != nullptr) {
-    if (hasPipeline(loop->while_block)) {
-      reportError(sourceloc(loop->while_block),"while loop contains another pipeline: pipelines cannot be nested.");
-    }
-  }
   // while header block
   t_combinational_block *while_header = addBlock("__while" + generateBlockName(), _current, nullptr, sourceloc(loop));
   _current->next(while_header);
@@ -2378,7 +2410,7 @@ Algorithm::t_combinational_block *Algorithm::concatenatePipeline(siliceParser::P
   // go through the pipeline
   // -> for each stage block
   t_combinational_block *prev = _current;
-  bool resume = (_current->context.pipeline_stage != nullptr); // if in an existing pipeline, start by adding to the last stage
+  bool resume = (_current->context.pipeline_stage != nullptr) && !isSpawningNewPipeline(pip); // if in an existing pipeline, start by adding to the last stage
   for (auto b : pip->instructionList()) {
     t_fsm_nfo*             fsm  = nullptr;
     t_pipeline_stage_nfo*  snfo = nullptr;
@@ -2431,7 +2463,7 @@ Algorithm::t_combinational_block *Algorithm::concatenatePipeline(siliceParser::P
       resume = false; // no longer resuming
     } else {
       // set next stage
-      prev->pipeline_next(from, stage_end);
+      prev->pipeline_next(from);
     }
     // advance
     prev = nfo->stages.back()->fsm->lastBlock;
@@ -2441,19 +2473,46 @@ Algorithm::t_combinational_block *Algorithm::concatenatePipeline(siliceParser::P
 
 // -------------------------------------------------
 
+bool Algorithm::isSpawningNewPipeline(const siliceParser::PipelineContext* pip) const
+{
+  // verifies the tree to check whether this is a new pipeline
+  // spawned within a block, or whether this is a concatenated pipeline
+  // from a circuitry
+  auto parent = pip->parent;
+  while (parent) {
+    auto block = dynamic_cast<siliceParser::BlockContext*>(parent);
+    if (block != nullptr) {
+      // check if new block or in a circuitry
+      auto circuitry = dynamic_cast<siliceParser::CircuitryContext*>(block->parent);
+      if (circuitry == nullptr) {
+        return true;
+      } else {
+        return false;
+      }
+    } else {
+      parent = parent->parent;
+    }
+  }
+  return false;
+}
+
+// -------------------------------------------------
+
 Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::PipelineContext* pip, t_combinational_block *_current, t_gather_context *_context)
 {
   sl_assert(pip->instructionList().size() > 1); // otherwise not a pipeline
   // inform change log
   CHANGELOG.addPointOfInterest("CL0003", sourceloc(pip));
-  // are we already within a parent pipeline?
-  if (_current->context.pipeline_stage == nullptr) {
+  // are we already within a parent pipeline or spawning a new onesss?
+  if (_current->context.pipeline_stage == nullptr || isSpawningNewPipeline(pip)) {
 
-    // no: create a new pipeline
+    /// create a new pipeline
     auto nfo = new t_pipeline_nfo();
     m_Pipelines.push_back(nfo);
     // name of the pipeline
     nfo->name = "__pip_" + std::to_string(pip->getStart()->getLine()) + "_" + std::to_string(m_Pipelines.size());
+    // parent if nested
+    nfo->nested_in_parent_stage = _current->context.pipeline_stage;
     // start concatenating (may call gatherPipeline recursively)
     auto last = concatenatePipeline(pip, _current, _context, nfo);
     // now for each stage fsm
@@ -2605,7 +2664,7 @@ Algorithm::t_combinational_block *Algorithm::gatherPipeline(siliceParser::Pipeli
 
   } else {
 
-    // yes: expand the parent pipeline
+    /// concatenate to the parent pipeline
     auto nfo = _current->context.pipeline_stage->pipeline;
     return concatenatePipeline(pip, _current, _context, nfo);
 
@@ -2760,10 +2819,10 @@ bool Algorithm::isStateLessGraph(const t_combinational_block *head) const
 
 // -------------------------------------------------
 
-bool Algorithm::hasCombinationalExit(const t_combinational_block* head) const
+void Algorithm::findNextStates( t_combinational_block* head, std::set< t_combinational_block*>& _exits) const
 {
-  std::queue< const t_combinational_block* >  q;
-  std::unordered_set< const t_combinational_block* > visited;
+  std::queue< t_combinational_block* >  q;
+  std::unordered_set< t_combinational_block* > visited;
   // initialize queue
   q.push(head);
   // explore
@@ -2771,19 +2830,23 @@ bool Algorithm::hasCombinationalExit(const t_combinational_block* head) const
     auto cur = q.front();
     q.pop();
     visited.insert(cur);
-    // recurse
+    // get children
     std::vector< t_combinational_block* > children;
     cur->getChildren(children);
-    if (children.empty()) {
-      // we reached this combinational block and it has no children
-      // => combinational exit!
-      return true;
+    // ensure while is properly followed
+    if (cur->while_loop()) { //  FIXME? this is due to when a while encloses the pipeline, as we do not explore other fsms
+      children.push_back(cur); // add self
     }
+    // recurse
     for (auto c : children) {
       if (c == nullptr) {
-        // tags a forward ref (jump), non combinational exit => skip
+        sl_assert(false); // jumps should be resolved before
+      } else if (c->context.fsm != head->context.fsm) {
+        // other fsm => exit, store
+        _exits.insert(c);
       } else if (c->is_state) {
-        // state, non combinational exit => skip
+        // state => exit, store
+        _exits.insert(c);
       } else {
         // explore further
         if (visited.count(c) == 0) {
@@ -2792,7 +2855,6 @@ bool Algorithm::hasCombinationalExit(const t_combinational_block* head) const
       }
     }
   }
-  return false;
 }
 
 // -------------------------------------------------
@@ -2847,7 +2909,8 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(
     if (C == m_KnownCircuitries.end()) {
       // attempt dynamic instantiation
       try {
-        auto result = _context->ictx->compiler->parseCircuitryIOs(name);
+        sl_assert(_context->ictx != nullptr);
+        auto result = _context->ictx->compiler->parseCircuitryIOs(name, *_context->ictx);
         m_InstancedCircuitries.push_back(result);
         ioList = result.ioList;
       } catch (Fatal&) {
@@ -2966,15 +3029,6 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(
 
 Algorithm::t_combinational_block *Algorithm::gatherIfElse(siliceParser::IfThenElseContext* ifelse, t_combinational_block *_current, t_gather_context *_context)
 {
-  // pipeline nesting check
-  if (_current->context.pipeline_stage != nullptr) {
-    if (hasPipeline(ifelse->if_block)) {
-      reportError(sourceloc(ifelse->if_block), "conditonal statement (if side) contains another pipeline: pipelines cannot be nested.");
-    }
-    if (hasPipeline(ifelse->else_block)) {
-      reportError(sourceloc(ifelse->else_block), "conditonal statement (else side) contains another pipeline: pipelines cannot be nested.");
-    }
-  }
   // blocks for both sides
   t_combinational_block *if_block = addBlock(generateBlockName(), _current, nullptr, sourceloc(ifelse->if_block));
   t_combinational_block *else_block = addBlock(generateBlockName(), _current, nullptr, sourceloc(ifelse->else_block));
@@ -3000,7 +3054,7 @@ Algorithm::t_combinational_block *Algorithm::gatherIfElse(siliceParser::IfThenEl
   }
   // NOTE: We do not tag 'after' as being a state right now, so that we can then consider
   // whether to collapse it into the 'else' of the conditional in case the 'if' jumps over it.
-  // NOTE: This prevent a special mechanism to avoid code duplication is preventIfElseCodeDup()
+  // NOTE: A special mechanism avoids code duplication, see preventIfElseCodeDup()
   return after;
 }
 
@@ -3008,12 +3062,6 @@ Algorithm::t_combinational_block *Algorithm::gatherIfElse(siliceParser::IfThenEl
 
 Algorithm::t_combinational_block *Algorithm::gatherIfThen(siliceParser::IfThenContext* ifthen, t_combinational_block *_current, t_gather_context *_context)
 {
-  // pipeline nesting check
-  if (_current->context.pipeline_stage != nullptr) {
-    if (hasPipeline(ifthen->if_block)) {
-      reportError(sourceloc(ifthen->if_block), "conditonal statement contains another pipeline: pipelines cannot be nested.");
-    }
-  }
   // blocks for both sides
   t_combinational_block *if_block = addBlock(generateBlockName(), _current, nullptr, sourceloc(ifthen->if_block));
   t_combinational_block *else_block = addBlock(generateBlockName(), _current);
@@ -3033,7 +3081,7 @@ Algorithm::t_combinational_block *Algorithm::gatherIfThen(siliceParser::IfThenCo
   }
   // NOTE: We do not tag 'after' as being a state right now, so that we can then consider
   // whether to collapse it into the 'else' of the conditional in case the 'if' jumps over it.
-  // NOTE: This prevent a special mechanism to avoid code duplication is preventIfElseCodeDup()
+  // NOTE: A special mechanism avoids code duplication, see preventIfElseCodeDup()
   return after;
 }
 
@@ -3041,14 +3089,6 @@ Algorithm::t_combinational_block *Algorithm::gatherIfThen(siliceParser::IfThenCo
 
 Algorithm::t_combinational_block* Algorithm::gatherSwitchCase(siliceParser::SwitchCaseContext* switchCase, t_combinational_block* _current, t_gather_context* _context)
 {
-  // pipeline nesting check
-  if (_current->context.pipeline_stage != nullptr) {
-    for (auto cb : switchCase->caseBlock()) {
-      if (hasPipeline(cb)) {
-        reportError(sourceloc(cb), "switch case contains another pipeline: pipelines cannot be nested.");
-      }
-    }
-  }
   // create a block for after the switch-case
   t_combinational_block* after = addBlock(generateBlockName(), _current, nullptr, sourceloc(switchCase));
   // create a block per case statement
@@ -3135,7 +3175,6 @@ void Algorithm::addTemporary(std::string vname, siliceParser::Expression_0Contex
   }
   // insert var
   insertVar(var, block);
-  m_VarNames.at(var.name);
   // insert as an expression catcher
   m_ExpressionCatchers.insert(std::make_pair(std::make_pair(expr, block),var.name));
   // insert a custom assignment instruction for this temporary
@@ -4078,7 +4117,7 @@ bool Algorithm::preventIfElseCodeDup(t_fsm_nfo* fsm)
   // detect unreachable blocks
   // NOTE: this is done before as the loop below changes is_state for some block,
   //       and these have to be renumbered
-  std::set<int> unreachable;
+  std::set<size_t> unreachable;
   for (auto b : m_Blocks) {
     if (b->context.fsm == fsm) {
       if (b->state_id == -1 && b->is_state) {
@@ -4113,6 +4152,63 @@ bool Algorithm::preventIfElseCodeDup(t_fsm_nfo* fsm)
     }
   }
   return (changed);
+}
+
+// -------------------------------------------------
+
+/*
+  padPipeline ensures that the last state of the pipeline stage fsm only
+  exit towards antoher stage fsm. If not, this implies the last state
+  may loop within the stage (e.g. on itself with a while or using gotos)
+  in which case the pipeline trigger will be incorrect. Such cases require
+  adding a state before termination, and hence preventing collapse of
+  next cycles within while loops and if-else (CL0004, CL0005)
+*/
+bool Algorithm::padPipeline(t_fsm_nfo* fsm)
+{
+  // NOTE: expects stage ids to have been generate
+  bool changed = false;
+  if (!fsmIsEmpty(fsm)) {
+    // get blocks
+    std::unordered_set<t_combinational_block*> blocks;
+    fsmGetBlocks(fsm, blocks);
+    // last state
+    int last_state_id = fsm->lastBlock->parent_state_id;
+    // find the block
+    t_combinational_block* last = nullptr;
+    for (auto b : blocks) {
+      if (b->state_id == last_state_id) {
+        last = b;
+        break;
+      }
+    }
+    // find all possible exits
+    std::set<t_combinational_block*> exits;
+    findNextStates(last, exits);
+    // count exits which are in the same fsm (other are ok; they won't lead to an incorrect pipeline start)
+    int same_fsm_exits = 0;
+    for (auto e : exits) {
+      if (e->context.fsm == fsm) {
+        ++same_fsm_exits;
+      }
+    }
+    // check: multiple exits, and one at least in same fsm
+    if (exits.size() > 1 && same_fsm_exits > 0) {
+      // TODO: can we do better than to explictely list all cases?
+      if (last->while_loop()) {
+        warn(Standard, last->srcloc, "The last state of the pipeline stage loops into the stage, an additional cycle has to be introduced after.");
+        last->while_loop()->after->is_state = true;
+        changed |= true;
+      } else if (last->if_then_else()) {
+        warn(Standard, last->srcloc, "The last state of the pipeline stage loops into the stage, an additional cycle has to be introduced after.");
+        last->if_then_else()->after->is_state = true;
+        changed |= true;
+      } else {
+        sl_assert(false);
+      }
+    }
+  }
+  return changed;
 }
 
 // -------------------------------------------------
@@ -4185,6 +4281,11 @@ void Algorithm::renumberStates(t_fsm_nfo *fsm)
 void Algorithm::generateStates(t_fsm_nfo* fsm)
 {
   renumberStates(fsm);
+  if (fsm != &m_RootFSM) {
+    if (padPipeline(fsm)) { // only on pipeline fsms
+      renumberStates(fsm);
+    }
+  }
   if (preventIfElseCodeDup(fsm)) { // NOTE: commenting this enables code duplication in if/else
     renumberStates(fsm);
   }
@@ -4238,22 +4339,22 @@ std::string Algorithm::fsmPipelineStageStall(const t_fsm_nfo *fsm) const
   return "_stall_" + fsm->name;
 }
 
-std::string Algorithm::fsmPipelineFirstStageDisable(const t_fsm_nfo *fsm) const
+std::string Algorithm::fsmPipelineFirstStateDisable(const t_fsm_nfo *fsm) const
 {
   return "_1stdisable_" + fsm->name;
 }
 
 // -------------------------------------------------
 
-std::string Algorithm::fsmNextState(std::string prefix,const t_fsm_nfo *) const
+std::string Algorithm::fsmNextState(std::string prefix,const t_fsm_nfo *fsm) const
 {
   std::string next;
   if (m_AutoRun) { // NOTE: same as isNotCallable() since hasNoFSM() is false
-    next = std::string("( ~") + prefix + ALG_AUTORUN + " ? " + std::to_string(toFSMState(&m_RootFSM, entryState(&m_RootFSM)));
+    next = std::string("( ~") + prefix + ALG_AUTORUN + " ? " + std::to_string(toFSMState(fsm, entryState(fsm)));
   } else {
-    next = std::string("( ~") + ALG_INPUT + "_" + ALG_RUN + " ? " + std::to_string(toFSMState(&m_RootFSM, entryState(&m_RootFSM)));
+    next = std::string("( ~") + ALG_INPUT + "_" + ALG_RUN + " ? " + std::to_string(toFSMState(fsm, entryState(fsm)));
   }
-  next += std::string(" : ") + FF_D + prefix + fsmIndex(&m_RootFSM) + ")";
+  next += std::string(" : ") + FF_D + prefix + fsmIndex(fsm) + ")";
   return next;
 }
 
@@ -4326,7 +4427,7 @@ int  Algorithm::fastForwardToFSMState(const t_fsm_nfo* fsm, const t_combinationa
 {
   // fast forward
   block = fastForward(block);
-  if (blockIsEmpty(block) && block == fsm->lastBlock) {
+  if (blockIsEmpty(block) && block == fsm->lastBlock && fsm == &m_RootFSM) {
     // special case of empty block at the end of the algorithm
     return toFSMState(fsm,terminationState(fsm));
   } else {
@@ -5983,8 +6084,12 @@ void Algorithm::determineBlueprintBoundVIO(const t_instantiation_context& ictx)
             // check width of output vs range width
             // -> get output width if possible
             {
+              // produce instantiation context
+              t_instantiation_context local_ictx;
+              makeBlueprintInstantiationContext(ib.second, ictx, local_ictx);
+              // verify width
               int iobw = -1;
-              string obw = ib.second.blueprint->resolveWidthOf(b.left, ictx, sourceloc(access));
+              string obw = ib.second.blueprint->resolveWidthOf(b.left, local_ictx, sourceloc(access));
               try {
                 iobw = stoi(obw);
               } catch (...) {
@@ -6033,9 +6138,28 @@ void Algorithm::determineBlueprintBoundVIO(const t_instantiation_context& ictx)
         if (m_VIOBoundToBlueprintOutputs.find(bindingRightIdentifier(b)) != m_VIOBoundToBlueprintOutputs.end()) {
           reportError(b.srcloc, "vio '%s' is already bound as the output of another instance", bindingRightIdentifier(b).c_str());
         }
+        // check width if it is an access
+        if (std::holds_alternative<siliceParser::AccessContext*>(b.right)) {
+          auto access = std::get<siliceParser::AccessContext*>(b.right);
+          // produce instantiation context
+          t_instantiation_context local_ictx;
+          makeBlueprintInstantiationContext(ib.second, ictx, local_ictx);
+          // verify width (mismatch not allowed with inouts)
+          string iow = ib.second.blueprint->resolveWidthOf(b.left, local_ictx, b.srcloc);
+          int iiow = -1;
+          try {
+            iiow = stoi(iow);
+          } catch (...) {
+            reportError(b.srcloc, "cannot determine width of inout '%s'", b.left.c_str());
+          }
+          auto tw = determineAccessTypeAndWidth(nullptr, access, nullptr);
+          if (tw.width != iiow) {
+            reportError(b.srcloc, "cannot bind to inout of different width");
+          }
+        }
         // record wire name for this inout
         std::string bindpoint = ib.second.instance_prefix + "_" + b.left;
-        m_BlueprintInOutsBoundToVIO[bindpoint] = bindingRightIdentifier(b);
+        m_BlueprintInOutsBoundToVIO[bindpoint] = b.right;
         m_VIOToBlueprintInOutsBound[bindingRightIdentifier(b)] = bindpoint;
       }
     }
@@ -6982,6 +7106,10 @@ std::tuple<t_type_nfo, int> Algorithm::writeIOAccess(
     auto G = m_VIOGroups.find(base);
     if (G != m_VIOGroups.end()) {
       verifyMemberGroup(member, G->second);
+      // verifiy not a bound inout
+      if (m_VIOToBlueprintInOutsBound.count(base)) {
+        reportError(sourceloc(ioaccess),"cannot access bound inout '%s'", base.c_str());
+      }
       // produce the variable name
       std::string vname = base + "_" + member;
       // write
@@ -7453,13 +7581,15 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
     if (!fsmIsEmpty(fsm)) {
       out << "reg  [" << stateWidth(fsm) - 1 << ":0] " FF_D << prefix << fsmIndex(fsm)
                                                 << "," FF_Q << prefix << fsmIndex(fsm) << ';' << nxl;
-      out << "wire " << fsmPipelineStageReady(fsm) << " = "
-        <<     "(" << FF_Q << prefix << fsmIndex(fsm) << " == " << toFSMState(fsm, lastPipelineStageState(fsm)) << ')'
-        << " || (" << FF_Q << prefix << fsmIndex(fsm) << " == " << toFSMState(fsm, terminationState(fsm)) << ");" << nxl;
+      out << "wire " << fsmPipelineStageReady(fsm) << " = ";
+      // this condition allows to trigger the stage immediately after it reached its end state
+      out << "(" << FF_Q << prefix << fsmIndex(fsm) << " == " << toFSMState(fsm, lastPipelineStageState(fsm)) << ')';
+      // this condition allows to trigger the stage when idle (becomes idle one cycle after it reached end)
+      out << " || (" << FF_Q << prefix << fsmIndex(fsm) << " == " << toFSMState(fsm, terminationState(fsm)) << ");" << nxl;
       out << "reg  [0:0] " FF_D << prefix << fsmPipelineStageFull(fsm) << " = 0"
                     << "," FF_Q << prefix << fsmPipelineStageFull(fsm) << " = 0;" << nxl;
       out << "reg  [0:0] " FF_TMP << prefix << fsmPipelineStageStall(fsm) << " = 0;" << nxl;
-      out << "reg  [0:0] " FF_TMP << prefix << fsmPipelineFirstStageDisable(fsm) << " = 0;" << nxl;
+      out << "reg  [0:0] " FF_TMP << prefix << fsmPipelineFirstStateDisable(fsm) << " = 0;" << nxl;
     }
   }
   // state machine caller id (subroutines)
@@ -7740,7 +7870,7 @@ void Algorithm::writeCombinationalAlwaysPre(
     w.out << FF_D   << "_" << fsmIndex(fsm) << " = " << FF_Q << "_" << fsmIndex(fsm) << ';' << nxl;
     w.out << FF_D   << "_" << fsmPipelineStageFull(fsm) << " = " << FF_Q << "_" << fsmPipelineStageFull(fsm) << ';' << nxl;
     w.out << FF_TMP << "_" << fsmPipelineStageStall(fsm) << " = 0;" << nxl;
-    w.out << FF_TMP << "_" << fsmPipelineFirstStageDisable(fsm) << " = 0;" << nxl;
+    w.out << FF_TMP << "_" << fsmPipelineFirstStateDisable(fsm) << " = 0;" << nxl;
   }
   // instanced algorithms run, maintain high
   for (const auto& iaiordr : m_InstancedBlueprintsInDeclOrder) {
@@ -8128,24 +8258,28 @@ void Algorithm::writeBlock(std::string prefix, t_writer_context &w,
     } {
       auto display = dynamic_cast<siliceParser::DisplayContext *>(a.instr);
       if (display) {
-        if (display->DISPLAY() != nullptr) {
-          w.out << "$display(";
-        } else if (display->DISPLWRITE() != nullptr) {
-          w.out << "$write(";
-        }
-        w.out << display->STRING()->getText();
-        if (display->callParamList() != nullptr) {
-          std::vector<t_call_param> params;
-          getCallParams(display->callParamList(),params, &block->context);
-          for (auto p : params) {
-            if (std::holds_alternative<std::string>(p.what)) {
-              w.out << "," << rewriteIdentifier(prefix, std::get<std::string>(p.what), "", &block->context, ictx, sourceloc(display), FF_Q, true, _dependencies, _ff_usage);
-            } else {
-              w.out << "," << rewriteExpression(prefix, p.expression, a.__id, &block->context, ictx, FF_Q, true, _dependencies, _ff_usage);
+        // check support
+        std::string instr = display->DISPLAY() != nullptr ? "display" : "write";
+        auto C = CONFIG.keyValues().find("__" + instr + "_supported");
+        if (C->second != "yes") {
+          warn(Standard, sourceloc(display), ("__" + instr + " not supported on this target, ignored").c_str());
+        } else {
+          // add to code
+          w.out << "$" << instr << "(";
+          w.out << display->STRING()->getText();
+          if (display->callParamList() != nullptr) {
+            std::vector<t_call_param> params;
+            getCallParams(display->callParamList(), params, &block->context);
+            for (auto p : params) {
+              if (std::holds_alternative<std::string>(p.what)) {
+                w.out << "," << rewriteIdentifier(prefix, std::get<std::string>(p.what), "", &block->context, ictx, sourceloc(display), FF_Q, true, _dependencies, _ff_usage);
+              } else {
+                w.out << "," << rewriteExpression(prefix, p.expression, a.__id, &block->context, ictx, FF_Q, true, _dependencies, _ff_usage);
+              }
             }
           }
+          w.out << ");" << nxl;
         }
-        w.out << ");" << nxl;
       }
     } {
       auto inline_v = dynamic_cast<siliceParser::Inline_vContext *>(a.instr);
@@ -8181,7 +8315,14 @@ void Algorithm::writeBlock(std::string prefix, t_writer_context &w,
     } {
       auto finish = dynamic_cast<siliceParser::FinishContext *>(a.instr);
       if (finish) {
-        w.out << "$finish();" << nxl;
+        // check support
+        auto C = CONFIG.keyValues().find("__finish_supported");
+        if (C->second != "yes") {
+          warn(Standard, sourceloc(finish), "__finish not supported on this target, ignored");
+        } else {
+          // add to code
+          w.out << "$finish();" << nxl;
+        }
       }
     } {
       auto stall = dynamic_cast<siliceParser::StallContext *>(a.instr);
@@ -8281,7 +8422,7 @@ void Algorithm::disableStartingPipelines(std::string prefix, t_writer_context &w
   findAllStartingPipelines(block, pipelines);
   for (auto pip : pipelines) {
     if (!fsmIsEmpty(pip->stages.front()->fsm)) {
-      w.out << FF_TMP << '_' << fsmPipelineFirstStageDisable(pip->stages.front()->fsm) << " = 1;" << nxl;
+      w.out << FF_TMP << '_' << fsmPipelineFirstStateDisable(pip->stages.front()->fsm) << " = 1;" << nxl;
     }
   }
 }
@@ -8312,11 +8453,11 @@ void Algorithm::writeStatelessBlockGraph(
       return;
     }
   } else {
-    // first state of pipeline first stage?
+    // first state of first pipeline stage?
     if (block->context.pipeline_stage) {
       if (block->context.pipeline_stage->stage_id == 0 && !fsmIsEmpty(fsm)) {
         // add conditional on first stage disabled (in case the pipeline is enclosed in a conditional)
-        w.out << "if (~" << FF_TMP << prefix << fsmPipelineFirstStageDisable(fsm) << ") begin " << nxl;
+        w.out << "if (~" << FF_TMP << prefix << fsmPipelineFirstStateDisable(fsm) << ") begin " << nxl;
         enclosed_in_conditional = true;
       }
     }
@@ -8324,6 +8465,9 @@ void Algorithm::writeStatelessBlockGraph(
   // follow the chain
   const t_combinational_block *current = block;
   while (true) {
+    if (current->block_name == "__stage___block_26") {
+      LIBSL_TRACE;
+    }
     // write current block
     writeBlock(prefix, w, ictx, current, _dependencies, _ff_usage, _lines);
     // goto next in chain
@@ -8643,17 +8787,18 @@ void Algorithm::writeStatelessBlockGraph(
         // in a recursion, pipeline might have been disabled so we re-enable it
         // (otherwise we are sure it was not disabled, no need to manipulate the signal and risk adding logic)
         if (!fsmIsEmpty(current->pipeline_next()->next->context.pipeline_stage->fsm)) {
-          w.out << FF_TMP << '_' << fsmPipelineFirstStageDisable(current->pipeline_next()->next->context.pipeline_stage->fsm) << " = 0;" << nxl;
+          w.out << FF_TMP << '_' << fsmPipelineFirstStateDisable(current->pipeline_next()->next->context.pipeline_stage->fsm) << " = 0;" << nxl;
         }
       }
       // write pipeline
       auto prev = current;
       if (current->context.fsm != nullptr) {
         // if in an algorithm, pipelines are written later
-        std::ostringstream _;
-        t_writer_context wpip(w.pipes,_,w.wires);
-        sl_assert(_.str().empty());
+        std::ostringstream subpip; // child pipelines are written here
+        t_writer_context wpip(w.pipes,subpip,w.wires);
         current = writeStatelessPipeline(prefix, wpip, ictx, current, _q, _dependencies, _ff_usage, _post_dependencies, _lines);
+        // combine any child pipeline with parents
+        w.pipes << subpip.str();
         // also check that blocks between here and next states are empty
         if (!emptyUntilNextStates(current)) {
           reportError(prev->srcloc, "in an algorithm, a pipeline has to be followed by a new cycle.\n"
@@ -9213,61 +9358,81 @@ void Algorithm::addToInstantiationContext(const Algorithm *alg, std::string var,
 
 // -------------------------------------------------
 
+bool Algorithm::isInOutAccessed(std::string var) const
+{
+  return m_Vars.at(m_VarNames.at(var + "_o"      )).access != e_NotAccessed
+    ||   m_Vars.at(m_VarNames.at(var + "_oenable")).access != e_NotAccessed
+    ||   m_Vars.at(m_VarNames.at(var + "_i"      )).access != e_NotAccessed;
+}
+
+// -------------------------------------------------
+
 void Algorithm::makeBlueprintInstantiationContext(const t_instanced_nfo& nfo, const t_instantiation_context& ictx, t_instantiation_context& _local_ictx) const
 {
   _local_ictx = ictx;
-  // parameters for parameterized variables
-  ForIndex(i, nfo.blueprint->parameterized().size()) {
-    string var = nfo.blueprint->parameterized()[i];
-    if (varIsInInstantiationContext(var, nfo.specializations)) {
-      // var has been specialized explicitly already
-      continue;
-    }
-    bool found = false;
-    auto io_nfo = nfo.blueprint->getVIODefinition(var, found);
-    sl_assert(found);
-    if (io_nfo.type_nfo.same_as.empty()) {
-      // a binding is needed to parameterize this io, find it
-      found = false;
-      const auto &b = findBindingLeft(var, nfo.bindings, found);
-      if (!found) {
-        reportError(nfo.srcloc, "io '%s' of instance '%s' is not bound nor specialized, cannot automatically determine it",
-          var.c_str(), nfo.instance_name.c_str());
-      }
-      std::string bound = bindingRightIdentifier(b);
-      t_var_nfo bnfo;
-      if (!getVIONfo(bound, bnfo)) {
-        continue; // NOTE: This is fine, we might be missing a binding that will be later resolved.
-                  //       Later (when writing the output) this is strictly asserted.
-                  //       This will only be an issue if the bound var is actually a paramterized var,
-                  //       however the designer is expected to worry about instantiation order in such cases.
-      }
-      if (bnfo.table_size != 0) {
-        // parameterized vars cannot be tables
+  for (auto spc : nfo.specializations.autos) {
+    _local_ictx.autos [spc.first] = spc.second; // makes sure new specializations overwrite any existing ones
+  }
+  for (auto spc : nfo.specializations.params) {
+    _local_ictx.params[spc.first] = spc.second;
+  }
+  // if the blueprint is defined (not the case before IOs are parsed)
+  if (!nfo.blueprint.isNull()) {
+    // parameters for parameterized variables
+    ForIndex(i, nfo.blueprint->parameterized().size()) {
+      string var = nfo.blueprint->parameterized()[i];
+      if (varIsInInstantiationContext(var, nfo.specializations)) {
+        // var has been specialized explicitly already
         continue;
       }
-      // add to context
-      addToInstantiationContext(this, var, bnfo, _local_ictx, _local_ictx);
+      bool found = false;
+      auto io_nfo = nfo.blueprint->getVIODefinition(var, found);
+      sl_assert(found);
+      if (io_nfo.type_nfo.same_as.empty()) {
+        // a binding is needed to parameterize this io, find it
+        found = false;
+        const auto& b = findBindingLeft(var, nfo.bindings, found);
+        if (!found) {
+          reportError(nfo.srcloc, "io '%s' of instance '%s' is not bound nor specialized, cannot automatically determine it",
+            var.c_str(), nfo.instance_name.c_str());
+        }
+        std::string bound = bindingRightIdentifier(b);
+        t_var_nfo bnfo;
+        if (!getVIONfo(bound, bnfo)) {
+          continue; // NOTE: This is fine, we might be missing a binding that will be later resolved.
+          //       Later (when writing the output) this is strictly asserted.
+          //       This will only be an issue if the bound var is actually a paramterized var,
+          //       however the designer is expected to worry about instantiation order in such cases.
+        }
+        if (bnfo.table_size != 0) {
+          // parameterized vars cannot be tables
+          continue;
+        }
+        // add to context
+        addToInstantiationContext(this, var, bnfo, _local_ictx, _local_ictx);
+      }
+    }
+    // parameters of non-parameterized ios (for pre-processor widthof/signed)
+    Algorithm* alg = dynamic_cast<Algorithm*>(nfo.blueprint.raw());
+    if (alg != nullptr) {
+      for (auto io : nfo.blueprint->inputs()) {
+        if (io.type_nfo.base_type != Parameterized || !io.type_nfo.same_as.empty()) {
+          addToInstantiationContext(alg, io.name, io, _local_ictx, _local_ictx);
+        }
+      }
+      for (auto io : nfo.blueprint->outputs()) {
+        if (io.type_nfo.base_type != Parameterized || !io.type_nfo.same_as.empty()) {
+          addToInstantiationContext(alg, io.name, io, _local_ictx, _local_ictx);
+        }
+      }
+      for (auto io : nfo.blueprint->inOuts()) {
+        if (io.type_nfo.base_type != Parameterized || !io.type_nfo.same_as.empty()) {
+          addToInstantiationContext(alg, io.name, io, _local_ictx, _local_ictx);
+        }
+      }
     }
   }
-  // parameters of non-parameterized ios (for pre-processor widthof/signed)
-  Algorithm *alg = dynamic_cast<Algorithm*>(nfo.blueprint.raw());
-  for (auto io : nfo.blueprint->inputs()) {
-    if (io.type_nfo.base_type != Parameterized || !io.type_nfo.same_as.empty()) {
-      addToInstantiationContext(alg, io.name, io, _local_ictx, _local_ictx);
-    }
-  }
-  for (auto io : nfo.blueprint->outputs()) {
-    if (io.type_nfo.base_type != Parameterized || !io.type_nfo.same_as.empty()) {
-      addToInstantiationContext(alg, io.name, io, _local_ictx, _local_ictx);
-    }
-  }
-  for (auto io : nfo.blueprint->inOuts()) {
-    if (io.type_nfo.base_type != Parameterized || !io.type_nfo.same_as.empty()) {
-      addToInstantiationContext(alg, io.name, io, _local_ictx, _local_ictx);
-    }
-  }
-  // instance context
+  // instance name
   _local_ictx.instance_name = (ictx.instance_name.empty() ? ictx.top_name : ictx.instance_name) + "_" + nfo.instance_name;
 }
 
@@ -9308,7 +9473,7 @@ void Algorithm::writeAsModule(std::ostream& out, const t_instantiation_context& 
 
   // module header
   if (ictx.instance_name.empty()) {
-    out << "module " << ictx.top_name << ' ';
+    out << "module " << ictx.top_name << ' '; // FIXME: inelegant, calrify role of top_name
   } else {
     out << "module M_" << m_Name + '_' + ictx.instance_name + ' ';
   }
@@ -9474,6 +9639,27 @@ void Algorithm::writeAsModule(std::ostream& out, const t_instantiation_context& 
     } else {
       out << nfo.blueprint->moduleName(nfo.blueprint_name, "") << ' ';
     }
+    // if verilog module add parameters
+    {
+      const Module* vmod = dynamic_cast<const Module*>(nfo.blueprint.raw());
+      if (vmod != nullptr) {
+        if (!vmod->parameters().empty()) {
+          out << "#(";
+          bool first = true;
+          for (const auto& prm : vmod->parameters()) {
+            if (first) { first = false; out << '\n'; } else { out << ",\n"; }
+            // test if given when instanced, otherwise use default
+            auto P = nfo.specializations.params.find(prm.first);
+            if (P != nfo.specializations.params.end()) {
+              out << '.' << prm.first << '(' << P->second << ")";
+            } else {
+              out << '.' << prm.first << '(' << prm.second << ")";
+            }
+          }
+          out << "\n)\n";
+        }
+      }
+    }
     // instance name
     out << nfo.instance_name << ' ';
     // ports
@@ -9549,11 +9735,23 @@ void Algorithm::writeAsModule(std::ostream& out, const t_instantiation_context& 
       std::string bindpoint = nfo.instance_prefix + "_" + os.name;
       const auto& vio = m_BlueprintInOutsBoundToVIO.find(bindpoint);
       if (vio != m_BlueprintInOutsBoundToVIO.end()) {
-        if (isInOut(vio->second)) {
-          out << '.' << nfo.blueprint->inoutPortName(os.name) << '(' << ALG_INOUT << "_" << vio->second << ")";
+        out << '.' << nfo.blueprint->inoutPortName(os.name) << '(';
+        if (std::holds_alternative<std::string>(vio->second)) {
+          std::string bndid = std::get<std::string>(vio->second);
+          if (isInOut(bndid)) {
+            out << ALG_INOUT << "_" << bndid;
+          } else {
+            out << WIRE << "_" << bndid;
+          }
         } else {
-          out << '.' << nfo.blueprint->inoutPortName(os.name) << '(' << WIRE << "_" << vio->second << ")";
+          // write access
+          t_vio_dependencies _;
+          writeAccess("_", out, false, std::get<siliceParser::AccessContext*>(vio->second),
+            -1, nullptr, ictx,
+            FF_D, _, ff_input_bindings_usage
+          );
         }
+        out << ")";
       } else {
         reportError(nfo.srcloc, "cannot find algorithm inout binding '%s'", os.name.c_str());
       }
@@ -9844,9 +10042,8 @@ void Algorithm::writeAsModule(std::ostream& out, const t_instantiation_context& 
     if (stage_id == 0) {
       // parent state active?
       if (fsm->parentBlock->context.fsm != nullptr) {
-        sl_assert(fsm->parentBlock->context.fsm == &m_RootFSM); // no nested pipelines
         out << "  && ((";
-        out << fsmNextState("_", &m_RootFSM);
+        out << fsmNextState("_", fsm->parentBlock->context.fsm);
         out << ')';
         out << " == " << toFSMState(fsm->parentBlock->context.fsm, fsmParentTriggerState(fsm));
         out << ")" << nxl;

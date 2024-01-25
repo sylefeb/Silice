@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.5)
 project(silice)
 
 INCLUDE_DIRECTORIES(
@@ -16,6 +16,10 @@ INCLUDE_DIRECTORIES(
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:4194304")
+else()
+if (MINGW)
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --static")
+endif()
 endif()
 
 set(CMAKE_CXX_STANDARD 17)
@@ -124,22 +128,47 @@ add_library(libsilice STATIC ${SILICE_CORE})
 add_executable(silice src/silice.cpp)
 # set_target_properties(silice PROPERTIES OUTPUT_NAME "silice")
 target_link_libraries(silice libsilice antlr4_static lua luabind)
-if(WIN32)
-target_link_libraries(silice shlwapi)
-endif(WIN32)
 
-install(TARGETS silice RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/bin)
-install(TARGETS libsilice ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/lib)
-install(TARGETS lua ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/lib)
-install(TARGETS lua ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/lib)
-install(TARGETS luabind ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/lib)
-install(TARGETS antlr4_static ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/lib)
+if(WIN32)
+  target_link_libraries(silice shlwapi)
+endif()
+
+# install and paths
+
+if(WIN32)
+  IF(MINGW)
+    set(INSTALL_IN_REPO OFF CACHE BOOL "Install in repository")
+  else()
+    set(INSTALL_IN_REPO ON CACHE BOOL "Install in repository")
+  endif()
+else()
+  set(INSTALL_IN_REPO OFF CACHE BOOL "Install in repository")
+endif()
+
+if (INSTALL_IN_REPO)
+
+  install(TARGETS silice    RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/bin)
+  install(TARGETS libsilice ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/lib)
+  add_definitions(-DFRAMEWORKS_DEFAULT_PATH=\"${CMAKE_SOURCE_DIR}/frameworks\")
+
+else()
+
+  install(TARGETS   silice                RUNTIME     DESTINATION bin/)
+  install(TARGETS   libsilice             ARCHIVE     DESTINATION bin/)
+  install(FILES     bin/silice-make.py    PERMISSIONS WORLD_EXECUTE OWNER_WRITE WORLD_READ DESTINATION bin/)
+  install(FILES     bin/report-cycles.py  PERMISSIONS WORLD_EXECUTE OWNER_WRITE WORLD_READ DESTINATION bin/)
+  install(FILES     projects/ice-v/CPUs/ice-v.si      DESTINATION share/silice/projects/ice-v/CPUs/)
+  install(FILES     projects/ice-v/CPUs/ice-v-dual.si DESTINATION share/silice/projects/ice-v/CPUs/)
+  install(DIRECTORY frameworks            DESTINATION share/silice/ USE_SOURCE_PERMISSIONS)
+  install(DIRECTORY src/libs/LibSL-small  DESTINATION share/silice/src/libs/)
+  add_definitions(-DFRAMEWORKS_DEFAULT_PATH=\"${CMAKE_INSTALL_PREFIX}/share/silice/frameworks\")
+
+endif()
 
 # compiler checks
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" AND
-   CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8)
-    message(FATAL_ERROR "Silice requires g++ 8 at least")
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8)
+  message(FATAL_ERROR "Silice requires g++ 8 at least")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")

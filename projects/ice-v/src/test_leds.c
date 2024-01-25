@@ -4,6 +4,8 @@
 
 #include "config.h"
 
+void f_putchar(int) {}
+
 void main()
 {
   volatile int i = 0;
@@ -24,6 +26,7 @@ void main()
     *LEDS = l;
     // for (i=0;i<655360;i++) { asm volatile ("nop;"); }
     for (i=0;i<655360;i++) {  }
+    // for (i=0;i<32;i++) {  }
   }
 
 }

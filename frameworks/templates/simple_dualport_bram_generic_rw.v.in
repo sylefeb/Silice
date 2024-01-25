@@ -1,0 +1,22 @@
+// SL 2019, MIT license
+module %MODULE%(
+input      [%ADDR0_WIDTH%-1:0]                in_addr0,
+output reg %DATA_TYPE% [%DATA_WIDTH%-1:0]     out_rdata0,
+output reg %DATA_TYPE% [%DATA_WIDTH%-1:0]     out_rdata1,
+input      [%WENABLE1_WIDTH%-1:0]             in_wenable1,
+input      [%DATA_WIDTH%-1:0]                 in_wdata1,
+input      [%ADDR1_WIDTH%-1:0]                in_addr1,
+input      clock0,
+input      clock1
+);
+reg %DATA_TYPE% [%DATA_WIDTH%-1:0] buffer[%DATA_SIZE%-1:0];
+always @(posedge clock0) begin
+  out_rdata0 <= buffer[in_addr0];
+end
+always @(posedge clock1) begin
+  if (in_wenable1) begin
+    buffer[in_addr1] <= in_wdata1;
+  end
+end
+%INITIAL%
+endmodule

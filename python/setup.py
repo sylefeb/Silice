@@ -12,7 +12,7 @@ def add_asset_directory(dir):
     datadir = Path(__file__).parent / 'silice/{}'.format(dir)
     return [str(p.relative_to(Path(__file__).parent / 'silice')) for p in datadir.rglob('*')]
 
-# Add the content of 'frameworks' as package files
+# Add data as package files
 files = add_asset_directory('frameworks')
 
 # Setup

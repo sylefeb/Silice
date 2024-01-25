@@ -1,0 +1,253 @@
+// The MIT License
+// Copyright © 2023 Inigo Quilez
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+// The shader I used while designing the Human Shader experiment
+//
+// https://humanshader.com
+//
+// Binary version of the Human Shader at
+// https://www.shadertoy.com/view/Dtf3Dl
+//
+// The original Human Shader was designed
+// with decimal fixed point, for humans to
+// compute. This version uses binary fixed
+// point instead for computers.
+
+// SL 2024-01-22 Silice port from https://www.shadertoy.com/view/XflXDs
+
+$$VGA_640_480 = 1
+$$delay       = 27338
+
+$include('vga_demo_main.si')
+
+// -------------------------
+
+// NOTE: the design entry point is 'main' in 'vga_demo_main.si'
+
+unit frame_display(
+  input   uint11 pix_x,       input   uint11 pix_y,
+  input   uint1  pix_active,  input   uint1  pix_vblank,
+  input   uint1  vga_hs,      input   uint1  vga_vs,
+  output! uint$color_depth$ pix_r,
+  output! uint$color_depth$ pix_g,
+  output! uint$color_depth$ pix_b
+) {
+
+  // --- always_before block, performed every cycle before anything else
+  always_before {
+    pix_r = 0; pix_g = 0; pix_b = 0; // maintain RGB at zero, important during
+  }                                  // vga blanking for screen to adjust
+
+  // --- algorithm block, contains the pipeline in an infinite loop
+  //     feeding it with pixels
+  algorithm <autorun> {
+
+    while (1) { // forever
+
+      // ===== Here we synch the pipeline with the vertical sync.
+      //       The pipeline starts during vblank so latency is hidden and
+      //       the first pixel is ready exactly at the right moment.
+      while (~vga_vs) {}
+      while ( vga_vs) {}
+
+      // Wait the 'perfect' delay (obtained in simulation, see marker [1] below)
+      // (adjust delay if number of steps is changed).
+      uint17 wait = 0; while (wait != $delay$) { wait = wait + 1; }
+
+      // ----- start the pipeline! -----
+      // This loop feeds pixel coordinates to the pipeline, the pipeline outputs
+      // pixels directly into the VGA module in the last stage. The delay above
+      // (while (wait ...)) is just right so that the first pixel exits the
+      // pipeline zhen it is needed.
+      // Note that the pipeline computes value for entire VGA rows including
+      // during h-sync, but these pixels in h-sync are discarded (I found it
+      // simpler to do that, and it uses slightly less logic).
+      uint12 px = -1; uint12 py = -1;
+      while ( ! (px == $H_END-1$ && py == $V_RES-1$) ) {
+
+        // ----- pipeline starts here -----
+
+        int16 x = px >> 3;
+        int16 y = py >> 3;
+        // increment pixel coordinates
+        py = px == $H_END-1$ ? (py + 1) : py;
+        px = px == $H_END-1$ ? 0 : (px + 1);
+
+      ->  // --- next pipeline stage
+
+        //-------------------------
+        // Section A (2 MUL, 3 ADD)
+        //-------------------------
+        int16  u  = x-36;
+        int16  v  = 18-y;
+
+        uint22 u2 = u*u;
+        uint22 v2 = v*v;
+
+      ->  // --- next pipeline stage
+
+        uint22 h  = u2 + v2;
+        //-------------------------
+
+        //-------------------------------------
+        // Section B, Sphere (4/7 MUL, 5/9 ADD)
+        //-------------------------------------
+
+        int16 R = 420;
+        int16 B = 520;
+
+        uint22 t = 5200 + (h<<3);
+
+      ->  // --- next pipeline stage
+
+        int16  p = (__signed(t)*u)>>>7;
+        int16  q = (__signed(t)*v)>>>7;
+
+      ->  // --- next pipeline stage
+
+        // bounce light
+        int16 w = 18 + (((p*5-q*13))>>>9);
+
+      ->  // --- next pipeline stage
+
+        if( w>0 ) { R = R + w*w; }
+
+      ->  // --- next pipeline stage
+
+        // sky light / ambient occlusion
+        int22 o = q + 900;
+        R = (R*o)>>>__signed(12);
+        B = (B*o)>>>__signed(12);
+
+      ->  // --- next pipeline stage
+
+        int22 w = (p+q)>>>__signed(3);
+        int16 R_s(0); int16 B_s(0);
+        // sun/key light
+        if( p > -q )
+        {
+          R_s = R + w;
+          B_s = B + w;
+        } else {
+          R_s = R;
+          B_s = B;
+        }
+
+      ->  // --- next pipeline stage
+
+        //-------------------------------------
+        // Section C, Ground (5/9 MUL, 6/9 ADD)
+        //-------------------------------------
+
+        int16 R = 150 + (v<<1);
+        int16 B = 50;
+
+        int22 p = h + (v2<<3);
+
+        // int22 c = 240*(-v) - p;
+        // this one is heavy, we split it in stages
+        int22 c = 240*(-v);
+      ->
+        c       = c - p;
+
+      ->  // --- next pipeline stage
+
+        // sky light / ambient occlusion
+        int22 o1 = (25*c)>>3;
+
+      ->  // --- next pipeline stage
+
+        // int22 o  = (c*(7840-o1)>>>9) - 8560;
+        // this one is heavy, we split it in stages
+
+        int22 o_t1 = (7840-o1);
+      ->
+        int24 o_t2 = c * o_t1;
+        // ^^ needs a bit more width
+      ->
+        int22 o    = (o_t2>>>9) - 8560;
+
+      ->  // --- next pipeline stage
+
+        int22 B_g(0);
+        if( c>1200 )
+        {
+            R   = (R*o)>>10;
+            B_g = (B*o)>>10;
+        } else {
+            B_g = B;
+        }
+
+      ->  // --- next pipeline stage
+
+        // sun/key light with soft shadow
+        int16 r = c + u*v;
+        int16 d = 3200 - h - (r<<<1);
+
+      ->  // --- next pipeline stage
+
+        int22 R_g(0);
+        if( d>0 ) { R_g = R + d; }
+        else      { R_g = R; }
+        //-------------------------
+
+      ->  // --- next pipeline stage
+
+        //------------------------------
+        // Section D, Sky (1 MUL, 2 ADD)
+        //------------------------------
+        int16 R_k(0); int16 B_k(0);
+        int16 c = x + (y<<2);
+        R_k = 132 + c;
+        B_k = 192 + c;
+        //-------------------------
+
+      ->  // --- next pipeline stage
+
+        // select sphere/ground/sky
+        if( h < 200 )
+        {
+          R = R_s; B = B_s;
+        }
+        else
+        {
+          if( v<0 )
+          {
+            R = R_g; B = B_g;
+          } else {
+            R = R_k; B = B_k;
+          }
+        }
+
+      ->  // --- next pipeline stage
+
+        //-------------------------
+        // Section E (3 MUL, 1 ADD)
+        //-------------------------
+        uint8  r = R  < 255 ? R : 255;
+        uint8  b = B  < 255 ? B : 255;
+        uint16 G = (r*11 + 5*b)>>4;
+        uint8  g = G  < 255 ? G : 255;
+        //-------------------------
+
+      ->  // --- next pipeline stage
+
+$$if SIMULATION then
+        // to verify/adjust pixel synch [1]
+        if (pix_y == 0) {
+          __display("x = %d  pix_x = %d (diff: %d)",px,pix_x,__signed(px-pix_x));
+          __display("y = %d  pix_y = %d (diff: %d)",py,pix_y,__signed(py-pix_y));
+        }
+$$end
+
+        if (px < $H_RES$) { // do not produce color out of bound, screen may
+                            // otherwise produce weird color artifacts
+          // framework uses 6 bpp
+          pix_r = r>>2; pix_g = g>>2; pix_b = b>>2;
+        }
+
+      }
+
+    }
+  }
+}

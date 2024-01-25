@@ -90,7 +90,8 @@ public:
       m_Blueprint.unit = m_Compiler->isStaticBlueprint(m_Name);
       if (m_Blueprint.unit.isNull()) {
         try {
-          m_Blueprint  = m_Compiler->parseUnitIOs(m_Name);
+          Blueprint::t_instantiation_context ictx;
+          m_Blueprint  = m_Compiler->parseUnitIOs(m_Name, ictx);
         } catch (Fatal&) {
           throw Fatal("could not instantiate unit '%s'", m_Name.c_str());
         }
@@ -151,6 +152,9 @@ public:
     for (auto exp : export_defs) {
       ictx.params[exp.first] = exp.second;
     }
+    // name the instance through the top name FIXME: inelegant
+    ictx.top_name = m_Name;
+    // write source
     if ( ! m_Blueprint.ios_parser.isNull() ) {
       // parse the unit body
       m_Compiler->parseUnitBody(m_Blueprint, ictx);
@@ -165,7 +169,7 @@ public:
       m_Compiler->writeStaticUnit(m_Blueprint.unit, ictx, out, false);
     }
     // return instance
-    return Instance("M_" + m_Name + (postfix.empty() ? "" : ("_" + postfix)), tmp, m_Blueprint);
+    return Instance(m_Name + (postfix.empty() ? "" : ("_" + postfix)), tmp, m_Blueprint);
   }
 
   Instance instantiate(const std::vector<std::tuple<std::string,std::string,std::string> >& export_params)

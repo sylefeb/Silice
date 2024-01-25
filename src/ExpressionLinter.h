@@ -137,10 +137,9 @@ namespace Silice
     /// \brief Lint a binding
     void lintBinding(
       std::string                                     msg,
-      Algorithm::e_BindingDir                         dir,
-      const Utils::t_source_loc&                      srcloc,
-      const t_type_nfo                               &left,
-      const t_type_nfo                               &right
+      AutoPtr<Blueprint>                              bp,
+      const Algorithm::t_instantiation_context&       local_ictx,
+      const Algorithm::t_binding_nfo&                 bnfo
       ) const;
 
     /// \brief Returns the type nfo of an expression

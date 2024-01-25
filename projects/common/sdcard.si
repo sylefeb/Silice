@@ -20,8 +20,8 @@ group sdcardio {
 }
 
 interface sdcardio_ctrl {
-  input!  addr_sector,
-  input!  read_sector,
+  input   addr_sector,
+  input   read_sector,
   output  ready,
   input   offset,
 }

@@ -52,7 +52,8 @@ unit main(output uint8 leds)
 
   algorithm {  while (1) {
 
-    {      // stage 0
+    {
+      // stage 0
       uint1 valid(0);
       uint1 first(1);
       if (a.last | first) {
@@ -68,7 +69,15 @@ unit main(output uint8 leds)
         __display("[cycle %d] ==== input :%d",cycle,a.i);
       }
 
-    } -> { // stage 1
+      // check at every cycle
+      if (c.last) {
+        __display("[cycle %d] ==== result:%d",cycle,c.o);
+      }
+      cycle vv= cycle + 1;
+      //    ^ assigns out of pipeline
+      if (cycle == 40) { __finish(); }
+
+    -> // stage 1
 
       uint1 valid(0);
       if (a.last) {
@@ -83,7 +92,7 @@ unit main(output uint8 leds)
         __display("[cycle %d] B (b.i:%d)",cycle,b.i);
       }
 
-    } -> { // stage 2
+    -> // stage 2
 
       uint1 valid(0);
       if (b.last) {
@@ -97,14 +106,7 @@ unit main(output uint8 leds)
         __display("[cycle %d] C (c.i:%d)",cycle,c.i);
       }
 
-    }
-
-    if (c.last) {
-      __display("[cycle %d] ==== result:%d",cycle,c.o);
-    }
-
-    cycle = cycle + 1;
-    if (cycle == 40) { __finish(); }
+    } // end of pipeline
 
   } }
 }

@@ -199,12 +199,15 @@ private:
     /// \brief all inout names, map contains index in m_InOuts
     std::unordered_map<std::string, int > m_InOutNames;
 
+    /// \brief binding point, identifier or access
+    typedef std::variant<std::string, siliceParser::AccessContext*> t_binding_point;
+
     /// \brief VIO bound to blueprint outputs (wires) (vio name => wire name)
-    std::unordered_map<std::string, std::string>  m_VIOBoundToBlueprintOutputs;
+    std::unordered_map<std::string, std::string>      m_VIOBoundToBlueprintOutputs;
     /// \brief module/algorithms inouts bound to VIO (inout => vio name)
-    std::unordered_map<std::string, std::string > m_BlueprintInOutsBoundToVIO;
+    std::unordered_map<std::string, t_binding_point > m_BlueprintInOutsBoundToVIO;
     /// \brief VIO bound to module/algorithms inouts (vio name => inout)
-    std::unordered_map<std::string, std::string > m_VIOToBlueprintInOutsBound;
+    std::unordered_map<std::string, std::string >     m_VIOToBlueprintInOutsBound;
 
     // forward definition of combinational blocks
     class t_combinational_block;
@@ -225,9 +228,6 @@ private:
 
     /// \brief enum binding direction
     enum e_BindingDir { e_Left, e_LeftQ, e_Right, e_BiDir, e_Auto, e_AutoQ };
-
-    /// \brief binding point, identifier or access
-    typedef std::variant<std::string, siliceParser::AccessContext*> t_binding_point;
 
     /// \brief records info about variable bindings
     typedef struct
@@ -347,6 +347,7 @@ private:
       std::string                               name;
       std::unordered_map<std::string, v2i>      trickling_vios; // v2i: [0] stage at which to start [1] stage at which to stop
       std::vector<struct s_pipeline_stage_nfo*> stages;
+      struct s_pipeline_stage_nfo              *nested_in_parent_stage;
       // track read/written vios
       std::unordered_map<std::string, std::vector<int> > read_at, written_at;
       std::unordered_set<std::string> written_outputs;
@@ -510,9 +511,8 @@ private:
     {
     public:
       t_combinational_block        *next;
-      t_combinational_block        *after;
-      end_action_pipeline_next(t_combinational_block *next_, t_combinational_block *after_) : next(next_), after(after_) { }
-      void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(next); if (after != next) { _ch.push_back(after); } }
+      end_action_pipeline_next(t_combinational_block *next_) : next(next_) { }
+      void getChildren(std::vector<t_combinational_block*>& _ch) const override { _ch.push_back(next); }
       std::string name() const override { return "end_action_pipeline_next";}
     };
 
@@ -548,7 +548,7 @@ private:
       bool                                 no_skip  = false;     // true the state cannot be skipped, even if empty
       int                                  state_id = -1;        // state id, when assigned, -1 otherwise
       int                                  parent_state_id = -1; // parent state id (closest state before)
-      std::vector<t_instr_nfo>             decltrackers;            // list of declaration expressions within block (typically bound exprs, aka wires)
+      std::vector<t_instr_nfo>             decltrackers;         // list of declaration expressions within block (typically bound exprs, aka wires)
       std::vector<t_instr_nfo>             instructions;         // list of instructions within block
       t_end_action                        *end_action = nullptr; // end action to perform
       t_combinational_block_context        context;              // block context: subroutine, parent, etc.
@@ -609,9 +609,9 @@ private:
       }
       const end_action_goto_and_return_to * goto_and_return_to() const { return dynamic_cast<const end_action_goto_and_return_to*>(end_action); }
 
-      void pipeline_next(t_combinational_block *next, t_combinational_block *after)
+      void pipeline_next(t_combinational_block *next)
       {
-        swap_end(new end_action_pipeline_next(next, after));
+        swap_end(new end_action_pipeline_next(next));
       }
       const end_action_pipeline_next *pipeline_next() const { return dynamic_cast<const end_action_pipeline_next*>(end_action); }
 
@@ -698,6 +698,8 @@ private:
     bool getVIONfo(std::string vio, t_var_nfo &_nfo) const;
     /// \brief checks whether an identifier is a group VIO
     bool isGroupVIO(std::string var) const;
+    /// \brief returns whether an inout is used by the unit (accessed)
+    bool isInOutAccessed(std::string var) const;
     /// \brief rewrites a constant
     std::string rewriteConstant(std::string cst) const;
     /// \brief returns a string representing the widthof value
@@ -804,6 +806,8 @@ private:
     bool hasPipeline(antlr4::tree::ParseTree* tree) const;
     /// \brief split current block (state present) or continue current with the next instruction list
     t_combinational_block *splitOrContinueBlock(siliceParser::InstructionListItemContext* ilist, t_combinational_block *_current, t_gather_context *_context);
+    /// \brief returns true if node is in a loop body
+    bool isInWhileBody(const antlr4::tree::ParseTree* node) const;
     /// \brief gather a break from loop
     t_combinational_block *gatherBreakLoop(siliceParser::BreakLoopContext* brk, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather a while block
@@ -814,6 +818,8 @@ private:
     t_combinational_block *gatherSubroutine(siliceParser::SubroutineContext* sub, t_combinational_block *_current, t_gather_context *_context);
     /// \brief concatenate a pipeline to an existing one
     t_combinational_block *concatenatePipeline(siliceParser::PipelineContext* pip, t_combinational_block *_current, t_gather_context *_context, t_pipeline_nfo *nfo);
+    /// \brief returns true if pip is spawning a new pipeline
+    bool isSpawningNewPipeline(const siliceParser::PipelineContext* pip) const;
     /// \brief gather a pipeline
     t_combinational_block *gatherPipeline(siliceParser::PipelineContext* pip, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather a jump
@@ -828,8 +834,8 @@ private:
     t_combinational_block *gatherJoinExec(siliceParser::JoinExecContext* join, t_combinational_block *_current, t_gather_context *_context);
     /// \brief tests whether a graph of block is stateless
     bool isStateLessGraph(const t_combinational_block *head) const;
-    /// \brief returns true if the graph has a combinational exit (one path that does not jump to an actual state)
-    bool hasCombinationalExit(const t_combinational_block *head) const;
+    /// \brief returns all the blocks which are next states
+    void findNextStates(t_combinational_block* head, std::set< t_combinational_block*>& _exits) const;
     /// \brief gather an if-then-else
     t_combinational_block *gatherIfElse(siliceParser::IfThenElseContext* ifelse, t_combinational_block *_current, t_gather_context *_context);
     /// \brief gather an if-then
@@ -884,6 +890,8 @@ private:
     void resolveForwardJumpRefs();
     /// \brief performs a pass on all ifelse to prevent code duplication of after, returns true if states where changed
     bool preventIfElseCodeDup(t_fsm_nfo* fsm);
+    /// \brief pad pipeline to ensure it ends on a 'simple' state (without multiple possible next state), returns true if states where changed
+    bool padPipeline(t_fsm_nfo* fsm);
     /// \brief performs a numbering pass on the fsm states
     void renumberStates(t_fsm_nfo*);
     /// \brief generates the states of an fsm
@@ -892,14 +900,14 @@ private:
     void fsmGetBlocks(t_fsm_nfo *fsm, std::unordered_set<t_combinational_block *>& _blocks) const;
     /// \brief returns the index name of the fsm
     std::string fsmIndex(const t_fsm_nfo *) const;
-    /// \brief returns the 'ready' signal name of the fsm
+    /// \brief returns the 'ready' signal name of the pipeline stage fsm
     std::string fsmPipelineStageReady(const t_fsm_nfo *) const;
-    /// \brief returns the 'full' signal name of the fsm
+    /// \brief returns the 'full' signal name of the pipeline stage fsm
     std::string fsmPipelineStageFull(const t_fsm_nfo *) const;
-    /// \brief returns the 'stall' signal name of the fsm
+    /// \brief returns the 'stall' signal name of the pipeline stage fsm
     std::string fsmPipelineStageStall(const t_fsm_nfo *) const;
-    /// \brief returns the 'first stage disable' signal name of the fsm
-    std::string fsmPipelineFirstStageDisable(const t_fsm_nfo *) const;
+    /// \brief returns the 'first state disable' signal name of the pipeline stage fsm
+    std::string fsmPipelineFirstStateDisable(const t_fsm_nfo *) const;
     /// \brief returns an expression that evaluates to the fsm next state
     std::string fsmNextState(std::string prefix, const t_fsm_nfo *) const;
     /// \brief returns whether the fsm is empty (no state)

@@ -195,7 +195,9 @@ $$if ULX3S then
         $$error('TODO: adjust delays')
         wait                    = 1023; //_ 3 cycles
 $$else
-        wait                    = 1021;
+        wait                    = init[0,1] ? 1019 : 1021;
+        //                                    ^^^^
+        //                         init needs a longer delay
 $$end
 
         after                   = 4;
@@ -218,7 +220,7 @@ $$end
   $$else
         rdata                   = spiflash.read;
   $$end
-        rdata_available         = 1;
+        rdata_available         = ~init[0,1];
         spiflash.trigger        = continue;
         busy                    = continue;
         init                    = {1b0,init[1,1]};

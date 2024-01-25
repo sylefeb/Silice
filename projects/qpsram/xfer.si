@@ -9,11 +9,18 @@
 
 $$ bank_width = 23
 
+$$if SIMULATION then
+$$print("simulating ICE40 cells")
+$$ICE40_SIMULATION = 1
+$$ICE40 = 1
+append('../../tools/fpga-binutils/mingw64/bin/share/ice40/cells_sim.v')
+$$end
+
 $$if ICESTICK then
   import('../common/plls/icestick_100.v')
   $$uart_in_clock_freq_mhz = 100
   $$qpsram_fast            = true  -- false if freq <= 60
-$$elseif ICE40 then
+$$elseif ICEBREAKER then
   import('../common/plls/icebrkr_50.v')
   $$uart_in_clock_freq_mhz = 50
 $$elseif ECPIX5 then
@@ -23,13 +30,21 @@ $$elseif ULX3S then
   import('../common/plls/ulx3s_90.v')
   $$uart_in_clock_freq_mhz = 90
   $$qpsram_fast            = true   -- false if freq <= 60
+$$elseif BROT then
+  import('../common/plls/brot_50_lock.v')
+  $$uart_in_clock_freq_mhz = 50
 $$else
-  $$uart_in_clock_freq_mhz = 25
+  $$uart_in_clock_freq_mhz = 100
+$$end
+
+$$if ICE40 then
+// for convenience on DFU devices, adding the capability to reset to DFU
+import('../common/ice40_warmboot.v')
 $$end
 
 $include('../common/qpsram2x.si')
 
-$$uart_bauds = 500000
+$$uart_bauds = 115200 -- 500000
 $include('../common/uart.si')
 
 unit main(
@@ -45,12 +60,21 @@ unit main(
   output  uint2 ram_bank(2b00),
 )
 // clocking (pll) and reset
-$$if ICE40 then
+$$if ICESTICK or ICEBREAKER then
 <@clock_pll> {
   uint1 clock_pll = uninitialized;
   pll pllgen(
     clock_in  <: clock,
     clock_out :> clock_pll,
+  );
+$$elseif BROT then
+<@clock_pll,!rst> {
+  uint1 clock_pll = uninitialized;
+  uint1 rst       = uninitialized;
+  pll pllgen(
+    clock_in  <: clock,
+    clock_out :> clock_pll,
+    reset     :> rst
   );
 $$elseif ECPIX5 or ULX3S then
 <@clock_pll> {
@@ -59,7 +83,7 @@ $$elseif ECPIX5 or ULX3S then
   pll pllgen(
     clkin     <: clock,
     clkout0   :> clock_pll,
-    locked :> locked
+    locked    :> locked
   );
 $$else
 {
@@ -85,6 +109,11 @@ $$end
     io      <:> uo,
     uart_tx :>  uart_tx
   );
+
+$$if ICE40 then
+  uint2 slot_boot(2b01);
+  ice40_warmboot wboot(slot <: slot_boot);
+$$end
 
   uint1  enabled(0);
   uint1  write(0);
@@ -113,6 +142,26 @@ $$for bank=0,3 do
     ram_bank = $bank$;
     ram.init = 1;
     while (ram.busy) {}
+$$end
+
+$$if SIMULATION then
+    // test
+    ram.addr     = {1b1,{$bank_width${1b1}}};
+    ram_bank     = 2b00;
+    ram.in_ready = 1;
+    ram.wdata    = 8h55;
+    ram.wenable  = 1;
+    while (ram.busy) {}
+    ram.addr     = {1b1,{$bank_width${1b1}}};
+    ram_bank     = 2b00;
+    ram.in_ready = 1;
+    ram.wdata    = 8h7A;
+    ram.wenable  = 1;
+    while (ram.busy) {}
+++:
+++:
+++:
+    __finish();
 $$end
 
     while (1) {
@@ -160,6 +209,10 @@ $$end
       blip         = enabled       ? 32hffffffff : 0;
       // write? (top bit of enabling tag)
       write        = ( ~enabled & (ui.data_out      == 8hD5) ) ? 1 : write;
+$$if ICE40 then
+      // warmboot?
+      wboot.boot   = ( ~enabled & (ui.data_out      == 8hE5) ) ? 1 : 0;
+$$end
       // enable on tag
       enabled      = ( enabled  | (ui.data_out[0,7] == 8h55));
     } else {

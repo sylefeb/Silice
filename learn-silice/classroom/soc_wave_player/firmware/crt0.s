@@ -3,7 +3,7 @@
 .type _start, @function
 
 _start:
-   li sp,0x10000
+   li sp,0x10000 # __stacktop
    call main
    tail exit
 

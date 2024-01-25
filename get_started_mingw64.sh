@@ -12,6 +12,7 @@ then
 	exit
 fi
 
+# -------------- install packages ----------------------------
 pacman -S --noconfirm --needed unzip
 pacman -S --noconfirm --needed wget
 pacman -S --noconfirm --needed make
@@ -23,22 +24,30 @@ pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-gtkwave
 pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-verilator
 pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-openFPGALoader
 pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-dfu-util
-#pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-icestorm
-#pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-prjtrellis
 pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-boost
-# pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-nextpnr
-# pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-yosys
+pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-glfw
 
-wget -c https://github.com/sylefeb/fpga-binutils/releases/download/v20230510/fpga-binutils-64.zip
+# -------------- retrieve oss-cad-suite package --------------
+OSS_CAD_MONTH=11
+OSS_CAD_DAY=29
+OSS_CAD_YEAR=2023
+OSS_PACKAGE=oss-cad-suite-windows-x64-$OSS_CAD_YEAR$OSS_CAD_MONTH$OSS_CAD_DAY.exe
 
-unzip -o fpga-binutils-64.zip -d tools/fpga-binutils/
+rm -rf tools/fpga-binutils/
+rm -rf tools/oss-cad-suite/
+rm -rf /usr/local/share/silice
+wget -c https://github.com/YosysHQ/oss-cad-suite-build/releases/download/$OSS_CAD_YEAR-$OSS_CAD_MONTH-$OSS_CAD_DAY/$OSS_PACKAGE
+mkdir -p /usr/local/share/silice
+mv $OSS_PACKAGE /usr/local/share/silice/
+cp tools/oss-cad-suite-env.sh /usr/local/share/silice/
+cd /usr/local/share/silice ; ./$OSS_PACKAGE ; rm ./$OSS_PACKAGE ; cd -
 
-rm fpga-binutils-64.zip
-
+# -------------- compile Silice -----------------------------
 ./compile_silice_mingw64.sh
 
+# -------------- add path to .bashrc ------------------------
 DIR=`pwd`
-echo 'export PATH=$PATH:'$DIR/bin':'$DIR/tools/fpga-binutils/mingw64/bin >> ~/.bashrc
+echo 'source /usr/local/share/silice/oss-cad-suite-env.sh' >> ~/.bashrc
 
 echo ""
 echo "--------------------------------------------------------------------"

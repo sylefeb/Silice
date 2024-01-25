@@ -1,0 +1,18 @@
+
+algorithm main(output uint8 leds)
+{
+
+  while (1) {
+
+    {
+
+    } -> {
+
+    }
+
+    if (1) { break; } // cannot break in pipeline stage
+    // (this is in the last piepline stage, see CL0003)
+
+  }
+
+}

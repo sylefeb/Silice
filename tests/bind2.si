@@ -1,0 +1,17 @@
+unit foo(input uint1 a,input uint1 b)
+{
+
+}
+
+unit main(input uint2 tmp,output uint8 leds)
+{
+  foo f(
+    a <: tmp[0,1],
+    b <: tmp[1,1],
+  );
+
+  algorithm {
+    __display("hello world");
+  }
+
+}

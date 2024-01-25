@@ -25,7 +25,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 (header_2_M)
 
 */
-`define ICARUS 1
+`define ICARUS      1
+`define SIMULATION  1
+
 $$ICARUS      = 1
 $$SIMULATION  = 1
 $$NUM_LEDS    = 8
@@ -35,6 +37,9 @@ $$config['bram_wenable_width'] = '1'
 $$config['dualport_bram_wenable0_width'] = 'data'
 $$config['dualport_bram_wenable1_width'] = 'data'
 $$config['reg_init_zero'] = '1'
+$$config['__display_supported'] = 'yes'
+$$config['__write_supported']   = 'yes'
+$$config['__finish_supported']  = 'yes'
 
 `timescale 1ns / 1ps
 

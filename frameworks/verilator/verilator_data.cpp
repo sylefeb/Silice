@@ -57,3 +57,12 @@ int  get_random()
 {
   return rand() ^ (rand()<<8) ^ (rand()<<16) ^ (rand()<<24);
 }
+
+void output_char(int c)
+{
+  FILE *f = fopen("output.txt","a");
+  if (f != NULL) {
+    fputc(c,f);
+    fclose(f);
+  }
+}

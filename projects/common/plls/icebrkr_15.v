@@ -10,7 +10,7 @@ module pll(
   SB_PLL40_PAD #(.FEEDBACK_PATH("SIMPLE"),
                   .PLLOUT_SELECT("GENCLK_HALF"), // outputs half of request
                   .DIVR(4'b0000),
-// 30
+// 30 (but we output half with GENCLK_HALF)
                   .DIVF(7'b1001111),
                   .DIVQ(3'b101),
 //

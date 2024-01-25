@@ -27,7 +27,8 @@
 
 // Address space and boot configuration
 // allow for 32MB RAM addressing + 1 bit periph
-$$addrW    = 24
+// (addressing 32bits: 2^23 x 32bits, 8MB x 4 bytes)
+$$addrW    = 24 -- 23 bits for addresses, 1 bit for peripheral mapping
 // bit for peripheral addresses
 $$periph   = addrW-1
 // boot address in QQSPI
@@ -335,6 +336,9 @@ $$if SIMULATION then
     spiscreen_dc   = screen_dc;  spiscreen_resn = screen_resn;
 $$end
 $$end
+$$if TRACE then
+    cpu.trace_on = reset ? 0 : cpu.trace_on;
+$$end
 
     // ---- memory mapping to peripherals: writes
     // (vvvvvv NOTE: could register vvvvvv)
@@ -345,8 +349,18 @@ $$end
           // leds for activity
           leds = ramio.wdata[0,5];
 $$if SIMULATION then
+$$if not TRACE then
           __write("%c",ramio.wdata[0,8]);
-          // __display("==> %d",ramio.wdata);
+$$else
+          if (ramio.wdata[31,1]) {
+            if (cpu.trace_on) {
+              __finish();
+            } else {
+              cpu.trace_on  = 1;
+            }
+          }
+$$end
+          __verilog("$c32(\"output_char(\",%,\");\");",ramio.wdata[0,8]);
 $$end
           // send over uart
           uo.data_in_ready = 1;

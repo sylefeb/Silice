@@ -1,0 +1,17 @@
+
+algorithm main(output uint8 leds)
+{
+
+  while (1) {
+
+    {
+
+    } -> {
+
+    }
+
+    if (1) { break; }
+
+  }
+
+}

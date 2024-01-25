@@ -64,3 +64,20 @@ char *strncpy(char *dst,const char *src,size_t num)
   }
   return dst_start;
 }
+
+char *strcpy(char *dst, const char *src)
+{
+  while (*src) {
+    *dst++ = *src++;
+  }
+  *dst = '\0';
+  return dst;
+}
+
+char *strcat(char *dest, const char *src)
+{
+  char *rdest = dest;
+  while (*dest)                   { dest++; }
+  while ((*dest++ = *src++) != 0) { }
+  return rdest;
+}

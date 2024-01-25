@@ -6,6 +6,9 @@ MEMORY
 ENTRY(_start)
 
 SECTIONS {
+
+  __stacktop = ORIGIN(ram) + LENGTH(ram);
+
   .text 0x00000000 : {
         crt0.o (.text)
         *(.text)

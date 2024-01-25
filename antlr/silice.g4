@@ -192,7 +192,7 @@ sformdepth          :  '#depth' '=' NUMBER ;
 sformtimeout        :  '#timeout' '=' NUMBER ;
 sformmode           :  '#mode' '=' IDENTIFIER ('&' IDENTIFIER)* ;
 sspecialize         :  IDENTIFIER ':' TYPE ;
-sparam              :  IDENTIFIER '=' NUMBER ;
+sparam              :  IDENTIFIER '=' (NUMBER|CONSTANT) ;
 
 bpModifier          : sclock | sreset | sautorun | sonehot | sstacksz | sformdepth | sformtimeout | sformmode | sreginput | sspecialize | sparam;
 bpModifiers         : '<' bpModifier (',' bpModifier)* '>' ;

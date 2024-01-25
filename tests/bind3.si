@@ -1,0 +1,23 @@
+unit foo(inout uint1 a,inout uint1 b)
+{
+  always {
+    a.oenable = 1b1;
+    a.o       = 1b1;
+    b.oenable = 1b0;
+    __display("b=%b",b.i);
+  }
+}
+
+unit main(inout uint2 tmp,output uint8 leds)
+{
+  
+  foo f(
+    a <:> tmp[0,1],
+    b <:> tmp[1,1],
+  );
+  
+  algorithm {
+    __display("hello world");
+  }
+
+}

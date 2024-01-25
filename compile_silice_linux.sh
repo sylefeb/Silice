@@ -1,12 +1,13 @@
 #!/bin/bash
 
 if ! type "javac" > /dev/null; then
-  echo "Silice compilation requires packages default-jre and default-jdk"
+  echo "Silice compilation requires javac (typically in package default-jdk or jdk-openjdk)"
   exit
 fi
 
 git submodule init
 git submodule update
+rm -f bin/silice || true
 
 mkdir BUILD
 cd BUILD
@@ -18,15 +19,15 @@ mkdir build-silice
 cd build-silice
 
 cmake -DCMAKE_BUILD_TYPE=Release -G "Unix Makefiles" ../..
-make -j$(nproc) install
+make -j$(nproc)
+sudo make -j$(nproc) install
 
 cd ..
-
 cd ..
 
 echo -e "\nInstalling python packages for building designs\n"
-pip install termcolor
-pip install edalize
+pip install --upgrade termcolor
+pip install --upgrade edalize
 
 echo " "
 echo " "
