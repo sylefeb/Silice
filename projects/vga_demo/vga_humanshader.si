@@ -81,8 +81,6 @@ unit frame_display(
         int16  u  = x-36;
         int16  v  = 18-y;
 
-      ->  // --- next pipeline stage
-
         uint22 u2 = u*u;
         uint22 v2 = v*v;
 
@@ -90,8 +88,6 @@ unit frame_display(
 
         uint22 h  = u2 + v2;
         //-------------------------
-
-      ->  // --- next pipeline stage
 
         //-------------------------------------
         // Section B, Sphere (4/7 MUL, 5/9 ADD)
@@ -126,9 +122,6 @@ unit frame_display(
       ->  // --- next pipeline stage
 
         int22 w = (p+q)>>>__signed(3);
-
-      ->  // --- next pipeline stage
-
         int16 R_s(0); int16 B_s(0);
         // sun/key light
         if( p > -q )
@@ -150,8 +143,6 @@ unit frame_display(
         int16 B = 50;
 
         int22 p = h + (v2<<3);
-
-      ->  // --- next pipeline stage
 
         // int22 c = 240*(-v) - p;
         // this one is heavy, we split it in stages
@@ -233,11 +224,8 @@ unit frame_display(
         //-------------------------
         // Section E (3 MUL, 1 ADD)
         //-------------------------
-        uint8 r = R  < 255 ? R : 255;
-        uint8 b = B  < 255 ? B : 255;
-
-      ->  // --- next pipeline stage
-
+        uint8  r = R  < 255 ? R : 255;
+        uint8  b = B  < 255 ? B : 255;
         uint16 G = (r*11 + 5*b)>>4;
         uint8  g = G  < 255 ? G : 255;
         //-------------------------
