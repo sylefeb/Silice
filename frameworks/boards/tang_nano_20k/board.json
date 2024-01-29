@@ -1,0 +1,28 @@
+{
+  "name": "tang_nano_20k",
+  "variants": [
+    {
+      "name"      : "configurable",
+      "framework" : "tang_nano_20k.v",
+      "pins"      : [         
+        {"set"    : "basic"}
+      ],
+      "builders": [
+        {
+          "builder" : "shell",
+          "command" : "tang_nano_20k.sh",
+          "description": "Custom shell scripts using yosys and nextpnr"
+        }
+      ]    
+    }
+  ],
+  "pins": {
+    "basic": [
+      {
+        "name": "leds",
+        "type": "uint8",
+        "io": "output"
+      }
+    ]
+  }
+}

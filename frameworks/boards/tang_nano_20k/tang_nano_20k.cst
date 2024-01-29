@@ -1,0 +1,12 @@
+// from https://github.com/YosysHQ/apicula/blob/master/examples/himbaechel/tangnano20k.cst
+
+IO_LOC "clk" 4;
+
+CLOCK_LOC "clk" BUFG;
+
+IO_LOC "led[0]" 15;
+IO_LOC "led[1]" 16;
+IO_LOC "led[2]" 17;
+IO_LOC "led[3]" 18;
+IO_LOC "led[4]" 19;
+IO_LOC "led[5]" 20;
