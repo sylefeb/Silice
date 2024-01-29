@@ -172,7 +172,7 @@ $$end
   always {
 
 $$if DEBUG_swirl then
-    uint1 debug_on = 1
+    uint1 debug_on = 1;
 $$end
 
     // tracks whether a register was written cycle before
