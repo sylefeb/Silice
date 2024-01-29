@@ -285,16 +285,20 @@ $$end
     // main loop
 
     while (1) {
-      if (update_lines_todo) {
+      if (update_lines_todo
+$$if cache_has_spiflash then
+        & ~rom.busy
+$$end
+      ) {
         // there is a pending cache miss
 $$if SIMULATION then
-        if (debug_on) {
-          __display("[%d] => cache miss %b|%b %x|%x (%x_%d|%x_%d)",cycle,
-            ~cache0_hit,~cache1_hit,
-            {qaddr0,2b00},{qaddr1,2b00},
-            cache0_lines.rdata[0,$cache_addr_w$],cache0_lines.addr,
-            cache1_lines.rdata[0,$cache_addr_w$],cache1_lines.addr);
-        }
+        //if (debug_on) {
+        //  __display("[%d] => cache miss %b|%b %x|%x (%x_%d|%x_%d)",cycle,
+        //    ~cache0_hit,~cache1_hit,
+        //    {qaddr0,2b00},{qaddr1,2b00},
+        //    cache0_lines.rdata[0,$cache_addr_w$],cache0_lines.addr,
+        //    cache1_lines.rdata[0,$cache_addr_w$],cache1_lines.addr);
+        //}
 $$end
         // if line is dirty, store back
         //                  vvvvv start by cache0, then cache1
@@ -383,12 +387,12 @@ $$else
             uint16 wdata   = reg_ram_rdata << {n[0,1],3b0};
 $$end
             $$if SIMULATION then
-            //uint32 full = ram.addr + n;
             //if (debug_on) {
+            //  uint32 full = ram.addr + n;
             //  __display("[cache|%d] load @%x = %x (cache %b, line %d, cycle %d, n %d, ram:%b rom:%b)",
             //            cycle,full,reg_ram_rdata,cache0_hit,~cache0_hit ? qline0_id : qline1_id,cycle,n,reg_ram_datanext,rom.rdata_available);
             //}
-            // __write("%x,", reg_ram_rdata);
+            // __write("%x,", (ram.in_ready ? reg_ram_rdata : rom.rdata));
             $$end
             // cache 0
             spram0.addr    = {qline0_id,n[2,$cache_line_w$]};
