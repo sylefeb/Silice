@@ -65,6 +65,9 @@
     },
     {
       "name" : "minimal"
+    },
+    {
+      "name" : "tang_nano_20k"
     }
   ]
 }
