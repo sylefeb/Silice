@@ -13,6 +13,8 @@ unit k2000(output uint5 leds)
   algorithm <autorun> {
   //        ^^^^^^^^^ This is the important part: algorithm will run immediately
     while (1) { // forever
+      uint22 n = 0;
+      while ( ~ n[21,1] ) { n = n + 1; } // wait
       patterns.addr = patterns.addr == 16 ? 0 : patterns.addr + 1;
     }
   }
