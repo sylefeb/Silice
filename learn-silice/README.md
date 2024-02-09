@@ -641,16 +641,16 @@ In Silice you can declare and use arrays like this:
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t9.si&syntax=c) -->
 <!-- The below code snippet is automatically added from ./tutorial/t9.si -->
 ```c
-  unit main(output uint8 leds) {
-    algorithm {
-      uint8 table[8] = {0,1,2,3,4,5,6,7};
-      uint8 n = 0;
-      while (n != 8) {
-        __display("[%d] = %d",n,table[n]);
-        n = n + 1;
-      }
+unit main(output uint8 leds) {
+  algorithm {
+    uint8 table[8] = {0,1,2,3,4,5,6,7};
+    uint8 n = 0;
+    while (n != 8) {
+      __display("[%d] = %d",n,table[n]);
+      n = n + 1;
     }
   }
+}
 ```
 <!-- MARKDOWN-AUTO-DOCS:END -->
 
@@ -668,18 +668,18 @@ Here is the same example using a BRAM:
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t9_2.si&syntax=c) -->
 <!-- The below code snippet is automatically added from ./tutorial/t9_2.si -->
 ```c
-  unit main(output uint8 leds) {
-    algorithm {
-      bram uint8 table[8] = {0,1,2,3,4,5,6,7};
-      uint8 n = 0;
+unit main(output uint8 leds) {
+  algorithm {
+    bram uint8 table[8] = {0,1,2,3,4,5,6,7};
+    uint8 n = 0;
+    table.addr = n;
+    while (n != 8) {
+      __display("[%d] = %d",n,table.rdata);
+      n = n + 1;
       table.addr = n;
-      while (n != 8) {
-        __display("[%d] = %d",n,table.rdata);
-        n = n + 1;
-        table.addr = n;
-      }
     }
   }
+}
 ```
 <!-- MARKDOWN-AUTO-DOCS:END -->
 
@@ -720,26 +720,26 @@ Let's use this to produce interesting LED patterns, with the following:
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t10.si&syntax=c) -->
 <!-- The below code snippet is automatically added from ./tutorial/t10.si -->
 ```c
-  unit main(output uint5 leds) {
+unit main(output uint5 leds) {
 
-    bram uint5 patterns[] = { // BRAM with 17 patterns
-      5b00001, 5b00011, 5b00111, 5b01111, 5b11111, 5b11110,
-      5b11100, 5b11000, 5b10000, 5b11000, 5b11100, 5b11110,
-      5b11111, 5b01111, 5b00111, 5b00011, 5b00001,
-    };
+  bram uint5 patterns[] = { // BRAM with 17 patterns
+    5b00001, 5b00011, 5b00111, 5b01111, 5b11111, 5b11110,
+    5b11100, 5b11000, 5b10000, 5b11000, 5b11100, 5b11110,
+    5b11111, 5b01111, 5b00111, 5b00011, 5b00001,
+  };
 
-    always_before {
-      leds = patterns.rdata; // assign leds to the current BRAM value
-    }
+  always_before {
+    leds = patterns.rdata; // assign leds to the current BRAM value
+  }
 
-    algorithm {
-      while (1) { // forever
-        uint22 n = 0;
-        while ( ~ n[21,1] ) { n = n + 1; } // wait
-        patterns.addr = patterns.addr == 16 ? 0 : patterns.addr + 1;
-      }
+  algorithm {
+    while (1) { // forever
+      uint22 n = 0;
+      while ( ~ n[21,1] ) { n = n + 1; } // wait
+      patterns.addr = patterns.addr == 16 ? 0 : patterns.addr + 1;
     }
   }
+}
 ```
 <!-- MARKDOWN-AUTO-DOCS:END -->
 
