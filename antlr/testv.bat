@@ -1,1 +1,2 @@
-CALL grun vmodule root test1.v -tokens -gui
+CALL compile vmodule
+CALL grun vmodule vmodule test1.v -tokens -gui

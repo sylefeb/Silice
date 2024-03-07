@@ -4164,6 +4164,7 @@ bool Algorithm::preventIfElseCodeDup(t_fsm_nfo* fsm)
   adding a state before termination, and hence preventing collapse of
   next cycles within while loops and if-else (CL0004, CL0005)
 */
+/// TODO FIXME: could this be avoided?
 bool Algorithm::padPipeline(t_fsm_nfo* fsm)
 {
   // NOTE: expects stage ids to have been generate
@@ -8803,6 +8804,7 @@ void Algorithm::writeStatelessBlockGraph(
         if (!emptyUntilNextStates(current)) {
           reportError(prev->srcloc, "in an algorithm, a pipeline has to be followed by a new cycle.\n"
                                     "     please check meaning and split with ++: as appropriate");
+          /// TODO FIXME: this constraint is innelegant and seems unnecessary
         }
       } else {
         // in an always block, write the pipeline immediately
