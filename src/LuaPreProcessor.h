@@ -139,7 +139,7 @@ namespace Silice {
 
     /// \brief Returns wether a top level io port is defined
     bool isIOPortDefined(std::string key) { return (m_Pins.count(key) != 0) || (m_PinGroups.count(key) != 0); }
-    /// \brief Returns all the pins involved in an io port (ordered as a bit vector)
+    /// \brief Returns all the pins involved in an io port (ordered as a bit vector) in _pins
     void pinsUsedByIOPort(std::string port, std::vector<std::string>& _pins);
     /// \brief Returns the width of a pin
     int  pinWidth(std::string pin);

@@ -91,8 +91,8 @@ namespace Silice {
     void writeFormalTests(std::ostream& _out, const Blueprint::t_instantiation_context& ictx);
     /// \brief enum for port types
     enum e_PortType { Input,Output,InOut };
-    /// \brief add a port to the top module signature
-    void addTopModulePort(std::string port, Utils::t_source_loc srcloc, e_PortType type, std::map<std::string, e_PortType>& _used_pins);
+    /// \brief add a port to the top module signature, returns false if the port is not found
+    bool addTopModulePort(std::string port, Utils::t_source_loc srcloc, e_PortType type, std::map<std::string, e_PortType>& _used_pins);
     /// \brief prepare the top level module signature from the used pins
     std::string verilogTopModuleSignature(const std::map<std::string, e_PortType>& used_pins);
     /// \brief prepare the top level main module glue

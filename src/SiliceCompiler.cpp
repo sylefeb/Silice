@@ -49,6 +49,10 @@ using namespace Silice::Utils;
 
 // -------------------------------------------------
 
+bool g_Disable_CL0006 = false; // allows to force the use of outdates frameworks
+
+// -------------------------------------------------
+
 std::string SiliceCompiler::findFile(std::string fname) const
 {
   std::string tmp_fname;
@@ -526,14 +530,20 @@ void SiliceCompiler::parseUnitBody(t_parsed_unit& _parsed, const Blueprint::t_in
 
 // -------------------------------------------------
 
-void SiliceCompiler::addTopModulePort(
+bool SiliceCompiler::addTopModulePort(
   std::string                      port,
   Utils::t_source_loc              srcloc,
   e_PortType                       type,
   std::map<std::string, e_PortType>& _used_pins
 ) {
   if (!m_BodyContext->lpp->isIOPortDefined(port)) {
-    warn(Deprecation, srcloc, "pin '%s' is not declared in framework", port.c_str());
+    CHANGELOG.addPointOfInterest("CL0006", srcloc);
+    if (g_Disable_CL0006) {
+      warn(Deprecation, srcloc, "pin '%s' is not declared in framework\n             This may result in incorrect Verilog code.\n", port.c_str());
+    } else {
+      reportError(srcloc, "pin '%s' is not declared in framework\n         This may result in incorrect Verilog code.\n         Use --no-pin-check on command line to force.", port.c_str());
+    }
+    return false;
   } else {
     std::vector<std::string> pins;
     m_BodyContext->lpp->pinsUsedByIOPort(port, pins);
@@ -548,6 +558,7 @@ void SiliceCompiler::addTopModulePort(
         _used_pins.insert(std::make_pair(p,type));
       }
     }
+    return true;
   }
 }
 
@@ -624,18 +635,21 @@ void SiliceCompiler::writeBody(const t_parsed_unit& parsed, std::ostream& _out, 
     std::map<std::string, e_PortType> used_ports;
     std::map<std::string, e_PortType> used_pins;
     for (auto in : parsed.unit->inputs()) {
-      addTopModulePort(in.name, in.srcloc, Input, used_pins);
-      used_ports.insert(std::make_pair(in.name,Input));
+      if (addTopModulePort(in.name, in.srcloc, Input, used_pins)) {
+        used_ports.insert(std::make_pair(in.name, Input));
+      }
     }
     for (auto ou : parsed.unit->outputs()) {
-      addTopModulePort(ou.name, ou.srcloc, Output, used_pins);
-      used_ports.insert(std::make_pair(ou.name, Output));
+      if (addTopModulePort(ou.name, ou.srcloc, Output, used_pins)) {
+        used_ports.insert(std::make_pair(ou.name, Output));
+      }
     }
     for (auto io : parsed.unit->inOuts()) {
-      addTopModulePort(io.name, io.srcloc, InOut, used_pins);
-      used_ports.insert(std::make_pair(io.name, InOut));
+      if (addTopModulePort(io.name, io.srcloc, InOut, used_pins)) {
+        used_ports.insert(std::make_pair(io.name, InOut));
+      }
     }
-    // produce unused wires declarations
+    // check all ports are found, produce unused wires declarations
     std::string wire_decl;
     for (const auto& P : used_ports) {
       std::vector<std::string> pins;
@@ -687,10 +701,10 @@ void SiliceCompiler::writeBody(const t_parsed_unit& parsed, std::ostream& _out, 
     // done
     m_BodyContext->unbind();
 
-  } catch (ReportError&) {
+  } catch (ReportError& e) {
 
     m_BodyContext->unbind();
-    throw Fatal("[SiliceCompiler] writer stopped");
+    throw e;
 
   }
 
