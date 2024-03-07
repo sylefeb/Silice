@@ -31,6 +31,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "RISCVSynthesizer.h"
 #include "Utils.h"
 #include "ChangeLog.h"
+#include "VerilogTemplate.h"
 
 // -------------------------------------------------
 
@@ -525,7 +526,84 @@ void SiliceCompiler::parseUnitBody(t_parsed_unit& _parsed, const Blueprint::t_in
 
 // -------------------------------------------------
 
-void SiliceCompiler::writeBody(std::ostream& _out, const Blueprint::t_instantiation_context& ictx)
+void SiliceCompiler::addTopModulePort(
+  std::string                      port,
+  Utils::t_source_loc              srcloc,
+  e_PortType                       type,
+  std::map<std::string, e_PortType>& _used_pins
+) {
+  if (!m_BodyContext->lpp->isIOPortDefined(port)) {
+    warn(Deprecation, srcloc, "pin '%s' is not declared in framework", port.c_str());
+  } else {
+    std::vector<std::string> pins;
+    m_BodyContext->lpp->pinsUsedByIOPort(port, pins);
+    if (pins.empty()) {
+      reportError(srcloc, "pin group %s is empty", port.c_str());
+    }
+    for (auto p : pins) {
+      if (!p.empty()) {
+        if (_used_pins.count(p)) {
+          reportError(srcloc, "pin %s is used multiple times", port.c_str());
+        }
+        _used_pins.insert(std::make_pair(p,type));
+      }
+    }
+  }
+}
+
+// -------------------------------------------------
+
+std::string SiliceCompiler::verilogTopModuleSignature(const std::map<std::string, e_PortType>& used_pins)
+{
+  std::string sig;
+  for (const auto& P : used_pins) {
+    switch (P.second) 
+    {
+    case Input:  sig += "input  "; break;
+    case Output: sig += "output "; break;
+    case InOut:  sig += "inout  "; break;
+    }
+    int w = m_BodyContext->lpp->pinWidth(P.first);
+    if (w > 1) {
+      sig += "[" + std::to_string(w - 1) + ":0] ";
+    }
+    sig += P.first + ",\n";
+  }
+  return sig;
+}
+
+// -------------------------------------------------
+
+std::string SiliceCompiler::verilogMainGlue(const std::map<std::string, e_PortType>& used_ports)
+{
+  std::string glue;
+  for (const auto& P : used_ports) {
+    switch (P.second) {
+    case Input:  glue += ".in_"; break;
+    case Output: glue += ".out_"; break;
+    case InOut:  glue += ".inout_"; break;
+    }
+    std::vector<std::string> pins;
+    m_BodyContext->lpp->pinsUsedByIOPort(P.first, pins);
+    sl_assert(!pins.empty()); // checked before
+    std::string bitvec = "{";
+    for (int p = 0; p < pins.size(); ++p) {
+      if (pins[p].empty()) {
+        bitvec += "__unused_" + P.first + "_" + std::to_string(p) + ",";
+      } else {
+        bitvec += pins[p] + ",";
+      }
+    }
+    bitvec  = bitvec.substr(0, bitvec.length() - 1); // remove last comma
+    bitvec += "}";
+    glue += P.first + "(" + bitvec + "),\n";
+  }
+  return glue;
+}
+
+// -------------------------------------------------
+
+void SiliceCompiler::writeBody(const t_parsed_unit& parsed, std::ostream& _out, const Blueprint::t_instantiation_context& ictx)
 {
   // check parser is active
   if (m_BodyContext.isNull()) {
@@ -542,13 +620,46 @@ void SiliceCompiler::writeBody(std::ostream& _out, const Blueprint::t_instantiat
         _out << "`define " << d.substr(0, eq) << " " << d.substr(eq + 1) << nxl;
       }
     }
-    // write framework (top) module
-    _out << m_BodyContext->framework_verilog;
+    // build the top module signature, verify in/out/inout match pins, verify no pin is used twise
+    std::map<std::string, e_PortType> used_ports;
+    std::map<std::string, e_PortType> used_pins;
+    for (auto in : parsed.unit->inputs()) {
+      addTopModulePort(in.name, in.srcloc, Input, used_pins);
+      used_ports.insert(std::make_pair(in.name,Input));
+    }
+    for (auto ou : parsed.unit->outputs()) {
+      addTopModulePort(ou.name, ou.srcloc, Output, used_pins);
+      used_ports.insert(std::make_pair(ou.name, Output));
+    }
+    for (auto io : parsed.unit->inOuts()) {
+      addTopModulePort(io.name, io.srcloc, InOut, used_pins);
+      used_ports.insert(std::make_pair(io.name, InOut));
+    }
+    // produce unused wires declarations
+    std::string wire_decl;
+    for (const auto& P : used_ports) {
+      std::vector<std::string> pins;
+      m_BodyContext->lpp->pinsUsedByIOPort(P.first, pins);
+      sl_assert(!pins.empty()); // checked before
+      for (int p = 0; p < pins.size(); ++p) {
+        if (pins[p].empty()) {
+          wire_decl += "wire __unused_" + P.first + "_" + std::to_string(p) + ";\n";
+        }
+      }
+    }
+    // update framework
+    VerilogTemplate frmwrk;
+    std::unordered_map<std::string, std::string> replacements;
+    replacements["TOP_SIGNATURE"] = verilogTopModuleSignature(used_pins); // top module signature
+    replacements["MAIN_GLUE"]     = verilogMainGlue(used_ports); // main module glue
+    replacements["WIRE_DECL"]     = wire_decl; // main module wire declarations
+    frmwrk.fromString(m_BodyContext->framework_verilog, replacements);
+    // write framework (top) module    
+    _out << frmwrk.code();
     // write includes
     for (auto fname : m_AppendsInDeclOrder) {
       _out << Utils::fileToString(fname.c_str()) << nxl;
     }
-
     // write static blueprints
     for (auto miordr : m_BlueprintsInDeclOrder) {
       Module *mod = dynamic_cast<Module*>(m_Blueprints.at(miordr).raw());
@@ -730,17 +841,18 @@ void SiliceCompiler::run(
     CONFIG.print();
     // create output stream
     std::ofstream out(m_BodyContext->fresult);
-    // write body
-    writeBody(out, ictx);
     // which algorithm to export?
     if (to_export.empty()) {
       to_export = "main"; // export main by default
     }
     ictx.top_name = "M_" + to_export;
-    // parse and write top unit
+    // parse top unit
     auto bp = parseUnitIOs(to_export, ictx);
     parseUnitBody(bp, ictx);
     bp.unit->setAsTopMost();
+    // write body
+    writeBody(bp, out, ictx);
+    // write top unit
     // -> first pass
     writeUnit(bp, ictx, out, true);
     // -> second pass

@@ -90,8 +90,11 @@ namespace Silice {
     /// \brief The pin groups defined in the framework
     std::map<std::string, std::vector<std::string> > m_PinGroups;
 
-    bool hasPin(const char *key)            { return m_Pins.count(key) != 0; }
+    /// \brief returns whether a pin exists in the framework
+    bool hasPin(const char *key) { return m_Pins.count(key) != 0; }
+    /// \brief adds a pin (during framework parsing)
     void addPin(const char *key, int value) { m_Pins.insert(std::make_pair(key, value)); }
+    /// \brief adds a pin group (during framework parsing)
     void addPinGroup(const char *key, const std::vector<std::string>& pins) { m_PinGroups.insert(std::make_pair(key, pins)); }
 
     void createLuaContext();
@@ -133,6 +136,13 @@ namespace Silice {
 
     /// \brief returns the list of all unit names
     const std::set<std::string>& units()       { return m_UnitsByName; }
+
+    /// \brief Returns wether a top level io port is defined
+    bool isIOPortDefined(std::string key) { return (m_Pins.count(key) != 0) || (m_PinGroups.count(key) != 0); }
+    /// \brief Returns all the pins involved in an io port (ordered as a bit vector)
+    void pinsUsedByIOPort(std::string port, std::vector<std::string>& _pins);
+    /// \brief Returns the width of a pin
+    int  pinWidth(std::string pin);
 
   };
 

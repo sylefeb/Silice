@@ -34,20 +34,29 @@ using namespace Silice;
 
 // -------------------------------------------------
 
-void VerilogTemplate::load(std::string fname, 
-       const std::unordered_map<std::string,std::string>& keyValues)
+void VerilogTemplate::load(std::string                                        fname,
+                           const std::unordered_map<std::string, std::string>& replacements)
 {
   if (!LibSL::System::File::exists(fname.c_str())) {
-    throw Fatal("cannot find template file '%s'",fname.c_str());
+    throw Fatal("cannot find template file '%s'", fname.c_str());
   }
   // load in string
   string code_in = Utils::fileToString(fname.c_str());
+  // parse from string
+  fromString(code_in, replacements);
+}
+
+// -------------------------------------------------
+
+void VerilogTemplate::fromString(std::string                                        code,
+                                 const std::unordered_map<std::string,std::string>& replacements)
+{
   // apply variables
-  for (auto kv : keyValues) {
+  for (auto kv : replacements) {
     std::regex rexp("%" + kv.first + "%");
-    code_in = std::regex_replace(code_in,rexp,kv.second);
+    code = std::regex_replace(code,rexp,kv.second);
   }
-  m_Code = code_in;
+  m_Code = code;
 }
 
 // -------------------------------------------------

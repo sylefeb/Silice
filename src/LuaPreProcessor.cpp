@@ -829,6 +829,30 @@ void LuaPreProcessor::enableFilesReport(std::string fname)
 
 // -------------------------------------------------
 
+void LuaPreProcessor::pinsUsedByIOPort(std::string port, std::vector<std::string>& _pins)
+{
+  if (m_Pins.count(port)) {
+    _pins.push_back(port);
+  } else if (m_PinGroups.count(port)) {
+    _pins = m_PinGroups.at(port);
+  } else {
+    throw Fatal("pinsUsedByIOPort cannot find io port in pins or pin groups");
+  }
+}
+
+// -------------------------------------------------
+
+int  LuaPreProcessor::pinWidth(std::string pin)
+{
+  if (m_Pins.count(pin)) {
+    return m_Pins.at(pin);
+  } else {
+    throw Fatal("pinWidth called on unkown pin");
+  }
+}
+
+// -------------------------------------------------
+
 std::string LuaPreProcessor::assembleSource(
   std::string parent_path,
   std::string src_file,
@@ -1435,48 +1459,6 @@ void LuaPreProcessor::generateBody(
   g_LuaProcessingHeader.insert(m_LuaState); // this enables using pin name in the pins table without prior declaration
   executeLuaString(lua_header_code, dst_file, ictx);
   g_LuaProcessingHeader.erase(m_LuaState);
-  // load pin definitions
-  // -> pins
-  for (luabind::iterator p(luabind::globals(m_LuaState)["pins"]), endp; p != endp; ++p) {
-    m_Pins.insert(std::make_pair(luabind::object_cast<std::string>(p.key()), luabind::object_cast<int>(*p)));
-  }
-  // -> pin groups
-  for (luabind::iterator i(luabind::globals(m_LuaState)), endi; i != endi; ++i) {
-    if (luabind::type(*i) == LUA_TTABLE) {
-      bool is_pin_group = true;
-      for (luabind::iterator j(*i), endj; j != endj; ++j) {
-        if (luabind::type(*j) == LUA_TSTRING) {
-          std::string n = luabind::object_cast<std::string>(*j);
-          if (m_Pins.count(n) == 0) {
-            is_pin_group = false; break;
-          }
-        } else if (luabind::type(*j) == LUA_TNUMBER) {
-          int n = luabind::object_cast<int>(*j);
-          if (n != 0 && n != 1) {
-            is_pin_group = false; break;
-          }
-        } else {
-          is_pin_group = false; break;
-        }
-      }
-      if (is_pin_group) {
-        std::cerr << "pin group: " << i.key() << '\n';
-        // insert in groups
-        std::vector<std::string> pingroup;
-        for (luabind::iterator j(*i), endj; j != endj; ++j) {
-          if (luabind::type(*j) == LUA_TSTRING) {
-            std::string n = luabind::object_cast<std::string>(*j);
-            pingroup.push_back(n);
-          } else {
-            int n = luabind::object_cast<int>(*j);
-            pingroup.push_back(std::to_string(n));
-          }
-        }
-        m_PinGroups.insert(std::make_pair(luabind::object_cast<std::string>(i.key()), pingroup));
-      }
-    }
-  }
-  /// TODO
   // execute body (Lua context also contains all unit functions)
   executeLuaString(lua_code, dst_file, ictx);
   // reload config

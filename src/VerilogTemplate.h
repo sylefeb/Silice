@@ -45,9 +45,13 @@ public:
   /// \brief default constructor
   VerilogTemplate() { }
 
+  /// \brief load the template from file and applies the variable replacements
+  void load(std::string                                        fname, 
+            const std::unordered_map<std::string,std::string>& replacements);
+
   /// \brief load the template and applies the variable replacements
-  void load(std::string fname, 
-       const std::unordered_map<std::string,std::string>& keyValues);
+  void fromString(std::string                                        code,
+                  const std::unordered_map<std::string,std::string>& replacements);
 
   /// \brief returns the processed code       
   const std::string& code() const { return m_Code; }
