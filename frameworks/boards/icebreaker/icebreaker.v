@@ -98,11 +98,11 @@ wire design_clk;
 
 // reset management
 reg ready = 0;
-reg [15:0] RST_d;
-reg [15:0] RST_q;
+reg [23:0] RST_d;
+reg [23:0] RST_q;
 
 always @* begin
-  RST_d = RST_q[15] ? RST_q : RST_q + 1;
+  RST_d = RST_q[23] ? RST_q : RST_q + 1;
 end
 
 always @(posedge design_clk) begin
@@ -122,7 +122,7 @@ assign run_main = 1'b1;
 M_main __main(
   .clock(CLK),
   .out_clock(design_clk),
-  .reset(~RST_q[15]),
+  .reset(~RST_q[23]),
   %MAIN_GLUE%
   .in_run(run_main)
 );
