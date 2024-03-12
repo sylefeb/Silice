@@ -44,7 +44,7 @@ $$end
 
 $include('../common/qpsram2x.si')
 
-$$uart_bauds = 115200 -- 500000
+$$uart_bauds = 500000
 $include('../common/uart.si')
 
 unit main(
