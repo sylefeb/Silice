@@ -545,17 +545,21 @@ bool SiliceCompiler::addTopModulePort(
     }
     return false;
   } else {
-    std::vector<std::string> pins;
+    std::vector<std::pair<std::string,int> > pins;
     m_BodyContext->lpp->pinsUsedByIOPort(port, pins);
     if (pins.empty()) {
       reportError(srcloc, "pin group %s is empty", port.c_str());
     }
     for (auto p : pins) {
-      if (!p.empty()) {
-        if (_used_pins.count(p)) {
-          reportError(srcloc, "pin %s is used multiple times", port.c_str());
+      if (!p.first.empty()) {
+        if (p.second == -1) {
+          if (_used_pins.count(p.first)) {
+            reportError(srcloc, "pin %s is used multiple times", port.c_str());
+          }
+        } else {
+          /// TODO: bit level double use check
         }
-        _used_pins.insert(std::make_pair(p,type));
+        _used_pins.insert(std::make_pair(p.first,type));
       }
     }
     return true;
@@ -594,15 +598,19 @@ std::string SiliceCompiler::verilogMainGlue(const std::map<std::string, e_PortTy
     case Output: glue += ".out_"; break;
     case InOut:  glue += ".inout_"; break;
     }
-    std::vector<std::string> pins;
+    std::vector<std::pair<std::string,int> > pins;
     m_BodyContext->lpp->pinsUsedByIOPort(P.first, pins);
     sl_assert(!pins.empty()); // checked before
     std::string bitvec = "{";
     for (int p = 0; p < pins.size(); ++p) {
-      if (pins[p].empty()) {
+      if (pins[p].first.empty()) {
         bitvec += "__unused_" + P.first + "_" + std::to_string(p) + ",";
       } else {
-        bitvec += pins[p] + ",";
+        if (pins[p].second == -1) {
+          bitvec += pins[p].first + ",";
+        } else {
+          bitvec += pins[p].first + "[" + std::to_string(pins[p].second) + "],";
+        }
       }
     }
     bitvec  = bitvec.substr(0, bitvec.length() - 1); // remove last comma
@@ -652,11 +660,11 @@ void SiliceCompiler::writeBody(const t_parsed_unit& parsed, std::ostream& _out, 
     // check all ports are found, produce unused wires declarations
     std::string wire_decl;
     for (const auto& P : used_ports) {
-      std::vector<std::string> pins;
+      std::vector<std::pair<std::string,int> > pins;
       m_BodyContext->lpp->pinsUsedByIOPort(P.first, pins);
       sl_assert(!pins.empty()); // checked before
       for (int p = 0; p < pins.size(); ++p) {
-        if (pins[p].empty()) {
+        if (pins[p].first.empty()) {
           wire_decl += "wire __unused_" + P.first + "_" + std::to_string(p) + ";\n";
         }
       }

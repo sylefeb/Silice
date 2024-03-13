@@ -238,15 +238,6 @@ static int lua_cindex(lua_State *L)
     }
     return 1;
   }
-  /*
-  // otherwise create a string if in header
-  auto H = g_LuaProcessingHeader.find(L);
-  if (H == g_LuaProcessingHeader.end()) {
-    return 0;
-  }
-  luabind::detail::push_to_lua(L, name);
-  return 1;
-  */
   return 0;
 }
 
@@ -270,9 +261,22 @@ int lua_pin_index(lua_State *L)
     lua_error(L);
     return 0;
   }
-  // return as string
-  luabind::detail::push_to_lua(L, name);
+  // return as table of strings
+  luabind::object table = luabind::newtable(L);
+  for (int b = 0; b < lpp->pinWidth(name);++b) {
+    table[b] = std::string(name) + ":" + std::to_string(b);
+  }
+  // add the 'all bits' marker, used by allBits to check if the user
+  // is giving the entire table (all bits) or selecting a bit
+  table["allbits"] = std::string(name);
+  luabind::detail::push_to_lua(L, table);
   return 1;
+}
+
+std::string allBits(luabind::object t)
+{
+  std::string s = luabind::object_cast_nothrow<std::string>(t["allbits"], std::string());
+  return s;
 }
 
 int lua_pin_newindex(lua_State *L)
@@ -291,25 +295,43 @@ int lua_pin_newindex(lua_State *L)
     int value = lua_tonumber(L, 3);
     lpp->addPin(key, value);
   } else if (lua_istable(L, 3)) {
+    std::vector<std::pair<std::string, int> > pins;
     luabind::object o(luabind::from_stack(L,3));
-    // create group (may have empty entries for unused bits, given as '0' values in the group)
-    std::vector<std::string> pins;
-    for (luabind::iterator i(o), end; i != end; ++i) {
-      if (luabind::type(*i) == LUA_TSTRING) {
-        pins.push_back(luabind::object_cast_nothrow<std::string>(*i, std::string()));
-      } else if (luabind::type(*i) == LUA_TNUMBER) {
-        int v = luabind::object_cast_nothrow<int>(*i, 0);
-        if (v == 0) {
-          pins.push_back(std::string());
+    std::string all = allBits(o);
+    if (!all.empty()) {
+      pins.push_back(std::make_pair(all, -1));
+    } else {
+      // create group (may have empty entries for unused bits, given as '0' values in the group)
+      for (luabind::iterator i(o), end; i != end; ++i) {
+        if (luabind::type(*i) == LUA_TSTRING) {
+          // bit select
+          std::string pin_bitsel = luabind::object_cast_nothrow<std::string>(*i, std::string());
+          auto split = pin_bitsel.find(':');
+          if (split == string::npos) throw Fatal("[pin declaration] malformed bit select string");
+          std::string name = pin_bitsel.substr(0, split);
+          std::string bit  = pin_bitsel.substr(split+1);
+          pins.push_back(make_pair(name,atoi(bit.c_str())));
+        } else if (luabind::type(*i) == LUA_TTABLE) {
+          all = allBits(*i);
+          if (!all.empty()) {
+            pins.push_back(std::make_pair(all, -1));
+          } else {
+            throw Fatal("[pin declaration] malformed pin group table");
+          }
+        } else if (luabind::type(*i) == LUA_TNUMBER) {
+          int v = luabind::object_cast_nothrow<int>(*i, 0);
+          if (v == 0) {
+            pins.push_back(std::make_pair(std::string(), -1));
+          } else {
+            lua_pushstring(L, sprint("[pin declaration] incorrect assignment to pin '%s', the value can only be 0 to skip bits (got %d)", key, v));
+            lua_error(L);
+            return 0;
+          }
         } else {
-          lua_pushstring(L, sprint("[pin declaration] incorrect assignment to pin '%s', the value can only be 0 to skip bits (got %d)", key,v));
+          lua_pushstring(L, sprint("[pin declaration] incorrect assignment to pin '%s'", key));
           lua_error(L);
           return 0;
         }
-      } else {
-        lua_pushstring(L, sprint("[pin declaration] incorrect assignment to pin '%s'", key));
-        lua_error(L);
-        return 0;
       }
     }
     lpp->addPinGroup(key, pins);
@@ -829,10 +851,10 @@ void LuaPreProcessor::enableFilesReport(std::string fname)
 
 // -------------------------------------------------
 
-void LuaPreProcessor::pinsUsedByIOPort(std::string port, std::vector<std::string>& _pins)
+void LuaPreProcessor::pinsUsedByIOPort(std::string port, std::vector<std::pair<std::string,int> >& _pins)
 {
   if (m_Pins.count(port)) {
-    _pins.push_back(port);
+    _pins.push_back(make_pair(port,-1));
   } else if (m_PinGroups.count(port)) {
     _pins = m_PinGroups.at(port);
   } else {
