@@ -1,0 +1,38 @@
+
+// design pattern of parallelzing computations with pipeline syntax
+
+// this means you can effectively have multiple algorithms in parallel!
+// (each can run its own while (1) loop for instance)
+
+unit main(output uint8 leds)
+{
+
+  uint32 cycle(0);
+
+  algorithm {
+         
+         // we start two 'pipelines' that will run in parallel
+         // they have only two stages, the first does nothing, the second
+         // executes the task (of course the pipelines could be deeper, here
+         // just showing the most direct parallelizatoin of two tasks)
+
+        {  ->  __display("compute core 0");
+
+          uint3 a=0;
+          while (a != 7) { a = a + 1; __display("[0:%d] a = %d",cycle,a); }
+        
+        }
+
+        { ->  __display("compute core 1");
+
+          uint3 b=0;
+          while (b != 7) { b = b + 1; __display("[1:%d] b = %d",cycle,b); }
+        
+        }
+
+  }
+  
+  always_after {
+    cycle = cycle + 1;
+  }
+}

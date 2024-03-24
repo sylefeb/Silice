@@ -121,6 +121,10 @@ module top(
   output GPIO0,  // TX
   input  GPIO1, // RX
 `endif
+`ifdef PS2
+  input  GPIO2, // clock
+  input  GPIO3, // data
+`endif
 `ifdef PMOD_COM_OUT
   output PMOD_B1,
   output PMOD_B2,
@@ -277,6 +281,10 @@ M_main __main(
 `ifdef UART2
   .out_uart_tx(GPIO0),
   .in_uart_rx (GPIO1),
+`endif
+`ifdef PS2
+  .in_ps2_clock(GPIO2),
+  .in_ps2_data(GPIO3),
 `endif
 `ifdef SYNC_IN
   .in_sync(PMOD_A1),

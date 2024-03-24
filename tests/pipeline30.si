@@ -1,5 +1,5 @@
 
-// nested pipelines test
+// goto in pipeline test
 
 algorithm main(output uint8 leds)
 {

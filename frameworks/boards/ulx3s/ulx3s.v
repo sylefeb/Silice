@@ -102,6 +102,10 @@ module top(
   input  clk_25mhz
   );
 
+
+// ------------------- TODO: 'fake' pin declaration in MAIN_GLUE
+wire flash_clk; // ECP5 specific, see https://github.com/mattvenn/basic-ecp5-pcb/issues/3
+
 wire ready = 0;
 reg [15:0] RST_d;
 reg [15:0] RST_q;
@@ -132,16 +136,14 @@ M_main __main(
 );
 
 `ifdef SPIFLASH
-wire __main_flash_clk;   /// TODO
 USRMCLK usrmclk_flash(
-          .USRMCLKI(__main_flash_clk),
+          .USRMCLKI(flash_clk),
           .USRMCLKTS(1'b0));
 `endif
 
-`ifdef QSPIFLASH          /// TODO
-wire __main_flash_clk;
+`ifdef QSPIFLASH
 USRMCLK usrmclk_flash(
-          .USRMCLKI(__main_flash_clk),
+          .USRMCLKI(flash_clk),
           .USRMCLKTS(1'b0));
 `endif
 
