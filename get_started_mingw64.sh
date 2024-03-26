@@ -19,18 +19,18 @@ pacman -S --noconfirm --needed make
 pacman -S --noconfirm --needed python3
 pacman -S --noconfirm --needed python-pip
 pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-riscv64-unknown-elf-toolchain
-pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-iverilog
-pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-gtkwave
-pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-verilator
-pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-openFPGALoader
+# pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-iverilog
+# pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-gtkwave
+# pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-verilator
+# pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-openFPGALoader
 pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-dfu-util
 pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-boost
 pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-glfw
 
 # -------------- retrieve oss-cad-suite package --------------
-OSS_CAD_MONTH=11
-OSS_CAD_DAY=29
-OSS_CAD_YEAR=2023
+OSS_CAD_MONTH=03
+OSS_CAD_DAY=12
+OSS_CAD_YEAR=2024
 OSS_PACKAGE=oss-cad-suite-windows-x64-$OSS_CAD_YEAR$OSS_CAD_MONTH$OSS_CAD_DAY.exe
 
 rm -rf tools/fpga-binutils/
