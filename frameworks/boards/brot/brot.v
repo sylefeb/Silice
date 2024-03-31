@@ -125,6 +125,12 @@ module top(
   input  GPIO2, // clock
   input  GPIO3, // data
 `endif
+`ifdef SDCARD
+  output GPIO4, // cs
+  output GPIO5, // clock
+  output GPIO6, // mosi
+  input  GPIO7, // miso
+`endif
 `ifdef PMOD_COM_OUT
   output PMOD_B1,
   output PMOD_B2,
@@ -285,6 +291,12 @@ M_main __main(
 `ifdef PS2
   .in_ps2_clock(GPIO2),
   .in_ps2_data(GPIO3),
+`endif
+`ifdef SDCARD
+  .out_sd_csn  (GPIO4),
+  .out_sd_clk  (GPIO5),
+  .out_sd_mosi (GPIO6),
+  .in_sd_miso  (GPIO7),
 `endif
 `ifdef SYNC_IN
   .in_sync(PMOD_A1),
