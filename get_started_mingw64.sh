@@ -41,6 +41,8 @@ mkdir -p /usr/local/share/silice
 mv $OSS_PACKAGE /usr/local/share/silice/
 cp tools/oss-cad-suite-env.sh /usr/local/share/silice/
 cd /usr/local/share/silice ; ./$OSS_PACKAGE ; rm ./$OSS_PACKAGE ; cd -
+
+# the python version shipped with oss-cad-tools creates problems
 rm -f /usr/local/share/silice/oss-cad-suite/lib/python3.exe
 rm -f /usr/local/share/silice/oss-cad-suite/lib/pip3.exe
 
