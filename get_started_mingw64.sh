@@ -28,8 +28,8 @@ pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-boost
 pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-glfw
 
 # -------------- retrieve oss-cad-suite package --------------
-OSS_CAD_MONTH=03
-OSS_CAD_DAY=27
+OSS_CAD_MONTH=04
+OSS_CAD_DAY=04
 OSS_CAD_YEAR=2024
 OSS_PACKAGE=oss-cad-suite-windows-x64-$OSS_CAD_YEAR$OSS_CAD_MONTH$OSS_CAD_DAY.exe
 
@@ -41,6 +41,8 @@ mkdir -p /usr/local/share/silice
 mv $OSS_PACKAGE /usr/local/share/silice/
 cp tools/oss-cad-suite-env.sh /usr/local/share/silice/
 cd /usr/local/share/silice ; ./$OSS_PACKAGE ; rm ./$OSS_PACKAGE ; cd -
+rm -f /usr/local/share/silice/oss-cad-suite/lib/python3.exe
+rm -f /usr/local/share/silice/oss-cad-suite/lib/pip3.exe
 
 # -------------- compile Silice -----------------------------
 ./compile_silice_mingw64.sh
