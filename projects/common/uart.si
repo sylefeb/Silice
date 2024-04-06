@@ -14,6 +14,8 @@ $$  if DE10NANO then
 $$    uart_in_clock_freq_mhz = 50
 $$  elseif ULX3S then
 $$    uart_in_clock_freq_mhz = 25
+$$  elseif COLORLIGHT then
+$$    uart_in_clock_freq_mhz = 25
 $$  elseif ICEBREAKER then
 $$    uart_in_clock_freq_mhz = 12
 $$  elseif ICESTICK then

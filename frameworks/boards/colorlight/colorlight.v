@@ -46,8 +46,6 @@ $$SDRAM_COLUMNS_WIDTH = 8
 module top(
   // basic
   output leds,
-  // buttons
-  // input  [6:0] btns,
 `ifdef SDRAM
   // sdram
   output sdram_clk,
@@ -61,6 +59,7 @@ module top(
   output [10:0] sdram_a,
   inout  [31:0] sdram_dq,
 `endif
+/*
 `ifdef AUDIO
   // audio jack
   output [3:0] audio_l,
@@ -92,11 +91,13 @@ module top(
   output [27:0] gp,
   input  [27:0] gn,
 `endif
+*/
 `ifdef HDMI
   // hdmi
   output [3:0]  gpdi_dp, // {clock,R,G,B}
   // output [3:0]  gpdi_dn, // not used explicitely, using true differential with LVCMOS33D (see lpf file)
 `endif
+/*
 `ifdef US2_PS2
   // us2 connector for PS/2 peripheral
   input  usb_fpga_bd_dp,
@@ -104,14 +105,17 @@ module top(
   output usb_fpga_pu_dp,
   output usb_fpga_pu_dn,
 `endif
+*/
 `ifdef UART
   // uart
   output  ftdi_rxd,
   input   ftdi_txd,
 `endif
+/*
 `ifdef UART2
   // uart2
 `endif
+*/
 `ifdef SPIFLASH
   output flash_csn,
   output flash_mosi,
@@ -124,6 +128,7 @@ module top(
   inout  flash_wpn,
   inout  flash_holdn,
 `endif
+/*
 `ifdef I2C
   // i2c for rtc
   inout gpdi_sda,
@@ -142,12 +147,13 @@ module top(
   //inout  [27:0] gp,
   //inout  [27:0] gn,
 `endif
-  // output wifi_gpio0,
+*/
   input  clk_25mhz
   );
 
-wire [7:0]  __main_out_leds;
+wire  __main_out_leds;
 
+/*
 `ifdef OLED
 wire        __main_oled_clk;
 wire        __main_oled_mosi;
@@ -173,11 +179,13 @@ wire [10:0] __main_out_sdram_a;
 `error_UART2_needs_GPIO
 `endif
 `endif
+*/
 
 `ifdef UART
 wire        __main_out_uart_rx;
 `endif
 
+/*
 `ifdef VGA
 wire        __main_out_vga_hs;
 wire        __main_out_vga_vs;
@@ -191,15 +199,18 @@ wire        __main_sd_clk;
 wire        __main_sd_csn;
 wire        __main_sd_mosi;
 `endif
+*/
 
 `ifdef HDMI
 wire [3:0]  __main_out_gpdi_dp;
 `endif
 
+/*
 `ifdef AUDIO
 wire [3:0]  __main_out_audio_l;
 wire [3:0]  __main_out_audio_r;
 `endif
+*/
 
 // A reset line that goes low after 16 ticks
 reg [2:0] reset_cnt = 0;
@@ -214,9 +225,6 @@ M_main __main(
   .reset         (reset),
   .in_run        (run_main),
   .out_leds      (__main_out_leds),
-`ifdef BUTTONS
-  .in_btns       (btns),
-`endif
 `ifdef SDRAM
   .inout_sdram_dq(sdram_dq),
   .out_sdram_clk (__main_out_sdram_clk),
@@ -229,6 +237,7 @@ M_main __main(
   .out_sdram_ba  (__main_out_sdram_ba),
   .out_sdram_a   (__main_out_sdram_a),
 `endif
+/*
 `ifdef US2_PS2
   .in_us2_bd_dp(usb_fpga_bd_dp),
   .in_us2_bd_dn(usb_fpga_bd_dn),
@@ -261,6 +270,7 @@ M_main __main(
   .in_gn        (gn),
 `endif
 `endif
+*/
 `ifdef UART
   .out_uart_tx  (__main_out_uart_rx),
   .in_uart_rx   (ftdi_txd),
@@ -279,6 +289,7 @@ M_main __main(
   .inout_sf_io2(flash_wpn),
   .inout_sf_io3(flash_holdn),
 `endif
+/*
 `ifdef VGA
   .out_video_hs (__main_out_vga_hs),
   .out_video_vs (__main_out_vga_vs),
@@ -286,9 +297,11 @@ M_main __main(
   .out_video_g  (__main_out_vga_g),
   .out_video_b  (__main_out_vga_b),
 `endif
+*/
 `ifdef HDMI
   .out_gpdi_dp  (__main_out_gpdi_dp),
 `endif
+/*
 `ifdef I2C
   .inout_gpdi_sda(gpdi_sda),
   .inout_gpdi_scl(gpdi_scl),
@@ -303,6 +316,7 @@ M_main __main(
   .out_ram_csn(qqspi_csn),
   .out_ram_bank({qqspi_bank1,qqspi_bank0}),
 `endif
+*/
   .clock         (clk_25mhz)
 );
 
@@ -320,6 +334,7 @@ assign sdram_ba      = __main_out_sdram_ba;
 assign sdram_a       = __main_out_sdram_a;
 `endif
 
+/*
 `ifdef AUDIO
 assign audio_l       = __main_out_audio_l;
 assign audio_r       = __main_out_audio_r;
@@ -362,6 +377,7 @@ assign oled_dc       = __main_oled_dc;
 assign oled_resn     = __main_oled_resn;
 assign oled_csn      = __main_oled_csn;
 `endif
+*/
 
 `ifdef UART
 assign ftdi_rxd      = __main_out_uart_rx;
@@ -385,11 +401,11 @@ USRMCLK usrmclk_flash(
           .USRMCLKTS(1'b0));
 `endif
 
+/*
 `ifdef US2_PS2
 assign usb_fpga_pu_dp = 1;
 assign usb_fpga_pu_dn = 1;
 `endif
-
-// assign wifi_gpio0 = 1'b1; // see https://github.com/sylefeb/Silice/issues/207
+*/
 
 endmodule
