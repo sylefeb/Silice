@@ -161,6 +161,7 @@ wire        __main_oled_dc;
 wire        __main_oled_resn;
 wire        __main_oled_csn;
 `endif
+*/
 
 `ifdef SDRAM
 wire        __main_out_sdram_clk;
@@ -174,6 +175,7 @@ wire [1:0]  __main_out_sdram_ba;
 wire [10:0] __main_out_sdram_a;
 `endif
 
+/*
 `ifdef UART2
 `ifndef GPIO
 `error_UART2_needs_GPIO
