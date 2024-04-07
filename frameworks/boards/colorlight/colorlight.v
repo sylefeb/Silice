@@ -121,6 +121,7 @@ module top(
   output flash_mosi,
   input  flash_miso,
 `endif
+/*
 `ifdef QSPIFLASH
   output flash_csn,
   inout  flash_mosi,
@@ -128,7 +129,6 @@ module top(
   inout  flash_wpn,
   inout  flash_holdn,
 `endif
-/*
 `ifdef I2C
   // i2c for rtc
   inout gpdi_sda,
@@ -283,6 +283,7 @@ M_main __main(
   .out_sf_mosi(flash_mosi),
   .in_sf_miso(flash_miso),
 `endif
+/*
 `ifdef QSPIFLASH
   .out_sf_clk(__main_flash_clk),
   .out_sf_csn(flash_csn),
@@ -291,7 +292,6 @@ M_main __main(
   .inout_sf_io2(flash_wpn),
   .inout_sf_io3(flash_holdn),
 `endif
-/*
 `ifdef VGA
   .out_video_hs (__main_out_vga_hs),
   .out_video_vs (__main_out_vga_vs),
@@ -396,6 +396,7 @@ USRMCLK usrmclk_flash(
           .USRMCLKTS(1'b0));
 `endif
 
+/*
 `ifdef QSPIFLASH
 wire __main_flash_clk;
 USRMCLK usrmclk_flash(
@@ -403,7 +404,6 @@ USRMCLK usrmclk_flash(
           .USRMCLKTS(1'b0));
 `endif
 
-/*
 `ifdef US2_PS2
 assign usb_fpga_pu_dp = 1;
 assign usb_fpga_pu_dn = 1;

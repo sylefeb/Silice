@@ -23,10 +23,6 @@
         {
           "set": "spiflash",
           "define": "SPIFLASH=1"
-        },
-        {
-          "set": "qspiflash",
-          "define": "QSPIFLASH=1"
         }
       ],
       "builders": [
