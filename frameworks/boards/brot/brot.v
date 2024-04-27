@@ -113,8 +113,14 @@ module top(
   output PMOD_B7,
   output PMOD_B8,
 `endif
+`ifdef SERIAL_IN
+  input PMOD_A2,
+`endif
 `ifdef UART
   output PMOD_B7,  // TX
+  input  PMOD_B10, // RX
+`endif
+`ifdef UART_RX_ONLY
   input  PMOD_B10, // RX
 `endif
 `ifdef UART2
@@ -276,12 +282,18 @@ M_main __main(
 `ifdef PARALLEL_SCREEN
   .out_prlscreen_d({GPIO7,GPIO6,GPIO5,GPIO4,GPIO3,GPIO2,GPIO1,GPIO0}),
   .out_prlscreen_resn(PMOD_B1),
-  .out_prlscreen_csn (/*PMOD_B7*/prlscreen_unused),
+  .out_prlscreen_csn (PMOD_B7),
   .out_prlscreen_rs  (PMOD_B8),
   .out_prlscreen_clk (PMOD_B2),
 `endif
+`ifdef SERIAL_IN
+  .in_serial_in(PMOD_A2),
+`endif
 `ifdef UART
   .out_uart_tx(PMOD_B7),
+  .in_uart_rx (PMOD_B10),
+`endif
+`ifdef UART_RX_ONLY
   .in_uart_rx (PMOD_B10),
 `endif
 `ifdef UART2
