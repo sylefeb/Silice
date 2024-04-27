@@ -1,0 +1,64 @@
+{
+  "name": "colorlight",
+  "variants": [
+    {
+      "name": "i9",
+      "framework": "colorlight.v",
+      "pins": [
+        {
+          "set": "basic"
+        },
+        {
+          "set": "sdram",
+          "define": "SDRAM=1"
+        },
+        {
+          "set": "hdmi",
+          "define": "HDMI=1"
+        },
+        {
+          "set": "uart",
+          "define": "UART=1"
+        },
+        {
+          "set": "spiflash",
+          "define": "SPIFLASH=1"
+        }
+      ],
+      "builders": [
+        {
+          "builder": "edalize",
+          "description": "Build using Edalize",
+          "tool": "trellis",
+          "tool_options": [
+            {
+              "yosys_synth_options": [
+                "-abc9"
+              ],
+              "nextpnr_options": [
+                "--45k",
+                "--freq 65",
+                "--package CABGA381",
+                "--timing-allow-fail"
+              ],
+              "pnr": "next"
+            }
+          ],
+          "bitstream": "build.bit",
+          "constraints": [
+            {
+              "name": "colorlight_i9_v7.2.lpf",
+              "file_type": "LPF"
+            }
+          ],
+          "program": [
+            {
+              "cmd": "openFPGALoader",
+              "args": "-b colorlight-i9 build.bit"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

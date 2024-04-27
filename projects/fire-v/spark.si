@@ -17,11 +17,11 @@ $$if SIMULATION then
 $$verbose = nil
 $$end
 
-$$if not (ULX3S or ICARUS or VERILATOR or ICEBREAKER) then
+$$if not (ECP5 or ICARUS or VERILATOR or ICEBREAKER) then
 $$error('Sorry, Spark is currently not supported on this board.')
 $$end
 
-$$if ULX3S then
+$$if ECP5 then
 import('../common/plls/ulx3s_50.v')
 $$uart_in_clock_freq_mhz = 50
 $$end
@@ -71,7 +71,7 @@ $$if UART then
   input  uint1 uart_rx,
 $$end
 )
-$$if ULX3S then
+$$if ECP5 then
 <@sys_clock,!sys_reset>
 {
   uint1 sys_clock = uninitialized;
