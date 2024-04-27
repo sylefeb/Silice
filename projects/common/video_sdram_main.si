@@ -91,7 +91,7 @@ $$if DE2 then
 import('../common/plls/de2_25_100_100ph180.v')
 $$end
 
-$$if ULX3S then
+$$if ECP5 then
 // Clock
 $$if not fast_compute then
 import('../common/plls/ulx3s_50_25_100_100ph180.v')
@@ -282,7 +282,7 @@ $$if AUDIO then
   output uint4 audio_r,
 $$end
 $$if HDMI then
-$$if ULX3S then
+$$if ULX3S or COLORLIGHT then
   output! uint4 gpdi_dp,
 //  output uint4 gpdi_dn,
 $$else
@@ -336,7 +336,7 @@ $$elseif DE2 then
     c2        :> sdram_clk,   // chip
     locked    :> pll_lock
   );
-$$elseif ULX3S then
+$$elseif ECP5 then
   // --- clock
   uint1 video_clock   = 0;
   uint1 sdram_clock   = 0;
