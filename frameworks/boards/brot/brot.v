@@ -124,8 +124,8 @@ module top(
   input  PMOD_B10, // RX
 `endif
 `ifdef UART2
-  output GPIO0,  // TX
-  input  GPIO1, // RX
+  input  GPIO0,  // TX
+  output GPIO1, // RX
 `endif
 `ifdef PS2
   input  GPIO2, // clock
@@ -297,8 +297,8 @@ M_main __main(
   .in_uart_rx (PMOD_B10),
 `endif
 `ifdef UART2
-  .out_uart_tx(GPIO0),
-  .in_uart_rx (GPIO1),
+  .out_uart_tx(GPIO1),
+  .in_uart_rx (GPIO0),
 `endif
 `ifdef PS2
   .in_ps2_clock(GPIO2),
