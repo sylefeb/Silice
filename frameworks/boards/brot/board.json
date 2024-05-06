@@ -22,7 +22,8 @@
         {"set"    : "sync_in",  "define" : "SYNC_IN=1"},
         {"set"    : "sync_out", "define" : "SYNC_OUT=1"},
         {"set"    : "ps2", "define" : "PS2=1"},
-        {"set"    : "sdcard", "define" : "SDCARD=1"}
+        {"set"    : "sdcard", "define" : "SDCARD=1"},
+        {"set"    : "vga", "define" : "VGA=1"}
       ],
       "builders": [
         {

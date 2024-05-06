@@ -167,6 +167,20 @@ module top(
 `ifdef SYNC_OUT
   output PMOD_B9,
 `endif
+`ifdef VGA
+  output GPIO0,   // R0
+  output GPIO1,   // R1
+  output GPIO2,   // R2
+  output PMOD_B1, // G0
+  output GPIO3,   // G1
+  output GPIO4,   // G2
+  output GPIO5,   // G3
+  output PMOD_B2, // B0
+  output PMOD_B8, // B1
+  output GPIO6,   // B2
+  output GPIO7,   // HS
+  output PMOD_B7, // VS
+`endif
   input  CLK_48
   );
 
@@ -340,6 +354,13 @@ PMOD_A8 is on a global buffer on the 'in fpga' and has to be used for the clock
   .in_com_data({PMOD_A1,PMOD_A2,PMOD_A3,PMOD_A4,PMOD_A7,PMOD_B4,PMOD_A9,PMOD_A10}),
   .in_com_clock(PMOD_A8),
   .in_com_valid(PMOD_B3),
+`endif
+`ifdef VGA
+  .out_video_r({GPIO0,GPIO1,GPIO2}),
+  .out_video_g({PMOD_B1,GPIO3,GPIO4,GPIO5}),
+  .out_video_b({GPIO6,PMOD_B8,PMOD_B2}),
+  .out_video_hs(GPIO7),
+  .out_video_vs(PMOD_B7),
 `endif
 // -----------------------------------------------------------------------------
   .in_run(run_main)

@@ -10,6 +10,8 @@ The board directory has to contain a (board.json)[ulx3s/board.json] file. This f
 - the list of constraint files (typically where pin assignments and names are specified)
 - the command line for programming the board
 
+> *Important:* For your install to see the changes, Silice has to be reinstalled on your system by running the `compile_silice_(system).sh` script at the root of the repo.
+
 ## Standard pin sets
 
 To simplify writing multi-board code, Silice uses standards set of pins. This is not mandatory but helps development! The most important is to preserve the pin names, the signal width are expected to vary, this can be dealt with with pre-processor definitions in the Verilog glue, see e.g. [NUM_LEDS](ulx3s/ulx3s.v).
