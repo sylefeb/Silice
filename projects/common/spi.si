@@ -24,7 +24,8 @@ unit spi_mode0_send(
     ready   =  ~busy[0,1];
     if (enable) {
 $$if SIMULATION then
-      if (busy[0,1]) { __display("[SPI ERROR] still sending"); }
+      if (busy[1,1]) { __display("[SPI ERROR] still sending"); }
+      // __display("[screen] sending %x (%b)",byte,data_or_command);
 $$end
       dc        = data_or_command;
       sending   = {byte[0,1],byte[1,1],byte[2,1],byte[3,1],

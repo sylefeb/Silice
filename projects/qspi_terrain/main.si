@@ -1,0 +1,224 @@
+// SL 2024-05-17 @sylefeb
+// ========================================================
+//
+// ========================================================
+// https://github.com/sylefeb/Silice
+// MIT license, see LICENSE_MIT in Silice repo root
+// ========================================================
+
+$$if SIM_SB_IO then
+append('sb_io_sim.v')
+import('passthrough.v')
+$$end
+
+$$master_freq = 12
+
+$$if SPISCREEN_EXTRA then
+$$  SPISCREEN=1
+$$end
+
+// Include the QSPRAM controller
+$include('../ice-v/SOCs/old_qpsram2x.si') // NOTE: uses an older version as new one is larger
+
+// Include the UART controller
+$$uart_bauds = 115200
+$$uart_in_clock_freq_mhz = master_freq
+$include('../common/uart.si')
+
+$include('terrain_renderer.si')
+
+// --------------------------------------------------
+// SOC
+// --------------------------------------------------
+
+unit main( // I guess this is the SOC :-D
+  output uint5 leds,
+$$if PMOD_QQSPI then
+  inout   uint1 ram_io0,
+  inout   uint1 ram_io1,
+  inout   uint1 ram_io2,
+  inout   uint1 ram_io3,
+  output  uint1 ram_clk,
+  output  uint1 ram_csn,
+  output  uint2 ram_bank,
+$$end
+$$if UART then
+  output  uint1 uart_tx,
+  input   uint1 uart_rx,
+$$end
+$$if SPISCREEN then
+  output  uint1 spiscreen_clk,
+  output  uint1 spiscreen_mosi,
+  output  uint1 spiscreen_dc,
+  output  uint1 spiscreen_resn,
+  output  uint1 spiscreen_csn(0),
+$$if VERILATOR then
+  output uint2  spiscreen_driver(2/*ST7789*/),
+  output uint10 spiscreen_width (320),
+  output uint10 spiscreen_height(240),
+$$end
+$$end
+) {
+$$if SIMULATION then
+  uint32 cycle(0);
+  // dummy pins for simulation
+  uint1 ram_io0(0);  uint1 ram_io1(0);  uint1 ram_io2(0);
+  uint1 ram_io3(0);  uint1 ram_clk(0);  uint1 ram_csn(0);
+  uint2 ram_bank(0);
+$$end
+
+  // ---- display SPI controller
+$$if SPISCREEN then
+  uint1 screen_dc(0);   uint1 screen_clk(0);
+  uint1 screen_mosi(0); uint1 screen_resn(0);
+$$if SIMULATION then
+  spi_mode0_send display(
+$$else
+  spi_mode3_send display(
+$$end
+    spi_mosi        :> screen_mosi,
+    spi_clk         :> screen_clk,
+    spi_dc          :> screen_dc,
+  );
+$$if not SIMULATION then
+   sb_io _( clock <: clock, out  <: screen_clk,  pin  :> spiscreen_clk);
+   sb_io _( clock <: clock, out  <: screen_mosi, pin  :> spiscreen_mosi);
+   sb_io _( clock <: clock, out  <: screen_dc,   pin  :> spiscreen_dc);
+   sb_io _( clock <: clock, out  <: screen_resn, pin  :> spiscreen_resn);
+$$end
+$$end
+
+  // ---- terrain rendered
+  terrain_renderer terrain(
+    ram_csn  :> ram_csn,    ram_clk  :> ram_clk,
+    ram_io0 <:> ram_io0,    ram_io1 <:> ram_io1,
+    ram_io2 <:> ram_io2,    ram_io3 <:> ram_io3,
+  );
+
+/*
+$$if not NO_SERIAL then
+  // ---- uart
+  // uart_out    uo;
+  uart_in     ui;
+$$if UART then
+  //uart_sender usend(
+  //  io      <:> uo,
+  //  uart_tx :>  uart_tx
+  //);
+  uart_receiver urecv(
+    io      <:> ui,
+    uart_rx <:  uart_rx
+  );
+$$end
+$$end
+*/
+
+  // uint1  send_asap = 0;
+  uint16 pixel_to_send = 0;
+  uint17 pixel_do_send = 0;
+  uint32 busy = 0;
+/*
+  uint8  config_register = uninitialized;
+  uint1  wait_param  = 0;
+  uint1  send_screen = 0;
+  uint1  set_cfg_reg = 0;
+  uint1  run_terrain = 0;
+  uint1  terrain_running = 0;
+*/
+  // ---- always block (main logic)
+  always {
+
+    // ---- ram select
+    ram_bank = 2b00; // bank at 1<<24
+$$if not NO_SERIAL then
+    // ---- uart
+    // uo.data_in_ready = 0;  // maintain low
+$$end
+    // ---- start terrain engine
+    //if (run_terrain) {
+    //  terrain <- ();
+    //  terrain_running = 1;
+    //}
+    //  ---- display
+    spiscreen_csn  = 0;
+$$if SIMULATION then
+    spiscreen_clk  = screen_clk; spiscreen_mosi = screen_mosi; // assign pins
+    spiscreen_dc   = screen_dc;  spiscreen_resn = screen_resn;
+$$end
+$$if not NO_SERIAL and not SIMULATION then
+/*
+    // ---- leds
+    leds                    = {wait_param, terrain_running, display.data_or_command, terrain.pixel_ready, screen_resn};
+    // ---- config register
+    config_register         = wait_param ? ui.data_out : config_register;
+    // ---- uart to screen
+    screen_resn             = ~config_register[1,1];
+    display.data_or_command = ~config_register[0,1];
+    send_screen             = ~wait_param & ui.data_out_ready & ui.data_out[0,1];
+    set_cfg_reg             = ~wait_param & ui.data_out_ready & ui.data_out[1,1];
+    run_terrain             = ~wait_param & ui.data_out_ready & ui.data_out[2,1];
+    display.byte            = wait_param  ? ui.data_out        : pixel_to_send[0,8];
+    display.enable          = (wait_param & ui.data_out_ready) | pixel_do_send[0,1];
+    wait_param              = (send_screen|set_cfg_reg|run_terrain) | (~ui.data_out_ready&wait_param);
+*/
+    // ---- uart echo
+    /*
+    if (send_asap) {
+      // send echo
+      uo.data_in       = ui.data_out; // uart_sender copies the data on start
+      uo.data_in_ready = ~uo.busy;    // so we can change it at any time
+      send_asap        = uo.busy;
+    } else {
+      // wait for data to come in
+      send_asap        = ui.data_out_ready;
+    }
+    */
+$$else
+
+$$end
+    // ---- no serial
+    leds                    = terrain.screen_send
+                  ? {terrain.screen_send,terrain.pixel_data[12,4]} : leds;
+$$if SIMULATION then
+    if (terrain.screen_send) {
+      __display("leds: %b\n",leds);
+    }
+$$end
+    screen_resn             = terrain.screen_reset;
+    display.data_or_command = terrain.screen_send
+                            ? ~terrain.pixel_data[8,1] : 1b1;
+    display.byte            = terrain.screen_send
+                            ? terrain.pixel_data[0,8] : pixel_to_send[0,8];
+    display.enable          = terrain.screen_send | pixel_do_send[0,1];
+    // ---- pixel from terrain
+$$if SIMULATION then
+    if (terrain.pixel_ready) {
+    //  __display("[cycle %d] terrain pixel: %x",cycle,terrain.pixel_data);
+    }
+$$end
+    pixel_do_send    = terrain.pixel_ready
+                     ? {terrain.pixel_ready,15b0,terrain.pixel_ready}
+                     : {1b0,pixel_do_send[1,16]};
+    pixel_to_send    = terrain.pixel_ready
+                     ? terrain.pixel_data
+                     : pixel_do_send[0,1]
+                     ? {8b0,terrain.pixel_data[8,8]}
+                     : terrain.pixel_data;
+    busy             = terrain.pixel_ready ? 32hffffffff : {1b0,busy[1,31]};
+    terrain.write_en = ~busy[0,1];
+
+$$if SIMULATION then
+    cycle       = cycle + 1;
+$$end
+  }
+
+}
+
+// --------------------------------------------------
+
+$$if SPISCREEN then
+// include SPI driver for screen
+$include('../common/spi.si')
+$$end
+
+// --------------------------------------------------
