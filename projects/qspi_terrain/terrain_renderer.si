@@ -1,6 +1,8 @@
 // SL 2020-12-02 @sylefeb
 // SL 2024-05-17 QSPI version
 //
+// Explorer1
+//
 // -------------------------
 // MIT license, see LICENSE_MIT in Silice repo root
 // https://github.com/sylefeb/Silice
@@ -11,10 +13,6 @@ Working with QSPI
 - inv_Z 24 bits table precomputed in QSPI
 - color + height in 24 bits (16 color, 8 height)
 - drawing vertical spans (screen in column mode)
-
-=> per-column: 256 steps,  each (c+hx2)23cy + (inv_z)24cy
-               240 pixels, each 12cy
-
 
 */
 
@@ -80,157 +78,151 @@ $$end
 
   algorithm <autorun> {
 
-  int22  v_x = $(128   )*fp_scl$;
-  int22  v_y = $(128+63)*fp_scl$;
-  uint9  vheight = 190;
-  uint9  next_vheight = 190;
-  // init screen from ram
-  uint8  cmds = 0;
-  while (~cmds[7,1]) {
-    ram.addr = $(1<<22)$ | $(1<<20)$ | {cmds,1b0};
-    uint2  n2  = 2b11;
-    while (n2[0,1]) {
-      ram.in_ready = 1;
-      if (ram.data_next) {
-        pixel_data = {pixel_data[0,8],ram.rdata};
-        n2  = n2>>1;
-      }
-    }
-    screen_reset= ~pixel_data[ 9,1]; // reset status
-    screen_send = ~pixel_data[15,1]; // nops for reset and delays
-$$if not SIMULATION then
-    uint24 cnt = 1;
-    while (cnt != 0) { cnt = cnt + 1; }
-$$end
-    __display("cmds:%d screen:%x scr_rst:%b scr_send:%b",cmds,pixel_data,screen_reset,screen_send);
-    cmds        = cmds + 1;
-  }
-// __finish();
-  // render frame
-  while (1) {
-$$if SIMULATION then
-    __display("frame time: %d cycles",cycle-cy_frame_start);
-    cy_frame_start = cycle;
-$$end
-    // go through screen columns
-    uint10 x = 0;
-    while (x != 320) {
-//__display("x = ",x);
-      // last altitude at this column
-      uint8  y_last = 239;
-      uint16 c_last = uninitialized;
-      // init z stepping
-      uint9 iz   = 0;
-      int22 z    = $z_step_init$;
-      while (iz != $z_num_step$) {
-//__display("iz = ",iz);
-        // int9   delta_y  = uninitialized;  // y delta between previous and current
-        // get step data
-        ram.addr     = $(1<<22)$ | {x,iz[0,8],3b000};
+    int22  v_x          = $8*(128   )*fp_scl$;
+    int22  v_y          = $8*(128+63)*fp_scl$;
+    uint9  vheight      = 190;
+    uint9  next_vheight = 190;
+    // init screen from ram
+    uint8  cmds = 0;         ///// TODO: loop until specific value in memory
+    while (~cmds[7,1]) {     /////       less fragile, can also send pics to scr
+      ram.addr = $(1<<22)$ | $(1<<20)$ | {cmds,1b0};
+      uint2  n2  = 2b11;
+      while (n2[0,1]) {
         ram.in_ready = 1;
-        uint5 n5     = 5b11111;
-        uint40 step  = uninitialized;
-        while (n5[0,1]) {
-          ram.in_ready = 1;
-          if (ram.data_next) {
-            step  = {step[0,32],ram.rdata};
-            n5    = n5>>1;
-          }
+        if (ram.data_next) {
+          pixel_data = {pixel_data[0,8],ram.rdata};
+          n2  = n2>>1;
         }
-        uint16 inv_z = step[24,16];
-        int22  x_off = __signed(step[ 0,24]);
-        // generate coordinates
-//        int22 p_x   = v_x - (z) + __signed(x) * (((z<<1) * $one_over_width$) >>> $fp$);
-        int22 p_x   = v_x + x_off;
-        int22 p_y   = v_y + (z);
-//__display("iz = %d z = %d inv_z = %d",iz,z,inv_z);
-++:
-        // sample next color + elevation
-        uint24 c_h(0);
-        ram.addr  = {p_y[$fp$,10],p_x[$fp$,10],2b00};
-        uint3 n3  = 3b111;
-        while (n3[0,1]) {
-          ram.in_ready = 1;
-          if (ram.data_next) {
-            c_h   = {c_h[0,16],ram.rdata};
-            n3    = n3>>1;
-          }
-        }
-        // get elevation
-        int22 hmap     = c_h[16,8];
-        // snap next view height
-        next_vheight   = (iz==0) ? c_h[16,8] : next_vheight;
-        // apply perspective to obtain y_ground on screen
-        int14 y_ground = (((vheight - hmap) * inv_z) >>> $fp-4$) + 16;
-        // init last color on first step
-        c_last         = 0; //(iz == 0) ? c_h[0,16] : 0;
-        // restart drawing from last one (or 239 if first)
-        int11 y        = y_last;
-        // prepare vertical interpolation factor (color dithering)
-        // delta_y        = (y - y_ground); // y gap that will be drawn
-        // NOTE: this is not correct around silouhettes, but visually
-        //       did not seem to produce artifacts, so keep it simple!
-        // clamp on screen
-        int11 y_screen = (iz == $z_num_step-1$) ? -1
-        //                ^^^^^^^^^^^^^^^^^^^^^^^^^ draw sky on last
-                : (((y_ground < 0)  ? 0 : ((y_ground > 239) ? 239 : y_ground)));
-        // fill column
-        //////// TODO FIXME do it in parallel to the rest? Yes! <<<<<<<<<<<<
-        //////// saving might not be spectacular: will only hide ram when a span
-        //////// is indeed drawn
-$$if SIMULATION then
-if (y_last > y_screen) {
-//__display("span y %d pixels",y_last - y_screen);
-}
-$$end
-        // color
-        pixel_data  = (iz == $z_num_step-1$) ? 0 : c_h[0,16];
-        // span loop
-        while (/*y_last != 0 &&*/ y > y_screen) {
-          //                  ^^^^^^^ gt is needed as y_screen might be 'above' (below on screen)
-          // __display("  y = %d",y);
-          //   ^^^^^^^^^^^^^^^^^^
-          //   avoids sky on top row if already touched by terrain
-          //
-          // write to screen
-          pixel_ready = write_en;
-          // next
-          y           = write_en ? y-1 : y;
-          // wait
-          // uint32 wait = 1;
-          // while (~wait[31,1]) { wait = {wait[0,31],1b0}; }
-        }
-        // current altitude for next
-        y_last   = (y_screen[0,8] < y_last) ? y_screen[0,8] : y_last;
-        // color for next
-        c_last   = c_h[0,16];
-        // next z
-        z        = z  + $z_step$;
-        iz       = iz + 1;
-      } // z-steps
-      // update position
-      x  =  x + 1;
-    } // x
-
-    vheight = next_vheight + 64;
-$$if SIMULATION then
-    v_y = v_y + $fp_scl * 16$;
-$$else
-    v_y = v_y + $fp_scl$;
-$$end
-    // button inputs
-    // NOTE: moving by less (or non-multiples) of fp_scl
-    //       will require offseting the interpolators
-    /*
-    switch ({~btns[2,1],btns[1,1],btns[0,1]}) {
-      case 1: { v_x = v_x - $fp_scl // 2$; }
-      case 2: { v_x = v_x + $fp_scl // 2$; }
-      case 4: {                            v_y = v_y + $fp_scl$; }
-      case 5: { v_x = v_x - $fp_scl // 2$; v_y = v_y + $fp_scl$; }
-      case 6: { v_x = v_x + $fp_scl // 2$; v_y = v_y + $fp_scl$; }
+      }
+      screen_reset= ~pixel_data[ 9,1]; // reset status
+      screen_send = ~pixel_data[15,1]; // nops for reset and delays
+  $$if not SIMULATION then
+      uint10 cnt = 1;
+      while (cnt != 0) { cnt = cnt + 1; }
+  $$else
+      __display("cmds:%d screen:%x scr_rst:%b scr_send:%b",cmds,pixel_data,screen_reset,screen_send);
+  $$end
+      cmds        = cmds + 1;
     }
-    */
-  }
+
+    // render frame
+    while (1) {
+  $$if SIMULATION then
+      __display("frame time: %d cycles",cycle-cy_frame_start);
+      cy_frame_start = cycle;
+  $$end
+      // go through screen columns
+      uint10 x = 0;
+      while (x != 320) {
+  //__display("x = ",x);
+        // last altitude at this column
+        uint8  y_last = 239;
+        // init z stepping
+        uint9 iz   = 0;
+        int22 z    = $z_step_init$;
+        while (iz != $z_num_step$) {
+  //__display("iz = ",iz);
+          // int9   delta_y  = uninitialized;  // y delta between previous and current
+          // get step data
+          ram.addr     = $(1<<22)$ | {x,iz[0,8],3b000};
+          ram.in_ready = 1;
+          uint5 n5     = 5b11111;
+          uint40 step  = uninitialized;
+          while (n5[0,1]) {
+            ram.in_ready = 1;
+            if (ram.data_next) {
+              step  = {step[0,32],ram.rdata};
+              n5    = n5>>1;
+            }
+          }
+          uint16 inv_z = step[24,16];
+          int22  x_off = __signed(step[ 0,24]);
+          // generate coordinates
+  //        int22 p_x   = v_x - (z) + __signed(x) * (((z<<1) * $one_over_width$) >>> $fp$);
+          int22 p_x   = v_x + x_off;
+          int22 p_y   = v_y + (z);
+  //__display("iz = %d z = %d inv_z = %d",iz,z,inv_z);
+  ++:
+          // sample next color + elevation
+          uint24 c_h(0);
+          ram.addr  = {p_y[$fp$,10],p_x[$fp$,10],2b00};
+          uint3 n3  = 3b111;
+          while (n3[0,1]) {
+            ram.in_ready = 1;
+            if (ram.data_next) {
+              c_h   = {c_h[0,16],ram.rdata};
+              n3    = n3>>1;
+            }
+          }
+          // get elevation
+          int22 hmap     = c_h[16,8];
+          // snap next view height
+          next_vheight   = (iz==0) ? c_h[16,8] : next_vheight;
+          // apply perspective to obtain y_ground on screen
+          int14 y_ground = (((vheight - hmap) * inv_z) >>> $fp-4$) + 32;
+          // restart drawing from last one (or 239 if first)
+          int11 y        = y_last;
+          // NOTE: this is not correct around silouhettes, but visually
+          //       did not seem to produce artifacts, so keep it simple!
+          // clamp on screen
+          // NOTE: no need to clamp above, y starts at 239
+          int14 y_screen = (iz == $z_num_step-1$) ? -1
+          //                ^^^^^^^^^^^^^^^^^^^^^^^^^ draw sky on last
+          //        : (((y_ground < 0)  ? 0 : ((y_ground > 239) ? 239 : y_ground)));
+                         : ((y_ground < 0) ? 0 : y_ground);
+          // fill column
+  $$if SIMULATION then
+  //if (y_last > y_screen) {
+  //__display("span y %d pixels",y_last - y_screen);
+  //}
+  $$end
+          // color
+          pixel_data  = (iz == $z_num_step-1$) ? 0 : c_h[0,16];
+          // span loop
+          while (y > y_screen) { // NOTE: y_screen clamped at zero
+            //    ^^^^^^^ gt is needed as y_screen might be 'above' (below on screen)
+            // __display("  y = %d",y);
+            //   ^^^^^^^^^^^^^^^^^^
+            //   avoids sky on top row if already touched by terrain
+            //
+            // write to screen
+            pixel_ready = write_en;
+            // next
+            y           = write_en ? y-1 : y;
+            // wait
+            // uint32 wait = 1;
+            // while (~wait[31,1]) { wait = {wait[0,31],1b0}; }
+          }
+          // current altitude for next
+          y_last   = y; // (y_screen[0,8] < y_last) ? y_screen[0,8] : y_last;
+          // next z
+          z        = z  + $z_step$;
+          iz       = iz + 1;
+        } // z-steps
+        // update position
+        x  =  x + 1;
+      } // x
+
+      vheight = next_vheight + 128;
+  $$if SIMULATION then
+      v_y = v_y + $fp_scl * 16$;
+  $$else
+      v_y = v_y + $fp_scl * 4$;
+      v_x = v_x + $fp_scl$;
+  $$end
+      // button inputs
+      // NOTE: moving by less (or non-multiples) of fp_scl
+      //       will require offseting the interpolators
+      /*
+      switch ({~btns[2,1],btns[1,1],btns[0,1]}) {
+        case 1: { v_x = v_x - $fp_scl // 2$; }
+        case 2: { v_x = v_x + $fp_scl // 2$; }
+        case 4: {                            v_y = v_y + $fp_scl$; }
+        case 5: { v_x = v_x - $fp_scl // 2$; v_y = v_y + $fp_scl$; }
+        case 6: { v_x = v_x + $fp_scl // 2$; v_y = v_y + $fp_scl$; }
+      }
+      */
+    }
   }
 
   always_after {
