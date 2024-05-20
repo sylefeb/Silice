@@ -66,7 +66,6 @@ for x=0,319 do
     end
     -- print('x_off = ' .. x_off)
     z     = z + z_step
-    -- out:write(string.pack('B',  inv_z>>16      ))
     out:write(string.pack('B', (inv_z>> 8)&255 ))
     out:write(string.pack('B',  inv_z     &255 ))
     out:write(string.pack('B', (x_off>>16)&255 ))

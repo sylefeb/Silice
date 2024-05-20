@@ -68,6 +68,11 @@ $$end
     ram_io2 <:> ram_io2,    ram_io3 <:> ram_io3,
   );
 
+  uint6  mul_a = uninitialized;
+  uint6  mul_b = uninitialized;
+  uint12 mul_c = uninitialized;
+  uint12 mul_r <:: (mul_a * mul_b) + mul_c;
+
   always_before {
     ram.wenable  = 0;
     ram.in_ready = 0;
@@ -118,14 +123,13 @@ $$end
         // last altitude at this column
         uint8  y_last = 239;
         // init z stepping
-        uint9 iz   = 0;
-        int22 z    = $z_step_init$;
+        uint9 iz   = 2; // we skip the two first steps to keep inv_z within 10 bits
+        int22 z    = $2*z_step_init$;
         while (iz != $z_num_step$) {
   //__display("iz = ",iz);
           // int9   delta_y  = uninitialized;  // y delta between previous and current
           // get step data
           ram.addr     = $(1<<22)$ | {x,iz[0,8],3b000};
-          ram.in_ready = 1;
           uint5 n5     = 5b11111;
           uint40 step  = uninitialized;
           while (n5[0,1]) {
@@ -135,8 +139,8 @@ $$end
               n5    = n5>>1;
             }
           }
-          uint16 inv_z = step[24,16];
-          int22  x_off = __signed(step[ 0,24]);
+          uint10 inv_z = step[24,10];
+          int22  x_off = __signed(step[ 0,22]);
           // generate coordinates
   //        int22 p_x   = v_x - (z) + __signed(x) * (((z<<1) * $one_over_width$) >>> $fp$);
           int22 p_x   = v_x + x_off;
@@ -155,21 +159,47 @@ $$end
             }
           }
           // get elevation
-          int22 hmap     = c_h[16,8];
+          uint8 hmap     = c_h[16,8];
           // snap next view height
-          next_vheight   = (iz==0) ? c_h[16,8] : next_vheight;
+          next_vheight   = (iz == 2) ? c_h[16,8] : next_vheight;
           // apply perspective to obtain y_ground on screen
-          int14 y_ground = (((vheight - hmap) * inv_z) >>> $fp-4$) + 32;
+
+          // NOTE: assumes vheight > hmap
+          uint12 y_ground = (((vheight - hmap) * inv_z) >> $fp-5$) + 32;
+/*
+          uint12 y_ground_test = (((vheight - hmap) * inv_z) >> $fp-5$) + 32;
+          // h_diff * inv_z  = (h_diff_H<<6 + h_diff_L) * (inv_z_H<<6 + inv_z_L)
+          //                 = (h_diff_H*inv_z_L<<6) + (h_diff_L*inv_z_H<<6) + h_diff_L*inv_z_L + (out)
+          uint9  h_diff   = (vheight - hmap);
+          uint18 tmp      = (h_diff * inv_z);
+          uint12 y_ground = (tmp >> $fp-5$) + 32;
+*/
+/*
+          mul_a = h_diff[0,6];      // h_diff_L
+          mul_b = {2b0,inv_z[6,4]}; // inv_z_H
+          mul_c = 0;
+        ++:
+          mul_a = {3b0,h_diff[6,3]}; // h_diff_H
+          mul_b = inv_z[0,6];        // inv_z_L
+          mul_c = mul_r;
+        ++:
+          mul_a = h_diff[0,6];       // h_diff_L
+          // mul_b = inv_z[0,6];        // inv_z_L (already there)
+          mul_c = {mul_r,6b0};
+        ++:
+          uint12 y_ground = (mul_r >> $fp-5$) + 32;
+__display("y_ground %d y_ground_test %d",y_ground,y_ground_test);
+*/
           // restart drawing from last one (or 239 if first)
           int11 y        = y_last;
           // NOTE: this is not correct around silouhettes, but visually
           //       did not seem to produce artifacts, so keep it simple!
           // clamp on screen
           // NOTE: no need to clamp above, y starts at 239
-          int14 y_screen = (iz == $z_num_step-1$) ? -1
+          int14 y_screen = (iz == $z_num_step-1$) ? -1 : y_ground;
           //                ^^^^^^^^^^^^^^^^^^^^^^^^^ draw sky on last
           //        : (((y_ground < 0)  ? 0 : ((y_ground > 239) ? 239 : y_ground)));
-                         : ((y_ground < 0) ? 0 : y_ground);
+          //               : ((y_ground < 0) ? 0 : y_ground);
           // fill column
   $$if SIMULATION then
   //if (y_last > y_screen) {
