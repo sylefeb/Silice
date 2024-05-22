@@ -75,6 +75,7 @@ $$end
 
   always_before {
     ram.wenable  = 0;
+    ram.wdata    = 0;
     ram.in_ready = 0;
     ram.init     = 0;
     pixel_ready  = 0;
@@ -165,31 +166,20 @@ $$end
           // apply perspective to obtain y_ground on screen
 
           // NOTE: assumes vheight > hmap
-          uint12 y_ground = (((vheight - hmap) * inv_z) >> $fp-5$) + 32;
-/*
-          uint12 y_ground_test = (((vheight - hmap) * inv_z) >> $fp-5$) + 32;
-          // h_diff * inv_z  = (h_diff_H<<6 + h_diff_L) * (inv_z_H<<6 + inv_z_L)
-          //                 = (h_diff_H*inv_z_L<<6) + (h_diff_L*inv_z_H<<6) + h_diff_L*inv_z_L + (out)
+          // uint12 y_ground_test = (((vheight - hmap) * inv_z) >> $fp-5$) + 32;
+          uint18 tmp      = 0;
           uint9  h_diff   = (vheight - hmap);
-          uint18 tmp      = (h_diff * inv_z);
+          uint18 h_diff_H = h_diff;
+          uint10 domul    = 10b1111111111;
+          while (domul[0,1]) {
+            tmp      = inv_z[0,1] ? (tmp + h_diff_H) : tmp;
+            inv_z    = inv_z    >> 1;
+            h_diff_H = h_diff_H << 1;
+            domul    = domul    >> 1;
+          }
           uint12 y_ground = (tmp >> $fp-5$) + 32;
-*/
-/*
-          mul_a = h_diff[0,6];      // h_diff_L
-          mul_b = {2b0,inv_z[6,4]}; // inv_z_H
-          mul_c = 0;
-        ++:
-          mul_a = {3b0,h_diff[6,3]}; // h_diff_H
-          mul_b = inv_z[0,6];        // inv_z_L
-          mul_c = mul_r;
-        ++:
-          mul_a = h_diff[0,6];       // h_diff_L
-          // mul_b = inv_z[0,6];        // inv_z_L (already there)
-          mul_c = {mul_r,6b0};
-        ++:
-          uint12 y_ground = (mul_r >> $fp-5$) + 32;
-__display("y_ground %d y_ground_test %d",y_ground,y_ground_test);
-*/
+          // __display("y_ground %d y_ground_test %d",y_ground,y_ground_test);
+
           // restart drawing from last one (or 239 if first)
           int11 y        = y_last;
           // NOTE: this is not correct around silouhettes, but visually
