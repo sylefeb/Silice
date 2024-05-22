@@ -51,6 +51,8 @@ LuaPreProcessor *Algorithm::s_LuaPreProcessor = nullptr;
 /// These controls are provided as a convenience to illustrate the impact of CL0004 and CL0005
 bool g_Disable_CL0004 = false;
 bool g_Disable_CL0005 = false;
+/// Forces the use of reset on register with initialized value
+bool g_ForceResetInit = false;
 
 // -------------------------------------------------
 
@@ -6609,6 +6611,14 @@ void Algorithm::optimize(const t_instantiation_context& ictx)
     m_Optimized = true;
     // generate states
     generateStates(&m_RootFSM);
+    // forces reset init on all vars
+    if (g_ForceResetInit) {
+      for (auto& _v : m_Vars) {
+        if (_v.init_at_startup) {
+          _v.init_at_startup = false;
+        }
+      }
+    }
     // report
     if (hasNoFSM()) {
       std::cerr << " (no FSM)";
