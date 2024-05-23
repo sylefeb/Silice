@@ -89,6 +89,7 @@ $$end
     int22  v_y          = $8*(128+63)*fp_scl$;
     uint9  vheight      = 190;
     uint9  next_vheight = 190;
+    uint32 config       = 0;
     // init screen from ram
     uint8  cmds = 0;         ///// TODO: loop until specific value in memory
     while (~cmds[7,1]) {     /////       less fragile, can also send pics to scr
@@ -101,6 +102,7 @@ $$end
           n2         = n2>>1;
         }
       }
+      config      =  pixel_data[14,1] ? {config[0,24],pixel_data[0,8]} : config;
       screen_reset= ~pixel_data[ 9,1]; // reset status
       screen_send = ~pixel_data[15,1]; // nops for reset and delays
   $$if not SIMULATION then
@@ -119,10 +121,10 @@ $$end
   $$end
       // go through screen columns
       uint10 x = 0;
-      while (x != 320) {
+      while (x != config[16,9]) {
   //__display("x = ",x);
         // last altitude at this column
-        uint8  y_last = 239;
+        uint8  y_last = config[0,8];
         // init z stepping
         uint9 iz   = 2; // we skip the two first steps to keep inv_z within 10 bits
         int22 z    = $2*z_step_init$;
@@ -180,16 +182,14 @@ $$end
           uint12 y_ground = (tmp >> $fp-5$) + 32;
           // __display("y_ground %d y_ground_test %d",y_ground,y_ground_test);
 
-          // restart drawing from last one (or 239 if first)
+          // restart drawing from last one (or top if first)
           int11 y        = y_last;
           // NOTE: this is not correct around silouhettes, but visually
           //       did not seem to produce artifacts, so keep it simple!
           // clamp on screen
-          // NOTE: no need to clamp above, y starts at 239
+          // NOTE: no need to clamp above, y starts at top
           int14 y_screen = (iz == $z_num_step-1$) ? -1 : y_ground;
           //                ^^^^^^^^^^^^^^^^^^^^^^^^^ draw sky on last
-          //        : (((y_ground < 0)  ? 0 : ((y_ground > 239) ? 239 : y_ground)));
-          //               : ((y_ground < 0) ? 0 : y_ground);
           // fill column
   $$if SIMULATION then
   //if (y_last > y_screen) {

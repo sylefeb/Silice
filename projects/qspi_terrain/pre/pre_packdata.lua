@@ -1,5 +1,8 @@
 -- pack terrain data in a raw binary image
 
+width  = 320
+height = 240
+
 if not path then
   path,_1,_2 = string.match(findfile('Makefile'), "(.-)([^\\/]-%.?([^%.\\/]*))$")
   print('********************* data written to  ' .. path .. '/data.raw')
@@ -46,7 +49,7 @@ while offset < (1<<22) do
 end
 -- store pre-computed table for all steps
 print('steps table starts at ' .. offset)
--- table is 320 x 256 x 64bits
+-- table is width x 256 x 64bits
 --  for all x_step,z_step stores
 --  inverse z  (16 bits, 2 bytes)
 --  x offset   (24 bits, 3 bytes)
@@ -54,13 +57,14 @@ print('steps table starts at ' .. offset)
 fp     = 11
 fp_scl = 1<<fp
 z_step = fp_scl
-one_over_width = fp_scl//320
-for x=0,319 do
+ratio  = (1.3334*height)//width
+one_over_width = fp_scl//width
+for x=0,width-1 do
   z      = z_step
   for iz=0,255 do
     inv_z = (fp_scl*fp_scl) // z;
     -- print('z = ' .. z .. ' inv_z = ' .. inv_z)
-    x_off  = - z + ((x * 2*z * one_over_width) >> fp)
+    x_off  = - math.floor(z/ratio) + ((x * math.ceil(2*z/ratio) * one_over_width) >> fp)
     if (x_off < -(1<<23)+1) or (x_off > (1<<23)) then
       error('x_off too large')
     end
@@ -83,6 +87,18 @@ while offset < (1<<22)+(1<<20) do
   out:write(string.pack('B', 0 ))
   offset = offset + 1
 end
+
+-- configuration commands
+config = (width<<16)|(height-1);
+out:write(string.pack('B',0xC0))
+out:write(string.pack('B',(config>>24)&255))
+out:write(string.pack('B',0xC0))
+out:write(string.pack('B',(config>>16)&255))
+out:write(string.pack('B',0xC0))
+out:write(string.pack('B',(config>> 8)&255))
+out:write(string.pack('B',0xC0))
+out:write(string.pack('B',(config    )&255))
+offset = offset + 8
 -- screen init commands
 -- reset
 for i=1,16 do
@@ -131,6 +147,7 @@ out:write(string.pack('B',0x01))
 out:write(string.pack('B',0x29))
 offset = offset + 2
 
+-- height
 out:write(string.pack('B',0x01))
 out:write(string.pack('B',0x2A))
 offset = offset + 2
@@ -141,12 +158,12 @@ out:write(string.pack('B',0x00))
 out:write(string.pack('B',0x00))
 offset = offset + 2
 out:write(string.pack('B',0x00))
-out:write(string.pack('B',0x00))
+out:write(string.pack('B',((height-1)>>8)&255))
 offset = offset + 2
 out:write(string.pack('B',0x00))
-out:write(string.pack('B',0xEF))
+out:write(string.pack('B',((height-1)   )&255))
 offset = offset + 2
-
+-- width
 out:write(string.pack('B',0x01))
 out:write(string.pack('B',0x2B))
 offset = offset + 2
@@ -157,11 +174,13 @@ out:write(string.pack('B',0x00))
 out:write(string.pack('B',0x00))
 offset = offset + 2
 out:write(string.pack('B',0x00))
-out:write(string.pack('B',0x01))
+out:write(string.pack('B',((width-1)>>8)&255 ))
 offset = offset + 2
 out:write(string.pack('B',0x00))
-out:write(string.pack('B',0x3F))
+out:write(string.pack('B',((width-1)   )&255 ))
 offset = offset + 2
+
+-- wait for pixels
 out:write(string.pack('B',0x01))
 out:write(string.pack('B',0x2C))
 offset = offset + 2
