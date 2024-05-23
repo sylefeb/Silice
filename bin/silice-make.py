@@ -43,6 +43,7 @@ parser.add_argument('-o','--outdir', help="Specify name of output directory.", d
 parser.add_argument('-l','--list_boards', help="List all available target boards.", action="store_true")
 parser.add_argument('-r','--root', help="Root directory, use to override default frameworks.")
 parser.add_argument('-D','--defines', help="List of comma-separated defines to pass to Silice, e.g. -D A=0,B=1")
+parser.add_argument('-a','--args', help="List of comma-separated additional command line parameter to pass to Silice, e.g. -a force-reset-init")
 parser.add_argument('--no_build', help="Only generate verilog output file.", action="store_true")
 parser.add_argument('--no_program', help="Only generate verilog output file and build bitstream.", action="store_true")
 parser.add_argument('--reprogram', help="Only program device.", action="store_true")
@@ -268,14 +269,19 @@ if target_builder['builder'] == 'shell':
     if args.defines:
         for define in args.defines.split(','):
             defines = defines + " -D " + define
+    # additional command line parameters
+    add_args = ""
+    if args.args:
+        for arg in args.args.split(','):
+            add_args = add_args + " --" + arg
     # execute
     command = script + " " + source_file
     print('launching command     ', colored(command,'cyan'))
     if platform.system() == "Windows":
         bash = "env bash"
-        os.system(bash + " " + command + " " + defines)
+        os.system(bash + " " + command + " " + defines + " " + add_args)
     else:
-        os.system(command + " " + defines)
+        os.system(command + " " + defines + " " + add_args)
 
 elif target_builder['builder'] == 'edalize':
 
@@ -343,6 +349,11 @@ elif target_builder['builder'] == 'edalize':
             for define in args.defines.split(','):
                 cmd.append("-D")
                 cmd.append(define)
+        # additional command line parameters
+        if args.args:
+            for arg in args.args.split(','):
+                cmd.append("--" + arg)
+        # launch
         try:
             subprocess.check_call(cmd, cwd=out_dir, env=my_env, stdin=subprocess.PIPE)
         except FileNotFoundError as e:

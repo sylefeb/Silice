@@ -26,8 +26,17 @@ $include('terrain_renderer.si')
 // SOC
 // --------------------------------------------------
 
+$$pin.btn_0 = {pin.BR7}
+$$pin.btn_1 = {pin.BR8}
+$$pin.btn_2 = {pin.BR9}
+$$pin.btn_3 = {pin.BR10}
+
 unit main( // I guess this is the SOC :-D
   output uint5 leds,
+  input  uint1 btn_0,
+  input  uint1 btn_1,
+  input  uint1 btn_2,
+  input  uint1 btn_3,
 $$if PMOD_QQSPI then
   inout   uint1 ram_io0,
   inout   uint1 ram_io1,
@@ -57,7 +66,8 @@ $$if SIMULATION then
   uint1 ram_io3(0);  uint1 ram_clk(0);  uint1 ram_csn(0);
   uint2 ram_bank(0);
 $$end
-
+  // ---- buttons
+  uint4 btns = uninitialized;
   // ---- display SPI controller
 $$if SPISCREEN then
   uint1 screen_dc(0);   uint1 screen_clk(0);
@@ -84,30 +94,18 @@ $$end
     ram_csn  :> ram_csn,    ram_clk  :> ram_clk,
     ram_io0 <:> ram_io0,    ram_io1 <:> ram_io1,
     ram_io2 <:> ram_io2,    ram_io3 <:> ram_io3,
+    btns <: btns
   );
 
   // uint1  send_asap = 0;
   uint16 pixel_to_send = 0;
   uint17 pixel_do_send = 0;
   uint32 busy = 0;
-/*
-  uint8  config_register = uninitialized;
-  uint1  wait_param  = 0;
-  uint1  send_screen = 0;
-  uint1  set_cfg_reg = 0;
-  uint1  run_terrain = 0;
-  uint1  terrain_running = 0;
-*/
   // ---- always block (main logic)
   always {
 
     // ---- ram select
-    ram_bank = 2b00; // bank at 1<<24
-    // ---- start terrain engine
-    //if (run_terrain) {
-    //  terrain <- ();
-    //  terrain_running = 1;
-    //}
+    ram_bank = 2b00;
     //  ---- display
     spiscreen_csn  = 0;
 $$if SIMULATION then
@@ -115,7 +113,7 @@ $$if SIMULATION then
     spiscreen_dc   = screen_dc;  spiscreen_resn = screen_resn;
 $$end
     // ---- no serial
-    leds                    = terrain.screen_send
+    leds          = terrain.screen_send
                   ? {terrain.screen_send,terrain.pixel_data[12,4]} : leds;
 $$if SIMULATION then
     if (terrain.screen_send) {
@@ -144,6 +142,8 @@ $$end
                      : terrain.pixel_data;
     busy             = terrain.pixel_ready ? 32hffffffff : {1b0,busy[1,31]};
     terrain.write_en = ~busy[0,1];
+    // ---- register buttons
+    btns = {btn_3,btn_2,btn_1,btn_0};
 
 $$if SIMULATION then
     cycle       = cycle + 1;

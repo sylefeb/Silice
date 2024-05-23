@@ -42,19 +42,20 @@ $$z_step_init    = z_step        -- distance of first z-step
 // -------------------------
 
 unit terrain_renderer(
-  inout   uint1 ram_io0,
-  inout   uint1 ram_io1,
-  inout   uint1 ram_io2,
-  inout   uint1 ram_io3,
-  output  uint1 ram_clk,
-  output  uint1 ram_csn,
-  output  uint2 ram_bank,
-
-  input  uint1  write_en,
-  output uint1  pixel_ready,
-  output uint16 pixel_data,
-  output uint1  screen_send,
-  output uint1  screen_reset
+  inout   uint1  ram_io0,
+  inout   uint1  ram_io1,
+  inout   uint1  ram_io2,
+  inout   uint1  ram_io3,
+  output  uint1  ram_clk,
+  output  uint1  ram_csn,
+  output  uint2  ram_bank,
+  input   uint4  btns,
+  input   uint1  write_en,
+  output  uint1  pixel_ready,
+  output! uint16 pixel_data,
+  //    ^ that does seem to help with IO glitches: propagates earlier...
+  output  uint1  screen_send,
+  output  uint1  screen_reset
   //input   uint3  btns,
 ) {
 $$if SIMULATION then
@@ -97,7 +98,7 @@ $$end
         ram.in_ready = 1;
         if (ram.data_next) {
           pixel_data = {pixel_data[0,8],ram.rdata};
-          n2  = n2>>1;
+          n2         = n2>>1;
         }
       }
       screen_reset= ~pixel_data[ 9,1]; // reset status
@@ -110,7 +111,6 @@ $$end
   $$end
       cmds        = cmds + 1;
     }
-
     // render frame
     while (1) {
   $$if SIMULATION then
@@ -197,7 +197,7 @@ $$end
   //}
   $$end
           // color
-          pixel_data  = (iz == $z_num_step-1$) ? 0 : c_h[0,16];
+          pixel_data  = (iz == $z_num_step-1$) ? {3b000,5b10100,5b10000,3b100} : c_h[0,16];
           // span loop
           while (y > y_screen) { // NOTE: y_screen clamped at zero
             //    ^^^^^^^ gt is needed as y_screen might be 'above' (below on screen)
@@ -227,8 +227,8 @@ $$end
   $$if SIMULATION then
       v_y = v_y + $fp_scl * 16$;
   $$else
-      v_y = v_y + $fp_scl * 4$;
-      v_x = v_x + $fp_scl$;
+      v_x = v_x + ((btns[0,1] ? $fp_scl$ : 0) | (btns[1,1] ? $- fp_scl$ : 0));
+      v_y = v_y + ((btns[2,1] ? $fp_scl$ : 0) | (btns[3,1] ? $- fp_scl$ : 0));
   $$end
       // button inputs
       // NOTE: moving by less (or non-multiples) of fp_scl

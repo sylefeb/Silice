@@ -6614,9 +6614,10 @@ void Algorithm::optimize(const t_instantiation_context& ictx)
     // forces reset init on all vars
     if (g_ForceResetInit) {
       for (auto& _v : m_Vars) {
-        if (_v.init_at_startup) {
-          _v.init_at_startup = false;
-        }
+        if (_v.init_at_startup) { _v.init_at_startup = false; }
+      }
+      for (auto& _v : m_Outputs) {
+        if (_v.init_at_startup) { _v.init_at_startup = false; }
       }
     }
     // report
@@ -7511,6 +7512,7 @@ void Algorithm::writeTempDeclarations(std::string prefix, std::ostream& out, con
     sl_assert(v.table_size == 0);
     std::string init;
     if (v.init_at_startup && !v.init_values.empty()) {
+      sl_assert(!g_ForceResetInit);
       init = " = " + v.init_values[0];
     } else if (CONFIG.keyValues().count("reg_init_zero")) {
       init = " = 0";
@@ -7549,6 +7551,7 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
     if (v.table_size == 0) {
       std::string init;
       if (v.init_at_startup && !v.init_values.empty()) {
+        sl_assert(!g_ForceResetInit);
         init = " = " + v.init_values[0];
       } else if (CONFIG.keyValues().count("reg_init_zero")) {
         init = " = 0";
@@ -7566,6 +7569,7 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
     sl_assert(v.table_size == 0);
     std::string init;
     if (v.init_at_startup && !v.init_values.empty()) {
+      sl_assert(!g_ForceResetInit);
       init = " = " + v.init_values[0];
     } else if (CONFIG.keyValues().count("reg_init_zero")) {
       init = " = 0";
@@ -7584,7 +7588,9 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
     }
     // autorun
     if (m_AutoRun) {
-      out << "reg  " << prefix << ALG_AUTORUN << " = 0;" << nxl;
+      out << "reg  " << prefix << ALG_AUTORUN;
+      if (!g_ForceResetInit) { out << " = 0;"; } else { out << ";"; }
+      out << nxl;
     }
   }
   // state machines for pipelines
