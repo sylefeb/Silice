@@ -63,21 +63,23 @@ for x=0,width-1 do
   z      = z_step
   for iz=0,255 do
     inv_z = (fp_scl*fp_scl) // z;
-    -- print('z = ' .. z .. ' inv_z = ' .. inv_z)
     x_off  = - math.floor(z/ratio) + ((x * math.ceil(2*z/ratio) * one_over_width) >> fp)
     if (x_off < -(1<<23)+1) or (x_off > (1<<23)) then
       error('x_off too large')
     end
+    y_off  = z
     -- print('x_off = ' .. x_off)
     z     = z + z_step
-    out:write(string.pack('B', (inv_z>> 8)&255 ))
-    out:write(string.pack('B',  inv_z     &255 ))
-    out:write(string.pack('B', (x_off>>16)&255 ))
-    out:write(string.pack('B', (x_off>> 8)&255 ))
-    out:write(string.pack('B',  x_off     &255 ))
-    out:write(string.pack('B',  0              ))
-    out:write(string.pack('B',  0              ))
-    out:write(string.pack('B',  0              ))
+    test  = 1<<62
+    pack  = ((inv_z&1023)<<44) | ((x_off&4194303)<<22) | (y_off&4194303);
+    out:write(string.pack('B', (pack>>48)&255 ))
+    out:write(string.pack('B', (pack>>40)&255 ))
+    out:write(string.pack('B', (pack>>32)&255 ))
+    out:write(string.pack('B', (pack>>24)&255 ))
+    out:write(string.pack('B', (pack>>16)&255 ))
+    out:write(string.pack('B', (pack>> 8)&255 ))
+    out:write(string.pack('B',  pack     &255 ))
+    out:write(string.pack('B',  0 ))
     offset = offset + 8
   end
 end

@@ -26,17 +26,21 @@ $include('terrain_renderer.si')
 // SOC
 // --------------------------------------------------
 
+$$if not SIMULATION then
 $$pin.btn_0 = {pin.BR7}
 $$pin.btn_1 = {pin.BR8}
 $$pin.btn_2 = {pin.BR9}
 $$pin.btn_3 = {pin.BR10}
+$$end
 
 unit main( // I guess this is the SOC :-D
   output uint5 leds,
+$$if not SIMULATION then
   input  uint1 btn_0,
   input  uint1 btn_1,
   input  uint1 btn_2,
   input  uint1 btn_3,
+$$end
 $$if PMOD_QQSPI then
   inout   uint1 ram_io0,
   inout   uint1 ram_io1,
@@ -143,7 +147,9 @@ $$end
     busy             = terrain.pixel_ready ? 32hffffffff : {1b0,busy[1,31]};
     terrain.write_en = ~busy[0,1];
     // ---- register buttons
+$$if not SIMULATION then
     btns = {btn_3,btn_2,btn_1,btn_0};
+$$end
 
 $$if SIMULATION then
     cycle       = cycle + 1;
