@@ -207,7 +207,6 @@ $$  end
 $$end
         after                   = 4;
 $$if VERILATOR then
-        vdta.addr               = addr;
         if (wenable) {
           vdta.wenable = 1;
           vdta.wdata   = spi.send;
@@ -255,6 +254,12 @@ $$end
     if ((in_ready | init) & accept_in & ~reset) {
 $$if SIMULATION then
       //__display("[%d] ----- qpsram starting, @%x (wenable:%b wdata:%x)",cycle,addr,wenable,wdata);
+      if (busy) {
+        __display("[%d] ----- qpsram <ERROR> incoming access while busy, @%x (wenable:%b wdata:%x)",cycle,addr,wenable,wdata);
+      }
+$$if VERILATOR then
+        vdta.addr               = addr;
+$$end
 $$end
       sending = 5b01000;
       sendvec = init    ? {32b00000000000100010000000100000001}
