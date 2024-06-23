@@ -147,11 +147,15 @@ endif()
 
 if (INSTALL_IN_REPO)
 
+  target_compile_definitions(silice PRIVATE "FRAMEWORKS_DEFAULT_PATH=\"${CMAKE_SOURCE_DIR}/frameworks\"")
+  target_compile_definitions(libsilice PRIVATE "FRAMEWORKS_DEFAULT_PATH=\"${CMAKE_SOURCE_DIR}/frameworks\"")
+
   install(TARGETS silice    RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/bin)
   install(TARGETS libsilice ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/lib)
-  add_definitions(-DFRAMEWORKS_DEFAULT_PATH=\"${CMAKE_SOURCE_DIR}/frameworks\")
 
 else()
+  target_compile_definitions(silice PRIVATE "FRAMEWORKS_DEFAULT_PATH=\"${CMAKE_INSTALL_PREFIX}/frameworks\"")
+  target_compile_definitions(libsilice PRIVATE "FRAMEWORKS_DEFAULT_PATH=\"${CMAKE_INSTALL_PREFIX}/frameworks\"")
 
   install(TARGETS   silice                RUNTIME     DESTINATION bin/)
   install(TARGETS   libsilice             ARCHIVE     DESTINATION bin/)
@@ -161,7 +165,6 @@ else()
   install(FILES     projects/ice-v/CPUs/ice-v-dual.si DESTINATION share/silice/projects/ice-v/CPUs/)
   install(DIRECTORY frameworks            DESTINATION share/silice/ USE_SOURCE_PERMISSIONS)
   install(DIRECTORY src/libs/LibSL-small  DESTINATION share/silice/src/libs/)
-  add_definitions(-DFRAMEWORKS_DEFAULT_PATH=\"${CMAKE_INSTALL_PREFIX}/share/silice/frameworks\")
 
 endif()
 
