@@ -77,7 +77,7 @@ os.environ["BUILD_DIR"] = out_dir
 
 # - frameworks directory
 frameworks_dirs=list()
-frameworks_dirs.append(os.path.realpath(os.path.join(make_dir,"../frameworks/")))
+frameworks_dirs.append(os.path.realpath(os.path.join(make_dir,"../share/silice/frameworks/")))
 frameworks_dirs.append('/usr/local/share/silice/frameworks/')
 if platform.system() == "Windows":
     if sysconfig.get_platform().startswith("mingw"):

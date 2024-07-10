@@ -26,17 +26,11 @@ cd ..
 cd ..
 
 echo -e "\nInstalling python packages for building designs\n"
-pip install --upgrade termcolor
-pip install --upgrade edalize
+pip3 install --upgrade termcolor
+pip3 install --upgrade edalize
 
 echo " "
 echo " "
-echo "=================================="
-echo "Please compile and install:"
-echo "- yosys"
-echo "- trellis, icestorm, nextpnr"
-echo "- verilator"
-echo "- icarus verilog"
-echo " "
-echo "See also GetStarted_Linux.md"
-echo "=================================="
+echo "======================================"
+echo "   Please read GetStarted_Linux.md"
+echo "======================================"
