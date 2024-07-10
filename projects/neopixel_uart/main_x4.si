@@ -42,7 +42,7 @@ $$ print('res_cycles = ' .. res_cycles)
 
 // UART
 $$uart_in_clock_freq_mhz = 100
-$$uart_bauds             = 1152000 -- 921600 -- 576000
+$$uart_bauds             = 1152000 -- 1152000 -- 921600 -- 576000
 $include('../common/uart.si')
 
 algorithm sender(input uint24 send_clr,output uint1 ctrl)
@@ -80,9 +80,9 @@ algorithm sender(input uint24 send_clr,output uint1 ctrl)
 
 // The hardware implements the LED driver
 algorithm main(
-  output uint8 leds = 0,
-  output uint1 uart_tx,
-  input  uint1 uart_rx,
+  output uint8  leds = 0,
+  output uint1  uart_tx,
+  input  uint1  uart_rx,
   output uint28 gp,
   input  uint28 gn,
 ) <@fast_clock> {
@@ -90,8 +90,8 @@ algorithm main(
   // clock
   uint1 fast_clock  = uninitialized;
   pll clk_gen (
-    clock_in  <: clock,
-    clock_out :> fast_clock
+    clkin   <: clock,
+    clkout0 :> fast_clock
   );
 
   // UART receiver
@@ -129,9 +129,9 @@ algorithm main(
     colors1.addr1    = id;
     colors2.addr1    = id;
     colors3.addr1    = id;
-    leds             = seg; //receive_step;
+    // leds             = seg; //receive_step;
     if (ui.data_out_ready) {
-      // leds = ui.data_out; // for debugging
+      leds = ui.data_out; // for debugging
       // data is ready on uart
       if (ui.data_out == 8hff) { // FF reset the sequence
         receive_step = 3b1;
