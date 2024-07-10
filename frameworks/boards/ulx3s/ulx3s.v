@@ -80,6 +80,8 @@ $$pin.usb_fpga_pu_dp = 1
 $$pin.usb_fpga_pu_dn = 1
 $$pin.ftdi_rxd   = 1
 $$pin.ftdi_txd   = 1
+$$pin.uart_rx    = 1
+$$pin.uart_tx    = 1
 $$pin.flash_csn  = 1
 $$pin.flash_mosi = 1
 $$pin.flash_miso = 1
@@ -99,6 +101,7 @@ $$pin.qqspi_bank1= 1
 module top(
   %TOP_SIGNATURE%
   output wifi_gpio0,
+  input  [6:0] btns, //// FIXME TODO: issue with reset making btns mandatory (hotfix)
   input  clk_25mhz
   );
 
@@ -106,7 +109,8 @@ module top(
 // ------------------- TODO: 'fake' pin declaration in MAIN_GLUE
 wire flash_clk; // ECP5 specific, see https://github.com/mattvenn/basic-ecp5-pcb/issues/3
 
-wire ready = 0;
+// wire ready = 0;
+wire ready = btns[0];
 reg [15:0] RST_d;
 reg [15:0] RST_q;
 
@@ -118,7 +122,7 @@ always @(posedge clk_25mhz) begin
   if (ready) begin
     RST_q <= RST_d;
   end else begin
-    ready <= 1;
+    // ready <= 1;
     RST_q <= 16'b111111111111111;
   end
 end

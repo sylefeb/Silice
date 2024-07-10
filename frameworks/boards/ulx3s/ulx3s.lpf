@@ -27,6 +27,11 @@ IOBUF PORT "ftdi_nrts" PULLMODE=UP IO_TYPE=LVCMOS33;
 IOBUF PORT "ftdi_ndtr" PULLMODE=UP IO_TYPE=LVCMOS33;
 IOBUF PORT "ftdi_txden" PULLMODE=UP IO_TYPE=LVCMOS33;
 
+LOCATE COMP "uart_tx" SITE "L4"; # FPGA transmits to ftdi
+LOCATE COMP "uart_rx" SITE "M1"; # FPGA receives from ftdi
+IOBUF PORT "uart_tx" PULLMODE=UP IO_TYPE=LVCMOS33 DRIVE=4;
+IOBUF PORT "uart_rx" PULLMODE=UP IO_TYPE=LVCMOS33;
+
 ## LED indicators "blinkey" and "gpio" sheet
 LOCATE COMP "leds[7]" SITE "H3";
 LOCATE COMP "leds[6]" SITE "E1";

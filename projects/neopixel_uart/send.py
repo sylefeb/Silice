@@ -5,8 +5,8 @@ import os
 import glob
 import sys
 
-if len(sys.argv) < 3:
-  print("send.py <port> <led map (optional)")
+if len(sys.argv) < 2:
+  print("send.py <port> <led map (optional)>")
   sys.exit()
 
 map = []
@@ -42,8 +42,9 @@ if len(sys.argv) > 2:
     line = f.readline()
   f.close()
 
-
-ser = serial.Serial(sys.argv[1],115200)
+speed = 1152000 # 115200
+print("****** UART speed: ",speed)
+ser = serial.Serial(sys.argv[1],speed)
 
 def send_byte(b):
   packet = bytearray()
