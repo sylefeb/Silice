@@ -19,6 +19,4 @@ algorithm main(output uint8 leds)
   // display results
   __display("division A: %d / %d = %d", divA.inum, divA.iden, divA.ret);
   __display("division B: %d / %d = %d", num,       den,       divB.ret);
-
-  __finish();
 }
