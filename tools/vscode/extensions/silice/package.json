@@ -3,7 +3,9 @@
     "displayName": "Silice",
     "description": "Syntax highlighting for Silice.",
     "version": "0.0.1",
+    "icon": "icon.png",
     "publisher": "sylefeb",
+    "repository": "https://github.com/sylefeb/Silice/tree/master/tools/vscode/extensions/silice",
     "engines": {
         "vscode": "^1.5.0"
     },
