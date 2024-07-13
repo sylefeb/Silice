@@ -54,7 +54,7 @@ $$end
 
 import('inout16_set.v')
 
-$$if ULX3S then
+$$if ECP5 then
 import('inout16_ff_ulx3s.v')
 import('out1_ff_ulx3s.v')
 import('out2_ff_ulx3s.v')

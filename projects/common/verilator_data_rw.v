@@ -1,5 +1,8 @@
 // SL 2023-04-15
 
+`ifndef VERILATOR_DATA_RW
+`define VERILATOR_DATA_RW
+
 module verilator_data_rw(
             input            clock,
             input  [31:0]    addr,
@@ -13,3 +16,5 @@ module verilator_data_rw(
   end
 
 endmodule
+
+`endif

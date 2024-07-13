@@ -133,7 +133,7 @@ M_main __main(
 );
 
 always @* begin
-  if (done_main && ~rst_n) $finish;
+  if (done_main && rst_n) $finish;
 end
 
 endmodule

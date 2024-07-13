@@ -23,7 +23,7 @@ mojo_clk_50_25_125_125n mclk(
 
 `else
 
-`ifdef ULX3S
+`ifdef ECP5
 
 wire clkfb;
 wire clkos;

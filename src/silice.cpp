@@ -43,6 +43,12 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 using namespace Silice;
 
 // -------------------------------------------------
+// global switches
+
+extern bool g_Disable_CL0006;
+extern bool g_ForceResetInit;
+
+// -------------------------------------------------
 
 int main(int argc, char **argv)
 {
@@ -77,8 +83,15 @@ int main(int argc, char **argv)
     cmd.add(toExport);
     TCLAP::MultiArg<std::string> exportParam("P", "export_param", "specifies an export parameter for algorithm instantiation, e.g. -P name=value", false, "string");
     cmd.add(exportParam);
+    TCLAP::SwitchArg             forceResetInit("", "force-reset-init", "forces initialization at reset of initialized registers", false);
+    cmd.add(forceResetInit);
+    TCLAP::SwitchArg             disableCL0006("", "no-pin-check", "disable check for pin declaration in frameworks (see CL0006)", true); /// ///////////////////////////////////////////// TODO set to false once no longer wip
+    cmd.add(disableCL0006);
 
     cmd.parse(argc, argv);
+
+    g_Disable_CL0006 = disableCL0006.getValue();
+    g_ForceResetInit = forceResetInit.getValue();
 
     SiliceCompiler compiler;
     compiler.run(

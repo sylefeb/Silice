@@ -142,7 +142,7 @@ echo "defines: $DEFINES"
 touch Vtop__pch.h.slow
 touch Vtop__pch.h.fast
 
-verilator -Wno-fatal -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat $OPT --top-module top --exe $VERILATOR_LIB_SRC -CFLAGS "-include" -CFLAGS "../verilator_callbacks.h" -CFLAGS "-include" -CFLAGS "custom.h" -CFLAGS "-I$SILICE_DIR/../frameworks/verilator/" -CFLAGS "-I../"  -CFLAGS "-I../LibSL/" -CFLAGS "-DNO_SHLWAPI" $DEFINES $LDFLAGS
+verilator --x-initial unique -Wno-fatal -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat $OPT --top-module top --exe $VERILATOR_LIB_SRC -CFLAGS "-std=c++14" -CFLAGS "-include" -CFLAGS "../verilator_callbacks.h" -CFLAGS "-include" -CFLAGS "custom.h" -CFLAGS "-I$SILICE_DIR/../frameworks/verilator/" -CFLAGS "-I../"  -CFLAGS "-I../LibSL/" -CFLAGS "-DNO_SHLWAPI" $DEFINES $LDFLAGS
 cd obj_dir
 
 $MAKE -f Vtop.mk -j$(nproc)

@@ -172,7 +172,7 @@ $$end
   always {
 
 $$if DEBUG_swirl then
-    uint1 debug_on = 1
+    uint1 debug_on = 1;
 $$end
 
     // tracks whether a register was written cycle before
@@ -194,7 +194,7 @@ $$end
     { // ==== stage 1 ==========================================================
 $$if DEBUG_swirl then
 if (debug_on) {
-      __display("[1] cycle:%d stall_cpu:%b refetch:%b refetch_addr:%x refetching:%b pc:%x",cycle,stall_cpu,refetch,refetch_addr<<2,refetching,pc<<2);
+      __display("[1] cycle:%d reset:%b stall_cpu:%b refetch:%b refetch_addr:%x refetching:%b pc:%x",cycle,reset,stall_cpu,refetch,refetch_addr<<2,refetching,pc<<2);
       __display("[1] cycle:%d imem.addr:%x imem.rdata:%x dmem.addr:%x dmem.rdata:%x",cycle,imem.addr<<2,imem.rdata,dmem.addr<<2,dmem.rdata);
 }
 $$end
@@ -227,8 +227,8 @@ $$end
 $$if DEBUG_swirl then
 if (debug_on) {
       if (~stall_cpu | on_stall) {
-        __display("[1] instr: %x @%x (bubble:%b reset:%b refetch:%b hold:%b stall_cpu:%b alu_busy:%b rs1 %d rs2 %d)",
-          instr,pc<<2,bubble,reset,refetch,hold,stall_cpu,exec.working,xregsA.addr0,xregsB.addr0);
+        __display("[1] cycle:%d instr: %x @%x (bubble:%b reset:%b refetch:%b hold:%b stall_cpu:%b alu_busy:%b rs1 %d rs2 %d)",
+          cycle,instr,pc<<2,bubble,reset,refetch,hold,stall_cpu,exec.working,xregsA.addr0,xregsB.addr0);
         if (bpred) {
           __display("[1] pc @%x following branch to @%x",pc<<2,imem.addr<<2);
         }
@@ -509,7 +509,7 @@ $$if TRACE_swirl then
 $$end
 
       // signal a jump if needed (flushes pipeline and jumps)
-      refetch          = stall_cpu             // on a stall trigger (and hold) a refetch
+      refetch          = ~reset & stall_cpu             // on a stall trigger (and hold) a refetch
                        | ( ( jump ^ bpred )    // jump prediction failed
                          & ~refetch & ~bubble );
       //                 ^^^^^^ reset refetch if done at prev cycle
@@ -594,11 +594,12 @@ $$end
 $$if DEBUG_swirl then
 if (debug_on) {
     if (~stall_cpu) {
+      __display("-- cycle %d --",cycle);
       __display("exec.xa = %x exec.xb = %x mem.wdata = %x",exec.xa,exec.xb,dmem.wdata);
       __display("exec.jump = %b exec.n = %x  xb_store = %x",exec.jump,exec.n,xb_store);
       __display("xa_keep %b xa_regR %b xa_regW %b xa_regW_prev %b",xa_keep,xa_regR,xa_regW,xa_regW_prev);
       __display("xb_keep %b xb_regR %b xb_regW %b xb_regW_prev %b",xb_keep,xb_regR,xb_regW,xb_regW_prev);
-      __display("imem.addr @%x, dmem.addr @%x\n",imem.addr<<2,dmem.addr<<2);
+      __display("imem.addr @%x, dmem.addr @%x\n",{2b00,imem.addr}<<2,dmem.addr<<2);
     }
 }
 $$end

@@ -31,7 +31,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 $$ICESTICK=1
 $$ICE40=1
 $$HARDWARE=1
-$$NUM_LEDS=5
 $$VGA=1
 $$color_depth=6
 $$color_max  =63
@@ -40,132 +39,46 @@ $$config['dualport_bram_wenable0_width'] = '1'
 $$config['dualport_bram_wenable1_width'] = '1'
 $$config['simple_dualport_bram_wenable0_width'] = '1'
 $$config['simple_dualport_bram_wenable1_width'] = '1'
+// declare package pins (has to match the hardware pin definition)
+// pin.NAME = <WIDTH>
+$$pin.D1 = 1 pin.D2 = 1 pin.D3 = 1 pin.D4 = 1 pin.D5 = 1
+$$pin.PMOD1=1 pin.PMOD2=1 pin.PMOD3=1 pin.PMOD4=1
+$$pin.PMOD7=1 pin.PMOD8=1 pin.PMOD9=1 pin.PMOD10=1
+$$pin.RX=1 pin.TX=1
+$$pin.TR3=1 pin.TR4=1 pin.TR5=1 pin.TR6=1 pin.TR7=1 pin.TR8=1 pin.TR9=1 pin.TR10=1
+$$pin.BR5=1 pin.BR6=1 pin.BR7=1 pin.BR8=1 pin.BR9=1 pin.BR10=1
+$$pin.FLASH_CLK=1 pin.FLASH_MOSI=1 pin.FLASH_MISO=1 pin.FLASH_CSN=1
+// pin groups and renaming
+$$pin.leds      = {pin.D5,pin.D4,pin.D3,pin.D2,pin.D1}
+$$pin.oled_mosi = {pin.PMOD10} pin.oled_clk  = {pin.PMOD9}
+$$pin.oled_csn  = {pin.PMOD8}  pin.oled_dc   = {pin.PMOD7}
+$$pin.oled_resn = {pin.PMOD1}
+$$pin.vga_r     = {pin.PMOD1,pin.PMOD2,pin.PMOD3,pin.PMOD4,pin.PMOD8,pin.PMOD9}
+$$pin.vga_g     = {pin.TR10,pin.TR9,pin.TR8,pin.TR7,pin.TR6,pin.TR5}
+$$pin.vga_b     = {pin.BR10,pin.BR9,pin.BR8,pin.BR7,pin.BR6,pin.BR5}
+$$pin.vga_hs    = {pin.PMOD7}
+$$pin.vga_vs    = {pin.PMOD10}
+$$pin.pmod      = {pin.PMOD10,pin.PMOD9,pin.PMOD8,pin.PMOD7,pin.PMOD4,pin.PMOD3,pin.PMOD2,pin.PMOD1}
+$$pin.uart_tx   = {pin.TX}
+$$pin.uart_rx   = {pin.RX}
+$$pin.sf_clk    = {pin.FLASH_CLK}  pin.sf_csn    = {pin.FLASH_CSN}
+$$pin.sf_mosi   = {pin.FLASH_MOSI} pin.sf_miso   = {pin.FLASH_MISO}
+$$pin.ram_io0   = {pin.PMOD2} pin.ram_io1 = {pin.PMOD3}
+$$pin.ram_io2   = {pin.PMOD7} pin.ram_io3 = {pin.PMOD8}
+$$pin.ram_clk   = {pin.PMOD4} pin.ram_csn = {pin.PMOD1}
+$$pin.ram_bank  = {pin.PMOD10,pin.PMOD9}
+$$pin.spiscreen_mosi = {pin.TR3}
+$$pin.spiscreen_clk  = {pin.TR4}
+$$pin.spiscreen_csn  = {pin.TR5}
+$$pin.spiscreen_dc   = {pin.TR6}
+$$pin.spiscreen_resn = {pin.TR7}
+//
+$$NUM_LEDS=5
 
 module top(
-  output D1,
-  output D2,
-  output D3,
-  output D4,
-  output D5,
-`ifdef OLED
-  output PMOD1,
-  output PMOD7,
-  output PMOD8,
-  output PMOD9,
-  output PMOD10,
-`endif
-`ifdef PMOD
-  inout PMOD1,
-  inout PMOD2,
-  inout PMOD3,
-  inout PMOD4,
-  inout PMOD7,
-  inout PMOD8,
-  inout PMOD9,
-  inout PMOD10,
-`endif
-`ifdef PMOD_OUT
-  output PMOD1,
-  output PMOD2,
-  output PMOD3,
-  output PMOD4,
-  output PMOD7,
-  output PMOD8,
-  output PMOD9,
-  output PMOD10,
-`endif
-`ifdef UART
-  // uart
-  input   RX,
-  output  TX,
-`endif
-`ifdef VGA
-  output PMOD1, // r0
-  output PMOD2, // r1
-  output PMOD3, // r2
-  output PMOD4, // r3
-  output PMOD8, // r4
-  output PMOD9, // r5
-
-  output TR10, // g0
-  output TR9,  // g1
-  output TR8,  // g2
-  output TR7,  // g3
-  output TR6,  // g4
-  output TR5,  // g5
-
-  output BR10, // b0
-  output BR9,  // b1
-  output BR8,  // b2
-  output BR7,  // b3
-  output BR6,  // b4
-  output BR5,  // b5
-
-  output PMOD7,  // hs
-  output PMOD10, // vs
-`endif
-`ifdef SPIFLASH
-  output FLASH_CLK,
-  output FLASH_MOSI,
-  input  FLASH_MISO,
-  output FLASH_CSN,
-`endif
-`ifdef PMOD_QQSPI
-  output PMOD1,
-  inout  PMOD2,
-  inout  PMOD3,
-  output PMOD4,
-  inout  PMOD7,
-  inout  PMOD8,
-  output PMOD9,
-  output PMOD10,
-`endif
-`ifdef SPISCREEN_EXTRA
-  output TR3,
-  output TR4,
-  output TR5,
-  output TR6,
-  output TR7,
-`endif
+  %TOP_SIGNATURE%
   input  CLK
   );
-
-wire [4:0] __main_leds;
-
-`ifdef OLED
-wire __main_oled_clk;
-wire __main_oled_mosi;
-wire __main_oled_csn;
-wire __main_oled_resn;
-wire __main_oled_dc;
-`ifdef VGA
-`error_cannot_use_both_OLED_and_VGA_not_enough_pins
-`endif
-`ifdef PMOD
-`error_cannot_use_both_PMOD_and_OLED_not_enough_pins
-`endif
-`ifdef PMOD_OUT
-`error_cannot_use_both_PMOD_and_OLED_not_enough_pins
-`endif
-`endif
-
-`ifdef VGA
-wire __main_out_vga_hs;
-wire __main_out_vga_vs;
-wire __main_out_vga_v0;
-wire [5:0] __main_out_vga_r;
-wire [5:0] __main_out_vga_g;
-wire [5:0] __main_out_vga_b;
-`ifdef OLED
-`error_cannot_use_both_OLED_and_VGA_not_enough_pins
-`endif
-`ifdef PMOD
-`error_cannot_use_both_PMOD_and_VGA_not_enough_pins
-`endif
-`ifdef PMOD_OUT
-`error_cannot_use_both_PMOD_and_OLED_not_enough_pins
-`endif
-`endif
 
 // the init sequence pauses for some cycles
 // waiting for BRAM init to stabalize
@@ -192,113 +105,13 @@ end
 wire run_main;
 assign run_main = 1'b1;
 
+%WIRE_DECL%
+
 M_main __main(
   .clock(CLK),
   .reset(~RST_q[23]),
-  .out_leds(__main_leds),
-`ifdef OLED
-  .out_oled_mosi(__main_oled_mosi),
-  .out_oled_clk(__main_oled_clk),
-  .out_oled_csn(__main_oled_csn),
-  .out_oled_dc(__main_oled_dc),
-  .out_oled_resn(__main_oled_resn),
-`endif
-`ifdef VGA
-  .out_video_hs(__main_out_vga_hs),
-  .out_video_vs(__main_out_vga_vs),
-  .out_video_r(__main_out_vga_r),
-  .out_video_g(__main_out_vga_g),
-  .out_video_b(__main_out_vga_b),
-`endif
-`ifdef PMOD
-  .inout_pmod({PMOD10,PMOD9,PMOD8,PMOD7,PMOD4,PMOD3,PMOD2,PMOD1}),
-`endif
-`ifdef PMOD_OUT
-  .out_pmod  ({PMOD10,PMOD9,PMOD8,PMOD7,PMOD4,PMOD3,PMOD2,PMOD1}),
-`endif
-`ifdef UART
-  .out_uart_tx  (TX),
-  .in_uart_rx   (RX),
-`endif
-`ifdef SPIFLASH
-  .out_sf_clk (FLASH_CLK),
-  .out_sf_csn (FLASH_CSN),
-  .out_sf_mosi(FLASH_MOSI),
-  .in_sf_miso (FLASH_MISO),
-`endif
-`ifdef PMOD_QQSPI
-  .inout_ram_io0(PMOD2),
-  .inout_ram_io1(PMOD3),
-  .inout_ram_io2(PMOD7),
-  .inout_ram_io3(PMOD8),
-  .out_ram_clk(PMOD4),
-  .out_ram_csn(PMOD1),
-  .out_ram_bank({PMOD10,PMOD9}),
-`endif
-`ifdef SPISCREEN_EXTRA
-  .out_spiscreen_mosi(TR3),
-  .out_spiscreen_clk(TR4),
-  .out_spiscreen_csn(TR5),
-  .out_spiscreen_dc(TR6),
-  .out_spiscreen_resn(TR7),
-`endif
+  %MAIN_GLUE%
   .in_run(run_main)
 );
-
-/*
-`ifdef PMOD_QQSPI
-  assign PMOD9  = 1'b1;
-  assign PMOD10 = 1'b1;
-`endif
-*/
-
-assign D1 = __main_leds[0+:1];
-assign D2 = __main_leds[1+:1];
-assign D3 = __main_leds[2+:1];
-assign D4 = __main_leds[3+:1];
-assign D5 = __main_leds[4+:1];
-
-// OLED
-
-`ifdef OLED
-
-assign PMOD10 = __main_oled_mosi;
-assign PMOD9  = __main_oled_clk;
-assign PMOD8  = __main_oled_csn;
-assign PMOD7  = __main_oled_dc;
-assign PMOD1  = __main_oled_resn;
-
-`endif
-
-// VGA
-
-`ifdef VGA
-
-assign PMOD1  = __main_out_vga_r[5+:1];
-assign PMOD2  = __main_out_vga_r[4+:1];
-assign PMOD3  = __main_out_vga_r[3+:1];
-assign PMOD4  = __main_out_vga_r[2+:1];
-assign PMOD8  = __main_out_vga_r[1+:1];
-assign PMOD9  = __main_out_vga_r[0+:1];
-
-assign TR10   = __main_out_vga_g[5+:1];
-assign TR9    = __main_out_vga_g[4+:1];
-assign TR8    = __main_out_vga_g[3+:1];
-assign TR7    = __main_out_vga_g[2+:1];
-assign TR6    = __main_out_vga_g[1+:1];
-assign TR5    = __main_out_vga_g[0+:1];
-
-assign BR10   = __main_out_vga_b[5+:1];
-assign BR9    = __main_out_vga_b[4+:1];
-assign BR8    = __main_out_vga_b[3+:1];
-assign BR7    = __main_out_vga_b[2+:1];
-assign BR6    = __main_out_vga_b[1+:1];
-assign BR5    = __main_out_vga_b[0+:1];
-
-assign PMOD7  = __main_out_vga_hs;
-assign PMOD10 = __main_out_vga_vs;
-
-`endif
-
 
 endmodule

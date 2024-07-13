@@ -1,0 +1,33 @@
+// CPU configuration
+// -> memory address bus width
+$$addrW = 12
+// -> memory interface
+group bram_io
+{
+  uint4       wenable(0),
+  uint32      wdata(0),
+  uint32      rdata(0),
+  uint$addrW$ addr(0),    // boot address
+}
+// include the CPU
+$include('../CPUs/ice-v.si')
+// wrapper to avoid manual configuration of the Silice interface
+unit icev_cpu(
+  output! uint4       wenable(0),
+  //    ^ no register
+  output! uint32      wdata(0),
+  input   uint32      rdata(0),
+  output!  uint$addrW$ addr(0),    // boot address
+) {
+  // instantiates the group for IO
+  bram_io mem_io;
+  // instantiates the CPU
+  rv32i_cpu cpu( mem <:> mem_io );
+  // bind
+  always {
+    wenable        = mem_io.wenable; // cpu wants to write
+    wdata          = mem_io.wdata;   // data cpu wants to write
+    addr           = mem_io.addr;    // address cpu wants to access
+    mem_io.rdata   = rdata;          // data received from memory
+  }
+}

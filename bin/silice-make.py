@@ -43,6 +43,7 @@ parser.add_argument('-o','--outdir', help="Specify name of output directory.", d
 parser.add_argument('-l','--list_boards', help="List all available target boards.", action="store_true")
 parser.add_argument('-r','--root', help="Root directory, use to override default frameworks.")
 parser.add_argument('-D','--defines', help="List of comma-separated defines to pass to Silice, e.g. -D A=0,B=1")
+parser.add_argument('-a','--args', help="List of comma-separated additional command line parameter to pass to Silice, e.g. -a force-reset-init")
 parser.add_argument('--no_build', help="Only generate verilog output file.", action="store_true")
 parser.add_argument('--no_program', help="Only generate verilog output file and build bitstream.", action="store_true")
 parser.add_argument('--reprogram', help="Only program device.", action="store_true")
@@ -76,7 +77,7 @@ os.environ["BUILD_DIR"] = out_dir
 
 # - frameworks directory
 frameworks_dirs=list()
-frameworks_dirs.append(os.path.realpath(os.path.join(make_dir,"../frameworks/")))
+frameworks_dirs.append(os.path.realpath(os.path.join(make_dir,"../share/silice/frameworks/")))
 frameworks_dirs.append('/usr/local/share/silice/frameworks/')
 if platform.system() == "Windows":
     if sysconfig.get_platform().startswith("mingw"):
@@ -201,7 +202,10 @@ if args.tool:
     if len(args.tool.split(":")) > 1:
         target_builder_tool = args.tool.split(":")[1]
     for builder in target_variant['builders']:
-        if builder['builder'] == target_builder_name:
+        builder_name_prop = 'builder'
+        if 'name' in builder:
+            builder_name_prop = 'name'
+        if builder[builder_name_prop] == target_builder_name:
             if target_builder_tool == None:
               target_builder = builder
               break
@@ -213,7 +217,11 @@ if args.tool:
         sys.exit(-1)
 else:
     target_builder = target_variant['builders'][0]
-print('using build system    ',colored(target_builder['builder'],'cyan'))
+
+builder_name_prop = 'builder'
+if 'name' in target_builder:
+    builder_name_prop = 'name'
+print('using build system    ',colored(target_builder[builder_name_prop],'cyan'))
 
 # framework file
 framework_file = os.path.realpath(os.path.join(board_path,target_variant['framework']))
@@ -268,14 +276,19 @@ if target_builder['builder'] == 'shell':
     if args.defines:
         for define in args.defines.split(','):
             defines = defines + " -D " + define
+    # additional command line parameters
+    add_args = ""
+    if args.args:
+        for arg in args.args.split(','):
+            add_args = add_args + " --" + arg
     # execute
     command = script + " " + source_file
     print('launching command     ', colored(command,'cyan'))
     if platform.system() == "Windows":
         bash = "env bash"
-        os.system(bash + " " + command + " " + defines)
+        os.system(bash + " " + command + " " + defines + " " + add_args)
     else:
-        os.system(command + " " + defines)
+        os.system(command + " " + defines + " " + add_args)
 
 elif target_builder['builder'] == 'edalize':
 
@@ -343,6 +356,11 @@ elif target_builder['builder'] == 'edalize':
             for define in args.defines.split(','):
                 cmd.append("-D")
                 cmd.append(define)
+        # additional command line parameters
+        if args.args:
+            for arg in args.args.split(','):
+                cmd.append("--" + arg)
+        # launch
         try:
             subprocess.check_call(cmd, cwd=out_dir, env=my_env, stdin=subprocess.PIPE)
         except FileNotFoundError as e:

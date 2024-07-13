@@ -51,6 +51,8 @@ LuaPreProcessor *Algorithm::s_LuaPreProcessor = nullptr;
 /// These controls are provided as a convenience to illustrate the impact of CL0004 and CL0005
 bool g_Disable_CL0004 = false;
 bool g_Disable_CL0005 = false;
+/// Forces the use of reset on register with initialized value
+bool g_ForceResetInit = false;
 
 // -------------------------------------------------
 
@@ -4196,6 +4198,7 @@ bool Algorithm::preventIfElseCodeDup(t_fsm_nfo* fsm)
   adding a state before termination, and hence preventing collapse of
   next cycles within while loops and if-else (CL0004, CL0005)
 */
+/// TODO FIXME: could this be avoided?
 bool Algorithm::padPipeline(t_fsm_nfo* fsm)
 {
   // NOTE: expects stage ids to have been generate
@@ -6712,6 +6715,15 @@ void Algorithm::optimize(const t_instantiation_context& ictx)
     m_Optimized = true;
     // generate states
     generateStates(&m_RootFSM);
+    // forces reset init on all vars
+    if (g_ForceResetInit) {
+      for (auto& _v : m_Vars) {
+        if (_v.init_at_startup) { _v.init_at_startup = false; }
+      }
+      for (auto& _v : m_Outputs) {
+        if (_v.init_at_startup) { _v.init_at_startup = false; }
+      }
+    }
     // report
     if (hasNoFSM()) {
       std::cerr << " (no FSM)";
@@ -7677,6 +7689,7 @@ void Algorithm::writeTempDeclarations(std::string prefix, std::ostream& out, con
     sl_assert(v.table_size == 0);
     std::string init;
     if (v.init_at_startup && !v.init_values.empty()) {
+      sl_assert(!g_ForceResetInit);
       init = " = " + v.init_values[0];
     } else if (CONFIG.keyValues().count("reg_init_zero")) {
       init = " = 0";
@@ -7715,6 +7728,7 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
     if (v.table_size == 0) {
       std::string init;
       if (v.init_at_startup && !v.init_values.empty()) {
+        sl_assert(!g_ForceResetInit);
         init = " = " + v.init_values[0];
       } else if (CONFIG.keyValues().count("reg_init_zero")) {
         init = " = 0";
@@ -7732,6 +7746,7 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
     sl_assert(v.table_size == 0);
     std::string init;
     if (v.init_at_startup && !v.init_values.empty()) {
+      sl_assert(!g_ForceResetInit);
       init = " = " + v.init_values[0];
     } else if (CONFIG.keyValues().count("reg_init_zero")) {
       init = " = 0";
@@ -7750,7 +7765,9 @@ void Algorithm::writeFlipFlopDeclarations(std::string prefix, std::ostream& out,
     }
     // autorun
     if (m_AutoRun) {
-      out << "reg  " << prefix << ALG_AUTORUN << " = 0;" << nxl;
+      out << "reg  " << prefix << ALG_AUTORUN;
+      if (!g_ForceResetInit) { out << " = 0;"; } else { out << ";"; }
+      out << nxl;
     }
   }
   // state machines for pipelines
@@ -8991,6 +9008,7 @@ void Algorithm::writeStatelessBlockGraph(
         if (!emptyUntilNextStates(current)) {
           reportError(prev->srcloc, "in an algorithm, a pipeline has to be followed by a new cycle.\n"
                                     "     please check meaning and split with ++: as appropriate");
+          /// TODO FIXME: this constraint is innelegant and seems unnecessary
         }
       } else {
         // in an always block, write the pipeline immediately

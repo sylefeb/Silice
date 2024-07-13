@@ -6,7 +6,7 @@ export YOSYSHQ_ROOT=$DIR/oss-cad-suite
 
 export SSL_CERT_FILE=%YOSYSHQ_ROOT%etc\cacert.pem
 
-export PATH=$YOSYSHQ_ROOT/bin:$YOSYSHQ_ROOT/lib:$PATH
+export PATH=$YOSYSHQ_ROOT/share/verilator/bin/:$YOSYSHQ_ROOT/bin:$YOSYSHQ_ROOT/lib:$PATH
 # export PATH=$YOSYSHQ_ROOT/bin:$YOSYSHQ_ROOT/lib:$YOSYSHQ_ROOT/py3bin:$PATH
 # export PYTHON_EXECUTABLE=$YOSYSHQ_ROOT/py3bin/python3
 export QT_PLUGIN_PATH=$YOSYSHQ_ROOT/lib/qt5/plugins

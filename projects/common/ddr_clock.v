@@ -12,7 +12,11 @@ module ddr_clock(
 
 `ifdef ICE40
 
+`ifdef SIM_SB_IO
+  _SB_IO #(
+`else
   SB_IO #(
+`endif
     .PIN_TYPE(6'b1100_01)
   ) sbio_clk (
       .PACKAGE_PIN(ddr_clock),

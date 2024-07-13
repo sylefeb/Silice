@@ -27,7 +27,7 @@ algorithm main(
   );
 
   uo.data_in_ready := 0; // maintain low
-  leds             := 0;
+  leds             := 1; // light one LED
 
   // NOTE: We only have to be carefull to wait for a previous
   // transmission to be done before starting a new one.

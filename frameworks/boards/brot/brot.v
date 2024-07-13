@@ -113,13 +113,29 @@ module top(
   output PMOD_B7,
   output PMOD_B8,
 `endif
+`ifdef SERIAL_IN
+  input PMOD_A2,
+`endif
 `ifdef UART
   output PMOD_B7,  // TX
   input  PMOD_B10, // RX
 `endif
+`ifdef UART_RX_ONLY
+  input  PMOD_B10, // RX
+`endif
 `ifdef UART2
-  output GPIO0,  // TX
-  input  GPIO1, // RX
+  input  GPIO0,  // TX
+  output GPIO1, // RX
+`endif
+`ifdef PS2
+  input  GPIO2, // clock
+  input  GPIO3, // data
+`endif
+`ifdef SDCARD
+  output GPIO4, // cs
+  output GPIO5, // clock
+  output GPIO6, // mosi
+  input  GPIO7, // miso
 `endif
 `ifdef PMOD_COM_OUT
   output PMOD_B1,
@@ -150,6 +166,20 @@ module top(
 `endif
 `ifdef SYNC_OUT
   output PMOD_B9,
+`endif
+`ifdef VGA
+  output GPIO0,   // R0
+  output GPIO1,   // R1
+  output GPIO2,   // R2
+  output PMOD_B1, // G0
+  output GPIO3,   // G1
+  output GPIO4,   // G2
+  output GPIO5,   // G3
+  output PMOD_B2, // B0
+  output PMOD_B8, // B1
+  output GPIO6,   // B2
+  output GPIO7,   // HS
+  output PMOD_B7, // VS
 `endif
   input  CLK_48
   );
@@ -266,17 +296,33 @@ M_main __main(
 `ifdef PARALLEL_SCREEN
   .out_prlscreen_d({GPIO7,GPIO6,GPIO5,GPIO4,GPIO3,GPIO2,GPIO1,GPIO0}),
   .out_prlscreen_resn(PMOD_B1),
-  .out_prlscreen_csn (/*PMOD_B7*/prlscreen_unused),
+  .out_prlscreen_csn (PMOD_B7),
   .out_prlscreen_rs  (PMOD_B8),
   .out_prlscreen_clk (PMOD_B2),
+`endif
+`ifdef SERIAL_IN
+  .in_serial_in(PMOD_A2),
 `endif
 `ifdef UART
   .out_uart_tx(PMOD_B7),
   .in_uart_rx (PMOD_B10),
 `endif
+`ifdef UART_RX_ONLY
+  .in_uart_rx (PMOD_B10),
+`endif
 `ifdef UART2
-  .out_uart_tx(GPIO0),
-  .in_uart_rx (GPIO1),
+  .out_uart_tx(GPIO1),
+  .in_uart_rx (GPIO0),
+`endif
+`ifdef PS2
+  .in_ps2_clock(GPIO2),
+  .in_ps2_data(GPIO3),
+`endif
+`ifdef SDCARD
+  .out_sd_csn  (GPIO4),
+  .out_sd_clk  (GPIO5),
+  .out_sd_mosi (GPIO6),
+  .in_sd_miso  (GPIO7),
 `endif
 `ifdef SYNC_IN
   .in_sync(PMOD_A1),
@@ -308,6 +354,13 @@ PMOD_A8 is on a global buffer on the 'in fpga' and has to be used for the clock
   .in_com_data({PMOD_A1,PMOD_A2,PMOD_A3,PMOD_A4,PMOD_A7,PMOD_B4,PMOD_A9,PMOD_A10}),
   .in_com_clock(PMOD_A8),
   .in_com_valid(PMOD_B3),
+`endif
+`ifdef VGA
+  .out_video_r({GPIO0,GPIO1,GPIO2}),
+  .out_video_g({PMOD_B1,GPIO3,GPIO4,GPIO5}),
+  .out_video_b({GPIO6,PMOD_B8,PMOD_B2}),
+  .out_video_hs(GPIO7),
+  .out_video_vs(PMOD_B7),
 `endif
 // -----------------------------------------------------------------------------
   .in_run(run_main)

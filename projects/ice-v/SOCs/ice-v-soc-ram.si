@@ -35,8 +35,17 @@ $$periph   = addrW-1
 $$Boot     = 0
 $$print('===========> address bus width: ' .. addrW)
 
+$$if SIM_SB_IO then
+append('sb_io_sim.v')
+import('passthrough.v')
+$$end
+
 // Main design frequency
+$$if SIM_SB_IO then
+$$master_freq = 25
+$$else
 $$master_freq = 50
+$$end
 
 $$if ICESTICK then
 // Import hardware modules
@@ -46,6 +55,10 @@ $$elseif SIMULATION then
 $include('../../common/simulation_spram.si')
 $$else
 $$error('uho, this SOC is for simulation or IceStick only')
+$$end
+
+$$if NO_FASTRAM then
+$$print('===========> Building without fastram')
 $$end
 
 $$if SPISCREEN_EXTRA then
@@ -59,7 +72,8 @@ $$ICEV_USERDATA   = nil
 $include('../CPUs/ice-v-ram.si')
 
 // Include the QSPRAM controller
-$include('../common/qpsram2x.si')
+$include('old_qpsram2x.si') // NOTE: uses an older version as new one is larger
+                            //       FIXME TODO
 
 // Include the UART controller
 $$uart_bauds = 115200
@@ -122,21 +136,33 @@ unit qqspi_memory(
   uint2            count(0);
   uint32           wdata(0);
   // fastram
+$$if not NO_FASTRAM then
   bram uint8       fastram[2048] = uninitialized;
-
+$$end
   always {
     ram.init      = 0;
     // in periph?
     uint1 in_periph         = io.addr[$addrW-3$,3] == 3b100;
     // in fastram?
+$$if not NO_FASTRAM then
     uint1 in_fastram        = &io.addr[$addrW-3$,3]; //_ == 3b111
+$$else
+    uint1 in_fastram        = 0; // no fastram, always 0
+$$end
     // mask request on peripherals
     uint1 req_valid         = io.req_valid & ~in_periph;
+$$if not NO_FASTRAM then
     uint1 req_valid_ram     = req_valid    & ~in_fastram;
     uint1 req_valid_fastram = req_valid    &  in_fastram;
+$$else
+    uint1 req_valid_ram     = req_valid;
+    uint1 req_valid_fastram = 0;// no fastram, always 0
+$$end
     // data being read
     io.rdata[{count,3b0},8] = (ram.data_next  ? ram.rdata               : 8b0)
+$$if not NO_FASTRAM then
             | (in_fastram                     ? fastram.rdata           : 8b0)
+$$end
             | ((~ram.data_next & ~in_fastram) ? io.rdata[{count,3b0},8] : 8b0);
     // data being written
     ram.wdata     = wdata[0,8];
@@ -145,7 +171,9 @@ unit qqspi_memory(
     wdata        = (ram.data_next | (in_fastram&~io.req_valid) ) ? {8b0,wdata[8,24]}
                  : req_valid                                     ? io.wdata
                  : wdata;
+$$if not NO_FASTRAM then
     fastram.wdata = wdata[0,8];
+$$end
     // address
 $$if SIMULATION then
     ram.addr     = req_valid_ram ? {io.addr,io.byte_offset} : ram.addr;
@@ -153,8 +181,10 @@ $$else
     ram.addr     = req_valid_ram ? {io.addr[0,$addrW-3$],io.byte_offset} : ram.addr;
     ram_bank     = io.addr[$addrW-3$,2];
 $$end
+$$if not NO_FASTRAM then
     fastram.addr    = req_valid_fastram ? {io.addr[0,9],io.byte_offset} : (fastram.addr+1);
     fastram.wenable = req_valid_fastram ? io.wenable : (fastram.wenable & (work_vector!=0));
+$$end
     ram.wenable     = req_valid_ram     ? io.wenable : ram.wenable;
     // count bytes
     count        = (req_valid                 ) ? 0
@@ -173,10 +203,15 @@ $$end
     // done?
     io.done      = (ram_was_busy & ~ram.busy)
                  | (io.req_valid & in_periph)
-                 | (fastram_was_busy & in_fastram & (work_vector==0));
+$$if not NO_FASTRAM then
+                 | (fastram_was_busy & in_fastram & (work_vector==0))
+$$end
+                 ;
     ram_was_busy     = ram.busy | req_valid_ram;
+$$if not NO_FASTRAM then
     fastram_was_busy = io.req_valid ? in_fastram
                                     : (io.done ? 0 : fastram_was_busy);
+$$end
     // keep going?
     ram.in_ready = ((work_vector != 0) & ram.in_ready) | req_valid_ram;
 $$if SIMULATION then
@@ -258,6 +293,7 @@ $$end
 $$end
 )
 $$if ICESTICK then
+$$if not SIM_SB_IO then
 <@fastclk,!rst> {
   // ---- clocking (pll)
   uint1 fastclk = uninitialized;
@@ -267,6 +303,11 @@ $$if ICESTICK then
     clock_out :> fastclk,
     rst       :> rst,
   );
+$$else
+{
+  uint1 fastclk = uninitialized;
+  passthrough _(inv <: clock, outv :> fastclk);
+$$end
 $$else
 {
   uint32 cycle(0);

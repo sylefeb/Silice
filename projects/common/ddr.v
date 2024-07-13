@@ -28,7 +28,7 @@ ODDR2 #(
 
 `else
 
-`ifdef ULX3S
+`ifdef ECP5
 
 ODDRX1F mddr
       (

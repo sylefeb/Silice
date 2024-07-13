@@ -6,14 +6,18 @@ module sb_io(
   input        out,
   output       pin
   );
-
+`ifdef SIM_SB_IO
+  _SB_IO #(
+`else
   SB_IO #(
+`endif
     .PIN_TYPE(6'b0101_01)
     //                ^^ ignored (input)
     //           ^^^^ registered output
   ) sbio (
       .PACKAGE_PIN(pin),
       .D_OUT_0(out),
+      .OUTPUT_ENABLE(1'b1),
       .OUTPUT_CLK(clock)
   );
 

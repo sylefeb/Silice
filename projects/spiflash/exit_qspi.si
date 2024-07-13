@@ -64,7 +64,7 @@ $$end
 
 import('../common/passthrough.v')
 
-$$if ULX3S then
+$$if ECP5 then
   $$master_freq = 50
   import('../common/plls/ulx3s_50_25.v')
 $$end
@@ -147,7 +147,7 @@ $$if ICE40 then
   $$else
     $$error('Either spi2x or spi4x has to be set')
   $$end
-$$elseif ULX3S then
+$$elseif ECP5 then
   uint1 clock1x = uninitialized;
   uint1 clock2x = uninitialized;
   uint1 locked  = uninitialized;

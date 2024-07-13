@@ -61,9 +61,9 @@ private:
   int                     m_step = 0;
 
   int                     m_x_start = 0;
-  int                     m_x_end   = 0;
+  int                     m_x_end   = 239;
   int                     m_y_start = 0;
-  int                     m_y_end   = 0;
+  int                     m_y_end   = 319;
 
   int                     m_x_cur   = 0;
   int                     m_y_cur   = 0;
@@ -99,6 +99,6 @@ public:
   LibSL::Image::ImageRGBA& framebuffer() override { return m_framebuffer; }
 
   bool framebufferChanged() override;
-  
+
   bool ready() override { return true; }
 };

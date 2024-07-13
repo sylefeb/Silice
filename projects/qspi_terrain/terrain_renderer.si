@@ -1,0 +1,232 @@
+// SL 2020-12-02 @sylefeb
+// SL 2024-05-17 QSPI version
+//
+// Explorer1
+//
+// -------------------------
+// MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+
+/*
+
+Working with QSPI
+- inv_Z 24 bits table precomputed in QSPI
+- color + height in 24 bits (16 color, 8 height)
+- drawing vertical spans (screen in column mode)
+
+*/
+
+//////////////////////////////////////////////////////////////////////////////
+// Voxel Space terrain renderer
+//
+// In terms of principle this is similar but not quite exactly the same as the
+// Voxel Space engine from Novalogic (remember the game Comanche game?)
+// see e.g. https://github.com/s-macke/VoxelSpace
+//
+// The key difference lies in the in interpolation that takes place for height
+// and color, and the dithering scheme for colors
+//
+// The other 'small' difference lies in the fact that the implementation is
+// now entirely in hardware!
+//
+//////////////////////////////////////////////////////////////////////////////
+
+// pre-processor definitions
+$$fp             = 11            -- fixed point log multiplier
+$$fp_scl         = 1<<fp         -- fixed point scale factor
+$$one_over_width = fp_scl//320   -- ratio 1 / screen width
+$$z_step         = fp_scl        -- z-step size (one in map space)
+$$z_num_step     = 256           -- number of z-step (view distance)
+$$z_step_init    = z_step        -- distance of first z-step
+
+// -------------------------
+
+unit terrain_renderer(
+  inout   uint1  ram_io0,
+  inout   uint1  ram_io1,
+  inout   uint1  ram_io2,
+  inout   uint1  ram_io3,
+  output  uint1  ram_clk,
+  output  uint1  ram_csn,
+  output  uint2  ram_bank,
+  input   uint4  btns,
+  input   uint1  write_en,
+  output  uint1  pixel_ready,
+  output! uint16 pixel_data,
+  //    ^ that does seem to help with IO glitches: propagates earlier...
+  output  uint1  screen_send,
+  output  uint1  screen_reset
+  //input   uint3  btns,
+) {
+$$if SIMULATION then
+  uint32 cycle(0);
+  uint32 cy_frame_start(0);
+$$end
+  // QPSRAM RAM
+  qpsram_ram ram(
+    ram_csn  :> ram_csn,    ram_clk  :> ram_clk,
+    ram_io0 <:> ram_io0,    ram_io1 <:> ram_io1,
+    ram_io2 <:> ram_io2,    ram_io3 <:> ram_io3,
+  );
+
+  uint6  mul_a = uninitialized;
+  uint6  mul_b = uninitialized;
+  uint12 mul_c = uninitialized;
+  uint12 mul_r <:: (mul_a * mul_b) + mul_c;
+
+  always_before {
+    ram.wenable  = 0;
+    ram.wdata    = 0;
+    ram.in_ready = 0;
+    ram.init     = 0;
+    pixel_ready  = 0;
+    screen_send  = 0;
+  }
+
+  algorithm <autorun> {
+
+    int22  v_x          = $8*(128   )*fp_scl$;
+    int22  v_y          = $8*(128+63)*fp_scl$;
+    uint9  vheight      = 190;
+    uint9  next_vheight = 190;
+    uint32 config       = 0;
+    // init screen from ram
+    uint8  cmds = 0;         ///// TODO: loop until specific value in memory
+    while (~cmds[7,1]) {     /////       less fragile, can also send pics to scr
+      ram.addr = $(1<<22)$ | $(1<<20)$ | {cmds,1b0};
+      uint2  n2  = 2b11;
+      while (n2[0,1]) {
+        ram.in_ready = 1;
+        if (ram.data_next) {
+          pixel_data = {pixel_data[0,8],ram.rdata};
+          n2         = n2>>1;
+        }
+      }
+      config      =  pixel_data[14,1] ? {config[0,24],pixel_data[0,8]} : config;
+      screen_reset= ~pixel_data[ 9,1]; // reset status
+      screen_send = ~pixel_data[15,1]; // nops for reset and delays
+  $$if not SIMULATION then
+      uint10 cnt = 1;
+      while (cnt != 0) { cnt = cnt + 1; }
+  $$else
+      __display("cmds:%d screen:%x scr_rst:%b scr_send:%b",cmds,pixel_data,screen_reset,screen_send);
+  $$end
+      cmds        = cmds + 1;
+    }
+    // render frame
+    while (1) {
+  $$if SIMULATION then
+      __display("frame time: %d cycles",cycle-cy_frame_start);
+      cy_frame_start = cycle;
+  $$end
+      // go through screen columns
+      uint10 x = 0;
+      while (x != config[16,9]) {
+  //__display("x = ",x);
+        // last altitude at this column
+        uint8  y_last = config[0,8];
+        // init z stepping
+        uint9 iz   = 2; // we skip the two first steps to keep inv_z within 10 bits
+        int22 z    = $2*z_step_init$;
+        while (iz != $z_num_step$) {
+  //__display("iz = ",iz);
+          // int9   delta_y  = uninitialized;  // y delta between previous and current
+          // get step data
+          ram.addr     = $(1<<22)$ | {x,iz[0,8],3b000};
+          uint7  n7    = 7b1111111;
+          uint56 step  = uninitialized;
+          while (n7[0,1]) {
+            ram.in_ready = 1;
+            if (ram.data_next) {
+              step  = {step[0,48],ram.rdata};
+              n7    = n7>>1;
+            }
+          }
+          uint10 inv_z = step[44,10];
+          int22  x_off = __signed(step[22,22]);
+          int22  y_off = __signed(step[ 0,22]);
+          // generate coordinates
+  //        int22 p_x   = v_x - (z) + __signed(x) * (((z<<1) * $one_over_width$) >>> $fp$);
+          int22 p_x   = v_x + x_off;
+          int22 p_y   = v_y + y_off;
+  //__display("iz = %d z = %d inv_z = %d",iz,z,inv_z);
+  ++:
+          // sample next color + elevation
+          uint24 c_h(0);
+          ram.addr  = {p_y[$fp$,10],p_x[$fp$,10],2b00};
+          uint3 n3  = 3b111;
+          while (n3[0,1]) {
+            ram.in_ready = 1;
+            if (ram.data_next) {
+              c_h   = {c_h[0,16],ram.rdata};
+              n3    = n3>>1;
+            }
+          }
+          // get elevation
+          uint8 hmap     = c_h[16,8];
+          // snap next view height
+          next_vheight   = (iz == 2) ? c_h[16,8] : next_vheight;
+          // apply perspective to obtain y_ground on screen
+
+          // NOTE: assumes vheight > hmap
+          // uint12 y_ground_test = (((vheight - hmap) * inv_z) >> $fp-5$) + 32;
+          uint18 tmp      = 0;
+          uint9  h_diff   = (vheight - hmap);
+          uint18 h_diff_H = h_diff;
+          uint10 domul    = 10b1111111111;
+          while (domul[0,1]) {
+            tmp      = inv_z[0,1] ? (tmp + h_diff_H) : tmp;
+            inv_z    = inv_z    >> 1;
+            h_diff_H = h_diff_H << 1;
+            domul    = domul    >> 1;
+          }
+          uint12 y_ground = (tmp >> $fp-5$) + 32;
+          // __display("y_ground %d y_ground_test %d",y_ground,y_ground_test);
+
+          // restart drawing from last one (or top if first)
+          int11 y        = y_last;
+          // clamp on screen
+          // NOTE: no need to clamp above, y starts at top
+          int14 y_screen = (iz == $z_num_step-1$) ? -1 : y_ground;
+          //                ^^^^^^^^^^^^^^^^^^^^^^^^^ draw sky on last
+          // fill column
+  $$if SIMULATION then
+  //if (y_last > y_screen) {
+  //__display("span y %d pixels",y_last - y_screen);
+  //}
+  $$end
+          // color
+          pixel_data  = (iz == $z_num_step-1$) ? {3b000,5b10100,5b10000,3b100} : c_h[0,16];
+          // span loop
+          while (y > y_screen) { // NOTE: y_screen clamped at zero
+            // write to screen
+            pixel_ready = write_en;
+            // next
+            y           = write_en ? y-1 : y;
+          }
+          // current altitude for next
+          y_last   = y;
+          // next z
+          z        = z  + $z_step$;
+          iz       = iz + 1;
+        } // z-steps
+        // update position
+        x  =  x + 1;
+      } // x
+
+      vheight = next_vheight + 128;
+  $$if SIMULATION then
+      v_y = v_y + $fp_scl * 16$;
+  $$else
+      v_x = v_x + ((btns[0,1] ? $fp_scl$ : 0) | (btns[1,1] ? $- fp_scl$ : 0));
+      v_y = v_y + ((btns[2,1] ? $fp_scl$ : 0) | (btns[3,1] ? $- fp_scl$ : 0));
+  $$end
+    }
+  }
+
+  always_after {
+$$if SIMULATION then
+    cycle = cycle + 1;
+$$end
+  }
+}

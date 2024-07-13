@@ -58,7 +58,7 @@ $$ICEV_USERDATA   = nil
 $include('../CPUs/ice-v-ram.si')
 
 // Include the QSPRAM controller
-$include('../common/qpsram2x.si')
+$include('old_qpsram2x.si')
 
 // Include the UART controller
 $$uart_bauds = 230400 -- 115200
