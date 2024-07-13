@@ -27,6 +27,28 @@
       ],
       "builders": [
         {
+          "name": "edalize",
+          "builder" : "edalize",
+          "description": "Build using Edalize",
+          "tool": "icestorm",
+          "tool_options": [
+            {
+                "icepack_options": ["-s"],
+                "yosys_synth_options": ["-dsp","-abc9","-device u","-top top"],
+                "nextpnr_options": ["--up5k", "--freq 12", "--package sg48", "-r"],
+                "pnr": "next"
+            }
+          ],
+          "bitstream"  : "build.bin",
+          "constraints": [{"name": "brot.pcf", "file_type": "PCF"}],
+          "program": [
+            {"cmd" : "cp", "args" : "build.bin build.dfu"},
+            {"cmd" : "dfu-suffix", "args" : "-v 1d50 -p 6146 -a build.dfu"},
+            {"cmd" : "dfu-util", "args" : "-a 0 -D build.dfu"}
+          ]
+        },
+        {
+          "name": "edalize_relut",
           "builder" : "edalize",
           "description": "Build using Edalize",
           "tool": "icestorm",

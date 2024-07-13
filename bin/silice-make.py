@@ -202,7 +202,10 @@ if args.tool:
     if len(args.tool.split(":")) > 1:
         target_builder_tool = args.tool.split(":")[1]
     for builder in target_variant['builders']:
-        if builder['builder'] == target_builder_name:
+        builder_name_prop = 'builder'
+        if 'name' in builder:
+            builder_name_prop = 'name'
+        if builder[builder_name_prop] == target_builder_name:
             if target_builder_tool == None:
               target_builder = builder
               break
@@ -214,7 +217,11 @@ if args.tool:
         sys.exit(-1)
 else:
     target_builder = target_variant['builders'][0]
-print('using build system    ',colored(target_builder['builder'],'cyan'))
+
+builder_name_prop = 'builder'
+if 'name' in target_builder:
+    builder_name_prop = 'name'
+print('using build system    ',colored(target_builder[builder_name_prop],'cyan'))
 
 # framework file
 framework_file = os.path.realpath(os.path.join(board_path,target_variant['framework']))
