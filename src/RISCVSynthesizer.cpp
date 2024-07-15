@@ -473,6 +473,7 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
       + "-D STACK_SIZE=" + std::to_string(stack_size) + " "
       + defs + " "
       + "--framework " + normalizePath(CONFIG.keyValues()["frameworks_dir"]) + "/boards/bare/bare.v "
+      + "--frameworks_dir " + normalizePath(CONFIG.keyValues()["frameworks_dir"]) + " "
       ;
     system(cmd.c_str());
   }
