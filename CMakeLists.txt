@@ -147,15 +147,16 @@ endif()
 
 if (INSTALL_IN_REPO)
 
-  target_compile_definitions(silice PRIVATE "FRAMEWORKS_DEFAULT_PATH=\"${CMAKE_SOURCE_DIR}/frameworks\"")
-  target_compile_definitions(libsilice PRIVATE "FRAMEWORKS_DEFAULT_PATH=\"${CMAKE_SOURCE_DIR}/frameworks\"")
+  target_compile_definitions(silice PRIVATE "SILICE_DEFAULT_PATH=\"${CMAKE_SOURCE_DIR}\"")
+  target_compile_definitions(libsilice PRIVATE "SILICE_DEFAULT_PATH=\"${CMAKE_SOURCE_DIR}\"")
 
   install(TARGETS silice    RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/bin)
   install(TARGETS libsilice ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/lib)
 
 else()
-  target_compile_definitions(silice PRIVATE "FRAMEWORKS_DEFAULT_PATH=\"${CMAKE_INSTALL_PREFIX}/frameworks\"")
-  target_compile_definitions(libsilice PRIVATE "FRAMEWORKS_DEFAULT_PATH=\"${CMAKE_INSTALL_PREFIX}/frameworks\"")
+
+  target_compile_definitions(silice PRIVATE "SILICE_DEFAULT_PATH=\"${CMAKE_INSTALL_PREFIX}\"")
+  target_compile_definitions(libsilice PRIVATE "SILICE_DEFAULT_PATH=\"${CMAKE_INSTALL_PREFIX}\"")
 
   install(TARGETS   silice                RUNTIME     DESTINATION bin/)
   install(TARGETS   libsilice             ARCHIVE     DESTINATION bin/)

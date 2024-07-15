@@ -344,7 +344,13 @@ void SiliceCompiler::beginParsing(
   }
   // determine frameworks dir if needed
   if (frameworks_dir.empty()) {
-    frameworks_dir = std::string(FRAMEWORKS_DEFAULT_PATH);
+    frameworks_dir = std::string(SILICE_DEFAULT_PATH) + "/frameworks";
+    if (!LibSL::System::File::exists((frameworks_dir + "/boards/bare/bare.v").c_str())) {
+      frameworks_dir = std::string(SILICE_DEFAULT_PATH) + "/share/silice/frameworks";
+      if (!LibSL::System::File::exists((frameworks_dir + "/boards/bare/bare.v").c_str())) {
+        throw Fatal("Cannot locate frameworks directory automatically.\nPlease specify --frameworks_dir on the command line.");
+      }
+    }
   }
   // extract pre-processor header from framework
   std::string framework_lpp, framework_verilog;
@@ -361,7 +367,6 @@ void SiliceCompiler::beginParsing(
   CONFIG.keyValues()["frameworks_dir"] = frameworks_dir;
   CONFIG.keyValues()["templates_path"] = frameworks_dir + "/templates";
   CONFIG.keyValues()["libraries_path"] = frameworks_dir + "/libraries";
-
   // create the preprocessor
   AutoPtr<LuaPreProcessor> lpp(new LuaPreProcessor());
   lpp->enableFilesReport(fresult + ".files.log");
