@@ -1512,6 +1512,9 @@ std::string Algorithm::vioAsDefine(const t_instantiation_context& ictx, const t_
       def = (negative ? "-" : "") + std::to_string(width) + "\'" + base + vl;
     } else {
       int i = atoi(value.c_str());
+      if (i <= 0) {
+        throw Fatal("vioAsDefine cannot determine width of %s",v.name.c_str());
+      }
       int w = i > 0 ? (1+Utils::justHigherPow2(i)) : 1;
       def   = std::to_string(w) + "\'d" + value;
     }
@@ -1528,6 +1531,20 @@ std::string Algorithm::vioAsDefine(const t_instantiation_context& ictx, std::str
 {
   sl_assert(m_VarNames.count(vio));
   return vioAsDefine(ictx,m_Vars.at(m_VarNames.at(vio)),value);
+}
+
+// -------------------------------------------------
+
+static bool couldBeADefine(const Algorithm::t_var_nfo& v)
+{
+  return   (v.table_size == 0)
+  //    && (v.type_nfo.base_type == UInt) // uncomment to prevent signed vio to become defines
+    ;
+}
+
+static bool isADefine(const Algorithm::t_var_nfo& v)
+{
+  return couldBeADefine(v) && (v.usage == Algorithm::e_Const) && (v.access != Algorithm::e_ReadOnly);
 }
 
 // -------------------------------------------------
@@ -1614,8 +1631,15 @@ std::string Algorithm::rewriteIdentifier(
           return encapsulateIdentifier(var, read_access, FF_TMP + prefix + var, suffix);
         } else if (m_Vars.at(V->second).usage == e_Const) {
           // const
-          bool is_a_define = read_access && (m_Vars.at(V->second).table_size == 0);
-          return encapsulateIdentifier(var, read_access, std::string(is_a_define ?"`":"") + FF_CST + prefix + var, suffix);
+          std::string pre  = std::string(isADefine(m_Vars.at(V->second)) ? "`" : "");
+          std::string post = std::string("");
+          if (read_access && isADefine(m_Vars.at(V->second))
+                          && m_Vars.at(V->second).type_nfo.base_type == Int) {
+            // trying to circumvent issue with defines and signed, see L1523
+            pre = "$signed(" + pre;
+            post = post + ")";
+          }
+          return encapsulateIdentifier(var, read_access, pre + FF_CST + prefix + var + post, suffix);
         } else if (m_Vars.at(V->second).usage == e_Wire) {
           // wire
           return encapsulateIdentifier(var, read_access, WIRE + prefix + var, suffix);
@@ -7109,7 +7133,7 @@ void Algorithm::writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::strin
         // select stream
         std::string var = translateVIOName(std::get<std::string>(matches[p].what), bctx);
         if (m_VarNames.count(var)) {
-          if (m_Vars.at(m_VarNames.at(var)).usage == e_Const) {
+          if (isADefine(m_Vars.at(m_VarNames.at(var)))) {
             is_a_define = var;
           }
         }
@@ -7120,7 +7144,7 @@ void Algorithm::writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::strin
         // select stream
         std::string var = translateVIOName(determineAccessedVar(std::get<siliceParser::AccessContext *>(matches[p].what), bctx), bctx);
         if (m_VarNames.count(var)) {
-          if (m_Vars.at(m_VarNames.at(var)).usage == e_Const) {
+          if (isADefine(m_Vars.at(m_VarNames.at(var)))) {
             is_a_define = var;
           }
         }
@@ -7191,7 +7215,7 @@ void Algorithm::writeSubroutineReadback(antlr4::tree::ParseTree *node, std::stri
       // define?
       std::string var = translateVIOName(std::get<std::string>(matches[p].what), bctx);
       if (m_VarNames.count(var)) {
-        if (m_Vars.at(m_VarNames.at(var)).usage == e_Const) {
+        if (isADefine(m_Vars.at(m_VarNames.at(var)))) {
           is_a_define = var;
         }
       }
@@ -7202,7 +7226,7 @@ void Algorithm::writeSubroutineReadback(antlr4::tree::ParseTree *node, std::stri
       // define?
       std::string var = translateVIOName(determineAccessedVar(std::get<siliceParser::AccessContext *>(matches[p].what), bctx), bctx);
       if (m_VarNames.count(var)) {
-        if (m_Vars.at(m_VarNames.at(var)).usage == e_Const) {
+        if (isADefine(m_Vars.at(m_VarNames.at(var)))) {
           is_a_define = var;
         }
       }
@@ -7463,7 +7487,7 @@ void Algorithm::writeAssignement(
   ostringstream lvalue;
   std::string is_a_define;
   if (m_VarNames.count(var)) {
-    if (m_Vars.at(m_VarNames.at(var)).usage == e_Const) {
+    if (isADefine(m_Vars.at(m_VarNames.at(var)))) {
       is_a_define = var;
     }
   }
@@ -7642,14 +7666,16 @@ void Algorithm::writeConstDeclarations(std::string prefix, t_writer_context &w,c
 {
   for (const auto& v : m_Vars) {
     if (v.usage  != e_Const)    continue;
-    if (v.access != e_ReadOnly) continue;
+    if (v.access != e_ReadOnly) continue; // NOTE: temporaries turned into defines are rejected here
     if (v.table_size == 0) {
-      w.defines << "`undef  " << FF_CST << prefix << v.name << nxl;
       if (!v.do_not_initialize) {
-        w.defines << "`define " << FF_CST << prefix << v.name << " " << vioAsDefine(ictx, v, varInitValue(v, ictx)) << nxl;
+        // NOTE: we do not use defines for "true consts" as their width might not be easily determined
+        writeVerilogDeclaration(w.wires, ictx, "wire", v, string(FF_CST) + prefix + v.name);
+        w.wires << "assign " << FF_CST << prefix << v.name << " = " << varInitValue(v, ictx) << ';' << nxl;
       } else {
         // defaults to zero
-        w.defines << "`define " << FF_CST << prefix << v.name << " (" << varBitWidth(v, ictx) << "'b0" << ')' << nxl;
+        writeVerilogDeclaration(w.wires, ictx, "wire", v, string(FF_CST) + prefix + v.name);
+        w.wires << "assign " << FF_CST << prefix << v.name << " = " << 0 << ';' << nxl;
       }
     } else {
       writeVerilogDeclaration(w.wires, ictx, "wire", v, string(FF_CST) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + ":0]");
@@ -8424,7 +8450,7 @@ void Algorithm::writeBlock(
               reportError(sourceloc(expr), "internal error, temporary type for expression not determined");
             }
             // write down wire assignment
-            if (m_Vars.at(m_VarNames.at(var)).usage == e_Const) {
+            if (isADefine(m_Vars.at(m_VarNames.at(var)))) {
               // assign expression to const
               w.defines << "`undef  " << FF_CST << prefix << var << nxl;
               w.defines << "`define " << FF_CST << prefix << var << ' '
@@ -9460,9 +9486,12 @@ void Algorithm::writeAsModule(std::ostream& out, const t_instantiation_context &
           if (m_Vars.at(m_VarNames.at(v.first)).usage == e_Temporary) {
             if (usage.stable_in_cycle.count(v.first)) { // stable in cycle?
               if (usage.stable_in_cycle.at(v.first)) {
-                m_Vars.at(m_VarNames.at(v.first)).usage = e_Const; // yes: demote to const
-                m_Vars.at(m_VarNames.at(v.first)).do_not_initialize = true; // skip any init
-                m_Vars.at(m_VarNames.at(v.first)).assigned_as_wire = true; // skip any init
+                if (couldBeADefine(m_Vars.at(m_VarNames.at(v.first)))) {
+                  // NOTE: access is still ReadWrite for defines that are not trully const
+                  m_Vars.at(m_VarNames.at(v.first)).usage = e_Const; // yes: demote to const
+                  m_Vars.at(m_VarNames.at(v.first)).do_not_initialize = true; // skip any init
+                  m_Vars.at(m_VarNames.at(v.first)).assigned_as_wire = true; // skip any init
+                }
               }
             }
           }
