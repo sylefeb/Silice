@@ -1513,10 +1513,12 @@ std::string Algorithm::vioAsDefine(const t_instantiation_context& ictx, const t_
     } else {
       int i = atoi(value.c_str());
       if (i <= 0) {
-        throw Fatal("vioAsDefine cannot determine width of %s",v.name.c_str());
+        // use the var width instead
+        def = varBitWidth(v, ictx) + "\'(" + value + ")";
+      } else {
+        int w = (1 + Utils::justHigherPow2(i));
+        def   = std::to_string(w) + "\'d" + value;
       }
-      int w = i > 0 ? (1+Utils::justHigherPow2(i)) : 1;
-      def   = std::to_string(w) + "\'d" + value;
     }
   } else {
     def = varBitWidth(v, ictx) + "\'(" + value + ")";
