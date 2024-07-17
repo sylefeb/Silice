@@ -1557,7 +1557,8 @@ std::string Algorithm::rewriteIdentifier(
   const t_source_loc& srcloc,
   std::string ff, bool read_access,
   const t_vio_dependencies& dependencies,
-  t_vio_usage &_usage, e_FFUsage ff_force) const
+  t_vio_usage &_usage, e_FFUsage ff_force,
+  bool on_binding) const
 {
   sl_assert(!(!read_access && ff == FF_Q));
   if (var == ALG_RESET || var == ALG_CLOCK) {
@@ -1635,8 +1636,8 @@ std::string Algorithm::rewriteIdentifier(
           // const
           std::string pre  = std::string(isADefine(m_Vars.at(V->second)) ? "`" : "");
           std::string post = std::string("");
-          if (read_access && isADefine(m_Vars.at(V->second))
-                          && m_Vars.at(V->second).type_nfo.base_type == Int) {
+          if (   read_access && isADefine(m_Vars.at(V->second))
+              && !on_binding && m_Vars.at(V->second).type_nfo.base_type == Int) {
             // trying to circumvent issue with defines and signed, see L1523
             pre = "$signed(" + pre;
             post = post + ")";
@@ -9960,7 +9961,7 @@ void Algorithm::writeAsModule(
           std::string bndid = std::get<std::string>(nfo.boundinputs.at(is.name).first);
           out << rewriteIdentifier("_", bndid, "", nullptr, ictx, nfo.srcloc,
             nfo.boundinputs.at(is.name).second == e_Q ? FF_Q : FF_D, true, _, input_bindings_usage,
-            nfo.boundinputs.at(is.name).second == e_Q ? e_Q : e_D
+            nfo.boundinputs.at(is.name).second == e_Q ? e_Q : e_D, true
           );
         } else {
           writeAccess("_", out, false, std::get<siliceParser::AccessContext*>(nfo.boundinputs.at(is.name).first),
@@ -9997,11 +9998,11 @@ void Algorithm::writeAsModule(
         if (nfo.blueprint->isNotCallable() && !nfo.instance_reginput) {
           // the instance is never called, we bind to D
           t_vio_dependencies _;
-          out << rewriteIdentifier("_", vname, "", nullptr, ictx, nfo.srcloc, FF_D, true, _, input_bindings_usage);
+          out << rewriteIdentifier("_", vname, "", nullptr, ictx, nfo.srcloc, FF_D, true, _, input_bindings_usage, e_None, true);
         } else {
           // the instance is only called or registered input were required, we bind to Q
           t_vio_dependencies _;
-          out << rewriteIdentifier("_", vname, "", nullptr, ictx, nfo.srcloc, FF_Q, true, _, input_bindings_usage);
+          out << rewriteIdentifier("_", vname, "", nullptr, ictx, nfo.srcloc, FF_Q, true, _, input_bindings_usage, e_None, true);
         }
       }
       out << ')';
@@ -10060,13 +10061,13 @@ void Algorithm::writeAsModule(
     if (nfo.blueprint->requiresReset()) {
       if (!first) { out << ',' << nxl; } first = false;
       t_vio_dependencies _;
-      out << '.' << ALG_RESET << '(' << rewriteIdentifier("_", nfo.instance_reset, "", nullptr, ictx, nfo.srcloc, FF_Q, true, _, input_bindings_usage) << ")";
+      out << '.' << ALG_RESET << '(' << rewriteIdentifier("_", nfo.instance_reset, "", nullptr, ictx, nfo.srcloc, FF_Q, true, _, input_bindings_usage, e_None, true) << ")";
     }
     // clock
     if (nfo.blueprint->requiresClock()) {
       t_vio_dependencies _;
       if (!first) { out << ',' << nxl; } first = false;
-      out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", nfo.instance_clock, "", nullptr, ictx, nfo.srcloc, FF_Q, true, _, input_bindings_usage) << ")";
+      out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", nfo.instance_clock, "", nullptr, ictx, nfo.srcloc, FF_Q, true, _, input_bindings_usage, e_None, true) << ")";
     }
     // end of instantiation
     out << ");" << nxl;
@@ -10145,25 +10146,25 @@ void Algorithm::writeAsModule(
     if (mem.clocks.empty()) {
       if (mem.mem_type == DUALBRAM || mem.mem_type == SIMPLEDUALBRAM) {
         t_vio_dependencies _1,_2;
-        out << ".clock0(" << rewriteIdentifier("_", m_Clock, "", nullptr, ictx, mem.srcloc, FF_Q, true, _1, input_bindings_usage) << ")," << nxl;
-        out << ".clock1(" << rewriteIdentifier("_", m_Clock, "", nullptr, ictx, mem.srcloc, FF_Q, true, _2, input_bindings_usage) << ")," << nxl;
+        out << ".clock0(" << rewriteIdentifier("_", m_Clock, "", nullptr, ictx, mem.srcloc, FF_Q, true, _1, input_bindings_usage, e_None, true) << ")," << nxl;
+        out << ".clock1(" << rewriteIdentifier("_", m_Clock, "", nullptr, ictx, mem.srcloc, FF_Q, true, _2, input_bindings_usage, e_None, true) << ")," << nxl;
       } else {
         t_vio_dependencies _;
-        out << ".clock("  << rewriteIdentifier("_", m_Clock, "", nullptr, ictx, mem.srcloc, FF_Q, true, _, input_bindings_usage) << ")," << nxl;
+        out << ".clock("  << rewriteIdentifier("_", m_Clock, "", nullptr, ictx, mem.srcloc, FF_Q, true, _, input_bindings_usage, e_None, true) << ")," << nxl;
       }
     } else {
       sl_assert((mem.mem_type == DUALBRAM || mem.mem_type == SIMPLEDUALBRAM) && mem.clocks.size() == 2);
       std::string clk0 = mem.clocks[0];
       std::string clk1 = mem.clocks[1];
       t_vio_dependencies _1, _2;
-      out << ".clock0(" << rewriteIdentifier("_", clk0, "", nullptr, ictx, mem.srcloc, FF_Q, true, _1, input_bindings_usage) << ")," << nxl;
-      out << ".clock1(" << rewriteIdentifier("_", clk1, "", nullptr, ictx, mem.srcloc, FF_Q, true, _2, input_bindings_usage) << ")," << nxl;
+      out << ".clock0(" << rewriteIdentifier("_", clk0, "", nullptr, ictx, mem.srcloc, FF_Q, true, _1, input_bindings_usage, e_None, true) << ")," << nxl;
+      out << ".clock1(" << rewriteIdentifier("_", clk1, "", nullptr, ictx, mem.srcloc, FF_Q, true, _2, input_bindings_usage, e_None, true) << ")," << nxl;
     }
     // inputs
     for (const auto& inv : mem.in_vars) {
       t_vio_dependencies _;
       out << '.' << ALG_INPUT << '_' << inv.first << '(' << rewriteIdentifier("_", inv.second, "", nullptr, ictx, mem.srcloc, mem.delayed ? FF_Q : FF_D, true, _, input_bindings_usage,
-        mem.delayed ? e_Q : e_D
+        mem.delayed ? e_Q : e_D, true
       ) << ")," << nxl;
     }
     // output wires

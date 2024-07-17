@@ -798,7 +798,7 @@ private:
       const Utils::t_source_loc& srcloc,
       std::string ff, bool read_access,
       const t_vio_dependencies &dependencies,
-      t_vio_usage &_usage, e_FFUsage ff_force = e_None) const;
+      t_vio_usage &_usage, e_FFUsage ff_force = e_None, bool on_binding = false) const;
     /// \brief rewrite an expression, renaming identifiers
     std::string rewriteExpression(std::string prefix, antlr4::tree::ParseTree *expr, int __id, const t_combinational_block_context* bctx, const t_instantiation_context &ictx, std::string ff, bool read_access, const t_vio_dependencies& dependencies, t_vio_usage &_usage) const;
     /// \brief returns true if an expression is a single identifier
