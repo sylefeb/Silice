@@ -164,6 +164,7 @@ else()
   install(PROGRAMS  bin/report-cycles.py  DESTINATION bin/)
   install(FILES     projects/ice-v/CPUs/ice-v.si      DESTINATION share/silice/projects/ice-v/CPUs/)
   install(FILES     projects/ice-v/CPUs/ice-v-dual.si DESTINATION share/silice/projects/ice-v/CPUs/)
+  install(FILES     projects/common/divint_std.si     DESTINATION share/silice/projects/common/)
   install(DIRECTORY frameworks            DESTINATION share/silice/ USE_SOURCE_PERMISSIONS)
   install(DIRECTORY src/libs/LibSL-small  DESTINATION share/silice/src/libs/)
 
