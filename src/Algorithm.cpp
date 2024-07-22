@@ -7160,7 +7160,9 @@ void Algorithm::writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::strin
           a.instance_name.c_str(), outs.name.c_str());
       }
       if (!is_a_define.empty()) {
-        std::string lvalue_str = (lvalue.str()[0] == '`') ? lvalue.str().substr(1) : lvalue.str();
+        std::string lvalue_str = (lvalue.str()[0] == '`') ? lvalue.str().substr(1)
+                               : (lvalue.str()[0] == '$') ? lvalue.str().substr(9, lvalue.str().length()-10) // skip $signed(`...)
+                               : lvalue.str();
         w.defines << "`undef  " << lvalue_str << nxl;
         w.defines << "`define " << lvalue_str << ' ' << vioAsDefine(ictx,is_a_define,WIRE + a.instance_prefix + "_" + outs.name) << nxl;
       } else {
@@ -7244,7 +7246,9 @@ void Algorithm::writeSubroutineReadback(antlr4::tree::ParseTree *node, std::stri
     t_vio_dependencies _;
     std::string rvalue = rewriteIdentifier(prefix, called->io2var.at(outs), "", bctx, ictx, sourceloc(plist), FF_Q, true, _, _usage);
     if (!is_a_define.empty()) {
-      std::string lvalue_str = (lvalue.str()[0] == '`') ? lvalue.str().substr(1) : lvalue.str();
+      std::string lvalue_str = (lvalue.str()[0] == '`') ? lvalue.str().substr(1)
+                             : (lvalue.str()[0] == '$') ? lvalue.str().substr(9, lvalue.str().length()-10) // skip $signed(`...)
+                             : lvalue.str();
       w.defines << "`undef  " << lvalue_str << nxl;
       w.defines << "`define " << lvalue_str << ' ' << vioAsDefine(ictx, is_a_define, rvalue) << nxl;
     } else {
@@ -7516,7 +7520,9 @@ void Algorithm::writeAssignement(
   }
   // = rvalue
   if (!is_a_define.empty()) {
-    std::string lvalue_str = (lvalue.str()[0] == '`') ? lvalue.str().substr(1) : lvalue.str();
+    std::string lvalue_str = (lvalue.str()[0] == '`') ? lvalue.str().substr(1)
+                           : (lvalue.str()[0] == '$') ? lvalue.str().substr(9, lvalue.str().length()-10) // skip $signed(`...)
+                           : lvalue.str();
     w.defines << "`undef  " << lvalue_str << nxl;
     w.defines << "`define " << lvalue_str << ' ' << vioAsDefine(ictx, is_a_define, rewriteExpression(prefix, expression_0, a.__id, bctx, ictx, ff, true, dependencies, _usage)) << nxl;
   } else {
