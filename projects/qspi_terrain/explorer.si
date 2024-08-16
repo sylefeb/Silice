@@ -31,7 +31,7 @@ $$pin.btn_2 = {pin.BR9}
 $$pin.btn_3 = {pin.BR10}
 $$end
 
-unit main( // I guess this is the SOC :-D
+unit explorer( // I guess this is the SOC :-D
   output uint5 leds,
 $$if not SIMULATION then
   input  uint1 btn_0,

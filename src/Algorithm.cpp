@@ -184,7 +184,7 @@ void Algorithm::checkBlueprintsBindings(const t_instantiation_context &ictx) con
     for (const auto &b : bp.second.bindings) {
       std::string br = bindingRightIdentifier(b);
       if (b.dir == e_Right) {
-        if (inbound.count(br) > 0) {
+        if (inbound.count(br) > 0 && !isInOut(br)) {
           reportError(b.srcloc, "binding appears both as input and output on the same instance, instance '%s', bound vio '%s'",
             bp.first.c_str(), br.c_str());
         }
@@ -5911,7 +5911,7 @@ void Algorithm::updateAccessFromBinding(const t_binding_nfo &b,
       // set global access
       // -> check prior access
       if (_nfos[names.at(bindingRightIdentifier(b))].access & e_WriteOnly) {
-        reportError(b.srcloc, "cannot write to variable '%s' bound to an algorithm or module output", bindingRightIdentifier(b).c_str());
+        reportError(b.srcloc, "cannot bind variable '%s' to another unit output, it is used in an expression", bindingRightIdentifier(b).c_str());
       }
       // -> mark as write-binded
       _nfos[names.at(bindingRightIdentifier(b))].access = (e_Access)(_nfos[names.at(bindingRightIdentifier(b))].access | e_WriteBinded);
@@ -5919,7 +5919,7 @@ void Algorithm::updateAccessFromBinding(const t_binding_nfo &b,
       sl_assert(b.dir == e_BiDir);
       // -> check prior access
       if ((_nfos[names.at(bindingRightIdentifier(b))].access & (~e_ReadWriteBinded)) != 0) {
-        reportError(b.srcloc, "cannot bind variable '%s' on an inout port, it is used elsewhere", bindingRightIdentifier(b).c_str());
+        reportError(b.srcloc, "cannot bind variable '%s' to another unit inout, it is used in an expression", bindingRightIdentifier(b).c_str());
       }
       // add to always block dependency
       m_AlwaysPost.in_vars_read.insert(bindingRightIdentifier(b)); // read after
@@ -8066,6 +8066,36 @@ void Algorithm::writeVarFlipFlopCombinationalUpdate(std::string prefix, std::ost
 
 // -------------------------------------------------
 
+void Algorithm::writeInoutBinding(const t_instantiation_context& ictx, const Algorithm::t_binding_point& bp, t_vio_usage& _usage, std::string& _base, std::string& _access) const
+{
+  // bound to an algorithm inout, configure as input
+  std::ostringstream ostr;
+  if (std::holds_alternative<std::string>(bp)) {
+    std::string bndid = std::get<std::string>(bp);
+    if (isInOut(bndid)) {
+      ostr << ALG_INOUT << "_" << bndid;
+    } else {
+      ostr << WIRE << "_" << bndid;
+    }
+  } else {
+    // write access
+    t_vio_dependencies _;
+    writeAccess("_", ostr, false, std::get<siliceParser::AccessContext*>(bp),
+      -1, nullptr, ictx,
+      FF_D, _, _usage
+    );
+  }
+  _base = ostr.str();
+  // check wether there is a bit vector access and split
+  auto pos = _base.find('[');
+  if (pos != std::string::npos) {
+    _access = _base.substr(pos);
+    _base   = _base.substr(0, pos);
+  }
+}
+
+// -------------------------------------------------
+
 void Algorithm::writeCombinationalAlwaysPre(
   std::string prefix, t_writer_context &w,
   const                t_instantiation_context& ictx,
@@ -8138,7 +8168,26 @@ void Algorithm::writeCombinationalAlwaysPre(
             sl_assert(std::holds_alternative<std::string>(b.right));
             w.out << FF_D << prefix + bindingRightIdentifier(b) + " = " + WIRE + ia.instance_prefix + "_" + b.left << ';' << nxl;
           }
-          // else, the output is replaced by the wire
+        } else if (m_InOutNames.find(bindingRightIdentifier(b)) != m_InOutNames.end()) {
+          // bound to an algorithm inout
+          std::string base, access;
+          writeInoutBinding(ictx, b.right, _usage, base, access);
+          // configure it as an output and bind the wire
+          w.out << base + "_o"       + access + " = " + WIRE + ia.instance_prefix + "_" + b.left << ';' << nxl;
+          w.out << base + "_oenable" + access + " = 1'b1;" << nxl;
+        }
+        // else, the output is replaced by the wire
+      } else if (b.dir == e_Left || b.dir == e_LeftQ) { // inputs
+        if (m_InOutNames.find(bindingRightIdentifier(b)) != m_InOutNames.end()) {
+          // check this is not a <:: (unsupported on inout)
+          if (b.dir == e_LeftQ) {
+            reportError(b.srcloc, "binding an input to an inout can only be done with <:");
+          }
+          // bound to an algorithm inout, configure as input
+          std::string base, access;
+          writeInoutBinding(ictx, b.right, _usage, base, access);
+          // configure as input
+          w.out << base + "_oenable" + access + " = 1'b0;" << nxl;
         }
       }
     }
@@ -9986,10 +10035,25 @@ void Algorithm::writeAsModule(
             nfo.boundinputs.at(is.name).second == e_Q ? e_Q : e_D, true
           );
         } else {
-          writeAccess("_", out, false, std::get<siliceParser::AccessContext*>(nfo.boundinputs.at(is.name).first),
+          ostringstream ostr;
+          writeAccess("_", ostr, false, std::get<siliceParser::AccessContext*>(nfo.boundinputs.at(is.name).first),
             -1, nullptr, ictx,
             nfo.boundinputs.at(is.name).second == e_Q ? FF_Q : FF_D, _, input_bindings_usage
           );
+          // if bound to an inout we decoreate the name with _i (_oe is set in writeCombinationalAlwaysPre)
+          if (isInOut(determineAccessedVar(std::get<siliceParser::AccessContext*>(nfo.boundinputs.at(is.name).first),nullptr))) {
+            // check wether there is a bit vector access and split
+            std::string base = ostr.str();
+            std::string access;
+            auto pos = base.find('[');
+            if (pos != std::string::npos) {
+              access = base.substr(pos);
+              base = base.substr(0, pos);
+            }
+            out << base << "_i" << access;
+          } else {
+            out << ostr.str();
+          }
         }
         // check whether the bound variable is a wire, an input, or another bound var, in which case <:: does not make sense
         if (nfo.boundinputs.at(is.name).second == e_Q) {
@@ -10010,8 +10074,11 @@ void Algorithm::writeAsModule(
           if (isInput(bid)) {
             bound_wire_input = true;
           }
+          if (isInOut(bid)) {
+            bound_wire_input = true;
+          }
           if (bound_wire_input) {
-            reportError(nfo.srcloc, "using <:: on input, tracked expression or bound vio '%s' has no effect, use <: instead", bid.c_str());
+            reportError(nfo.srcloc, "using <:: on input, inout, tracked expression or bound vio '%s' has no effect, use <: instead", bid.c_str());
           }
         }
       } else {
@@ -10042,39 +10109,24 @@ void Algorithm::writeAsModule(
       std::string bindpoint = nfo.instance_prefix + "_" + os.name;
       const auto& vio = m_BlueprintInOutsBoundToVIO.find(bindpoint);
       if (vio != m_BlueprintInOutsBoundToVIO.end()) {
-        std::ostringstream ostr;
-        if (std::holds_alternative<std::string>(vio->second)) {
-          std::string bndid = std::get<std::string>(vio->second);
-          if (isInOut(bndid)) {
-            ostr << ALG_INOUT << "_" << bndid;
-          } else {
-            ostr << WIRE << "_" << bndid;
-          }
-        } else {
-          // write access
-          t_vio_dependencies _;
-          writeAccess("_", ostr, false, std::get<siliceParser::AccessContext*>(vio->second),
-            -1, nullptr, ictx,
-            FF_D, _, input_bindings_usage
-          );
-        }
+        std::string base, access;
+        writeInoutBinding(ictx, vio->second, _usage, base, access);
         if (!g_SplitInouts) {
           // standard inout
           out << '.' << nfo.blueprint->inoutPortName(os.name) << '(';
-          out << ostr.str();
+          out << base + access;
           out << ")";
         } else {
           // split inouts
           out << '.' << nfo.blueprint->inoutPortName(os.name) + "_oe" << '(';
-          out << ostr.str() + "_oe";
+          out << base + "_oe" + access;
           out << ")," << nxl;
           out << '.' << nfo.blueprint->inoutPortName(os.name) + "_o" << '(';
-          out << ostr.str() + "_o";
+          out << base + "_o" + access;
           out << ")," << nxl;
           out << '.' << nfo.blueprint->inoutPortName(os.name) + "_i" << '(';
-          out << ostr.str() + "_i";
+          out << base + "_i" + access;
           out << ")";
-
         }
       } else {
         reportError(nfo.srcloc, "cannot find algorithm inout binding '%s'", os.name.c_str());

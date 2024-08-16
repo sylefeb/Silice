@@ -1195,6 +1195,8 @@ private:
     void writeFlipFlopUpdates(std::string prefix, std::ostream& out, const t_instantiation_context &ictx) const;
     /// \brief writes flip-flop combinational value update for a variable
     void writeVarFlipFlopCombinationalUpdate(std::string prefix, std::ostream& out, const t_var_nfo& v) const;
+    /// \brief write an inout binding as a base and (if applicable) bit-vector access
+    void writeInoutBinding(const t_instantiation_context& ictx, const Algorithm::t_binding_point& bp, t_vio_usage& _usage, std::string& _base, std::string& _access) const;
     /// \brief add a state to the queue
     void pushState(const t_fsm_nfo *fsm,const t_combinational_block *b, std::queue<size_t> &_q) const;
     /// \brief writes combinational steps that are always performed /before/ the state machine
