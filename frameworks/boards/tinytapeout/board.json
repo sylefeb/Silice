@@ -1,0 +1,27 @@
+{
+  "name": "tinytapeout",
+  "variants": [
+    {
+      "name"      : "configurable",
+      "framework" : "tinytapeout.v",
+      "pins"      : [
+        {"set"    : "basic", "define" : "BASIC=1"}
+      ],
+      "builders": [
+        {
+          "name"    : "tinytapeout",
+          "builder" : "shell",
+          "command" : "tinytapeout.sh",
+          "description": "Custom shell script using yosys"
+        },
+        {
+          "name"    : "tt_icestick",
+          "builder" : "shell",
+          "framework" : "tt_icestick.v",
+          "command" : "tt_icestick.sh",
+          "description": "Tinytapeout simulation on icestick"
+        }
+      ]
+    }
+  ]
+}

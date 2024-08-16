@@ -7,15 +7,13 @@
 // ========================================================
 
 $$if SIM_SB_IO then
-append('sb_io_sim.v')
+append('ice40_sb_io_sim_split_inouts.v')
 import('passthrough.v')
 $$end
 
 $$master_freq = 12
 
-$$if SPISCREEN_EXTRA then
-$$  SPISCREEN=1
-$$end
+$$SPISCREEN=1
 
 // Include the QSPRAM controller
 $include('../ice-v/SOCs/old_qpsram2x.si') // NOTE: uses an older version as new one is larger
@@ -26,7 +24,7 @@ $include('terrain_renderer.si')
 // SOC
 // --------------------------------------------------
 
-$$if not SIMULATION then
+$$if not SIMULATION and ICESTICK then
 $$pin.btn_0 = {pin.BR7}
 $$pin.btn_1 = {pin.BR8}
 $$pin.btn_2 = {pin.BR9}
@@ -41,7 +39,6 @@ $$if not SIMULATION then
   input  uint1 btn_2,
   input  uint1 btn_3,
 $$end
-$$if PMOD_QQSPI then
   inout   uint1 ram_io0,
   inout   uint1 ram_io1,
   inout   uint1 ram_io2,
@@ -49,8 +46,6 @@ $$if PMOD_QQSPI then
   output  uint1 ram_clk,
   output  uint1 ram_csn,
   output  uint2 ram_bank,
-$$end
-$$if SPISCREEN then
   output  uint1 spiscreen_clk,
   output  uint1 spiscreen_mosi,
   output  uint1 spiscreen_dc,
@@ -60,7 +55,6 @@ $$if VERILATOR then
   output uint2  spiscreen_driver(2/*ST7789*/),
   output uint10 spiscreen_width (320),
   output uint10 spiscreen_height(240),
-$$end
 $$end
 ) {
 $$if SIMULATION then
@@ -160,9 +154,7 @@ $$end
 
 // --------------------------------------------------
 
-$$if SPISCREEN then
 // include SPI driver for screen
 $include('../common/spi.si')
-$$end
 
 // --------------------------------------------------

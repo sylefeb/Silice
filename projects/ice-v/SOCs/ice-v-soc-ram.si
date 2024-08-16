@@ -36,7 +36,7 @@ $$Boot     = 0
 $$print('===========> address bus width: ' .. addrW)
 
 $$if SIM_SB_IO then
-append('sb_io_sim.v')
+append('ice40_sb_io_sim.v')
 import('passthrough.v')
 $$end
 

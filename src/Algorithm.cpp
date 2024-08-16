@@ -53,6 +53,8 @@ bool g_Disable_CL0004 = false;
 bool g_Disable_CL0005 = false;
 /// Forces the use of reset on register with initialized value
 bool g_ForceResetInit = false;
+/// Splits all inouts into enable, in, out pins
+bool g_SplitInouts    = false;
 
 // -------------------------------------------------
 
@@ -9773,8 +9775,16 @@ void Algorithm::writeAsModule(
   for (const auto &v : m_Outputs) {
     out << string(ALG_OUTPUT) << '_' << v.name << ',' << nxl;
   }
-  for (const auto &v : m_InOuts) {
-    out << string(ALG_INOUT) << '_' << v.name << ',' << nxl;
+  if (!g_SplitInouts) {
+    for (const auto& v : m_InOuts) {
+      out << string(ALG_INOUT) << '_' << v.name << ',' << nxl;
+    }
+  } else {
+    for (const auto& v : m_InOuts) {
+      out << string(ALG_INOUT) << '_' << v.name << "_oe" << ',' << nxl;
+      out << string(ALG_INOUT) << '_' << v.name << "_i"  << ',' << nxl;
+      out << string(ALG_INOUT) << '_' << v.name << "_o" << ',' << nxl;
+    }
   }
   if (!isNotCallable() || m_TopMost /*keep for glue convenience*/) {
     out << ALG_INPUT << "_" << ALG_RUN << ',' << nxl;
@@ -9799,7 +9809,13 @@ void Algorithm::writeAsModule(
   }
   for (const auto& v : m_InOuts) {
     sl_assert(v.table_size == 0);
-    writeVerilogDeclaration(out, ictx, "inout", v, string(ALG_INOUT) + "_" + v.name);
+    if (!g_SplitInouts) {
+      writeVerilogDeclaration(out, ictx, "inout", v, string(ALG_INOUT) + "_" + v.name);
+    } else {
+      writeVerilogDeclaration(out, ictx, "output", v, string(ALG_INOUT) + "_" + v.name + "_oe");
+      writeVerilogDeclaration(out, ictx, "input", v, string(ALG_INOUT) + "_" + v.name + "_i");
+      writeVerilogDeclaration(out, ictx, "output", v, string(ALG_INOUT) + "_" + v.name + "_o");
+    }
   }
   if (!isNotCallable() || m_TopMost) {
     out << "input " << ALG_INPUT << "_" << ALG_RUN << ';' << nxl;
@@ -10026,23 +10042,40 @@ void Algorithm::writeAsModule(
       std::string bindpoint = nfo.instance_prefix + "_" + os.name;
       const auto& vio = m_BlueprintInOutsBoundToVIO.find(bindpoint);
       if (vio != m_BlueprintInOutsBoundToVIO.end()) {
-        out << '.' << nfo.blueprint->inoutPortName(os.name) << '(';
+        std::ostringstream ostr;
         if (std::holds_alternative<std::string>(vio->second)) {
           std::string bndid = std::get<std::string>(vio->second);
           if (isInOut(bndid)) {
-            out << ALG_INOUT << "_" << bndid;
+            ostr << ALG_INOUT << "_" << bndid;
           } else {
-            out << WIRE << "_" << bndid;
+            ostr << WIRE << "_" << bndid;
           }
         } else {
           // write access
           t_vio_dependencies _;
-          writeAccess("_", out, false, std::get<siliceParser::AccessContext*>(vio->second),
+          writeAccess("_", ostr, false, std::get<siliceParser::AccessContext*>(vio->second),
             -1, nullptr, ictx,
             FF_D, _, input_bindings_usage
           );
         }
-        out << ")";
+        if (!g_SplitInouts) {
+          // standard inout
+          out << '.' << nfo.blueprint->inoutPortName(os.name) << '(';
+          out << ostr.str();
+          out << ")";
+        } else {
+          // split inouts
+          out << '.' << nfo.blueprint->inoutPortName(os.name) + "_oe" << '(';
+          out << ostr.str() + "_oe";
+          out << ")," << nxl;
+          out << '.' << nfo.blueprint->inoutPortName(os.name) + "_o" << '(';
+          out << ostr.str() + "_o";
+          out << ")," << nxl;
+          out << '.' << nfo.blueprint->inoutPortName(os.name) + "_i" << '(';
+          out << ostr.str() + "_i";
+          out << ")";
+
+        }
       } else {
         reportError(nfo.srcloc, "cannot find algorithm inout binding '%s'", os.name.c_str());
       }
@@ -10199,29 +10232,56 @@ void Algorithm::writeAsModule(
       // output used?
       if ( m_Vars.at(m_VarNames.at(io.name + "_o")).access       != e_NotAccessed
         || m_Vars.at(m_VarNames.at(io.name + "_oenable")).access != e_NotAccessed) {
+        t_vio_dependencies _1, _2, _3;
         // write bit by bit ternary assignment
-        for (int b = 0; b < width; ++b) {
-          out << "assign " << ALG_INOUT << "_" << io.name << "[" << std::to_string(b) << "] = ";
-          t_vio_dependencies _1, _2, _3;
-          if (m_Vars.at(m_VarNames.at(io.name + "_oenable")).access != e_NotAccessed) {
-            out << rewriteIdentifier("_", io.name + "_oenable", "[" + std::to_string(b) + "]", nullptr, ictx, io.srcloc, FF_Q, true, _1, input_bindings_usage);
-          } else {
-            out << "1'b0";
+        if (!g_SplitInouts) {
+          // standard inouts
+          for (int b = 0; b < width; ++b) {
+            out << "assign " << ALG_INOUT << "_" << io.name << "[" << std::to_string(b) << "] = ";
+            if (m_Vars.at(m_VarNames.at(io.name + "_oenable")).access != e_NotAccessed) {
+              out << rewriteIdentifier("_", io.name + "_oenable", "[" + std::to_string(b) + "]", nullptr, ictx, io.srcloc, FF_Q, true, _1, input_bindings_usage);
+            } else {
+              out << "1'b0";
+            }
+            out << " ? ";
+            if (m_Vars.at(m_VarNames.at(io.name + "_o")).access != e_NotAccessed) {
+              out << rewriteIdentifier("_", io.name + "_o", "[" + std::to_string(b) + "]", nullptr, ictx, io.srcloc, io.combinational ? FF_D : FF_Q, true, _1, input_bindings_usage);
+            } else {
+              out << "1'b0";
+            }
+            out << " : 1'bz;" << nxl;
           }
-          out << " ? ";
-          if (m_Vars.at(m_VarNames.at(io.name + "_o")).access != e_NotAccessed) {
-            out << rewriteIdentifier("_", io.name + "_o", "[" + std::to_string(b) + "]", nullptr, ictx, io.srcloc, io.combinational ? FF_D : FF_Q, true, _1, input_bindings_usage);
-          } else {
-            out << "1'b0";
+        } else {
+          // split inouts
+          for (int b = 0; b < width; ++b) {
+            // output enable
+            out << "assign " << ALG_INOUT << io.name << "_oe" << "[" << std::to_string(b) << "] = ";
+            if (m_Vars.at(m_VarNames.at(io.name + "_oenable")).access != e_NotAccessed) {
+              out << rewriteIdentifier("_", io.name + "_oenable", "[" + std::to_string(b) + "]", nullptr, ictx, io.srcloc, FF_Q, true, _1, input_bindings_usage);
+            } else {
+              out << "1'b0";
+            }
+            out << nxl;
+            // output
+            out << "assign " << ALG_INOUT << io.name << "_o" << "[" << std::to_string(b) << "] = ";
+            if (m_Vars.at(m_VarNames.at(io.name + "_o")).access != e_NotAccessed) {
+              out << rewriteIdentifier("_", io.name + "_o", "[" + std::to_string(b) + "]", nullptr, ictx, io.srcloc, io.combinational ? FF_D : FF_Q, true, _1, input_bindings_usage);
+            } else {
+              out << "1'b0";
+            }
+            out << nxl;
           }
-          out << " : 1'bz;" << nxl;
         }
       } else {
         out << "assign " << ALG_INOUT << "_" << io.name << " = {" << width << "{1'bz}};" << nxl;
       }
       // assign wire if used
       if (m_Vars.at(m_VarNames.at(io.name + "_i")).access != e_NotAccessed) {
-        out << "assign " << WIRE << "_" << io.name + "_i" << " = " << ALG_INOUT << "_" << io.name << ';' << nxl;
+        if (!g_SplitInouts) {
+          out << "assign " << WIRE << "_" << io.name + "_i" << " = " << ALG_INOUT << "_" << io.name << ';' << nxl;
+        } else {
+          out << "assign " << WIRE << "_" << io.name + "_i" << " = " << ALG_INOUT << io.name << "_i" << ';' << nxl;
+        }
       }
     }
   }

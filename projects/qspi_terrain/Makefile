@@ -1,7 +1,10 @@
 SERIAL_PORT ?= COM13
 
 icestick: main.si
-	silice-make.py -s main.si -b icestick -p basic,basic,pmod_qqspi,spiscreen_extra -o BUILD_$(subst :,_,$@) -D SIM_SB_IO=1 -t shell -a force-reset-init $(ARGS)
+	silice-make.py -s main.si -b tinytapeout -t tt_icestick -p basic -o BUILD_$(subst :,_,$@) -a force-reset-init,split-inouts $(ARGS)
+
+tinytapeout: main.si data.raw
+	silice-make.py -s main.si -b tinytapeout -t tinytapeout -p basic -o BUILD_$(subst :,_,$@) -a force-reset-init,split-inouts $(ARGS)
 
 verilator: main.si data.raw
 		silice-make.py -s main.si -b $@ -p basic,spiscreen -o BUILD_$(subst :,_,$@) -t shell $(ARGS)

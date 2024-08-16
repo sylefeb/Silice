@@ -51,6 +51,8 @@ using namespace Silice::Utils;
 
 bool g_Disable_CL0006 = false; // allows to force the use of outdates frameworks
 
+extern bool g_SplitInouts;
+
 // -------------------------------------------------
 
 std::string SiliceCompiler::findFile(std::string fname) const
@@ -643,6 +645,9 @@ void SiliceCompiler::writeBody(const t_parsed_unit& parsed, std::ostream& _out, 
       if (eq != std::string::npos) {
         _out << "`define " << d.substr(0, eq) << " " << d.substr(eq + 1) << nxl;
       }
+    }
+    if (g_SplitInouts) {
+      _out << "`define SPLIT_INOUTS\n";
     }
     // build the top module signature, verify in/out/inout match pins, verify no pin is used twise
     std::map<std::string, e_PortType> used_ports;

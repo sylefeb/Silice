@@ -47,6 +47,7 @@ using namespace Silice;
 
 extern bool g_Disable_CL0006;
 extern bool g_ForceResetInit;
+extern bool g_SplitInouts;
 
 // -------------------------------------------------
 
@@ -87,11 +88,14 @@ int main(int argc, char **argv)
     cmd.add(forceResetInit);
     TCLAP::SwitchArg             disableCL0006("", "no-pin-check", "disable check for pin declaration in frameworks (see CL0006)", true); /// ///////////////////////////////////////////// TODO set to false once no longer wip
     cmd.add(disableCL0006);
+    TCLAP::SwitchArg             splitInouts("", "split-inouts", "splits all inouts into enable, in, out pins", false);
+    cmd.add(splitInouts);
 
     cmd.parse(argc, argv);
 
     g_Disable_CL0006 = disableCL0006.getValue();
     g_ForceResetInit = forceResetInit.getValue();
+    g_SplitInouts    = splitInouts.getValue();
 
     SiliceCompiler compiler;
     compiler.run(

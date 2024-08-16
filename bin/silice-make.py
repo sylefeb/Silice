@@ -227,6 +227,10 @@ print('using build system    ',colored(target_builder[builder_name_prop],'cyan')
 framework_file = os.path.realpath(os.path.join(board_path,target_variant['framework']))
 os.environ["FRAMEWORK_FILE"] = framework_file
 
+if 'framework' in target_builder:
+    framework_file = os.path.realpath(os.path.join(board_path,target_builder['framework']))
+    os.environ["FRAMEWORK_FILE"] = framework_file
+
 # options
 if args.no_build:
     os.environ["NO_BUILD"] = "1"

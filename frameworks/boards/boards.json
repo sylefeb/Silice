@@ -71,6 +71,9 @@
     },
     {
       "name" : "colorlight"
+    },
+    {
+      "name" : "tinytapeout"
     }
   ]
 }
