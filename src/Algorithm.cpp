@@ -6298,6 +6298,13 @@ void Algorithm::determineBlueprintBoundVIO(const t_instantiation_context& ictx)
           // store
           m_VIOBoundToBlueprintOutputs[bindingRightIdentifier(b)] = wire;
         }
+        // binding to an inout?
+        auto b_test = b; b_test.dir = e_BiDir; // this ensures the returned indentifier has no suffix _i/_o
+        if (isInOut(bindingRightIdentifier(b_test))) {
+          // yes
+          std::string bindpoint = ib.second.instance_prefix + "_" + b.left;
+          m_VIOToBlueprintInOutsBound[bindingRightIdentifier(b_test)].insert(make_pair(range, make_pair(bindpoint, b.dir)));
+        }
       } else if (b.dir == e_BiDir) {
         // check not already bound
         if (m_VIOBoundToBlueprintOutputs.find(bindingRightIdentifier(b)) != m_VIOBoundToBlueprintOutputs.end()) {
@@ -6322,17 +6329,38 @@ void Algorithm::determineBlueprintBoundVIO(const t_instantiation_context& ictx)
             reportError(b.srcloc, "cannot bind to inout of different width");
           }
         }
-
-if (m_Name == "main") {
-  LIBSL_TRACE;
-}
         // record wire name for this inout
         std::string bindpoint = ib.second.instance_prefix + "_" + b.left;
         m_BlueprintInOutsBoundToVIO[bindpoint] = b.right;
-        m_VIOToBlueprintInOutsBound[bindingRightIdentifier(b)].push_back(make_pair(bindpoint,range));
+        m_VIOToBlueprintInOutsBound[bindingRightIdentifier(b)].insert(make_pair(range,make_pair(bindpoint,b.dir)));
+      } else if (b.dir == e_Left) {
+        // binding to an inout?
+        auto b_test = b; b_test.dir = e_BiDir; // this ensures the returned indentifier has no suffix _i/_o
+        if (isInOut(bindingRightIdentifier(b_test))) {
+          // yes
+          std::string bindpoint = ib.second.instance_prefix + "_" + b.left;
+          m_VIOToBlueprintInOutsBound[bindingRightIdentifier(b_test)].insert(make_pair(range, make_pair(bindpoint, b.dir)));
+        }
       }
     }
   }
+  // verify inout ranges
+  for (const auto& bio : m_VIOToBlueprintInOutsBound) {
+    if (bio.second.size() < 2) { continue; }
+    int prev_bit = -1;
+    for (const auto& bpr : bio.second) {
+      if (bpr.first[0] == prev_bit) {
+        reportError(t_source_loc(), "error in bindings of inout %s: bound ranges overlap (first overlapping is bit %d)\n", bio.first.c_str(), prev_bit);
+      } else {
+        prev_bit = prev_bit + bpr.first[1];
+      }
+    }
+  }
+
+  if (m_Name == "main") {
+    LIBSL_TRACE;
+  }
+
 }
 
 // -------------------------------------------------
@@ -6744,25 +6772,26 @@ void Algorithm::lint(const t_instantiation_context &ictx)
 
 // -------------------------------------------------
 
-void Algorithm::resolveInOuts()
+void Algorithm::createInOutVars()
 {
+  if (m_Name == "main") {
+    LIBSL_TRACE;
+  }
+
   for (const auto& io : m_InOuts) {
-    if (m_VIOToBlueprintInOutsBound.count(io.name) == 0) {
-      // inout io is possibly used in this algorithm as it is not bound to any blueprint
-      // generate vars
-      t_var_nfo v;
-      var_nfo_copy(v, io);
-      bool is_input = true; // expects first in c_InOutmembers to be the input
-      for (auto m : c_InOutmembers) {
-        v.name = io.name + "_" + m;
-        if (is_input) {
-          v.usage  = e_Wire;
-          is_input = false;
-        } else {
-          v.usage  = io.usage;
-        }
-        addVar(v, m_Blocks.front(), t_source_loc());
+    // generate vars
+    t_var_nfo v;
+    var_nfo_copy(v, io);
+    bool is_input = true; // expects first in c_InOutmembers to be the input
+    for (auto m : c_InOutmembers) {
+      v.name = io.name + "_" + m;
+      if (is_input) {
+        v.usage  = e_Wire;
+        is_input = false;
+      } else {
+        v.usage  = io.usage;
       }
+      addVar(v, m_Blocks.front(), t_source_loc());
     }
   }
 }
@@ -6803,8 +6832,8 @@ void Algorithm::optimize(const t_instantiation_context& ictx)
         generateStates(fsm);
       }
     }
-    // resolve inouts
-    resolveInOuts();
+    // create inout vars
+    createInOutVars();
     // determine which VIO are bound
     determineBlueprintBoundVIO(ictx);
     // analyze instances inputs
@@ -8199,27 +8228,8 @@ void Algorithm::writeCombinationalAlwaysPre(
             sl_assert(std::holds_alternative<std::string>(b.right));
             w.out << FF_D << prefix + bindingRightIdentifier(b) + " = " + WIRE + ia.instance_prefix + "_" + b.left << ';' << nxl;
           }
-        } else if (m_InOutNames.find(bindingRightIdentifier(b)) != m_InOutNames.end()) {
-          // bound to an algorithm inout
-          std::string base, access;
-          writeInoutBinding(ictx, b.right, _usage, base, access);
-          // configure it as an output and bind the wire
-          w.out << base + "_o"       + access + " = " + WIRE + ia.instance_prefix + "_" + b.left << ';' << nxl;
-          w.out << base + "_oenable" + access + " = 1'b1;" << nxl;
         }
         // else, the output is replaced by the wire
-      } else if (b.dir == e_Left || b.dir == e_LeftQ) { // inputs
-        if (m_InOutNames.find(bindingRightIdentifier(b)) != m_InOutNames.end()) {
-          // check this is not a <:: (unsupported on inout)
-          if (b.dir == e_LeftQ) {
-            reportError(b.srcloc, "binding an input to an inout can only be done with <:");
-          }
-          // bound to an algorithm inout, configure as input
-          std::string base, access;
-          writeInoutBinding(ictx, b.right, _usage, base, access);
-          // configure as input
-          w.out << base + "_oenable" + access + " = 1'b0;" << nxl;
-        }
       }
     }
   }
@@ -8784,9 +8794,6 @@ void Algorithm::writeStatelessBlockGraph(
   // follow the chain
   const t_combinational_block *current = block;
   while (true) {
-    if (current->block_name == "__stage___block_26") {
-      LIBSL_TRACE;
-    }
     // write current block
     writeBlock(prefix, w, ictx, current, _dependencies, _usage, _lines);
     // goto next in chain
@@ -10290,14 +10297,12 @@ void Algorithm::writeAsModule(
     out << ");" << nxl;
   }
   out << nxl;
-  
-  if (m_Name == "main") {
-    LIBSL_TRACE;
-  }
 
   // inouts used in algorithm
   for (const auto &io : m_InOuts) {
-    /*if (m_VIOToBlueprintInOutsBound.count(io.name) == 0)*/ {
+    // Either of two cases: inout is bound or it is used internally
+    if (m_VIOToBlueprintInOutsBound.count(io.name) == 0) {
+      // inout is not bound, this is a case of (potential) internal use
       string wdth = varBitWidth(io, ictx).c_str();
       if (!is_number(wdth)) {
         reportError(io.srcloc, "cannot find width of '%s' during instantiation of unit '%s'", io.name.c_str(), m_Name.c_str());
@@ -10355,6 +10360,35 @@ void Algorithm::writeAsModule(
           out << "assign " << WIRE << "_" << io.name + "_i" << " = " << ALG_INOUT << "_" << io.name << ';' << nxl;
         } else {
           out << "assign " << WIRE << "_" << io.name + "_i" << " = " << ALG_INOUT << io.name << "_i" << ';' << nxl;
+        }
+      }
+    } else {
+      // inout is bound, we need to deal with cases where the binding in on inputs / outputs (not bidir)
+      // NOTE: ranges have been checked for overlap already
+      for (const auto& rbp : m_VIOToBlueprintInOutsBound.at(io.name)) {
+        if (rbp.second.second == e_Left) {
+          // bound to an input
+          for (int bit = rbp.first[0]; bit < rbp.first[0] + rbp.first[1]; ++bit) {
+            if (!g_SplitInouts) {
+              out << "assign " << ALG_INOUT << "_" << io.name << "[" << std::to_string(bit) << "] = 1'bz;";
+            } else {
+              out << "assign " << ALG_INOUT << "_" << io.name + "_oe" << "[" << std::to_string(bit) << "] = 1'b0;";
+            }
+            out << nxl;
+          }
+        } else if (rbp.second.second == e_Right) {
+          // bound to an output
+          for (int b = rbp.first[0]; b < rbp.first[0] + rbp.first[1]; ++b) {
+            if (!g_SplitInouts) {
+              out << "assign " << ALG_INOUT << "_" << io.name << "[" << std::to_string(b) << "] = ";
+            } else {
+              out << "assign " << ALG_INOUT << "_" << io.name + "_oe" << "[" << std::to_string(b) << "] = 1'b1;" << nxl;
+              out << "assign " << ALG_INOUT << "_" << io.name + "_o" << "[" << std::to_string(b) << "] = ";
+            }
+            t_vio_dependencies _1;
+            out << rewriteIdentifier("_", io.name + "_o", "[" + std::to_string(b) + "]", nullptr, ictx, io.srcloc, io.combinational ? FF_D : FF_Q, e_ReadOnly, _1, input_bindings_usage);
+            out << nxl;
+          }
         }
       }
     }

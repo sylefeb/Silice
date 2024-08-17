@@ -1,0 +1,13 @@
+
+unit main(
+  inout  uint8 uio,
+  output uint1 a
+) {
+
+  always {
+    uio.oenable[0,1] = 1;
+    uio.o[1,1] = 1;
+    a     = uio.i[2,1];
+  }
+
+}

@@ -102,6 +102,9 @@ namespace Silice
     /// \brief identifier availability
     enum e_IdentifierAvailability { e_Available=0, e_Shadowing=1, e_Collision=2};
 
+    /// \brief enum binding direction
+    enum e_BindingDir { e_Left, e_LeftQ, e_Right, e_BiDir, e_Auto, e_AutoQ };
+
     /// \brief algorithm name
     std::string m_Name;
 
@@ -206,8 +209,8 @@ private:
     std::unordered_map<std::string, std::string>      m_VIOBoundToBlueprintOutputs;
     /// \brief module/algorithms inouts bound to VIO (inout => vio name)
     std::unordered_map<std::string, t_binding_point > m_BlueprintInOutsBoundToVIO;
-    /// \brief VIO bound to module/algorithms inouts (vio name => inout)
-    std::unordered_map<std::string, std::vector<std::pair<std::string,v2i> > > m_VIOToBlueprintInOutsBound;
+    /// \brief VIO bound to module/algorithms inouts (vio name => inout), all bindings sorted by range
+    std::unordered_map<std::string, std::map<v2i,std::pair<std::string,e_BindingDir> > > m_VIOToBlueprintInOutsBound;
 
     // forward definition of combinational blocks
     class t_combinational_block;
@@ -228,9 +231,6 @@ private:
     std::vector< t_mem_nfo >              m_Memories;
     /// \brief all memorie names, map contains index in m_Memories
     std::unordered_map<std::string, int > m_MemoryNames;
-
-    /// \brief enum binding direction
-    enum e_BindingDir { e_Left, e_LeftQ, e_Right, e_BiDir, e_Auto, e_AutoQ };
 
     /// \brief records info about variable bindings
     typedef struct
@@ -1040,8 +1040,8 @@ private:
     void autobindInstancedBlueprint(t_instanced_nfo& _bp);
     /// \brief resove e_Auto binding directions
     void resolveInstancedBlueprintBindingDirections(t_instanced_nfo& _bp);
-    /// \brief resolve inouts
-    void resolveInOuts();
+    /// \brief create inout internal variables
+    void createInOutVars();
     ///  \brief adds variables for non bound instanced blueprint inputs and outputs
     void createInstancedBlueprintInputOutputVars(t_instanced_nfo& _bp);
     /// \brief resolves the type of a var from an instanced blueprint
