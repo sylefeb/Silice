@@ -1583,27 +1583,7 @@ std::string Algorithm::rewriteIdentifier(
     if (isInput(var)) {
       return encapsulateIdentifier(var, read_access, ALG_INPUT + prefix + var, suffix);
     } else if (isInOut(var)) {
-      /// NOTE: this below is now broken by the fact that binding input/output on bidir
-      ///       does use _i / _o. FIXME TODO differentiate
-      /*
-      if (isInOutAccessed(var)) { // indicates the inout is used in expressions (outside of binding)
-        if (m_VIOToBlueprintInOutsBound.count(var)) {
-          reportError(srcloc, "cannot bind inout %s (already used in unit body)", var.c_str());
-        } else {
-          reportError(srcloc, "cannot use inout %s as-is in expression (use .i, .o or .oenable)", var.c_str());
-        }
-      } else*/
-      {
-        // decorate with _i, _o as needed
-        if (access_type == e_ReadOnly) {
-          var = var + "_i";
-        } else if (access_type == e_WriteOnly) {
-          var = var + "_o";
-        } else {
-          sl_assert(access_type == e_ReadWrite);
-        }
-        return encapsulateIdentifier(var, read_access, ALG_INOUT + prefix + var, suffix);
-      }
+      return encapsulateIdentifier(var, read_access, ALG_INOUT + prefix + var, suffix);
     } else if (isOutput(var)) {
       auto usage = m_Outputs.at(m_OutputNames.at(var)).usage;
       if (usage == e_Temporary) {
@@ -5308,15 +5288,14 @@ std::string Algorithm::bindingRightIdentifier(const t_binding_nfo& bnd, const t_
   } else {
     id = determineAccessedVar(std::get<siliceParser::AccessContext*>(bnd.right), bctx);
   }
-  if (isInOut(id)) {
+  if (isInOut(id) && g_SplitInouts) {
     // we decorate the vio accordingly
     if (bnd.dir == e_Right) {
       id = id + "_o";
     } else if (bnd.dir == e_Left || bnd.dir == e_LeftQ) {
       id = id + "_i";
     } // else bidir, keep as is
-    else { sl_assert(bnd.dir == e_BiDir); } /// TEST, can dir == Auto(Q) appear here?
-    
+    else { sl_assert(bnd.dir == e_BiDir); } // Auto(Q) should not appear here
   }
   return id;
 }
@@ -6306,9 +6285,11 @@ void Algorithm::determineBlueprintBoundVIO(const t_instantiation_context& ictx)
           m_VIOToBlueprintInOutsBound[bindingRightIdentifier(b_test)].insert(make_pair(range, make_pair(bindpoint, b.dir)));
         }
       } else if (b.dir == e_BiDir) {
-        // check not already bound
-        if (m_VIOBoundToBlueprintOutputs.find(bindingRightIdentifier(b)) != m_VIOBoundToBlueprintOutputs.end()) {
-          reportError(b.srcloc, "vio '%s' is already bound as the output of another instance", bindingRightIdentifier(b).c_str());
+        if (!part_access) {
+          // check not already bound
+          if (m_VIOBoundToBlueprintOutputs.find(bindingRightIdentifier(b)) != m_VIOBoundToBlueprintOutputs.end()) {
+            reportError(b.srcloc, "vio '%s' is already bound as the output of another instance", bindingRightIdentifier(b).c_str());
+          }
         }
         // check width if it is an access
         if (std::holds_alternative<siliceParser::AccessContext*>(b.right)) {
