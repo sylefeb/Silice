@@ -48,11 +48,11 @@ namespace Silice
     /// \brief enum for variable access    
     enum e_Access {
       e_NotAccessed = 0,
-      e_ReadOnly = 1,
-      e_WriteOnly = 2,
-      e_ReadWrite = 3,   /// e_ReadWrite = e_ReadOnly | e_WriteOnly
-      e_WriteBinded = 4,
-      e_ReadWriteBinded = 8,
+      e_ReadOnly    = 1,
+      e_WriteOnly   = 2,
+      e_ReadWrite   = 3,   /// e_ReadWrite = e_ReadOnly | e_WriteOnly
+      e_BoundToOutput    = 4,
+      e_BoundToInOut     = 8,
       e_InternalFlipFlop = 16
     };
 
