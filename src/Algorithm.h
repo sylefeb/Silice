@@ -207,7 +207,7 @@ private:
     /// \brief module/algorithms inouts bound to VIO (inout => vio name)
     std::unordered_map<std::string, t_binding_point > m_BlueprintInOutsBoundToVIO;
     /// \brief VIO bound to module/algorithms inouts (vio name => inout)
-    std::unordered_map<std::string, std::string >     m_VIOToBlueprintInOutsBound;
+    std::unordered_map<std::string, std::vector<std::pair<std::string,v2i> > > m_VIOToBlueprintInOutsBound;
 
     // forward definition of combinational blocks
     class t_combinational_block;
@@ -796,11 +796,13 @@ private:
       std::string prefix, std::string var, std::string suffix,
       const t_combinational_block_context *bctx, const t_instantiation_context& ictx,
       const Utils::t_source_loc& srcloc,
-      std::string ff, bool read_access,
+      std::string ff, e_Access access_type,
       const t_vio_dependencies &dependencies,
       t_vio_usage &_usage, e_FFUsage ff_force = e_None, bool on_binding = false) const;
     /// \brief rewrite an expression, renaming identifiers
-    std::string rewriteExpression(std::string prefix, antlr4::tree::ParseTree *expr, int __id, const t_combinational_block_context* bctx, const t_instantiation_context &ictx, std::string ff, bool read_access, const t_vio_dependencies& dependencies, t_vio_usage &_usage) const;
+    std::string rewriteExpression(std::string prefix, antlr4::tree::ParseTree *expr, int __id,
+      const t_combinational_block_context* bctx, const t_instantiation_context &ictx, 
+      std::string ff, e_Access access_type, const t_vio_dependencies& dependencies, t_vio_usage &_usage) const;
     /// \brief returns true if an expression is a single identifier
     bool isIdentifier(antlr4::tree::ParseTree *expr, std::string& _identifier) const;
     /// \brief returns true if an expression is an access
@@ -1119,15 +1121,15 @@ private:
     /// \brief writes reading back the results of a subroutine
     void writeSubroutineReadback(antlr4::tree::ParseTree *node, std::string prefix, t_writer_context &w, const t_subroutine_nfo* called, const t_combinational_block_context* bctx, const t_instantiation_context &ictx, siliceParser::CallParamListContext *plist, t_vio_usage &_usage) const;
     /// \brief writes access to an algorithm in/out, memory or group member ; returns info of accessed member.
-    std::tuple<t_type_nfo, int> writeIOAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::IoAccessContext* ioaccess, std::string suffix, int __id, const t_combinational_block_context* bctx, const t_instantiation_context& ictx, std::string ff, const t_vio_dependencies& dependencies, t_vio_usage &_usage) const;
+    std::tuple<t_type_nfo, int> writeIOAccess(std::string prefix, std::ostream& out, e_Access access_type, siliceParser::IoAccessContext* ioaccess, std::string suffix, int __id, const t_combinational_block_context* bctx, const t_instantiation_context& ictx, std::string ff, const t_vio_dependencies& dependencies, t_vio_usage &_usage) const;
     /// \brief writes access to a table in/out
-    void writeTableAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::TableAccessContext* tblaccess, std::string suffix, int __id, const t_combinational_block_context* bctx, const t_instantiation_context &ictx, std::string ff, const t_vio_dependencies& dependencies, t_vio_usage &_usage) const;
+    void writeTableAccess(std::string prefix, std::ostream& out, e_Access access_type, siliceParser::TableAccessContext* tblaccess, std::string suffix, int __id, const t_combinational_block_context* bctx, const t_instantiation_context &ictx, std::string ff, const t_vio_dependencies& dependencies, t_vio_usage &_usage) const;
     /// \brief writes access to a bitfield member
-    void writeBitfieldAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::BitfieldAccessContext* ioaccess, std::pair<std::string, std::string> range, int __id, const t_combinational_block_context* bctx, const t_instantiation_context &ictx, std::string ff, const t_vio_dependencies& dependencies, t_vio_usage &_usage) const;
+    void writeBitfieldAccess(std::string prefix, std::ostream& out, e_Access access_type, siliceParser::BitfieldAccessContext* ioaccess, std::pair<std::string, std::string> range, int __id, const t_combinational_block_context* bctx, const t_instantiation_context &ictx, std::string ff, const t_vio_dependencies& dependencies, t_vio_usage &_usage) const;
     /// \brief writes part-select of bits
-    void writePartSelect(std::string prefix, std::ostream& out, bool assigning, siliceParser::PartSelectContext* partsel, int __id, const t_combinational_block_context *bctx, const t_instantiation_context &ictx, std::string ff, const t_vio_dependencies& dependencies, t_vio_usage &_usage) const;
+    void writePartSelect(std::string prefix, std::ostream& out, e_Access access_type, siliceParser::PartSelectContext* partsel, int __id, const t_combinational_block_context *bctx, const t_instantiation_context &ictx, std::string ff, const t_vio_dependencies& dependencies, t_vio_usage &_usage) const;
     /// \brief writes access to an identifier
-    void writeAccess(std::string prefix, std::ostream& out, bool assigning, siliceParser::AccessContext* access, int __id, const t_combinational_block_context *bctx, const t_instantiation_context &ictx, std::string ff, const t_vio_dependencies& dependencies, t_vio_usage &_usage) const;
+    void writeAccess(std::string prefix, std::ostream& out, e_Access access_type, siliceParser::AccessContext* access, int __id, const t_combinational_block_context *bctx, const t_instantiation_context &ictx, std::string ff, const t_vio_dependencies& dependencies, t_vio_usage &_usage) const;
     /// \brief writes an assignment
     void writeAssignement(std::string prefix, t_writer_context &w,
       const t_instr_nfo& a,
