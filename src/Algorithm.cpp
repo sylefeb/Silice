@@ -7422,7 +7422,6 @@ void Algorithm::writeBitfieldAccess(
     out << rewriteIdentifier(prefix, bfaccess->idOrIoAccess()->IDENTIFIER()->getText(), suffix, bctx, ictx,
       sourceloc(bfaccess->idOrIoAccess()), access_type == e_WriteOnly ? FF_D : ff, access_type, dependencies, _usage);
   }
-  // w.out << '[' << ow.second << "+:" << ow.first.width << ']';
   if (ow.first.base_type == Int) {
     out << ")";
   }
