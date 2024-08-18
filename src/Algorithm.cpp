@@ -6153,7 +6153,7 @@ void Algorithm::determineUsage()
     } else if (v.access & e_InternalFlipFlop) {
       if (report) std::cerr << v.name << " => internal flip-flop ";
       v.usage = e_FlipFlop;
-    } else if (v.access == e_ReadWrite) {
+    } else if (v.access == e_ReadAndWrite) {
       if ( v.table_size == 0  // tables are not allowed to become temporary registers
         && global_in_read.find(v.name) == global_in_read.end()) {
         if (report) std::cerr << v.name << " => temp ";
@@ -7789,10 +7789,20 @@ void Algorithm::writeWireDeclarations(std::string prefix, std::ostream& out, con
       if (v.access == e_NotAccessed) {
         continue;
       }
-      if (v.table_size == 0) {
-        writeVerilogDeclaration(out, ictx, "wire", v, string(WIRE) + prefix + v.name);
+      if (v.access == e_BoundToInOut && g_SplitInouts) {
+        for (auto suffix : { "_oe","_o","_i" }) {
+          if (v.table_size == 0) {
+            writeVerilogDeclaration(out, ictx, "wire", v, string(WIRE) + prefix + v.name + suffix);
+          } else {
+            writeVerilogDeclaration(out, ictx, "wire", v, string(WIRE) + prefix + v.name + suffix + '[' + std::to_string(v.table_size - 1) + ":0]");
+          }
+        }
       } else {
-        writeVerilogDeclaration(out, ictx, "wire", v, string(WIRE) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + ":0]");
+        if (v.table_size == 0) {
+          writeVerilogDeclaration(out, ictx, "wire", v, string(WIRE) + prefix + v.name);
+        } else {
+          writeVerilogDeclaration(out, ictx, "wire", v, string(WIRE) + prefix + v.name + '[' + std::to_string(v.table_size - 1) + ":0]");
+        }
       }
     }
   }
@@ -10336,7 +10346,12 @@ void Algorithm::writeAsModule(
           }
         }
       } else {
-        out << "assign " << ALG_INOUT << "_" << io.name << " = {" << width << "{1'bz}};" << nxl;
+        // unused, set as inputs
+        if (!g_SplitInouts) {
+          out << "assign " << ALG_INOUT << "_" << io.name << " = {" << width << "{1'bz}};" << nxl;
+        } else {
+          out << "assign " << ALG_INOUT << "_" << io.name +"_oe" << " = {" << width << "{1'bz}};" << nxl;
+        }
       }
       // assign wire if used
       if (m_Vars.at(m_VarNames.at(io.name + "_i")).access != e_NotAccessed) {

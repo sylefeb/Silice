@@ -50,7 +50,7 @@ namespace Silice
       e_NotAccessed = 0,
       e_ReadOnly    = 1,
       e_WriteOnly   = 2,
-      e_ReadWrite   = 3,   /// e_ReadWrite = e_ReadOnly | e_WriteOnly
+      e_ReadAndWrite     = 3,   /// e_ReadWrite = e_ReadOnly | e_WriteOnly
       e_BoundToOutput    = 4,
       e_BoundToInOut     = 8,
       e_InternalFlipFlop = 16
