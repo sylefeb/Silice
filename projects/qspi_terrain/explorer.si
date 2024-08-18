@@ -34,11 +34,10 @@ $$end
 unit explorer( // I guess this is the SOC :-D
   output uint5 leds,
 $$if not SIMULATION then
-  input  uint1 btn_0,
-  input  uint1 btn_1,
-  input  uint1 btn_2,
-  input  uint1 btn_3,
-$$end
+  input   uint1 btn_0,
+  input   uint1 btn_1,
+  input   uint1 btn_2,
+  input   uint1 btn_3,
   inout   uint1 ram_io0,
   inout   uint1 ram_io1,
   inout   uint1 ram_io2,
@@ -46,6 +45,7 @@ $$end
   output  uint1 ram_clk,
   output  uint1 ram_csn,
   output  uint2 ram_bank,
+$$end
   output  uint1 spiscreen_clk,
   output  uint1 spiscreen_mosi,
   output  uint1 spiscreen_dc,
