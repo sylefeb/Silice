@@ -163,7 +163,7 @@ void Algorithm::checkBlueprintsBindings(const t_instantiation_context &ictx) con
           bool instr_comb = bp.second.blueprint->outputs().at(bp.second.blueprint->outputNames().at(b.left)).combinational;
           if (m_Outputs.at(m_OutputNames.at(br)).combinational ^ instr_comb) {
             reportError(b.srcloc, "instance '%s', binding instance output '%s' to algorithm output '%s'\n"
-              "using a mix of output! and output. Consider adjusting the parent algorithm output to '%s'.",
+              "using a mix of output! and output. Consider adjusting the parent unit output to '%s'.",
               bp.first.c_str(), b.left.c_str(), br.c_str(), instr_comb ? "output!" : "output");
           }
         }
