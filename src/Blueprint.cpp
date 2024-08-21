@@ -199,7 +199,7 @@ std::string Blueprint::varInitValue(const t_var_nfo &v, const t_instantiation_co
     }
     return str;
   } else {
-    sl_assert(!v.init_values.empty() || v.do_not_initialize);
+    sl_assert(!v.init_values.empty() || v.do_not_initialize); // TODO FIXME: this can be triggered when a table has size 0 (uint8 tbl[] = {};)
     if (v.init_values.empty()) {
       return "";
     } else {
