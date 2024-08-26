@@ -38,6 +38,7 @@ OSS_CAD_DAY=29
 OSS_CAD_YEAR=2023
 OSS_PACKAGE=oss-cad-suite-linux-x64-$OSS_CAD_YEAR$OSS_CAD_MONTH$OSS_CAD_DAY.tgz
 
+echo "Downloading and installing oss-cad-suite ..."
 rm -rf tools/fpga-binutils/
 rm -rf tools/oss-cad-suite/
 sudo rm -rf /usr/local/share/silice
@@ -46,6 +47,7 @@ sudo mkdir -p /usr/local/share/silice
 sudo mv $OSS_PACKAGE /usr/local/share/silice/
 sudo cp tools/oss-cad-suite-env.sh /usr/local/share/silice/
 cd /usr/local/share/silice ; sudo tar xvfz ./$OSS_PACKAGE ; sudo rm ./$OSS_PACKAGE ; cd -
+echo "done."
 
 # -------------- compile Silice -----------------------------
 ./compile_silice_linux.sh
