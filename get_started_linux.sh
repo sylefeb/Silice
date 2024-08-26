@@ -6,14 +6,23 @@ echo "--------------------------------------------------------------------"
 echo "     >>>> it will request sudo access to install packages <<<<"
 echo "--------------------------------------------------------------------"
 
-read -p "Please type 'y' to go ahead, any other key to exit: " -n 1 -r
-if [[ ! $REPLY =~ ^[Yy]$ ]]
-then
-	echo
-	echo "Exiting."
-	exit
+non_interactive=false
+if [[ "$1" == "--non-interactive" ]]; then
+    non_interactive=true
 fi
-echo ""
+
+if [ "$non_interactive" = true ]; then
+  echo "non-interactive mode"
+else
+  read -p "Please type 'y' to go ahead, any other key to exit: " -n 1 -r
+  if [[ ! $REPLY =~ ^[Yy]$ ]]
+  then
+    echo
+    echo "Exiting."
+    exit
+  fi
+  echo ""
+fi
 
 # -------------- install packages ----------------------------
 # attempt to guess
