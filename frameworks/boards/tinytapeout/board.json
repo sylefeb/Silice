@@ -9,17 +9,24 @@
       ],
       "builders": [
         {
-          "name"    : "tinytapeout",
-          "builder" : "shell",
-          "command" : "tinytapeout.sh",
+          "name"       : "tinytapeout",
+          "builder"    : "shell",
+          "command"    : "tinytapeout.sh",
           "description": "Custom shell script using yosys"
         },
         {
-          "name"    : "tt_icestick",
-          "builder" : "shell",
-          "framework" : "tt_icestick.v",
-          "command" : "tt_icestick.sh",
+          "name"       : "tt_icestick",
+          "builder"    : "shell",
+          "framework"  : "tt_icestick.v",
+          "command"    : "tt_icestick.sh",
           "description": "Tinytapeout simulation on icestick"
+        },
+        {
+          "name"       : "tt_icebreaker",
+          "builder"    : "shell",
+          "framework"  : "tt_icebreaker.v",
+          "command"    : "tt_icebreaker.sh",
+          "description": "Tinytapeout simulation on icebreaker"
         }
       ]
     }
