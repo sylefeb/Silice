@@ -44,7 +44,24 @@
           "bitstream"  : "build.bit",
           "constraints": [{"name": "../ecpix5/ecpix5.lpf", "file_type": "LPF"}],
           "program": [{"cmd" : "openFPGAloader", "args" : " -b ecpix5 build.bit"}]
-          }
+        },
+        {
+          "name"       : "tt_ulx3s",
+          "builder"    : "edalize",
+          "framework"  : "tt_ulx3s.v",
+          "description": "Tinytapeout simulation on ulx3s",
+          "tool"       : "trellis",
+          "tool_options": [
+            {
+              "yosys_synth_options": ["-abc9 -top top"],
+              "nextpnr_options": ["--85k", "--freq 25", "--package CABGA381", "--timing-allow-fail"],
+              "pnr": "next"
+            }
+          ],
+          "bitstream"  : "build.bit",
+          "constraints": [{"name": "../ulx3s/ulx3s.lpf", "file_type": "LPF"}],
+          "program": [{"cmd" : "openFPGALoader", "args" : "-b ulx3s build.bit"}]
+        }
       ]
     }
   ]
