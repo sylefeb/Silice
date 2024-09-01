@@ -4827,6 +4827,9 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, const t_v
           msg += "Consider inserting a sequential split with '++:'\n\n";
         }
         msg += notes;
+        /// TODO, FIXME: this considers all accesses to an array as a single
+        /// vio, while accessing different entries (and even bits) should be
+        /// allowed
         reportError(sloc,msg.c_str(), w.c_str());
       }
       // check if any one of the combinational outputs the var depends on, depends on this same var (cycle!)

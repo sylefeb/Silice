@@ -25,6 +25,12 @@ module tt_um_silice (
 
   // https://tinytapeout.com/specs/pinouts/
 
+  // register reset
+  reg rst_n_q;
+  always @(posedge clk) begin
+    rst_n_q <= rst_n;
+  end
+
   M_main main(
 
     .in_ui(ui_in),
@@ -35,7 +41,7 @@ module tt_um_silice (
     .inout_uio_oe(uio_oe),
 
     .in_run(1'b1),
-    .reset(~rst_n),
+    .reset(~rst_n_q),
     .clock(clk)
   );
 
