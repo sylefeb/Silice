@@ -114,6 +114,10 @@ if [[ -n "${VGA}" ]]; then
   VERILATOR_LIB_SRC+=$VERILATOR_GFX_SRC
   VERILATOR_LIB_SRC+=" $VERILATOR_LIB_DIR/VgaChip.cpp"
 fi
+if [[ -n "${PWM_AUDIO}" ]]; then
+  DEFINES+="-CFLAGS -DPWM_AUDIO "
+  VERILATOR_LIB_SRC+=" $VERILATOR_LIB_DIR/PWMAudio.cpp"
+fi
 if [[ -n "${SDRAM}" ]]; then
   DEFINES+="-CFLAGS -DSDRAM "
   VERILATOR_LIB_SRC+=" $VERILATOR_LIB_DIR/sdr_sdram.cpp"
