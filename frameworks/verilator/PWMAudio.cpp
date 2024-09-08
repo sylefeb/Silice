@@ -61,7 +61,7 @@ void PWMAudio::eval(
       // next sample
       int sample = (65535 * m_num_high) / m_sound_sample_period - 32767;
       int prev_sample = m_wave.empty() ? sample : m_wave.back();
-      m_wave.push_back((sample*10 + prev_sample*6)>>4);
+      m_wave.push_back((sample*8 + prev_sample*8)/16);
       // std::cerr << "PWMAudio: sample: " << sample << '\n';
       m_num_high = 0;
     }
@@ -76,7 +76,7 @@ void PWMAudio::eval(
 
 // ----------------------------------------------------------------------------
 
-void PWMAudio::writeWave(std::string fname, const std::vector<uint16_t>& data, int sampleRate)
+void PWMAudio::writeWave(std::string fname, const std::vector<int16_t>& data, int sampleRate)
 {
   std::ofstream file(fname, std::ios::binary);
   if (!file) {

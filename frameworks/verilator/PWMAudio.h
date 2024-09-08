@@ -46,9 +46,9 @@ private:
   int       m_save_wave_counter;
   int       m_num_high;
 
-  std::vector<uint16_t> m_wave;
+  std::vector<int16_t> m_wave;
 
-  void writeWave(std::string fname, const std::vector<uint16_t>& data, int sampleRate);
+  void writeWave(std::string fname, const std::vector<int16_t>& data, int sampleRate);
 
 public:
 
