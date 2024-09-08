@@ -60,7 +60,8 @@ void PWMAudio::eval(
       m_sound_sample_counter = m_sound_sample_period;
       // next sample
       int sample = (65535 * m_num_high) / m_sound_sample_period - 32767;
-      m_wave.push_back(sample);
+      int prev_sample = m_wave.empty() ? sample : m_wave.back();
+      m_wave.push_back((sample*10 + prev_sample*6)>>4);
       // std::cerr << "PWMAudio: sample: " << sample << '\n';
       m_num_high = 0;
     }
