@@ -86,10 +86,12 @@ int main(int argc, char **argv)
     cmd.add(exportParam);
     TCLAP::SwitchArg             forceResetInit("", "force-reset-init", "forces initialization at reset of initialized registers", false);
     cmd.add(forceResetInit);
-    TCLAP::SwitchArg             disableCL0006("", "no-pin-check", "disable check for pin declaration in frameworks (see CL0006)", true); /// ///////////////////////////////////////////// TODO set to false once no longer wip
+    TCLAP::SwitchArg             disableCL0006("", "no-pin-check", "disable check for pin declaration in frameworks (see CL0006)", true); /// ////////// TODO set to false once no longer wip
     cmd.add(disableCL0006);
     TCLAP::SwitchArg             splitInouts("", "split-inouts", "splits all inouts into enable, in, out pins", false);
     cmd.add(splitInouts);
+    TCLAP::ValueArg<std::string> top("", "top", "Name of the top module in generated Verilog", false, "top", "string");
+    cmd.add(top);
 
     cmd.parse(argc, argv);
 
@@ -106,7 +108,8 @@ int main(int argc, char **argv)
       defines.getValue(),
       configs.getValue(),
       toExport.getValue(),
-      exportParam.getValue());
+      exportParam.getValue(),
+      top.getValue());
 
   } catch (TCLAP::ArgException& err) {
     std::cerr << "command line error: " << err.what() << "\n";

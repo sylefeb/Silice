@@ -31,7 +31,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <iostream>
 #include <fstream>
 
-#define SAMPLE_FREQ 11025
+#define SAMPLE_FREQ (48828/4) // because its a nice multiple of 25MHz ...
+
+/// TODO: lots of assumptions here, generalize!
 
 // ----------------------------------------------------------------------------
 

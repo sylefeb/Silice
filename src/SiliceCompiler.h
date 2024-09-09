@@ -110,7 +110,8 @@ namespace Silice {
       const std::vector<std::string>& defines,
       const std::vector<std::string>& configs,
       std::string to_export,
-      const std::vector<std::string>& export_params);
+      const std::vector<std::string>& export_params,
+      std::string top_module_name);
 
     /// \brief writes a unit in the output stream
     void writeUnit(
