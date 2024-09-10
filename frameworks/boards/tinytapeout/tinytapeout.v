@@ -31,6 +31,9 @@ module %TOP_NAME% (
     rst_n_q <= rst_n;
   end
 
+  wire __unused_out_done;
+  wire __unused_out_clock;
+
   M_main main(
 
     .in_ui(ui_in),
@@ -42,8 +45,14 @@ module %TOP_NAME% (
 
     .in_run(1'b1),
     .reset(~rst_n_q),
-    .clock(clk)
+    .clock(clk),
+
+    .out_done (__unused_out_done),
+    .out_clock(__unused_out_clock)
   );
+
+  // prevents warning
+  wire _unused = &{ena};
 
   //              vvvvv inputs when in reset to allow PMOD external takeover
   // assign uio_oe = rst_n ? {1'b1,1'b1,main_uio_oe[3],main_uio_oe[2],1'b1,main_uio_oe[1],main_uio_oe[0],1'b1} : 8'h00;
