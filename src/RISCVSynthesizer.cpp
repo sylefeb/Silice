@@ -285,7 +285,7 @@ string RISCVSynthesizer::generateCHeader(siliceParser::RiscvContext *riscv) cons
     }
     ptr_next = ptr_next << 1;
     if (ptr_next >= ptr_base) {
-      reportError(sourceloc(riscv), "[RISCV] address bust not wide enough for the number of input/outputs (one bit per IO is required)");
+      reportError(sourceloc(riscv), "[RISCV] address bus not wide enough for the number of input/outputs (one bit per IO is required)");
     }
   }
   // concatenate core specific header
