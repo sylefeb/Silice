@@ -131,7 +131,7 @@ end
 
 -- print('source file = ' .. SRC)
 
-if not O then O=1 end
+if not O then O='s' end
 
 find_toolchain()
 
