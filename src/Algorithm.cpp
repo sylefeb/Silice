@@ -4827,6 +4827,9 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, const t_v
           msg += "Consider inserting a sequential split with '++:'\n\n";
         }
         msg += notes;
+        /// TODO, FIXME: this considers all accesses to an array as a single
+        /// vio, while accessing different entries (and even bits) should be
+        /// allowed
         reportError(sloc,msg.c_str(), w.c_str());
       }
       // check if any one of the combinational outputs the var depends on, depends on this same var (cycle!)
@@ -6123,13 +6126,22 @@ void Algorithm::determineUsage()
   std::unordered_set<std::string> global_out_written;
   determineAccess(global_in_read, global_out_written);
   // set and report
-  const bool report = true;
+  const bool report = false;
   if (report) std::cerr << "---< " << m_Name << "::variables >---" << nxl;
   for (auto& v : m_Vars) {
     if (v.usage != e_Undetermined) {
       switch (v.usage) {
-      case e_Wire:  if (report) std::cerr << v.name << " => wire (by def)" << nxl; break;
-      case e_Bound: if (report) std::cerr << v.name << " => bound to output (by def)" << nxl; break;
+      case e_Wire:  {
+        if (report) std::cerr << v.name << " => wire (by def)" << nxl; break;
+      }
+      case e_Bound: {
+        if (v.access & e_ReadOnly) {
+          if (report) std::cerr << v.name << " => bound to output (by def)" << nxl; break;
+        } else {
+          if (report) std::cerr << v.name << " => bound to output (by def), but not used" << nxl; break;
+          v.usage = e_NotUsed;
+        }
+      }
       default: throw Fatal("internal error (usage)");
       }
       continue; // usage is fixed by definition
@@ -6186,6 +6198,25 @@ void Algorithm::determineUsage()
       o.usage = e_FlipFlop;
     }
     if (report) std::cerr << nxl;
+  }
+  if (report) std::cerr << "---< " << m_Name << "::inputs >---" << nxl;
+  for (auto &i : m_Inputs) {
+    if (i.access == e_NotAccessed) {
+      if (report) std::cerr << i.name << " => unused";
+      i.usage = e_NotUsed;
+    } else {
+      sl_assert(i.access == e_ReadOnly);
+      if (report) std::cerr << i.name << " => read (input wire)";
+      i.usage = e_Wire;
+    }
+    if (report) std::cerr << nxl;
+  }
+  if (report) std::cerr << "---< " << m_Name << "::inouts >---" << nxl;
+  for (auto &io : m_InOuts) {
+    if (io.access == e_NotAccessed) {
+      if (report) std::cerr << io.name << " => unused" << nxl;
+      io.usage = e_NotUsed;
+    }
   }
 
 }
@@ -6340,11 +6371,6 @@ void Algorithm::determineBlueprintBoundVIO(const t_instantiation_context& ictx)
       }
     }
   }
-
-  if (m_Name == "main") {
-    LIBSL_TRACE;
-  }
-
 }
 
 // -------------------------------------------------
@@ -6758,10 +6784,6 @@ void Algorithm::lint(const t_instantiation_context &ictx)
 
 void Algorithm::createInOutVars()
 {
-  if (m_Name == "main") {
-    LIBSL_TRACE;
-  }
-
   for (const auto& io : m_InOuts) {
     // generate vars
     t_var_nfo v;
@@ -9910,6 +9932,25 @@ void Algorithm::writeAsModule(
   out << "output out_" ALG_CLOCK << ";" << nxl;
   out << "input " ALG_CLOCK << ";" << nxl;
 
+  // prevent unused warning on unused in_run
+  if (m_TopMost && isNotCallable()) {
+    out << "wire __unused_in_run = " << ALG_INPUT << "_" << ALG_RUN << ';' << nxl;
+  }
+  // prevent unused warning on unused inputs
+  for (const auto &v : m_Inputs) {
+    if (v.usage == e_NotUsed) {
+      out << "wire __unused_" << v.name << " = &{1'b0," << ALG_INPUT << "_" << v.name << "};" << nxl;
+    }
+  }
+  // prevent unused warning on unused inout inputs, when inouts are split
+  if (g_SplitInouts) {
+    for (const auto &v : m_InOuts) {
+      if (v.usage == e_NotUsed) {
+        out << "wire __unused_" << v.name << " = &{1'b0," << ALG_INOUT << "_" << v.name << "_i};" << nxl;
+      }
+    }
+  }
+
   // assign algorithm clock to output clock
   {
     t_vio_dependencies _1, _2;
@@ -9929,6 +9970,12 @@ void Algorithm::writeAsModule(
       // since everything is determined by this point
       writeVerilogDeclaration(nfo.blueprint.raw(), out, nfo.specializations, "wire", os, std::string(WIRE) + nfo.instance_prefix + '_' + os.name);
     }
+    // prevent unused warning on unused outputs
+    out << "wire __unused_" << nfo.instance_prefix <<  " = &{";
+    for (const auto& os : nfo.blueprint->outputs()) {
+      out << std::string(WIRE) + nfo.instance_prefix + '_' + os.name << ',';
+    }
+    out << "1'b0};" << nxl;
     // algorithm specific
     Algorithm *alg = dynamic_cast<Algorithm*>(nfo.blueprint.raw());
     if (alg != nullptr) {
@@ -10177,7 +10224,8 @@ void Algorithm::writeAsModule(
     if (nfo.blueprint->requiresClock()) {
       t_vio_dependencies _;
       if (!first) { out << ',' << nxl; } first = false;
-      out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", nfo.instance_clock, "", nullptr, ictx, nfo.srcloc, FF_Q, e_ReadBinding, _, input_bindings_usage, e_None) << ")";
+      out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", nfo.instance_clock, "", nullptr, ictx, nfo.srcloc, FF_Q, e_ReadBinding, _, input_bindings_usage, e_None) << "),";
+      out << ".out_" << ALG_CLOCK << "()" << nxl; // avoids missing pin warning
     }
     // end of instantiation
     out << ");" << nxl;

@@ -18,6 +18,7 @@ echo "build script: BUILD_DIR      = $BUILD_DIR"
 echo "build script: BOARD_DIR      = $BOARD_DIR"
 echo "build script: FRAMEWORKS_DIR = $FRAMEWORKS_DIR"
 echo "build script: FRAMEWORK_FILE = $FRAMEWORK_FILE"
+echo "build script: SILICE_TOP     = $SILICE_TOP"
 
 export PATH=$PATH:$SILICE_DIR/../tools/fpga-binutils/mingw64/bin/:$SILICE_DIR
 case "$(uname -s)" in
@@ -43,14 +44,11 @@ if [[ ! -z "${NO_BUILD}" ]]; then
   exit
 fi
 
-yosys -l yosys.log -p "read_verilog -sv build.v" -p 'synth_ice40 -relut -top tt_um_silice -json build.json'
-# nextpnr-ice40 --force --hx1k --json build.json --pcf $BOARD_DIR/icestick.pcf --asc build.asc --package tq144 --freq 12
+# yosys -l yosys.log -p "read_verilog -sv build.v" -p "synth_ice40 -relut -top ${SILICE_TOP} -json build.json"
 
-# icepack -s build.asc build.bin
+verilator --lint-only -Wall build.v
 
 if [[ ! -z "${NO_PROGRAM}" ]]; then
   echo "Skipping prog."
   exit
 fi
-
-# iceprog build.bin

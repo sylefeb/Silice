@@ -1445,6 +1445,8 @@ void LuaPreProcessor::generateBody(
   // add current directory to search dirs
   m_SearchPaths.push_back(getCurrentPath());
   m_SearchPaths.push_back(extractPath(fileAbsolutePath(src_file)));
+  m_SearchPaths.push_back(std::string(SILICE_DEFAULT_PATH) + "/projects/common/");
+  m_SearchPaths.push_back(std::string(SILICE_DEFAULT_PATH) + "/share/silice/projects/common/");
 
   // get code
   std::unordered_set<std::string> inclusions;

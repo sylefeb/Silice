@@ -217,14 +217,14 @@ void print_dec(int val) {
    }
 }
 
-void print_hex(unsigned int val) {
-   print_hex_digits(val, 8);
-}
-
 void print_hex_digits(unsigned int val, int nbdigits) {
    for (int i = (4*nbdigits)-4; i >= 0; i -= 4) {
       putchar("0123456789ABCDEF"[(val >> i) % 16]);
    }
+}
+
+void print_hex(unsigned int val) {
+   print_hex_digits(val, 8);
 }
 
 int printf(const char *fmt,...)

@@ -579,7 +579,7 @@ std::string SiliceCompiler::verilogTopModuleSignature(const std::map<std::string
 {
   std::string sig;
   for (const auto& P : used_pins) {
-    switch (P.second) 
+    switch (P.second)
     {
     case Input:  sig += "input  "; break;
     case Output: sig += "output "; break;
@@ -682,11 +682,12 @@ void SiliceCompiler::writeBody(const t_parsed_unit& parsed, std::ostream& _out, 
     // update framework
     VerilogTemplate frmwrk;
     std::unordered_map<std::string, std::string> replacements;
+    replacements["TOP_NAME"]      = CONFIG.keyValues()["top_module_name"]; // top module name
     replacements["TOP_SIGNATURE"] = verilogTopModuleSignature(used_pins); // top module signature
     replacements["MAIN_GLUE"]     = verilogMainGlue(used_ports); // main module glue
     replacements["WIRE_DECL"]     = wire_decl; // main module wire declarations
     frmwrk.fromString(m_BodyContext->framework_verilog, replacements);
-    // write framework (top) module    
+    // write framework (top) module
     _out << frmwrk.code();
     // write includes
     for (auto fname : m_AppendsInDeclOrder) {
@@ -841,10 +842,10 @@ void SiliceCompiler::run(
   const std::vector<std::string>& defines,
   const std::vector<std::string>& configs,
   std::string to_export,
-  const std::vector<std::string>& export_params)
+  const std::vector<std::string>& export_params,
+  std::string top_module_name)
 {
   try {
-
     // create top instantiation context
     Blueprint::t_instantiation_context ictx;
     ictx.compiler = this;
@@ -862,6 +863,8 @@ void SiliceCompiler::run(
     }
     // begin parsing
     beginParsing(fsource, fresult, fframework, frameworks_dir, defines, ictx);
+    // configure top module name
+    CONFIG.keyValues()["top_module_name"] = top_module_name;
     // apply command line config options
     for (auto cfg : configs) {
       auto eq = cfg.find('=');

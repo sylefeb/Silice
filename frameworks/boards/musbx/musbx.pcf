@@ -1,0 +1,89 @@
+# muSBX v3 rev2 - 2024-10-17
+# @sylefeb
+# -------
+
+#   Name       BEL       PIN  Bank
+#
+#   PMOD_A1    x 6/y 0    47   2
+#   PMOD_A2    x 7/y 0    45   2
+#   PMOD_A3    x 9/y31    43   0
+#   PMOD_A4    x 8/y31    38   0
+#   PMOD_A7    x 5/y 0    46   2
+#   PMOD_A8    x 6/y 0    44   2
+#   PMOD_A9    x 8/y31    42   0
+#   PMOD_A10   x 9/y31    36   0
+#
+#   PMOD_B1	   x17/y 0    11   1
+#   PMOD_B2		 x15/y 0     9   1
+#   PMOD_B3		 x 9/y 0     4   2
+#   PMOD_B4    x 8/y 0     2   2
+#   PMOD_B7	 	 x16/y 0    10   1
+#   PMOD_B8		 x13/y 0     6   1
+#   PMOD_B9		 x 9/y 0     3   2
+#   PMOD_B10	 x 7/y 0    48   2
+#
+#   GPIO0      x22/y 0    18   1
+#   GPIO1      x21/y 0    19   1
+#   GPIO2      x19/y 0    20   1
+#   GPIO3      x18/y 0    21   1
+#   GPIO4      x19/y31    23   0
+#   GPIO5      x19/y31    25   0
+#   GPIO6      x18/y31    26   0
+#   GPIO7      x18/y31    27   0
+
+set_io CLK_48	35  # G0
+
+set_io LED_R	41
+set_io LED_G	40
+set_io LED_B	39
+
+# GPIO
+set_io GPIO0		  18
+set_io GPIO1		  19
+set_io GPIO2		  20 # G3 NOTE: constrained on same clock as SPIflash?
+set_io GPIO3		  21 #    NOTE: constrained on same clock as SPIflash?
+set_io GPIO4		  23
+set_io GPIO5		  25
+set_io GPIO6		  26
+set_io GPIO7		  27
+
+# PMOD_A
+set_io PMOD_A1		47
+set_io PMOD_A2		45
+set_io PMOD_A3		43
+set_io PMOD_A4		38
+set_io PMOD_A7		46
+set_io PMOD_A8		44 # G6
+set_io PMOD_A9		42
+set_io PMOD_A10	  36
+
+# UART on PMOD_A
+set_io UART0_RTS  47
+set_io UART0_RX   45
+set_io UART0_TX   43
+set_io UART0_CTS  38
+
+# PMOD_B
+set_io PMOD_B1		11
+set_io PMOD_B2		9
+set_io PMOD_B3		4
+set_io PMOD_B4		2
+set_io PMOD_B7		10
+set_io PMOD_B8		6
+set_io PMOD_B9		3
+set_io PMOD_B10	  48
+
+# extra
+set_io EX1        28
+set_io EX2        31
+set_io EX3  		  32
+set_io EX4        34
+
+# SPI (both QPSRAM and MMOD, selected with SPI_SS_RAM, SPI_SS_FLASH)
+set_io SPI_SS_FLASH	16
+set_io SPI_SS_RAM		37 # G1
+set_io SPI_SCK			15
+set_io SPI_MISO		  17 # CSPI_SI
+set_io SPI_MOSI		  14 # CSPI_SO
+set_io SPI_IO2			12
+set_io SPI_IO3			13
