@@ -333,15 +333,15 @@ M_main __main(
 /*
 PMOD com wiring:
 out fpga     in fpga
-PMOD_B10 <-> PMOD_A1
-PMOD_B9  <-> PMOD_A2
-PMOD_B8  <-> PMOD_A3
-PMOD_B7  <-> PMOD_A4
-PMOD_B4  <-> PMOD_A7
-PMOD_B3  <-> PMOD_A8
-PMOD_B2  <-> PMOD_A9
-PMOD_A3  <-> PMOD_B4
-PMOD_A4  <-> PMOD_B3
+PMOD_B10 (48) <-> PMOD_A1 (47)
+PMOD_B9  (3)  <-> PMOD_A2 (45)
+PMOD_B8  (6)  <-> PMOD_A3 (43)
+PMOD_B7  (10) <-> PMOD_A4 (38)
+PMOD_B4  (2)  <-> PMOD_A7 (46)
+PMOD_B3  (4)  <-> PMOD_A8 (44)
+PMOD_B2  (9)  <-> PMOD_A9 (42)
+PMOD_A3  (43) <-> PMOD_B4 (2)
+PMOD_A4  (38) <-> PMOD_B3 (4)
 
 PMOD_A8 is on a global buffer on the 'in fpga' and has to be used for the clock
 */

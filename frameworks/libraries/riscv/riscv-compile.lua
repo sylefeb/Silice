@@ -44,14 +44,14 @@ function compile(file)
   local cmd
   cmd =  gcc .. ' '
 	    .. '-I' .. PATH .. ' '
-      .. '-fno-builtin -fno-stack-protector -fno-unroll-loops -O' .. O .. ' -fno-pic '
+      .. '-fno-builtin -fno-stack-protector -fno-unroll-loops -fdata-sections -ffunction-sections -O' .. O .. ' -fno-pic '
 			.. '-march=' .. arch .. ' -mabi=ilp32 '
 			.. '-c -o code.o '
       .. SRC
   os.execute(cmd)
   cmd =  gcc .. ' '
 	    .. '-I' .. PATH .. ' '
-      .. '-fno-builtin -fno-stack-protector -fno-unroll-loops -O' .. O .. ' -fno-pic '
+      .. '-fno-builtin -fno-stack-protector -fno-unroll-loops -fdata-sections -ffunction-sections -O' .. O .. ' -fno-pic '
 			.. '-march=' .. arch .. ' -mabi=ilp32 '
 			.. '-fverbose-asm -S -o code.s '
       .. SRC
@@ -65,7 +65,7 @@ function compile(file)
   os.execute(cmd)
   cmd =  ld .. ' '
       .. '-m elf32lriscv -b elf32-littleriscv -T' .. LD_CONFIG
-			.. ' --no-relax -o code.elf code.o'
+			.. ' --gc-sections --no-relax -o code.elf code.o'
   os.execute(cmd)
   cmd =  oc .. ' '
       .. '-O verilog code.elf code.hex'
