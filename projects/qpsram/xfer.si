@@ -8,12 +8,16 @@
 // --------------------------------------------------------------
 
 $$ bank_width = 23
+$$ num_banks = 4
+$$if BROT then
+$$ num_banks = 1
+$$end
 
 $$if SIMULATION then
 $$print("simulating ICE40 cells")
 $$ICE40_SIMULATION = 1
 $$ICE40 = 1
-append('../../tools/fpga-binutils/mingw64/bin/share/ice40/cells_sim.v')
+append('ice40_cells_sim.v')
 $$end
 
 $$if ICESTICK then
@@ -31,8 +35,8 @@ $$elseif ULX3S then
   $$uart_in_clock_freq_mhz = 90
   $$qpsram_fast            = true   -- false if freq <= 60
 $$elseif BROT then
-  import('../common/plls/brot_50_lock.v')
-  $$uart_in_clock_freq_mhz = 50
+  import('../common/plls/brot_16_lock.v')
+  $$uart_in_clock_freq_mhz = 16
 $$else
   $$uart_in_clock_freq_mhz = 100
 $$end
@@ -42,9 +46,13 @@ $$if ICE40 then
 import('../common/ice40_warmboot.v')
 $$end
 
+$$if BROT then
+$include('../common/qpsram2x.si') // NOTE: special for musbx
+$$else
 $include('../common/qpsram2x.si')
+$$end
 
-$$uart_bauds = 500000
+$$uart_bauds = 115200 -- 500000
 $include('../common/uart.si')
 
 unit main(
@@ -55,9 +63,15 @@ unit main(
   inout   uint1 ram_io1,
   inout   uint1 ram_io2,
   inout   uint1 ram_io3,
-  output  uint1 ram_clk,
-  output  uint1 ram_csn,
+  output  uint1 ram_clk(0),
+  output  uint1 ram_csn(0),
   output  uint2 ram_bank(2b00),
+$$if BROT then
+  output  uint1 sd_csn(0), /// NOTE: special for musbx
+  output  uint1 sd_clk(0),
+  output  uint1 sd_mosi(0),
+  input   uint1 sd_miso,
+$$end
 )
 // clocking (pll) and reset
 $$if ICESTICK or ICEBREAKER then
@@ -137,8 +151,13 @@ $$end
 
   algorithm {
 
+    leds = 3b001;
+    uint28 delay(0);
+    while(~delay[27,1]) { delay = delay + 1; }
+    leds = 0;
+
     // initialize all four banks
-$$for bank=0,3 do
+$$for bank=0,num_banks-1 do
     ram_bank = $bank$;
     ram.init = 1;
     while (ram.busy) {}
@@ -184,6 +203,7 @@ $$end
         uo.data_in       = ram.rdata;
         uo.data_in_ready = ~write;
         while (uo.busy) {}
+        leds         = ram.rdata ^ ram.wdata;
         // next
         cur_addr = cur_addr + 1;
         n        = n - 1;
@@ -193,7 +213,7 @@ $$end
   }
 
   always_after {
-    leds         = {blip,write,1b1,ram_bank};
+    // leds         = {ram_bank,write,1b1,blip};
     blip         = blip >> 1;
     // receiving
     if (ui.data_out_ready) {

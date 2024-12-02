@@ -9,7 +9,13 @@ $include('../common/uart.si')
 algorithm main(
   output uint$NUM_LEDS$ leds,
   output uint1 uart_tx,
-  input  uint1 uart_rx
+  input  uint1 uart_rx,
+$$if BROT then
+  output  uint1 sd_csn(0), /// NOTE: special for musbx
+  output  uint1 sd_clk(0),
+  output  uint1 sd_mosi(0),
+  input   uint1 sd_miso,
+$$end
 ) {
 
   uint1 send_asap = 0;

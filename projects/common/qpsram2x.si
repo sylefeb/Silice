@@ -45,7 +45,8 @@ $$end
 
 $$if not SIMULATION or ICE40_SIMULATION then
 $$if ICE40 then
-import('ice40_sb_io_inout.v')
+import('ice40_sb_io_inout_0.v')
+// import('ice40_sb_io_inout.v')
 import('ice40_sb_io.v')
 import('ice40_sb_io_ddr.v')
 $$end
@@ -189,7 +190,7 @@ $$end
         send_else_read          = wenable;
         spi.trigger             = ~init;
         spi.send                = wdata;
-        data_next               = wenable; // request next if writting
+        data_next               = wenable; // request next if writing
         stage                   = 0; //  wait
         wait                    = wenable ? //_ 16 => 2 cycles, 6 => 12 cycles, 7 => 11 cycles
 $$if ECP5 then
@@ -202,7 +203,8 @@ $$else
 $$  if qpsram_fast then
                                             16 : 6;
 $$  else
-                                            16 : 7;  // icebreaker, icestick <= 60 MHz
+//                                            16 : 7; // icebreaker, icestick <= 60 MHz
+                                            16 : 8;
 $$  end
 $$end
         after                   = 4;
@@ -307,12 +309,18 @@ unit qpsram_qspi(
 $$if ICE40 then
   // ---- Lattice ice40 implementation using vendor specific primitives
   uint1 zero(0);
-  sb_io_ddr   _(clock <: clock, out_0 <:: enable_delay, out_1 <:: zero, pin :> clk);
-  sb_io_inout _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[0,1],  in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
-  sb_io_inout _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[1,1],  in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
-  sb_io_inout _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[2,1],  in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
-  sb_io_inout _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[3,1],  in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
-  sb_io       _<TYPE=6b110000>(clock <: clock, out <:: chip_select_1, pin :> csn);
+  sb_io_ddr     _(clock <: clock, out_0 <:: enable_delay, out_1 <:: zero, pin :> clk);
+
+  sb_io_inout_0 _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[0,1],  in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
+  sb_io_inout_0 _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[1,1],  in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
+  sb_io_inout_0 _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[2,1],  in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
+  sb_io_inout_0 _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[3,1],  in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
+//  sb_io_inout   _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[0,1],  in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
+//  sb_io_inout   _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[1,1],  in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
+//  sb_io_inout   _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[2,1],  in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
+//  sb_io_inout   _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[3,1],  in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
+
+  sb_io         _<TYPE=6b110000>(clock <: clock, out <:: chip_select_1, pin :> csn);
 $$end
 $$if ECP5 then
   // ---- Lattice ecp5 implementation using vendor specific primitives
