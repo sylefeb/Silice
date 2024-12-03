@@ -45,8 +45,8 @@ $$end
 
 $$if not SIMULATION or ICE40_SIMULATION then
 $$if ICE40 then
-import('ice40_sb_io_inout_0.v')
-// import('ice40_sb_io_inout.v')
+// import('ice40_sb_io_inout_0.v')
+import('ice40_sb_io_inout.v')
 import('ice40_sb_io.v')
 import('ice40_sb_io_ddr.v')
 $$end
@@ -204,7 +204,7 @@ $$  if qpsram_fast then
                                             16 : 6;
 $$  else
 //                                            16 : 7; // icebreaker, icestick <= 60 MHz
-                                            16 : 8;
+                                            16 : 7;
 $$  end
 $$end
         after                   = 4;
@@ -311,14 +311,14 @@ $$if ICE40 then
   uint1 zero(0);
   sb_io_ddr     _(clock <: clock, out_0 <:: enable_delay, out_1 <:: zero, pin :> clk);
 
-  sb_io_inout_0 _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[0,1],  in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
-  sb_io_inout_0 _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[1,1],  in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
-  sb_io_inout_0 _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[2,1],  in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
-  sb_io_inout_0 _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[3,1],  in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
-//  sb_io_inout   _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[0,1],  in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
-//  sb_io_inout   _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[1,1],  in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
-//  sb_io_inout   _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[2,1],  in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
-//  sb_io_inout   _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[3,1],  in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
+//  sb_io_inout_0 _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[0,1],  in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
+//  sb_io_inout_0 _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[1,1],  in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
+//  sb_io_inout_0 _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[2,1],  in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
+//  sb_io_inout_0 _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[3,1],  in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
+  sb_io_inout   _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[0,1],  in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
+  sb_io_inout   _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[1,1],  in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
+  sb_io_inout   _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[2,1],  in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
+  sb_io_inout   _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[3,1],  in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
 
   sb_io         _<TYPE=6b110000>(clock <: clock, out <:: chip_select_1, pin :> csn);
 $$end

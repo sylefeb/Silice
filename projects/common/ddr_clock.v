@@ -25,8 +25,8 @@ module ddr_clock(
       .PACKAGE_PIN(ddr_clock),
 `endif
       .D_OUT_0(1'b0),
-      .D_OUT_1(enable),
-      .OUTPUT_ENABLE(1'b1),
+      .D_OUT_1(1'b1),
+      .OUTPUT_ENABLE(enable),
       .OUTPUT_CLK(clock)
   );
 

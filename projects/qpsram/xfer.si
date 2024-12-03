@@ -35,8 +35,8 @@ $$elseif ULX3S then
   $$uart_in_clock_freq_mhz = 90
   $$qpsram_fast            = true   -- false if freq <= 60
 $$elseif BROT then
-  import('../common/plls/brot_16_lock.v')
-  $$uart_in_clock_freq_mhz = 16
+  import('../common/plls/brot_50_lock.v')
+  $$uart_in_clock_freq_mhz = 50
 $$else
   $$uart_in_clock_freq_mhz = 100
 $$end
