@@ -28,8 +28,8 @@ size = int(sys.argv[3], 0)
 size = math.ceil(size / read_packed_size) * read_packed_size
 
 # seed
-S = int(time.time())
-# S = 42
+# S = int(time.time())
+S = 42
 
 if True:
   # send start tag
@@ -65,10 +65,10 @@ if True:
   while True:
     b = random.randint(0,255)
 
-    if n % 2 == 0:
-      b = 0x55
-    else:
-      b = 0xAA
+    #if n % 2 == 0:
+    #  b = 0x55
+    #else:
+    #  b = 0xAA
 
     packet.append(b)
     n = n + 1
@@ -134,10 +134,10 @@ print('read {0} bytes'.format(len(rb)))
 for v in rb:
   check = random.randint(0,255)
 
-  if i % 2 == 0:
-    check = 0x55
-  else:
-    check = 0xAA
+  #if i % 2 == 0:
+  #  check = 0x55
+  #else:
+  #  check = 0xAA
 
   if check != v:
     print("expected {0:02X} found {1:02X} at {2:02X}".format(check,v,i))

@@ -17,7 +17,7 @@ module ddr_clock(
 `else
   SB_IO #(
 `endif
-    .PIN_TYPE(6'b1100_01)
+    .PIN_TYPE(6'b1100_00)
   ) sbio_clk (
 `ifdef SPLIT_INOUTS
       .PACKAGE_PIN_O(ddr_clock),

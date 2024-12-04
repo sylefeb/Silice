@@ -45,7 +45,6 @@ $$end
 
 $$if not SIMULATION or ICE40_SIMULATION then
 $$if ICE40 then
-// import('ice40_sb_io_inout_0.v')
 import('ice40_sb_io_inout.v')
 import('ice40_sb_io.v')
 import('ice40_sb_io_ddr.v')
@@ -305,22 +304,16 @@ unit qpsram_qspi(
   uint1 enable(0); uint1 enable_delay(0);
   // setup registered tristate ios
   uint4 io_oe(0); uint4 io_i(0); uint4 io_o(0);
-  uint1 chip_select(1); uint1 chip_select_1(1);
+  uint1 chip_select(1); uint1 chip_select_1(1); uint1 chip_select_2(1);
 $$if ICE40 then
   // ---- Lattice ice40 implementation using vendor specific primitives
   uint1 zero(0);
-  sb_io_ddr     _(clock <: clock, out_0 <:: enable_delay, out_1 <:: zero, pin :> clk);
-
-//  sb_io_inout_0 _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[0,1],  in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
-//  sb_io_inout_0 _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[1,1],  in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
-//  sb_io_inout_0 _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[2,1],  in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
-//  sb_io_inout_0 _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[3,1],  in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
-  sb_io_inout   _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[0,1],  in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
-  sb_io_inout   _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[1,1],  in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
-  sb_io_inout   _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[2,1],  in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
-  sb_io_inout   _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[3,1],  in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
-
-  sb_io         _<TYPE=6b110000>(clock <: clock, out <:: chip_select_1, pin :> csn);
+  sb_io_ddr   _(clock <: clock, out_0 <:: enable_delay, out_1 <:: zero, pin :> clk);
+  sb_io_inout _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[0,1],  in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
+  sb_io_inout _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[1,1],  in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
+  sb_io_inout _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[2,1],  in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
+  sb_io_inout _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[3,1],  in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
+  sb_io       _<TYPE=6b110000>(clock <: clock, out <:: chip_select_2, pin :> csn);
 $$end
 $$if ECP5 then
   // ---- Lattice ecp5 implementation using vendor specific primitives
@@ -348,6 +341,7 @@ $$end
     osc           = ~trigger_delay ? 1b0 : ~osc;
     enable_delay  = enable;
     enable        = trigger;
+    chip_select_2 = ~ enable & chip_select_1;
     chip_select_1 = ~ enable & chip_select;
     chip_select   = ~ enable;
 
