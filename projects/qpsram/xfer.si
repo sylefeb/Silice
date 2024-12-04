@@ -152,10 +152,12 @@ $$end
 
   algorithm {
 
+$$if not SIMULATION then
     leds = 3b001;
     uint28 delay(0);
     while(~delay[27,1]) { delay = delay + 1; }
     leds = 0;
+$$end
 
     // initialize all four banks
 $$for bank=0,num_banks-1 do

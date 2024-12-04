@@ -308,11 +308,11 @@ unit qpsram_qspi(
 $$if ICE40 then
   // ---- Lattice ice40 implementation using vendor specific primitives
   uint1 zero(0);
-  sb_io_ddr   _(clock <: clock, out_0 <:: enable_delay, out_1 <:: zero, pin :> clk);
-  sb_io_inout _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[0,1],  in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
-  sb_io_inout _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[1,1],  in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
-  sb_io_inout _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[2,1],  in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
-  sb_io_inout _<TYPE=6b110000>(clock <: clock, oe  <: io_oe[3,1],  in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
+  sb_io_ddr   _(clock <: clock, out_0 <:: zero, out_1 <:: enable_delay, pin :> clk);
+  sb_io_inout _<TYPE=6b110100>(clock <: clock, oe  <: io_oe[0,1],  in :> io_i[0,1], out <: io_o[0,1], pin <:> io0);
+  sb_io_inout _<TYPE=6b110100>(clock <: clock, oe  <: io_oe[1,1],  in :> io_i[1,1], out <: io_o[1,1], pin <:> io1);
+  sb_io_inout _<TYPE=6b110100>(clock <: clock, oe  <: io_oe[2,1],  in :> io_i[2,1], out <: io_o[2,1], pin <:> io2);
+  sb_io_inout _<TYPE=6b110100>(clock <: clock, oe  <: io_oe[3,1],  in :> io_i[3,1], out <: io_o[3,1], pin <:> io3);
   sb_io       _<TYPE=6b110000>(clock <: clock, out <:: chip_select_2, pin :> csn);
 $$end
 $$if ECP5 then
@@ -338,7 +338,7 @@ $$end
     io_o          = ~osc ? sending[0,4] : sending[4,4];
     // start/keep sending?
     sending       = (~osc | ~enable) ? send : sending;
-    osc           = ~trigger_delay ? 1b0 : ~osc;
+    osc           = ~trigger ? 1b0 : ~osc;
     enable_delay  = enable;
     enable        = trigger;
     chip_select_2 = ~ enable & chip_select_1;
