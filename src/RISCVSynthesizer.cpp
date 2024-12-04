@@ -148,6 +148,31 @@ int RISCVSynthesizer::stackSize(siliceParser::RiscvContext *riscv) const
 
 // -------------------------------------------------
 
+std::string RISCVSynthesizer::optimizationLevel(siliceParser::RiscvContext *riscv) const
+{
+  if (riscv->riscvModifiers() != nullptr) {
+    for (auto m : riscv->riscvModifiers()->riscvModifier()) {
+      if (m->IDENTIFIER()->getText() == "O") {
+        if (m->STRING() == nullptr) {
+          if (m->NUMBER() == nullptr) {
+            reportError(sourceloc(riscv), "[RISCV] optimization level should be a number of a string.");
+          } else {
+            return m->NUMBER()->getText();
+          }
+        } else {
+          string level = m->STRING()->getText();
+          level = level.substr(1, level.length() - 2); // remove '"' and '"'
+          return level;
+        }
+      }
+    }
+  }
+  // optional, return default size if not found
+  return "s";
+}
+
+// -------------------------------------------------
+
 std::string RISCVSynthesizer::coreName(siliceParser::RiscvContext *riscv) const
 {
   if (riscv->riscvModifiers() != nullptr) {
@@ -383,6 +408,7 @@ string RISCVSynthesizer::generateSiliceCode(siliceParser::RiscvContext *riscv) c
   code << "$$memsz       = " << memorySize(riscv)/4 << nxl;
   code << "$$external    = " << justHigherPow2(memorySize(riscv))-2 << nxl;
   code << "$$arch        = '" << archName(riscv) << '\'' << nxl;
+  code << "$$O           = '" << optimizationLevel(riscv) << '\'' << nxl;
   code << "$$algorithm_name = '" << riscv->IDENTIFIER()->getText() << "'" << nxl;
   code << "$$dofile('" << normalizePath(CONFIG.keyValues()["libraries_path"]) + "/riscv/riscv-compile.lua')" << nxl;
   code << "$$meminit     = data_bram" << nxl;
@@ -410,7 +436,7 @@ RISCVSynthesizer::RISCVSynthesizer(siliceParser::RiscvContext *riscv)
     // compute stack start
     int stack_start = memorySize(riscv);
     // get stack size
-    int stack_size = stackSize(riscv);
+    int stack_size  = stackSize(riscv);
     // compile from inline source
     siliceParser::CblockContext *cblock = riscv->cblock();
     sl_assert(cblock != nullptr);
