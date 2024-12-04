@@ -9848,116 +9848,121 @@ void Algorithm::writeAsModule(
   bool                            first_pass) const
 {
   // record body
-  std::ostringstream out;
+  std::ostringstream out_pre_inst;
   // record all wires
   std::ostringstream out_wires;
   // record all defines
   std::ostringstream out_defines;
 
-  out << nxl;
-
   t_vio_usage input_bindings_usage;
 
-  // write memory modules
-  for (const auto& mem : m_Memories) {
-    writeModuleMemory(ictx.instance_name, out, mem);
-  }
+  {
+    std::ostringstream& out = out_pre_inst;
+    out << nxl;
 
-  // module header
-  if (ictx.instance_name.empty()) {
-    out << "module " << ictx.top_name << ' '; // FIXME: inelegant, calrify role of top_name
-  } else {
-    out << "module M_" << m_Name + '_' + ictx.instance_name + ' ';
-  }
+    // write memory modules
+    for (const auto& mem : m_Memories) {
+      writeModuleMemory(ictx.instance_name, out, mem);
+    }
 
-  // list ports names
-  out << '(' << nxl;
-  for (const auto &v : m_Inputs) {
-    out << string(ALG_INPUT) << '_' << v.name << ',' << nxl;
-  }
-  for (const auto &v : m_Outputs) {
-    out << string(ALG_OUTPUT) << '_' << v.name << ',' << nxl;
-  }
-  if (!g_SplitInouts) {
-    for (const auto& v : m_InOuts) {
-      out << string(ALG_INOUT) << '_' << v.name << ',' << nxl;
-    }
-  } else {
-    for (const auto& v : m_InOuts) {
-      out << string(ALG_INOUT) << '_' << v.name << "_oe" << ',' << nxl;
-      out << string(ALG_INOUT) << '_' << v.name << "_i"  << ',' << nxl;
-      out << string(ALG_INOUT) << '_' << v.name << "_o" << ',' << nxl;
-    }
-  }
-  if (!isNotCallable() || m_TopMost /*keep for glue convenience*/) {
-    out << ALG_INPUT << "_" << ALG_RUN << ',' << nxl;
-  }
-  if (!hasNoFSM() || m_TopMost /*keep for glue convenience*/) {
-    out << ALG_OUTPUT << "_" << ALG_DONE << ',' << nxl;
-  }
-  if (requiresReset() || m_TopMost /*keep for glue convenience*/) {
-    out << ALG_RESET "," << nxl;
-  }
-  out << "out_" << ALG_CLOCK "," << nxl;
-  out << ALG_CLOCK << nxl;
-  out << ");" << nxl;
-  // declare ports
-  for (const auto& v : m_Inputs) {
-    sl_assert(v.table_size == 0);
-    writeVerilogDeclaration(out, ictx, "input", v, string(ALG_INPUT) + "_" + v.name );
-  }
-  for (const auto& v : m_Outputs) {
-    sl_assert(v.table_size == 0);
-    writeVerilogDeclaration(out, ictx, "output", v, string(ALG_OUTPUT) + "_" + v.name);
-  }
-  for (const auto& v : m_InOuts) {
-    sl_assert(v.table_size == 0);
-    if (!g_SplitInouts) {
-      writeVerilogDeclaration(out, ictx, "inout", v, string(ALG_INOUT) + "_" + v.name);
+    // module header
+    if (ictx.instance_name.empty()) {
+      out << "module " << ictx.top_name << ' '; // FIXME: inelegant, calrify role of top_name
     } else {
-      writeVerilogDeclaration(out, ictx, "output", v, string(ALG_INOUT) + "_" + v.name + "_oe");
-      writeVerilogDeclaration(out, ictx, "input", v, string(ALG_INOUT) + "_" + v.name + "_i");
-      writeVerilogDeclaration(out, ictx, "output", v, string(ALG_INOUT) + "_" + v.name + "_o");
+      out << "module M_" << m_Name + '_' + ictx.instance_name + ' ';
     }
-  }
-  if (!isNotCallable() || m_TopMost) {
-    out << "input " << ALG_INPUT << "_" << ALG_RUN << ';' << nxl;
-  }
-  if (!hasNoFSM() || m_TopMost) {
-    out << "output " << ALG_OUTPUT << "_" << ALG_DONE << ';' << nxl;
-  }
-  if (requiresReset() || m_TopMost) {
-    out << "input " ALG_RESET ";" << nxl;
-  }
-  out << "output out_" ALG_CLOCK << ";" << nxl;
-  out << "input " ALG_CLOCK << ";" << nxl;
 
-  // prevent unused warning on unused in_run
-  if (m_TopMost && isNotCallable()) {
-    out << "wire __unused_in_run = " << ALG_INPUT << "_" << ALG_RUN << ';' << nxl;
-  }
-  // prevent unused warning on unused inputs
-  for (const auto &v : m_Inputs) {
-    if (v.usage == e_NotUsed) {
-      out << "wire __unused_" << v.name << " = &{1'b0," << ALG_INPUT << "_" << v.name << "};" << nxl;
+    // list ports names
+    out << '(' << nxl;
+    for (const auto &v : m_Inputs) {
+      out << string(ALG_INPUT) << '_' << v.name << ',' << nxl;
     }
-  }
-  // prevent unused warning on unused inout inputs, when inouts are split
-  if (g_SplitInouts) {
-    for (const auto &v : m_InOuts) {
-      if (v.usage == e_NotUsed) {
-        out << "wire __unused_" << v.name << " = &{1'b0," << ALG_INOUT << "_" << v.name << "_i};" << nxl;
+    for (const auto &v : m_Outputs) {
+      out << string(ALG_OUTPUT) << '_' << v.name << ',' << nxl;
+    }
+    if (!g_SplitInouts) {
+      for (const auto& v : m_InOuts) {
+        out << string(ALG_INOUT) << '_' << v.name << ',' << nxl;
+      }
+    } else {
+      for (const auto& v : m_InOuts) {
+        out << string(ALG_INOUT) << '_' << v.name << "_oe" << ',' << nxl;
+        out << string(ALG_INOUT) << '_' << v.name << "_i"  << ',' << nxl;
+        out << string(ALG_INOUT) << '_' << v.name << "_o" << ',' << nxl;
       }
     }
+    if (!isNotCallable() || m_TopMost /*keep for glue convenience*/) {
+      out << ALG_INPUT << "_" << ALG_RUN << ',' << nxl;
+    }
+    if (!hasNoFSM() || m_TopMost /*keep for glue convenience*/) {
+      out << ALG_OUTPUT << "_" << ALG_DONE << ',' << nxl;
+    }
+    if (requiresReset() || m_TopMost /*keep for glue convenience*/) {
+      out << ALG_RESET "," << nxl;
+    }
+    out << "out_" << ALG_CLOCK "," << nxl;
+    out << ALG_CLOCK << nxl;
+    out << ");" << nxl;
+    // declare ports
+    for (const auto& v : m_Inputs) {
+      sl_assert(v.table_size == 0);
+      writeVerilogDeclaration(out, ictx, "input", v, string(ALG_INPUT) + "_" + v.name );
+    }
+    for (const auto& v : m_Outputs) {
+      sl_assert(v.table_size == 0);
+      writeVerilogDeclaration(out, ictx, "output", v, string(ALG_OUTPUT) + "_" + v.name);
+    }
+    for (const auto& v : m_InOuts) {
+      sl_assert(v.table_size == 0);
+      if (!g_SplitInouts) {
+        writeVerilogDeclaration(out, ictx, "inout", v, string(ALG_INOUT) + "_" + v.name);
+      } else {
+        writeVerilogDeclaration(out, ictx, "output", v, string(ALG_INOUT) + "_" + v.name + "_oe");
+        writeVerilogDeclaration(out, ictx, "input", v, string(ALG_INOUT) + "_" + v.name + "_i");
+        writeVerilogDeclaration(out, ictx, "output", v, string(ALG_INOUT) + "_" + v.name + "_o");
+      }
+    }
+    if (!isNotCallable() || m_TopMost) {
+      out << "input " << ALG_INPUT << "_" << ALG_RUN << ';' << nxl;
+    }
+    if (!hasNoFSM() || m_TopMost) {
+      out << "output " << ALG_OUTPUT << "_" << ALG_DONE << ';' << nxl;
+    }
+    if (requiresReset() || m_TopMost) {
+      out << "input " ALG_RESET ";" << nxl;
+    }
+    out << "output out_" ALG_CLOCK << ";" << nxl;
+    out << "input " ALG_CLOCK << ";" << nxl;
+
+    // prevent unused warning on unused in_run
+    if (m_TopMost && isNotCallable()) {
+      out << "wire __unused_in_run = " << ALG_INPUT << "_" << ALG_RUN << ';' << nxl;
+    }
+    // prevent unused warning on unused inputs
+    for (const auto &v : m_Inputs) {
+      if (v.usage == e_NotUsed) {
+        out << "wire __unused_" << v.name << " = &{1'b0," << ALG_INPUT << "_" << v.name << "};" << nxl;
+      }
+    }
+    // prevent unused warning on unused inout inputs, when inouts are split
+    if (g_SplitInouts) {
+      for (const auto &v : m_InOuts) {
+        if (v.usage == e_NotUsed) {
+          out << "wire __unused_" << v.name << " = &{1'b0," << ALG_INOUT << "_" << v.name << "_i};" << nxl;
+        }
+      }
+    }
+
+    // assign algorithm clock to output clock
+    {
+      t_vio_dependencies _1, _2;
+      out << "assign out_" ALG_CLOCK << " = "
+        << rewriteIdentifier("_", m_Clock, "", nullptr, ictx, t_source_loc(), FF_Q, e_Read, _1, input_bindings_usage)
+        << ';' << nxl;
+    }
   }
 
-  // assign algorithm clock to output clock
-  {
-    t_vio_dependencies _1, _2;
-    out << "assign out_" ALG_CLOCK << " = "
-      << rewriteIdentifier("_", m_Clock, "", nullptr, ictx, t_source_loc(), FF_Q, e_Read, _1, input_bindings_usage)
-      << ';' << nxl;
-  }
+  std::ostringstream out;
 
   // blueprint instantiations (1/2)
   // -> required wires to hold outputs
@@ -10582,13 +10587,6 @@ void Algorithm::writeAsModule(
   // end of combinational part
   out << "end" << nxl;
 
-  // write wires
-  if (!out_wires.str().empty()) {
-    out << "// ==== wires ====" << nxl;
-    out << out_wires.str();
-    out << "// ===============" << nxl;
-  }
-
   // finalize usage info
   combineUsageInto(nullptr, _usage, post_usage, _usage);
   clearNoLatchFFUsage(_usage);
@@ -10621,6 +10619,14 @@ void Algorithm::writeAsModule(
   if (!out_defines.str().empty()) {
     out_stream << "// ==== defines ====" << nxl;
     out_stream << out_defines.str();
+    out_stream << "// ===============" << nxl;
+  }
+  // write pre-instantiation content
+  out_stream << out_pre_inst.str();
+  // write wires
+  if (!out_wires.str().empty()) {
+    out_stream << "// ==== wires ====" << nxl;
+    out_stream << out_wires.str();
     out_stream << "// ===============" << nxl;
   }
   // write body

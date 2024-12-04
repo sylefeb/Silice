@@ -13,7 +13,8 @@ $$if SIMULATION then
 $$print("simulating ICE40 cells")
 $$ICE40_SIMULATION = 1
 $$ICE40 = 1
-append('../../tools/fpga-binutils/mingw64/bin/share/ice40/cells_sim.v')
+// append('../../tools/fpga-binutils/mingw64/bin/share/ice40/cells_sim.v')
+append('ice40_cells_sim.v')
 $$end
 
 $$if ICESTICK then
