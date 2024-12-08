@@ -28,8 +28,8 @@ size = int(sys.argv[3], 0)
 size = math.ceil(size / read_packed_size) * read_packed_size
 
 # seed
-# S = int(time.time())
-S = 42
+S = int(time.time())
+# S = 42
 
 if True:
   # send start tag
