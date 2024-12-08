@@ -881,7 +881,7 @@ std::string LuaPreProcessor::assembleSource(
   std::unordered_set<std::string> alreadyIncluded,
   int& _output_line_count)
 {
-  cerr << "assembling source " << src_file << '.' << "\n";
+  cerr << "assembling source " << std::filesystem::absolute(src_file) << '.' << "\n";
   if (!LibSL::System::File::exists(src_file.c_str())) {
     throw Fatal("cannot find source file '%s'", src_file.c_str());
   }
