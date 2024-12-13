@@ -298,8 +298,8 @@ M_main __main(
 `endif
 `ifdef QPSRAM
   .out_ram_csn  (SPI_SS_RAM),
-  .inout_ram_io0(SPI_MOSI),
-  .inout_ram_io1(SPI_MISO),
+  .inout_ram_io0(/*SPI_MOSI*/SPI_MISO), /// NOTE: routing mistake in v3
+  .inout_ram_io1(/*SPI_MISO*/SPI_MOSI),
   .inout_ram_io2(SPI_IO2),
   .inout_ram_io3(SPI_IO3),
   .out_ram_clk  (SPI_SCK),

@@ -83,7 +83,7 @@ set_io EX4        34
 set_io SPI_SS_FLASH	16
 set_io SPI_SS_RAM		37 # G1
 set_io SPI_SCK			15
-set_io SPI_MISO		  14 # << NOTE: inverted vs brot
-set_io SPI_MOSI		  17 # <<
+set_io SPI_MISO		  17 # << NOTE: inverted on QPSRAM in musbx v3
+set_io SPI_MOSI		  14 # <<       FIXED in verilog glue
 set_io SPI_IO2			12
 set_io SPI_IO3			13
