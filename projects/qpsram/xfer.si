@@ -9,7 +9,7 @@
 
 $$ bank_width = 23
 $$ num_banks = 4
-$$if BROT then
+$$if MUSBX then
 $$ num_banks = 1
 $$end
 
@@ -35,7 +35,7 @@ $$elseif ULX3S then
   import('../common/plls/ulx3s_90.v')
   $$uart_in_clock_freq_mhz = 90
   $$qpsram_fast            = true   -- false if freq <= 60
-$$elseif BROT then
+$$elseif BROT or MUSBX then
   import('../common/plls/brot_50_lock.v')
   $$uart_in_clock_freq_mhz = 50
 $$else
@@ -47,8 +47,8 @@ $$if ICE40 then
 import('../common/ice40_warmboot.v')
 $$end
 
-$$if BROT then
-$include('../common/qpsram2x.si') // NOTE: special for musbx
+$$if MUSBX then
+$include('../common/qpsram2x_esp64.si') // NOTE: special for musbx
 $$else
 $include('../common/qpsram2x.si')
 $$end
@@ -67,9 +67,9 @@ unit main(
   output  uint1 ram_clk(0),
   output  uint1 ram_csn(0),
   output  uint2 ram_bank(2b00),
-$$if BROT then
-  output  uint1 sd_csn(0), /// NOTE: special for musbx
-  output  uint1 sd_clk(0),
+$$if MUSBX then
+  output  uint1 sd_csn(0), /// NOTE: special for musbx: sd_csn has to be held low
+  output  uint1 sd_clk(0), ///       for proper UART operation (pin sharing)
   output  uint1 sd_mosi(0),
   input   uint1 sd_miso,
 $$end
@@ -82,7 +82,7 @@ $$if ICESTICK or ICEBREAKER then
     clock_in  <: clock,
     clock_out :> clock_pll,
   );
-$$elseif BROT then
+$$elseif BROT or MUSBX then
 <@clock_pll,!rst> {
   uint1 clock_pll = uninitialized;
   uint1 rst       = uninitialized;
