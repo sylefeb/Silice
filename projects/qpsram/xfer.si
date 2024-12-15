@@ -206,7 +206,6 @@ $$end
         uo.data_in       = ram.rdata;
         uo.data_in_ready = ~write;
         while (uo.busy) {}
-        leds         = ram.rdata ^ ram.wdata;
         // next
         cur_addr = cur_addr + 1;
         n        = n - 1;
@@ -216,7 +215,7 @@ $$end
   }
 
   always_after {
-    // leds         = {ram_bank,write,1b1,blip};
+    leds         = {write,1b1,blip};
     blip         = blip >> 1;
     // receiving
     if (ui.data_out_ready) {
