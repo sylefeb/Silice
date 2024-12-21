@@ -68,7 +68,6 @@ else
 fi
 
 rm -rf $BUILD_DIR/obj_dir
-
 cd $BUILD_DIR
 
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
@@ -147,7 +146,9 @@ touch Vtop__pch.h.slow
 touch Vtop__pch.h.fast
 
 verilator --x-initial unique -Wno-fatal -Wno-PINMISSING -Wno-WIDTH -O3 -cc build.v --report-unoptflat $OPT --top-module top --exe $VERILATOR_LIB_SRC -CFLAGS "-std=c++14" -CFLAGS "-include" -CFLAGS "../verilator_callbacks.h" -CFLAGS "-include" -CFLAGS "custom.h" -CFLAGS "-I$SILICE_DIR/../frameworks/verilator/" -CFLAGS "-I../"  -CFLAGS "-I../LibSL/" -CFLAGS "-DNO_SHLWAPI" $DEFINES $LDFLAGS
-cd obj_dir
+
+sleep 1 # why ???
+cd $BUILD_DIR/obj_dir
 
 $MAKE -f Vtop.mk -j$(nproc)
 
