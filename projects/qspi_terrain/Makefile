@@ -1,4 +1,4 @@
-SERIAL_PORT ?= COM13
+SERIAL_PORT ?= COM6
 
 icestick: tt_fpga_main.si
 	silice-make.py -s tt_fpga_main.si -b tinytapeout -t tt_icestick -p basic -o BUILD_$(subst :,_,$@) -a force-reset-init,split-inouts $(ARGS)

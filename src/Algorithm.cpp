@@ -1635,10 +1635,15 @@ std::string Algorithm::rewriteIdentifier(
           std::string pre  = std::string(isADefine(m_Vars.at(V->second)) ? "`" : "");
           std::string post = std::string("");
           if (   read_access && isADefine(m_Vars.at(V->second))
-              && !on_binding && m_Vars.at(V->second).type_nfo.base_type == Int) {
+              && !on_binding) {
             // trying to circumvent issue with defines and signed, see L1523
-            pre = "$signed(" + pre;
-            post = post + ")";
+            if (m_Vars.at(V->second).type_nfo.base_type == Int) {
+              pre = "$signed(" + pre;
+              post = post + ")";
+            } else {
+              pre = "$unsigned(" + pre;
+              post = post + ")";
+            }
           }
           return encapsulateIdentifier(var, read_access, pre + FF_CST + prefix + var + post, suffix);
         } else if (m_Vars.at(V->second).usage == e_Wire) {
