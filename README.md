@@ -15,7 +15,7 @@
 - Read how to [add a new board](frameworks/boards/README.md) in the Silice build system.
 - See details [about the license](LICENSE.md).
 
-**Important:** Silice is under active development [read more](#project-status-alpha-release).
+**Important:** Silice is under active development [read more](#project-status-in-development).
 
 **Important:** To enjoy the latest features please use the *draft* branch. [Read more about development branches](#development-branches).
 
