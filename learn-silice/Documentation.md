@@ -49,6 +49,7 @@ When designing with Silice your code describes circuits. If not done already, I 
   - [Clock and reset](#clock-and-reset)
   - [Modifiers](#modifiers)
 - [Execution flow and cycle utilization rules](#execution-flow-and-cycle-utilization-rules)
+  - [Cycle report](#cycle-report)
   - [Control flow](#control-flow-1)
     - [Switches](#switches)
   - [Cycle costs of calls to algorithms and subroutines](#cycle-costs-of-calls-to-algorithms-and-subroutines)
@@ -2115,6 +2116,33 @@ The bitfield can also be used to initialize the wider variable:
 
 ``` c
 uint32 data = Node(left=16hffff,right=16h1234);
+```
+
+[Here is an example](../tests/bitfield1.si) that you can run to test bitfields:
+``` c
+bitfield HL {
+  uint4 high,
+  uint4 low
+}
+
+unit main(output int8 leds)
+{
+  always {
+    uint8 test0 = HL(high=4b1001,low=4b0110);
+    __display("test0: %b (high is on MSBs)",test0);
+    uint8 test1 = HL(low=4b0110,high=4b1001);
+    __display("test1: %b (same as expected)",test1);
+    __finish();
+  }
+}
+```
+
+The output of `make bitfield1` (from within the `Silice/tests` directory) is:
+
+```
+test0: 10010110 (high is on MSBs)
+test1: 10010110 (same as expected)
+- build.v:275: Verilog $finish
 ```
 
 ## Intrinsics
