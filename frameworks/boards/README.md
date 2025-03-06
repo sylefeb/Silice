@@ -14,6 +14,13 @@ The board directory has to contain a (board.json)[ulx3s/board.json] file. This f
 
 ## Standard pin sets
 
+> *NEW:* There is a better way to define pins that is much more flexible, see e.g.
+> the [icestick Verilog framework](icestick/icestick.v), all lines with `$$pin`
+> and the macros `%TOP_SIGNATURE%`, `%WIRE_DECL%` and `%MAIN_GLUE%`. This is
+> yet to be documented here, however everything described below still works.
+> This new approach makes it unnecessary to define pin sets, as outputs can be
+> bound to pins directly in each design, see e.g. [this example](../../projects/pins).
+
 To simplify writing multi-board code, Silice uses standards set of pins. This is not mandatory but helps development! The most important is to preserve the pin names, the signal width are expected to vary, this can be dealt with with pre-processor definitions in the Verilog glue, see e.g. [NUM_LEDS](ulx3s/ulx3s.v).
 
 The main pin groups are:
