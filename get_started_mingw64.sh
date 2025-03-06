@@ -28,9 +28,9 @@ pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-boost
 pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-glfw
 
 # -------------- retrieve oss-cad-suite package --------------
-OSS_CAD_MONTH=05
-OSS_CAD_DAY=01
-OSS_CAD_YEAR=2024
+OSS_CAD_MONTH=02
+OSS_CAD_DAY=27
+OSS_CAD_YEAR=2025
 OSS_PACKAGE=oss-cad-suite-windows-x64-$OSS_CAD_YEAR$OSS_CAD_MONTH$OSS_CAD_DAY.exe
 
 rm -rf tools/fpga-binutils/
@@ -45,6 +45,8 @@ cd /usr/local/share/silice ; ./$OSS_PACKAGE ; rm ./$OSS_PACKAGE ; cd -
 # the python version shipped with oss-cad-tools creates problems
 rm -f /usr/local/share/silice/oss-cad-suite/lib/python3.exe
 rm -f /usr/local/share/silice/oss-cad-suite/lib/pip3.exe
+# the perl redirection of verilator is broken (and not necessary)
+rm -f /usr/local/share/silice/oss-cad-suite/share/verilator/bin/verilator
 
 # -------------- compile Silice -----------------------------
 ./compile_silice_mingw64.sh
