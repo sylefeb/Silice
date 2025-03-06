@@ -169,7 +169,9 @@ static void lua_preproc_error(lua_State *L, std::string str)
 
 static void lua_print(lua_State *L, std::string str)
 {
-  cerr << "[preprocessor] " << Console::white << str << Console::gray << "\n";
+  cerr << "[preprocessor] " << Console::bold << Console::white
+       << str
+       << Console::normal << Console::gray << "\n";
 }
 
 // -------------------------------------------------
