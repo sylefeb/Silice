@@ -10,7 +10,9 @@
 #include "lprefix.h"
 
 
+#if !defined(__wasi__)
 #include <setjmp.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 
@@ -52,7 +54,15 @@
 */
 #if !defined(LUAI_THROW)				/* { */
 
-#if defined(__cplusplus) && !defined(LUA_USE_LONGJMP)	/* { */
+#if defined(__wasi__) /* { */
+
+#define LUAI_THROW(L,c) { abort(); }
+#define LUAI_TRY(L,c,a) { a }
+#define luai_jmpbuf		int  /* dummy variable */
+
+#else /* }{ */
+
+#if (defined(__cplusplus) && !defined(LUA_USE_LONGJMP))	/* { */
 
 /* C++ exceptions */
 #define LUAI_THROW(L,c)		throw(c)
@@ -78,6 +88,7 @@
 
 #endif							/* } */
 
+#endif							/* } */
 
 
 /* chain list of long jump buffers */

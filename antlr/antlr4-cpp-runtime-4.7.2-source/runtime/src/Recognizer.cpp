@@ -38,7 +38,9 @@ dfa::Vocabulary const& Recognizer::getVocabulary() const {
 std::map<std::string, size_t> Recognizer::getTokenTypeMap() {
   const dfa::Vocabulary& vocabulary = getVocabulary();
 
+  #if !defined(__wasi__)
   std::lock_guard<std::mutex> lck(_mutex);
+  #endif
   std::map<std::string, size_t> result;
   auto iterator = _tokenTypeMapCache.find(&vocabulary);
   if (iterator != _tokenTypeMapCache.end()) {
@@ -68,7 +70,9 @@ std::map<std::string, size_t> Recognizer::getRuleIndexMap() {
     throw "The current recognizer does not provide a list of rule names.";
   }
 
+  #if !defined(__wasi__)
   std::lock_guard<std::mutex> lck(_mutex);
+  #endif
   std::map<std::string, size_t> result;
   auto iterator = _ruleIndexMapCache.find(ruleNames);
   if (iterator != _ruleIndexMapCache.end()) {
@@ -164,4 +168,3 @@ void Recognizer::InitializeInstanceFields() {
   _stateNumber = ATNState::INVALID_STATE_NUMBER;
   _interpreter = nullptr;
 }
-

@@ -89,7 +89,9 @@ misc::IntervalSet ATN::nextTokens(ATNState *s, RuleContext *ctx) const {
 
 misc::IntervalSet const& ATN::nextTokens(ATNState *s) const {
   if (!s->_nextTokenUpdated) {
+    #if !defined(__wasi__)
     std::unique_lock<std::mutex> lock { _mutex };
+    #endif
     if (!s->_nextTokenUpdated) {
       s->_nextTokenWithinRule = nextTokens(s, nullptr);
       s->_nextTokenUpdated = true;
@@ -206,4 +208,3 @@ std::string ATN::toString() const {
 
   return ss.str();
 }
-
