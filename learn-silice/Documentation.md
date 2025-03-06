@@ -3,7 +3,7 @@
 
 This is the Silice main documentation.
 
-When designing with Silice your code describes circuits. If not done already, I recommended to [watch the introductory video](https://www.youtube.com/watch?v=_OhxEY72qxI) (youtube) to get more familiar with this notion and what it entails. The video is slightly outdated in terms of what Silice can do, but still useful when getting started.
+When designing with Silice your code describes circuits. If not done already, I recommended to [watch the introductory video](https://www.youtube.com/watch?v=_OhxEY72qxI) (youtube) to get more familiar with this notion and what it entails. The video is slightly outdated in terms of what Silice can do, but still useful when getting started. Another more recent video that focuses on graphics applications and showcases new capabilities is [here](https://www.youtube.com/watch?v=XycwTFPDZ6w).
 
 ## Table of content
 
@@ -2419,6 +2419,57 @@ Silice comes with [many host hardware frameworks](../frameworks/boards/), some e
 For practical usage examples please refer to the [*Getting started* guide](../GetStarted.md).
 
 New frameworks for additional boards [can be easily created](../frameworks/boards/README.md).
+
+## Lua pre-processor in frameworks
+
+Frameworks can 'escape' Verilog to add [Lua preprocessor](#lua-preprocessor) instructions.
+Beware that this happens before the Verilog file is parsed, so the Verilog syntax
+does not influence these pre-processor lines. This is particularly the case
+for comments.
+
+For instance, consider the following framework file:
+
+``` verilog
+// This is a Verilog framework 'glue' file
+
+// Next some Verilog defines, these are only seen by the FPGA/ASIC/simulation
+// toolchain in the final compiled file.
+`define ICEBREAKER 1
+`define ICE40 1
+`default_nettype none
+// Next some lines escaping to the Lua preprocessor, these lines are visible
+// to Silice at compile time, but are oblivious to the surrounding Verilog code.
+$$ICEBREAKER  = 1
+$$ICE40       = 1
+$$HARDWARE    = 1
+// For instance consider the following
+/*
+$$VAR1 = 1
+*/
+// The comment around the $$ escaped line is invisible to Silice, so VAR1 is
+// indeed defined in Silice!
+// This is also true of something like this:
+`ifdef NOT_DEFINED
+$$VAR2 = 1
+`endif
+// The variable VAR2 will be defined as seen by the preprocessor, even though
+// NOT_DEFINED is not defined in the Verilog part. Again the Lua preprocessor
+// executes before Verilog is parsed by the toolchain.
+
+// Here are several possible ways to resolve this:
+// 1) Use a Lua comment
+$$ -- VAR3 = 3
+// ^^ this is a comment in the preprocessor language (Lua), the line is ignored
+// 2) Use preprocessor conditions to disable multiple lines
+$$ if false then
+$$   VAR4 = 4
+$$   VAR5 = 5
+$$ end
+// ^^ here the definition of VAR3 is skipped
+// 3) Use a single line comment, this is properly taken into account by the
+//    framework parser, for convenience.
+// $$ VAR6 = 6
+```
 
 ## VGA and OLED simulation
 

@@ -306,6 +306,15 @@ void SiliceCompiler::gatherUnitBody(AutoPtr<Algorithm> unit, antlr4::tree::Parse
 
 // -------------------------------------------------
 
+std::string ltrim(const std::string s)
+{
+  std::string r = s;
+  r.erase(r.begin(),
+    std::find_if(r.begin(), r.end(), [](unsigned char c) { return !std::isspace(c); }
+  ));
+  return r;
+}
+
 void SiliceCompiler::prepareFramework(std::string fframework, std::string& _lpp, std::string& _verilog)
 {
   // if we don't have a framework (as for the formal board),
@@ -322,6 +331,7 @@ void SiliceCompiler::prepareFramework(std::string fframework, std::string& _lpp,
   }
   std::string line;
   while (std::getline(infile, line)) {
+    line = ltrim(line);
     if (line.substr(0, 2) == "$$") {
       _lpp += line.substr(2) + "\n";
     } else {
