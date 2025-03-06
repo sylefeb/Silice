@@ -30,6 +30,14 @@ Install the extension:
 ```python3 setup.py install```
 (might need to `sudo`)
 
+Prior to testing, install migen and litex
+
+```pip install migen```
+
+```pip install litex```
+
+```pip install litex_boards```
+
 Enter the `tests` subdirectory and build something, e.g.
 
 ```python3 icebreaker_blinky.py```
