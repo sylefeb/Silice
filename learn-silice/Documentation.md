@@ -2346,6 +2346,20 @@ declaration, and between the `{` and `}` of the unit block.
 However there should not be any top level if-then-else enclosing and repeating
 these parentheses and braces.
 
+## Preprocessor additional functions
+
+In addition to the standard Lua functions, the following functions are
+available to the preprocessor:
+- `print(<string>)` prints the string in the console when reached by the preprocessor.
+- `error(<string>)` prints the string and exits immediately.
+- `clog2(<number>)` returns the ceil of the log2 of the input number.
+- `lshift(<number>,<number>)` returns the first input number left shifted by the second number (note: Lua now also supports `<<`).
+- `rshift(<number>)` returns the first input number right shifted by the second number (note: Lua now also supports `>>`).
+- `widthof(<identifier>)` returns the bit width of the given variable.
+- `signed(<identifier>)` returns whether the given variable is signed.
+- `findFile(<string>)` searches for a file in all known paths and returns the
+absolute path if found, the unmodified file name otherwise.
+
 ## Preprocessor image and palette functions
 
 The pre-processor has a number of function to facilitate the inclusion
