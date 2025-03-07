@@ -126,17 +126,3 @@ int main(int argc, char **argv)
 }
 
 // -------------------------------------------------
-
-#if defined(__wasi__)
-
-// well ...
-extern "C" {
-void *  __cxa_allocate_exception(size_t /*thrown_size*/) { abort(); }
-void    __cxa_throw(void */*thrown_object*/, std::type_info */*tinfo*/, void (*/*dest*/)(void *)) { abort(); }
-int     system( const char* ) {}
-clock_t clock() { return 0; }
-FILE   *tmpfile() { return NULL; }
-int     __cxa_thread_atexit(void*, void*, void*) {}
-}
-
-#endif

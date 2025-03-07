@@ -101,6 +101,7 @@ set(SILICE_CORE
   src/libs/LibSL-small/src/LibSL/Math/Math.cpp
   src/tga.cpp
   src/tga.h
+  src/wasi.cpp
 )
 
 add_definitions(-DANTLR4CPP_STATIC)
