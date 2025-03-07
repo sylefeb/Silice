@@ -23,7 +23,12 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 // -------------------------------------------------
 
-// This contains extra definitions that are required for proper compilation
+#include <cstdlib>
+#include <cstdio>
+#include <ctime>
+#include <typeinfo>
+
+// This file contains extra definitions that are required for proper compilation
 // with the WASI WebAssembly framework, due to lack of support for exceptions
 // and threads (the later should not be needed, ANTLR is creating the missing
 // __cxa_thread_atexit export)
