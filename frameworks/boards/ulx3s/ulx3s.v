@@ -152,8 +152,10 @@ USRMCLK usrmclk_flash(
 `endif
 
 `ifdef US2_PS2
-assign usb_fpga_pu_dp = 1; /// TODO: move to design
-assign usb_fpga_pu_dn = 1;
+// assign usb_fpga_pu_dp = 1; /// NOTE: move to design, adding to the main unit
+// assign usb_fpga_pu_dn = 1; ///       definition the following outputs:
+///                                        output uint1 usb_fpga_pu_dp(1),
+//                                         output uint1 usb_fpga_pu_dn(1),
 `endif
 
 assign wifi_gpio0 = 1'b1; // see https://github.com/sylefeb/Silice/issues/207
