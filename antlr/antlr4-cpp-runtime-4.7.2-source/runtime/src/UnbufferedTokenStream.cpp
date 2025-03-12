@@ -33,6 +33,7 @@ Token* UnbufferedTokenStream::get(size_t i) const
 { // get absolute index
   size_t bufferStartIndex = getBufferStartIndex();
   if (i < bufferStartIndex || i >= bufferStartIndex + _tokens.size()) {
+    ANTLR_WILL_THROW;
     throw IndexOutOfBoundsException(std::string("get(") + std::to_string(i) + std::string(") outside buffer: ")
       + std::to_string(bufferStartIndex) + std::string("..") + std::to_string(bufferStartIndex + _tokens.size()));
   }
@@ -48,6 +49,7 @@ Token* UnbufferedTokenStream::LT(ssize_t i)
   sync(i);
   ssize_t index = static_cast<ssize_t>(_p) + i - 1;
   if (index < 0) {
+    ANTLR_WILL_THROW;
     throw IndexOutOfBoundsException(std::string("LT(") + std::to_string(i) + std::string(") gives negative index"));
   }
 
@@ -87,6 +89,7 @@ std::string UnbufferedTokenStream::getText(Token *start, Token *stop)
 void UnbufferedTokenStream::consume()
 {
   if (LA(1) == EOF) {
+    ANTLR_WILL_THROW;
     throw IllegalStateException("cannot consume EOF");
   }
 
@@ -169,6 +172,7 @@ void UnbufferedTokenStream::release(ssize_t marker)
 {
   ssize_t expectedMark = -_numMarkers;
   if (marker != expectedMark) {
+    ANTLR_WILL_THROW;
     throw IllegalStateException("release() called with an invalid marker.");
   }
 
@@ -203,11 +207,13 @@ void UnbufferedTokenStream::seek(size_t index)
 
   size_t bufferStartIndex = getBufferStartIndex();
   if (bufferStartIndex > index) {
+    ANTLR_WILL_THROW;
     throw IllegalArgumentException(std::string("cannot seek to negative index ") + std::to_string(index));
   }
 
   size_t i = index - bufferStartIndex;
   if (i >= _tokens.size()) {
+    ANTLR_WILL_THROW;
     throw UnsupportedOperationException(std::string("seek to index outside buffer: ") + std::to_string(index) +
       " not in " + std::to_string(bufferStartIndex) + ".." + std::to_string(bufferStartIndex + _tokens.size()));
   }
@@ -223,6 +229,7 @@ void UnbufferedTokenStream::seek(size_t index)
 
 size_t UnbufferedTokenStream::size()
 {
+  ANTLR_WILL_THROW;
   throw UnsupportedOperationException("Unbuffered stream cannot know its size");
 }
 
@@ -239,6 +246,7 @@ std::string UnbufferedTokenStream::getText(const misc::Interval &interval)
   size_t start = interval.a;
   size_t stop = interval.b;
   if (start < bufferStartIndex || stop > bufferStopIndex) {
+    ANTLR_WILL_THROW;
     throw UnsupportedOperationException(std::string("interval ") + interval.toString() +
       " not in token buffer window: " + std::to_string(bufferStartIndex) + ".." + std::to_string(bufferStopIndex));
   }

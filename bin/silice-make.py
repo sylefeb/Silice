@@ -31,6 +31,8 @@ import subprocess
 
 # from termcolor import colored
 
+silice_exe_name = "silice"
+
 def colored(str,clr,attrs=0):
   return str
 
@@ -82,6 +84,7 @@ def make(cmd_args):
     frameworks_dirs=list()
     frameworks_dirs.append(os.path.realpath(os.path.join(make_dir,"../share/silice/frameworks/")))
     frameworks_dirs.append('/usr/local/share/silice/frameworks/')
+    frameworks_dirs.append(os.path.dirname(os.path.realpath(__file__)) + '/share/silice/frameworks')
     if platform.system() == "Windows":
         if sysconfig.get_platform().startswith("mingw"):
             import subprocess
@@ -91,6 +94,7 @@ def make(cmd_args):
     # search in expected paths
     frameworks_dir = None
     for fdir in frameworks_dirs:
+      print(fdir)
       if (os.path.exists(fdir)):
           frameworks_dir = fdir
           break
@@ -357,7 +361,7 @@ def make(cmd_args):
             args.no_program = True
 
         if not args.reprogram:
-            cmd = ["silice", "--frameworks_dir", frameworks_dir, "-f", framework_file, source_file, "-o", "build.v"]
+            cmd = [silice_exe_name, "--frameworks_dir", frameworks_dir, "-f", framework_file, source_file, "-o", "build.v"]
             for d in defines:
                 cmd.append("-D")
                 cmd.append(defines[d])

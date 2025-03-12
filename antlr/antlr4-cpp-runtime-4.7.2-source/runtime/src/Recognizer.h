@@ -60,6 +60,7 @@ namespace antlr4 {
     /// created the interpreter from it.
     /// </summary>
     virtual const std::vector<uint16_t> getSerializedATN() const {
+      ANTLR_WILL_THROW;
       throw "there is no serialized ATN";
     }
 

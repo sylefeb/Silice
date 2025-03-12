@@ -19,6 +19,7 @@ const std::vector<std::string> Transition::serializationNames = {
 
 Transition::Transition(ATNState *target) {
   if (target == nullptr) {
+    ANTLR_WILL_THROW;
     throw NullPointerException("target cannot be null.");
   }
 

@@ -230,7 +230,7 @@ size_t LexerATNSimulator::failOrAccept(CharStream *input, ATNConfigSet *reach, s
     if (t == Token::EOF && input->index() == _startIndex) {
       return Token::EOF;
     }
-
+    ANTLR_WILL_THROW;
     throw LexerNoViableAltException(_recog, input, _startIndex, reach);
   }
 }
@@ -383,6 +383,7 @@ Ref<LexerATNConfig> LexerATNSimulator::getEpsilonTarget(CharStream *input, const
     }
 
     case Transition::PRECEDENCE:
+      ANTLR_WILL_THROW;
       throw UnsupportedOperationException("Precedence predicates are not supported in lexers.");
 
     case Transition::PREDICATE: {

@@ -133,6 +133,7 @@ size_t ATN::getNumberOfDecisions() const {
 
 misc::IntervalSet ATN::getExpectedTokens(size_t stateNumber, RuleContext *context) const {
   if (stateNumber == ATNState::INVALID_STATE_NUMBER || stateNumber >= states.size()) {
+    ANTLR_WILL_THROW;
     throw IllegalArgumentException("Invalid state number.");
   }
 

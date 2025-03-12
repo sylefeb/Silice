@@ -14,6 +14,7 @@ TagChunk::TagChunk(const std::string &tag) : TagChunk("", tag) {
 
 TagChunk::TagChunk(const std::string &label, const std::string &tag) : _tag(tag), _label(label) {
   if (tag.empty()) {
+    ANTLR_WILL_THROW;
     throw IllegalArgumentException("tag cannot be null or empty");
   }
 

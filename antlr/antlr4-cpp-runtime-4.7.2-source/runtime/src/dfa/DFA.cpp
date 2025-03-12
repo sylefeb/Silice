@@ -72,6 +72,7 @@ DFAState* DFA::getPrecedenceStartState(int precedence) const {
 
 void DFA::setPrecedenceStartState(int precedence, DFAState *startState, SingleWriteMultipleReadLock &lock) {
   if (!isPrecedenceDfa()) {
+    ANTLR_WILL_THROW;
     throw IllegalStateException("Only precedence DFAs may contain a precedence start state.");
   }
 
@@ -124,4 +125,3 @@ std::string DFA::toLexerString() {
 
   return serializer.toString();
 }
-

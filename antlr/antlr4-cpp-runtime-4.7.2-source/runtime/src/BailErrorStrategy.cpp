@@ -22,6 +22,7 @@ void BailErrorStrategy::recover(Parser *recognizer, std::exception_ptr e) {
   } while (true);
 
   try {
+    ANTLR_WILL_THROW;
     std::rethrow_exception(e); // Throw the exception to be able to catch and rethrow nested.
 #if defined(_MSC_FULL_VER) && _MSC_FULL_VER < 190023026
   } catch (RecognitionException &inner) {
@@ -46,6 +47,7 @@ Token* BailErrorStrategy::recoverInline(Parser *recognizer)  {
   } while (true);
 
   try {
+    ANTLR_WILL_THROW;
     throw e;
 #if defined(_MSC_FULL_VER) && _MSC_FULL_VER < 190023026
   } catch (InputMismatchException &inner) {

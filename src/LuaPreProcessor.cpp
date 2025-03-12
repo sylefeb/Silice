@@ -65,6 +65,22 @@ extern "C" {
 
 // -------------------------------------------------
 
+#ifdef __wasi__
+#define LPP_THROW(msg)  { \
+      std::cerr << "\n========== preprocessor error ==========\n" \
+        << msg << std::endl; \
+      exit(1); }
+#define LPP_THROW_ARGS(msg,args...)  { \
+      std::cerr << "\n========== preprocessor error ==========\n" \
+        << sprint(msg,args) << std::endl; \
+      exit(1); }
+#else
+#define LPP_THROW(msg) throw Fatal(msg);
+#define LPP_THROW_ARGS(msg,args...) throw Fatal(msg,args);
+#endif
+
+// -------------------------------------------------
+
 static void load_config_into_lua(lua_State *L)
 {
   luabind::object table = luabind::newtable(L);
@@ -309,7 +325,7 @@ int lua_pin_newindex(lua_State *L)
           // bit select
           std::string pin_bitsel = luabind::object_cast_nothrow<std::string>(*i, std::string());
           auto split = pin_bitsel.find(':');
-          if (split == string::npos) throw Fatal("[pin declaration] malformed bit select string");
+          if (split == string::npos) LPP_THROW("[pin declaration] malformed bit select string");
           std::string name = pin_bitsel.substr(0, split);
           std::string bit  = pin_bitsel.substr(split+1);
           pins.push_back(make_pair(name,atoi(bit.c_str())));
@@ -318,7 +334,7 @@ int lua_pin_newindex(lua_State *L)
           if (!all.empty()) {
             pins.push_back(std::make_pair(all, -1));
           } else {
-            throw Fatal("[pin declaration] malformed pin group table");
+            LPP_THROW("[pin declaration] malformed pin group table");
           }
         } else if (luabind::type(*i) == LUA_TNUMBER) {
           int v = luabind::object_cast_nothrow<int>(*i, 0);
@@ -860,7 +876,7 @@ void LuaPreProcessor::pinsUsedByIOPort(std::string port, std::vector<std::pair<s
   } else if (m_PinGroups.count(port)) {
     _pins = m_PinGroups.at(port);
   } else {
-    throw Fatal("pinsUsedByIOPort cannot find io port in pins or pin groups");
+    LPP_THROW("pinsUsedByIOPort cannot find io port in pins or pin groups");
   }
 }
 
@@ -871,7 +887,7 @@ int  LuaPreProcessor::pinWidth(std::string pin)
   if (m_Pins.count(pin)) {
     return m_Pins.at(pin);
   } else {
-    throw Fatal("pinWidth called on unkown pin");
+    LPP_THROW("pinWidth called on unkown pin");
   }
 }
 
@@ -885,10 +901,10 @@ std::string LuaPreProcessor::assembleSource(
 {
   cerr << "assembling source " << std::filesystem::absolute(src_file) << '.' << "\n";
   if (!LibSL::System::File::exists(src_file.c_str())) {
-    throw Fatal("cannot find source file '%s'", src_file.c_str());
+    LPP_THROW_ARGS("cannot find source file '%s'", src_file.c_str());
   }
   if (alreadyIncluded.find(src_file) != alreadyIncluded.end()) {
-    throw Fatal("source file '%s' already included (cyclic dependency)", src_file.c_str());
+    LPP_THROW_ARGS("source file '%s' already included (cyclic dependency)", src_file.c_str());
   }
   // generate a report with all the loaded files
   if (!m_FilesReportName.empty()) {
@@ -924,13 +940,13 @@ std::string LuaPreProcessor::assembleSource(
         auto next = parser.readChar();
         if (next != '"' && next != '\'') {
           // TODO: improve error report
-          throw Fatal("parse error in include");
+          LPP_THROW("parse error in include");
         }
         std::string fname = parser.readString("\"'");
         bool ok = parser.reachChar(')');
         if (!ok) {
           // TODO: improve error report
-          throw Fatal("parse error in include");
+          LPP_THROW("parse error in include");
         }
         // find file
         fname = findFile(path, fname);
@@ -939,7 +955,7 @@ std::string LuaPreProcessor::assembleSource(
         code += assembleSource(path + "/", fname, alreadyIncluded, _output_line_count);
       } else if (w == "$display") {
         // early Silice versions supported $display, we now issue an error and indicate the replacement
-        throw Fatal("$display is deprecated, please use __display instead (line %d).",1+src_line);
+        LPP_THROW_ARGS("$display is deprecated, please use __display instead (line %d).",1+src_line);
       } else {
         code += " " + w;
       }
@@ -1001,7 +1017,7 @@ int jumpOverComment(t_Parser& parser, BufferStream& bs)
     }
     if (parser.eof()) {
       // TODO: improve error report
-      throw Fatal("[parser] Reached end of file while parsing comment block");
+      LPP_THROW("[parser] Reached end of file while parsing comment block");
     }
   } else {
     return -1; // not a comment
@@ -1029,7 +1045,7 @@ std::string jumpOverString(t_Parser& parser, BufferStream& bs)
     }
   }
   // TODO: improve error report
-  throw Fatal("[parser] Reached end of file while parsing string");
+  LPP_THROW("[parser] Reached end of file while parsing string");
 }
 
 // -------------------------------------------------
@@ -1072,13 +1088,13 @@ public:
         } else if (w == "end") {
           if (m_IfSide.empty()) {
             // TODO: better message!
-            throw Fatal("[parser] Pre-processor directives are unbalanced within the unit, this is not supported.\n       (please refer to the documentation, Documentation.md#preprocessor-constraints)");
+            LPP_THROW("[parser] Pre-processor directives are unbalanced within the unit, this is not supported.\n       (please refer to the documentation, Documentation.md#preprocessor-constraints)");
           }
           m_IfSide.pop_back();
         } else if (w == "else" || w == "elseif") {
           if (m_IfSide.empty()) {
             // TODO: better message!
-            throw Fatal("[parser] Pre-processor directives are unbalanced within the unit, this is not supported.\n       (please refer to the documentation, Documentation.md#preprocessor-constraints)");
+            LPP_THROW("[parser] Pre-processor directives are unbalanced within the unit, this is not supported.\n       (please refer to the documentation, Documentation.md#preprocessor-constraints)");
           }
           m_IfSide.pop_back();
           m_IfSide.push_back(false);
@@ -1159,7 +1175,7 @@ void jumpOverNestedBlocks(t_Parser& parser, BufferStream& bs,LuaCodePath& lcp, c
       parser.readChar();
     }
   }
-  throw Fatal("[parser] Reached end of file while skipping blocks. Are %c %c unbalanced?",
+  LPP_THROW_ARGS("[parser] Reached end of file while skipping blocks. Are %c %c unbalanced?",
                c_in,c_out);
 }
 
@@ -1173,14 +1189,14 @@ void jumpOverUnit(t_Parser& parser, BufferStream& bs, LuaCodePath& lcp, int& _io
   jumpOverNestedBlocks(parser,bs, lcp, '(', ')');
   int nlvl_after_io = lcp.nestLevel();
   if (nlvl_before != nlvl_after_io) {
-    throw Fatal("[parser] Pre-processor directives are spliting the unit io definitions, this is not supported:\n"
+    LPP_THROW("[parser] Pre-processor directives are spliting the unit io definitions, this is not supported:\n"
                 "                A unit io definition has to be entirely contained within if-then-else directives");
   }
   _io_end   = bs.pos();
   jumpOverNestedBlocks(parser,bs, lcp, '{', '}');
   int nlvl_after  = lcp.nestLevel();
   if (nlvl_before != nlvl_after) {
-    throw Fatal("[parser] Pre-processor directives are spliting the unit, this is not supported:\n"
+    LPP_THROW("[parser] Pre-processor directives are spliting the unit, this is not supported:\n"
                 "                A unit has to be entirely contained within if-then-else directives");
   }
 }
@@ -1213,7 +1229,7 @@ void LuaPreProcessor::decomposeSource(
       if (w == "unit" || w == "algorithm" || w == "algorithm#" || w == "circuitry") {
         std::string name = parser.readString("( \t\r");
         if (name.empty()) {
-          throw Fatal("%s",(w + " has no name").c_str()); // TODO: improve error report (line)
+          LPP_THROW_ARGS("%s",(w + " has no name").c_str()); // TODO: improve error report (line)
         }
         cerr << "functionalizing " << w << ' ' << name << '\n';
         if (w == "algorithm#") {
@@ -1558,7 +1574,7 @@ void LuaPreProcessor::executeLuaString(std::string lua_code, std::string dst_fil
       cerr << errmsg << "\n";
     }
     cerr << Console::gray;
-    throw Fatal("the preprocessor was interrupted");
+    LPP_THROW("the preprocessor was interrupted");
   }
   // close output
   g_LuaOutputs.at(m_LuaState).close();

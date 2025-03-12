@@ -35,6 +35,10 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include <LibSL/LibSL.h>
 
+#if defined (__wasi__)
+#define throw // NOTE: heavy handed approach to disabling exceptions, with the
+        // constructors exiting with an error message (see TCLAP::ArgException)
+#endif
 #include <tclap/CmdLine.h>
 #include <tclap/UnlabeledValueArg.h>
 
@@ -51,8 +55,10 @@ extern bool g_SplitInouts;
 
 // -------------------------------------------------
 
+
 int main(int argc, char **argv)
 {
+
   try {
 
     const std::string version_string = std::string(" 1.0.11") + " " + c_GitHash;
@@ -122,6 +128,7 @@ int main(int argc, char **argv)
     std::cerr << "error: " << err.what() << "\n";
     return -3;
   }
+
   return 0;
 }
 

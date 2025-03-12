@@ -197,6 +197,7 @@ std::vector<size_t> ATNSerializer::serialize() {
       Transition *t = s->transitions[i];
 
       if (atn->states[t->target->stateNumber] == nullptr) {
+        ANTLR_WILL_THROW;
         throw IllegalStateException("Cannot serialize a transition to a removed state.");
       }
 
@@ -347,6 +348,7 @@ std::vector<size_t> ATNSerializer::serialize() {
         }
 
         default:
+          ANTLR_WILL_THROW;
           throw IllegalArgumentException("The specified lexer action type " +
                                          std::to_string(static_cast<size_t>(action->getActionType())) +
                                          " is not valid.");
@@ -357,6 +359,7 @@ std::vector<size_t> ATNSerializer::serialize() {
   // don't adjust the first value since that's the version number
   for (size_t i = 1; i < data.size(); i++) {
     if (data.at(i) > 0xFFFF) {
+      ANTLR_WILL_THROW;
       throw UnsupportedOperationException("Serialized ATN data element out of range.");
     }
 
@@ -370,8 +373,10 @@ std::vector<size_t> ATNSerializer::serialize() {
 //------------------------------------------------------------------------------------------------------------
 
 std::string ATNSerializer::decode(const std::wstring &inpdata) {
-  if (inpdata.size() < 10)
+  if (inpdata.size() < 10) {
+    ANTLR_WILL_THROW;
     throw IllegalArgumentException("Not enough data to decode");
+  }
 
   std::vector<uint16_t> data(inpdata.size());
   data[0] = (uint16_t)inpdata[0];
@@ -387,6 +392,7 @@ std::string ATNSerializer::decode(const std::wstring &inpdata) {
   if (version != ATNDeserializer::SERIALIZED_VERSION) {
     std::string reason = "Could not deserialize ATN with version " + std::to_string(version) + "(expected " +
     std::to_string(ATNDeserializer::SERIALIZED_VERSION) + ").";
+    ANTLR_WILL_THROW;
     throw UnsupportedOperationException("ATN Serializer" + reason);
   }
 
@@ -395,6 +401,7 @@ std::string ATNSerializer::decode(const std::wstring &inpdata) {
   if (uuid != ATNDeserializer::SERIALIZED_UUID()) {
     std::string reason = "Could not deserialize ATN with UUID " + uuid.toString() + " (expected " +
     ATNDeserializer::SERIALIZED_UUID().toString() + ").";
+    ANTLR_WILL_THROW;
     throw UnsupportedOperationException("ATN Serializer" + reason);
   }
 
@@ -616,6 +623,8 @@ void ATNSerializer::serializeUUID(std::vector<size_t> &data, Guid uuid) {
        firstByte = true;
      }
   }
-  if (!firstByte)
-     throw IllegalArgumentException( "The UUID provided is not valid (odd number of bytes)." );
+  if (!firstByte) {
+    ANTLR_WILL_THROW;
+    throw IllegalArgumentException( "The UUID provided is not valid (odd number of bytes)." );
+  }
 }

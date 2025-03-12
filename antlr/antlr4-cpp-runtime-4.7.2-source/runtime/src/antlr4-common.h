@@ -135,3 +135,36 @@
 
 #define INVALID_INDEX std::numeric_limits<size_t>::max()
 template<class T> using Ref = std::shared_ptr<T>;
+
+#ifdef __wasi__
+namespace antlr4 {
+  class StaticErrorReporting
+  {
+  public:
+    virtual void reportError(antlr4::Token *tk) = 0;
+    static  void setUniqueInstance(StaticErrorReporting *ser) { s_Instance = ser; }
+    static  void abortOnError(antlr4::Token *tk) {
+      if (s_Instance) { s_Instance->reportError(tk); }
+      exit(1);
+    }
+    StaticErrorReporting() { }
+    virtual ~StaticErrorReporting() { }
+  private:
+    static StaticErrorReporting *s_Instance;
+  };
+};
+
+#define ANTLR_WILL_THROW  { \
+      std::cerr << "\n========== syntax error ==========\n"  \
+        << "Due to technical limitations in WASI this error\n" \
+        << "reporting is currently very limited.\n"  \
+        << '[' << __FILE__ << "] line " << __LINE__  \
+        << std::endl; }
+#define ANTLR_WILL_THROW_TK(tk)  { \
+      std::cerr << "\n========== syntax error ==========\n"; \
+      antlr4::StaticErrorReporting::abortOnError(tk); \
+    }
+#else
+#define ANTLR_WILL_THROW
+#define ANTLR_WILL_THROW_TK(tk)
+#endif

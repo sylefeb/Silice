@@ -170,6 +170,7 @@ std::vector<tree::ParseTreeListener *> Parser::getParseListeners() {
 
 void Parser::addParseListener(tree::ParseTreeListener *listener) {
   if (!listener) {
+    ANTLR_WILL_THROW;
     throw NullPointerException("listener");
   }
 
@@ -216,6 +217,7 @@ Ref<TokenFactory<CommonToken>> Parser::getTokenFactory() {
 const atn::ATN& Parser::getATNWithBypassAlts() {
   std::vector<uint16_t> serializedAtn = getSerializedATN();
   if (serializedAtn.empty()) {
+    ANTLR_WILL_THROW;
     throw UnsupportedOperationException("The current parser does not support an ATN with bypass alternatives.");
   }
 #if !defined(__wasi__)
@@ -243,6 +245,7 @@ tree::pattern::ParseTreePattern Parser::compileParseTreePattern(const std::strin
       return compileParseTreePattern(pattern, patternRuleIndex, lexer);
     }
   }
+  ANTLR_WILL_THROW;
   throw UnsupportedOperationException("Parser can't discover a lexer to use");
 }
 

@@ -165,6 +165,7 @@ namespace antlrcpp {
 
   std::string what(std::exception_ptr eptr) {
     if (!eptr) {
+      ANTLR_WILL_THROW;
       throw std::bad_exception();
     }
 
@@ -175,6 +176,7 @@ namespace antlrcpp {
       try {
         std::exception_ptr yeptr;
         std::swap(eptr, yeptr);
+        ANTLR_WILL_THROW;
         std::rethrow_exception(yeptr);
       }
       catch (const std::exception &e) {

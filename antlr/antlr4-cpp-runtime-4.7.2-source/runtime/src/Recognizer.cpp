@@ -67,6 +67,7 @@ std::map<std::string, size_t> Recognizer::getTokenTypeMap() {
 std::map<std::string, size_t> Recognizer::getRuleIndexMap() {
   const std::vector<std::string>& ruleNames = getRuleNames();
   if (ruleNames.empty()) {
+    ANTLR_WILL_THROW;
     throw "The current recognizer does not provide a list of rule names.";
   }
 

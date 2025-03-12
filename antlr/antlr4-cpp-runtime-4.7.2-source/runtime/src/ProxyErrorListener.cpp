@@ -9,6 +9,7 @@ using namespace antlr4;
 
 void ProxyErrorListener::addErrorListener(ANTLRErrorListener *listener) {
   if (listener == nullptr) {
+    ANTLR_WILL_THROW;
     throw "listener cannot be null.";
   }
 
