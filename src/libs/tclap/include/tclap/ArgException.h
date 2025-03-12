@@ -82,7 +82,7 @@ class ArgException : public std::exception
 		/**
 		 * Returns the arg id and error text.
 		 */
-		const char* what() const _NOEXCEPT /*throw()*/
+		const char* what() const noexcept /*throw()*/
 		{
 			static std::string ex;
 			ex = _argId + " -- " + _errorText;
