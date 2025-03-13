@@ -34,4 +34,6 @@ yowasp_nextpnr_ice40.run_nextpnr_ice40(nextpnr_args)
 yowasp_nextpnr_ice40.run_icepack(['build.asc','build.bin'])
 
 print("---")
-print("Bitstream produced in " + os.getenv("BUILD_DIR","") + "/build.bin, you can now program your board.")
+print("Bitstream produced in " + os.getenv("BUILD_DIR","") + "/build.bin.")
+
+yowasp_silice.serve_openFPGALoader('ice40_generic',"build.bin")
