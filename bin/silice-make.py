@@ -41,7 +41,7 @@ def make(cmd_args):
     parser = argparse.ArgumentParser(description='silice-make is the Silice build tool')
     parser.add_argument('-s','--source', help="Source file to build.")
     parser.add_argument('-b','--board', help="Board to build for. Variant can be specified as board:variant")
-    parser.add_argument('-t','--tool', help="Builder used (e.g. edalize, shell).")
+    parser.add_argument('-t','--tool', help="Builder used (e.g. edalize, shell, yowasp).")
     parser.add_argument('-p','--pins', help="Pins used in the design, comma separated, e.g. basic,vga")
     parser.add_argument('-o','--outdir', help="Specify name of output directory.", default="BUILD")
     parser.add_argument('-l','--list_boards', help="List all available target boards.", action="store_true")
@@ -269,6 +269,7 @@ def make(cmd_args):
         if not os.path.exists(script):
             print(colored("script " + script + " not found", 'red'))
             sys.exit()
+
         # prepare additional defines
         defines = ""
         if args.pins:
@@ -303,6 +304,20 @@ def make(cmd_args):
             os.system(bash + " " + command + " " + defines + " " + add_args + " --top " + args.top)
         else:
             os.system(command + " " + defines + " " + add_args + " --top " + args.top)
+
+    elif target_builder['builder'] == 'yowasp':
+
+        # script check
+        script = os.path.join(board_path,target_builder['command'])
+        if not os.path.exists(script):
+            print(colored("script " + script + " not found", 'red'))
+            sys.exit()
+        # execute
+        import importlib.util
+        spec   = importlib.util.spec_from_file_location("module_name", script)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["module_name"] = module
+        spec.loader.exec_module(module)
 
     elif target_builder['builder'] == 'edalize':
 
