@@ -53,10 +53,17 @@
 ** longjmp/setjmp otherwise.
 */
 #if !defined(LUAI_THROW)				/* { */
-
+#include <stdio.h>
 #if defined(__wasi__) /* { */
-
-#define LUAI_THROW(L,c) { abort(); }
+#define LUAI_THROW(L,c) { \
+  char str[4096];\
+  int errline = -1;\
+  const char *errmsg = lua_tostring(L, -1);\
+  snprintf(str, 4049, "[[LUA]exit] %s\n", errmsg);\
+  fprintf(stderr,str);\
+  fprintf(stderr,"preprocessor error\n");\
+  exit(2);\
+}
 #define LUAI_TRY(L,c,a) { a }
 #define luai_jmpbuf		int  /* dummy variable */
 
@@ -809,5 +816,3 @@ int luaD_protectedparser (lua_State *L, ZIO *z, const char *name,
   L->nny--;
   return status;
 }
-
-

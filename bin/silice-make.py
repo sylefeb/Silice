@@ -36,6 +36,33 @@ silice_exe_name = "silice"
 def colored(str,clr,attrs=0):
   return str
 
+def prepare_call(args,variant_pin_sets):
+    # prepare additional defines
+    defines = ""
+    if args.pins:
+        for pin_set in args.pins.split(','):
+            if not pin_set in variant_pin_sets:
+                print(colored("pin set '" + pin_set + "' not defined in board variant",'red'))
+                sys.exit(-1)
+            else:
+                if 'define' in variant_pin_sets[pin_set]:
+                    defines = defines + " -D " + variant_pin_sets[pin_set]['define']
+                    key_value = variant_pin_sets[pin_set]['define'].split('=')
+                    if len(key_value) == 2:
+                      os.environ[key_value[0]] = key_value[1]
+                    elif len(key_value) == 1:
+                      os.environ[key_value[0]] = 1
+    # adding command line defines
+    if args.defines:
+        for define in args.defines.split(','):
+            defines = defines + " -D " + define
+    # additional command line parameters
+    add_args = ""
+    if args.args:
+        for arg in args.args.split(','):
+            add_args = add_args + " --" + arg
+    return defines, add_args
+
 def make(cmd_args):
     # command line
     parser = argparse.ArgumentParser(description='silice-make is the Silice build tool')
@@ -254,6 +281,9 @@ def make(cmd_args):
           os.environ["PATH"] += os.pathsep + os.path.realpath(os.path.join(make_dir,"../tools/fpga-binutils/mingw64/bin/"))
           os.environ["PATH"] += os.pathsep + os.path.realpath("c:/intelFPGA_lite/19.1/quartus/bin64/")
 
+    # top module name
+    os.environ["SILICE_TOP"] = args.top
+
     if target_builder['builder'] == 'shell':
 
         # ==== building with a custom script
@@ -263,39 +293,13 @@ def make(cmd_args):
             if not sysconfig.get_platform().startswith("mingw"):
                 print(colored("to build from scripts please run MinGW python from a shell",'red'))
                 sys.exit(-1)
-
         # script check
         script = os.path.join(board_path,target_builder['command'])
         if not os.path.exists(script):
             print(colored("script " + script + " not found", 'red'))
             sys.exit()
-
-        # prepare additional defines
-        defines = ""
-        if args.pins:
-            for pin_set in args.pins.split(','):
-                if not pin_set in variant_pin_sets:
-                    print(colored("pin set '" + pin_set + "' not defined in board variant",'red'))
-                    sys.exit(-1)
-                else:
-                    if 'define' in variant_pin_sets[pin_set]:
-                        defines = defines + " -D " + variant_pin_sets[pin_set]['define']
-                        key_value = variant_pin_sets[pin_set]['define'].split('=')
-                        if len(key_value) == 2:
-                          os.environ[key_value[0]] = key_value[1]
-                        elif len(key_value) == 1:
-                          os.environ[key_value[0]] = 1
-        # adding command line defines
-        if args.defines:
-            for define in args.defines.split(','):
-                defines = defines + " -D " + define
-        # top module name
-        os.environ["SILICE_TOP"] = args.top
-        # additional command line parameters
-        add_args = ""
-        if args.args:
-            for arg in args.args.split(','):
-                add_args = add_args + " --" + arg
+        # prepare call
+        defines, add_args = prepare_call(args, variant_pin_sets)
         # execute
         command = script + " " + source_file
         print('launching command     ', colored(command,'cyan'))
@@ -307,15 +311,20 @@ def make(cmd_args):
 
     elif target_builder['builder'] == 'yowasp':
 
+        # ==== building with yowasp (custom python script)
+
         # script check
         script = os.path.join(board_path,target_builder['command'])
         if not os.path.exists(script):
             print(colored("script " + script + " not found", 'red'))
             sys.exit()
+        # prepare call
+        defines, add_args = prepare_call(args, variant_pin_sets)
         # execute
         import importlib.util
         spec   = importlib.util.spec_from_file_location("module_name", script)
         module = importlib.util.module_from_spec(spec)
+        module.silice_args = (source_file + " " + defines + " " + add_args + " --top " + args.top).strip()
         sys.modules["module_name"] = module
         spec.loader.exec_module(module)
 
