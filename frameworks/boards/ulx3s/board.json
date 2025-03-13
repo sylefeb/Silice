@@ -53,6 +53,11 @@
         "builder" : "shell",
         "command" : "ulx3s.sh",
         "description": "Custom shell scripts using yosys and nextpnr"
+      },
+      {
+        "builder" : "yowasp",
+        "command" : "ulx3s.py",
+        "description": "Custom python scripts using yowasp (needs yowasp-yosys and yowasp-nextpnr-ecp5)"
       }
       ]
     },
@@ -94,6 +99,11 @@
         "builder" : "shell",
         "command" : "ulx3s.sh",
         "description": "Custom shell scripts using yosys and nextpnr"
+      },
+      {
+        "builder" : "yowasp",
+        "command" : "ulx3s.py",
+        "description": "Custom python scripts using yowasp (needs yowasp-yosys and yowasp-nextpnr-ecp5)"
       }
       ]
     },
@@ -135,6 +145,11 @@
         "builder" : "shell",
         "command" : "ulx3s.sh",
         "description": "Custom shell scripts using yosys and nextpnr"
+      },
+      {
+        "builder" : "yowasp",
+        "command" : "ulx3s.py",
+        "description": "Custom python scripts using yowasp (needs yowasp-yosys and yowasp-nextpnr-ecp5)"
       }
       ]
     },
@@ -176,6 +191,11 @@
         "builder" : "shell",
         "command" : "ulx3s.sh",
         "description": "Custom shell scripts using yosys and nextpnr"
+      },
+      {
+        "builder" : "yowasp",
+        "command" : "ulx3s.py",
+        "description": "Custom python scripts using yowasp (needs yowasp-yosys and yowasp-nextpnr-ecp5)"
       }
       ]
     }

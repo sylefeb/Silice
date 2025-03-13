@@ -39,7 +39,7 @@
         {
           "builder" : "yowasp",
           "command" : "icestick.py",
-          "description": "Custom python scripts using yowasp (needs yowasp-yosys and yowasp-nextpnr-ice40"
+          "description": "Custom python scripts using yowasp (needs yowasp-yosys and yowasp-nextpnr-ice40)"
         }
       ]
     }
