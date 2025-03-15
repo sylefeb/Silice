@@ -1503,8 +1503,6 @@ void LuaPreProcessor::generateBody(
   g_LuaProcessingHeader.erase(m_LuaState);
   // execute body (Lua context also contains all unit functions)
   executeLuaString(lua_code, dst_file, ictx);
-  // reload config
-  load_config_from_lua(m_LuaState);
 
 }
 
@@ -1576,6 +1574,8 @@ void LuaPreProcessor::executeLuaString(std::string lua_code, std::string dst_fil
     cerr << Console::gray;
     LPP_THROW("the preprocessor was interrupted");
   }
+  // reload config
+  load_config_from_lua(m_LuaState);
   // close output
   g_LuaOutputs.at(m_LuaState).close();
   g_LuaOutputs.erase(m_LuaState);
