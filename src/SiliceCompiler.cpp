@@ -49,7 +49,7 @@ using namespace Silice::Utils;
 
 // -------------------------------------------------
 
-bool g_Disable_CL0006 = false; // allows to force the use of outdates frameworks
+bool g_Disable_CL0006 = false; // turn the check for missing pins into a warning
 
 extern bool g_SplitInouts;
 
@@ -379,6 +379,7 @@ void SiliceCompiler::beginParsing(
   CONFIG.keyValues()["frameworks_dir"] = frameworks_dir;
   CONFIG.keyValues()["templates_path"] = frameworks_dir + "/templates";
   CONFIG.keyValues()["libraries_path"] = frameworks_dir + "/libraries";
+  CONFIG.keyValues()["allow_deprecated_framework"] = "yes"; /// TODO: enforce this next major version
   // create the preprocessor
   AutoPtr<LuaPreProcessor> lpp(new LuaPreProcessor());
   lpp->enableFilesReport(fresult + ".files.log");
@@ -555,7 +556,7 @@ bool SiliceCompiler::addTopModulePort(
 ) {
   if (!m_BodyContext->lpp->isIOPortDefined(port)) {
     CHANGELOG.addPointOfInterest("CL0006", srcloc);
-    if (g_Disable_CL0006) {
+    if (g_Disable_CL0006 || CONFIG.keyValues()["allow_deprecated_framework"] == "yes") {
       warn(Deprecation, srcloc, "pin '%s' is not declared in framework\n             This may result in incorrect Verilog code.\n", port.c_str());
     } else {
       reportError(srcloc, "pin '%s' is not declared in framework\n         This may result in incorrect Verilog code.\n         Use --no-pin-check on command line to force.", port.c_str());

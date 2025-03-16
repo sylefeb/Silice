@@ -21,7 +21,7 @@ $$dofile('pre_sdcard_image.lua')
 
 algorithm main(
   output uint8 leds,
-  input  uint7 btn,
+  input  uint7 btns,
   output uint1 oled_clk,
   output uint1 oled_mosi,
   output uint1 oled_dc,
@@ -58,7 +58,7 @@ algorithm main(
 
   uint7  btn_latch = 0;
 
-  btn_latch     := btn;
+  btn_latch     := btns;
 
   // maintain low (pulses high when needed)
   io.start_rect := 0;

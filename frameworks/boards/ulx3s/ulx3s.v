@@ -40,6 +40,7 @@ $$NUM_BTNS = 7
 $$color_depth = 6
 $$color_max   = 63
 $$config['dualport_bram_supported'] = 'yes'
+$$config['allow_deprecated_framework'] = 'no'
 // declare package pins (has to match the hardware pin definition)
 // pin.NAME = <WIDTH>
 $$pin.gp         = 28
@@ -78,6 +79,8 @@ $$pin.usb_fpga_bd_dp = 1
 $$pin.usb_fpga_bd_dn = 1
 $$pin.usb_fpga_pu_dp = 1
 $$pin.usb_fpga_pu_dn = 1
+$$pin.us2_bd_dp  = pin.usb_fpga_bd_dp
+$$pin.us2_bd_dn  = pin.usb_fpga_bd_dn
 $$pin.ftdi_rxd   = 1
 $$pin.ftdi_txd   = 1
 $$pin.uart_rx    = 1

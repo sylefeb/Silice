@@ -39,6 +39,7 @@ $$config['dualport_bram_wenable0_width'] = '1'
 $$config['dualport_bram_wenable1_width'] = '1'
 $$config['simple_dualport_bram_wenable0_width'] = '1'
 $$config['simple_dualport_bram_wenable1_width'] = '1'
+$$config['allow_deprecated_framework'] = 'no'
 // declare package pins (has to match the hardware pin definition)
 // pin.NAME = <WIDTH>
 $$pin.LED1=1 pin.LED2=1 pin.LED3=1 pin.LED4=1 pin.LED5=1

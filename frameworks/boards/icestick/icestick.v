@@ -39,6 +39,7 @@ $$config['dualport_bram_wenable0_width'] = '1'
 $$config['dualport_bram_wenable1_width'] = '1'
 $$config['simple_dualport_bram_wenable0_width'] = '1'
 $$config['simple_dualport_bram_wenable1_width'] = '1'
+$$config['allow_deprecated_framework'] = 'no'
 // declare package pins (has to match the hardware pin definition)
 // pin.NAME = <WIDTH>
 $$pin.D1 = 1 pin.D2 = 1 pin.D3 = 1 pin.D4 = 1 pin.D5 = 1
@@ -58,6 +59,11 @@ $$pin.vga_g     = {pin.TR10,pin.TR9,pin.TR8,pin.TR7,pin.TR6,pin.TR5}
 $$pin.vga_b     = {pin.BR10,pin.BR9,pin.BR8,pin.BR7,pin.BR6,pin.BR5}
 $$pin.vga_hs    = {pin.PMOD7}
 $$pin.vga_vs    = {pin.PMOD10}
+$$pin.video_r   = {pin.PMOD1,pin.PMOD2,pin.PMOD3,pin.PMOD4,pin.PMOD8,pin.PMOD9}
+$$pin.video_g   = {pin.TR10,pin.TR9,pin.TR8,pin.TR7,pin.TR6,pin.TR5}
+$$pin.video_b   = {pin.BR10,pin.BR9,pin.BR8,pin.BR7,pin.BR6,pin.BR5}
+$$pin.video_hs  = {pin.PMOD7}
+$$pin.video_vs  = {pin.PMOD10}
 $$pin.pmod      = {pin.PMOD10,pin.PMOD9,pin.PMOD8,pin.PMOD7,pin.PMOD4,pin.PMOD3,pin.PMOD2,pin.PMOD1}
 $$pin.uart_tx   = {pin.TX}
 $$pin.uart_rx   = {pin.RX}
