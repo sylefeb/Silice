@@ -47,8 +47,8 @@ unit execute(
     int32 imm_i  = {{20{instr[31,1]}},instr[20,12]};
     int32 imm_b  = {{20{instr[31,1]}},instr[7,1],instr[25,6],instr[8,4],1b0};
     int32 imm_s  = {{20{instr[31,1]}},instr[25,7],instr[7,5]};
-    // ==== decode opcode
-    uint5 opcode    = instr[ 2, 5];
+    // ==== decode opcode                 // load-store op
+    uint5 opcode    = instr[ 2, 5];       op           = Rtype(instr).op;
     uint1 AUIPC     = opcode == 5b00101;  uint1 LUI    = opcode == 5b01101;
     uint1 JAL       = opcode == 5b11011;  uint1 JALR   = opcode == 5b11001;
     uint1 IntImm    = opcode == 5b00100;  uint1 IntReg = opcode == 5b01100;
@@ -56,7 +56,6 @@ unit execute(
     uint1 regOrImm  = IntReg  | branch;                    // reg or imm in ALU?
     uint1 pcOrReg   = AUIPC   | JAL    | branch;           // pc or reg in addr?
     uint1 sub       = IntReg  & Rtype(instr).sign;         // subtract
-    op              = Rtype(instr).op;                     // load-store op
     uint1 aluShift  = (IntImm | IntReg) & op[0,2] == 2b01; // shift requested
 
     // ==== select next address adder first input
