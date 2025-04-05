@@ -232,11 +232,11 @@ algorithm audio_pcm_i2s(
                      // NOTE: width may require adjustment on other base freqs.
   uint32 mod32(1);   // modulo 32, for audio clock
 
-  always {
+  // track expressions for posedge and negedge of serial bit clock
+  uint1 negedge <:: (count == 0);
+  uint1 posedge <:: (count == $bit_hperiod_count$);
 
-    // track expressions for posedge and negedge of serial bit clock
-    uint1 negedge <:: (count == 0);
-    uint1 posedge <:: (count == $bit_hperiod_count$);
+  always {
 
     // output i2s signals
     i2s = {i2s_lck,i2s_din,i2s_bck,i2s_sck};
