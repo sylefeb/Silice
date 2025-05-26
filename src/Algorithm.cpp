@@ -1365,6 +1365,9 @@ void Algorithm::gatherDeclarationInstance(siliceParser::DeclarationInstanceConte
           nfo.specializations.params[p] = m->sparam()->NUMBER()->getText();
         } else if (m->sparam()->SIZED_NUMBER()) {
           nfo.specializations.params[p] = rewriteNumber(m->sparam()->SIZED_NUMBER()->getText());
+        } else if (m->sparam()->STRING()) {
+          string str = m->sparam()->STRING()->getText();
+          nfo.specializations.params[p] = str.substr(1, str.length() - 2); // remove quotes
         } else {
           sl_assert(false);
         }

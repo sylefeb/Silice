@@ -1,0 +1,50 @@
+circuitry default_func(input a,output b)
+{
+  b = a*a;
+}
+circuitry incr(input a,output b)
+{
+  b = a + 1;
+}
+
+unit main()
+{
+  bram  uint8 tab[5] ={1,2,3,4,5};
+  map_bram map<func="incr">(tab<:>tab);
+
+  algorithm
+  {
+    ()<-map<-();
+  }
+}
+
+unit map_bram(bram_port tab)
+{
+  uint3 i=0;
+  uint8 current_value = uninitialized;
+  uint8 new_value     = uninitialized;
+
+  $$if func==nil then
+    $$func='default_func'
+  $$end
+  $$print('=======> function name: ' .. func)
+
+  algorithm
+  {
+          while (i<5)
+          {
+                  tab.addr = i;
+                  ++:
+                  current_value = tab.rdata;
+                  (new_value)=$func$(current_value);
+                  ++:
+                  tab.wenable = 1;
+                  tab.wdata = new_value;
+                  ++:
+                  i = i+1;
+                  tab.wenable = 0;
+
+                  __display("i:%d | old_value:%d |  new value:%d",i,current_value,new_value);
+          }
+  }
+}

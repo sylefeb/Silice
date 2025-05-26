@@ -56,7 +56,6 @@ unit terrain_renderer(
   //    ^ that does seem to help with IO glitches: propagates earlier...
   output  uint1  screen_send,
   output  uint1  screen_reset
-  //input   uint3  btns,
 ) {
 $$if SIMULATION then
   uint32 cycle(0);
@@ -122,15 +121,12 @@ $$end
       // go through screen columns
       uint10 x = 0;
       while (x != config[16,9]) {
-  //__display("x = ",x);
         // last altitude at this column
         uint8  y_last = config[0,8];
         // init z stepping
         uint9 iz   = 2; // we skip the two first steps to keep inv_z within 10 bits
         int22 z    = $2*z_step_init$;
         while (iz != $z_num_step$) {
-  //__display("iz = ",iz);
-          // int9   delta_y  = uninitialized;  // y delta between previous and current
           // get step data
           ram.addr     = $(1<<22)$ | {x,iz[0,8],3b000};
           uint7  n7    = 7b1111111;
@@ -146,10 +142,8 @@ $$end
           int22  x_off = __signed(step[22,22]);
           int22  y_off = __signed(step[ 0,22]);
           // generate coordinates
-  //        int22 p_x   = v_x - (z) + __signed(x) * (((z<<1) * $one_over_width$) >>> $fp$);
           int22 p_x   = v_x + x_off;
           int22 p_y   = v_y + y_off;
-  //__display("iz = %d z = %d inv_z = %d",iz,z,inv_z);
   ++:
           // sample next color + elevation
           uint24 c_h(0);
@@ -167,9 +161,7 @@ $$end
           // snap next view height
           next_vheight   = (iz == 2) ? c_h[16,8] : next_vheight;
           // apply perspective to obtain y_ground on screen
-
           // NOTE: assumes vheight > hmap
-          // uint12 y_ground_test = (((vheight - hmap) * inv_z) >> $fp-5$) + 32;
           uint18 tmp      = 0;
           uint9  h_diff   = (vheight - hmap);
           uint18 h_diff_H = h_diff;
@@ -181,8 +173,6 @@ $$end
             domul    = domul    >> 1;
           }
           uint12 y_ground = (tmp >> $fp-5$) + 32;
-          // __display("y_ground %d y_ground_test %d",y_ground,y_ground_test);
-
           // restart drawing from last one (or top if first)
           int11 y        = y_last;
           // clamp on screen
@@ -191,9 +181,9 @@ $$end
           //                ^^^^^^^^^^^^^^^^^^^^^^^^^ draw sky on last
           // fill column
   $$if SIMULATION then
-  //if (y_last > y_screen) {
-  //__display("span y %d pixels",y_last - y_screen);
-  //}
+          //if (y_last > y_screen) {
+          //__display("span y %d pixels",y_last - y_screen);
+          //}
   $$end
           // color
           pixel_data  = (iz == $z_num_step-1$) ? {3b000,5b10100,5b10000,3b100} : c_h[0,16];
