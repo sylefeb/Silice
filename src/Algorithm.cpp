@@ -7239,9 +7239,10 @@ void Algorithm::writeAlgorithmReadback(antlr4::tree::ParseTree *node, std::strin
       }
       if (!is_a_define.empty()) {
         std::string lvalue_str = (lvalue.str()[0] == '`') ? lvalue.str().substr(1)
-                               : (lvalue.str()[0] == '$') ? lvalue.str().substr(9, lvalue.str().length()-10) // skip $signed(`...)
+                               : (lvalue.str().substr(0,2) == "$s") ? lvalue.str().substr( 9, lvalue.str().length()-10) // skip $signed(`...)
+                               : (lvalue.str().substr(0,2) == "$u") ? lvalue.str().substr(11, lvalue.str().length()-12) // skip $unsigned(`...)
                                : lvalue.str();
-        w.defines << "`undef  " << lvalue_str << nxl;
+        w.defines << "`undef " << lvalue_str << nxl;
         w.defines << "`define " << lvalue_str << ' ' << vioAsDefine(ictx,is_a_define,WIRE + a.instance_prefix + "_" + outs.name) << nxl;
       } else {
         w.out << lvalue.str() << " = " << WIRE << a.instance_prefix << "_" << outs.name << ";" << nxl;
@@ -8577,7 +8578,7 @@ void Algorithm::writeBlock(
             // write down wire assignment
             if (isADefine(m_Vars.at(m_VarNames.at(var)))) {
               // assign expression to const
-              w.defines << "`undef  " << FF_CST << prefix << var << nxl;
+              w.defines << "`undef " << FF_CST << prefix << var << nxl;
               w.defines << "`define " << FF_CST << prefix << var << ' '
                 << vioAsDefine(ictx, m_Vars.at(m_VarNames.at(var)),rewriteExpression(prefix, expr, a.__id, &block->context, ictx, FF_Q, e_Read, _dependencies, _usage)) << "\n";
             } else if (m_Vars.at(m_VarNames.at(var)).usage != e_NotUsed) {
