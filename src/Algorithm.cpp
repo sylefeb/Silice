@@ -7326,7 +7326,8 @@ void Algorithm::writeSubroutineReadback(antlr4::tree::ParseTree *node, std::stri
     std::string rvalue = rewriteIdentifier(prefix, called->io2var.at(outs), "", bctx, ictx, sourceloc(plist), FF_Q, e_Read, _, _usage);
     if (!is_a_define.empty()) {
       std::string lvalue_str = (lvalue.str()[0] == '`') ? lvalue.str().substr(1)
-                             : (lvalue.str()[0] == '$') ? lvalue.str().substr(9, lvalue.str().length()-10) // skip $signed(`...)
+                             : (lvalue.str().substr(0,2) == "$s") ? lvalue.str().substr( 9, lvalue.str().length()-10) // skip $signed(`...)
+                             : (lvalue.str().substr(0,2) == "$u") ? lvalue.str().substr(11, lvalue.str().length()-12) // skip $unsigned(`...)
                              : lvalue.str();
       w.defines << "`undef  " << lvalue_str << nxl;
       w.defines << "`define " << lvalue_str << ' ' << vioAsDefine(ictx, is_a_define, rvalue) << nxl;
@@ -7598,7 +7599,8 @@ void Algorithm::writeAssignement(
   // = rvalue
   if (!is_a_define.empty()) {
     std::string lvalue_str = (lvalue.str()[0] == '`') ? lvalue.str().substr(1)
-                           : (lvalue.str()[0] == '$') ? lvalue.str().substr(9, lvalue.str().length()-10) // skip $signed(`...)
+                             : (lvalue.str().substr(0,2) == "$s") ? lvalue.str().substr( 9, lvalue.str().length()-10) // skip $signed(`...)
+                             : (lvalue.str().substr(0,2) == "$u") ? lvalue.str().substr(11, lvalue.str().length()-12) // skip $unsigned(`...)
                            : lvalue.str();
     w.defines << "`undef  " << lvalue_str << nxl;
     w.defines << "`define " << lvalue_str << ' ' << vioAsDefine(ictx, is_a_define, rewriteExpression(prefix, expression_0, a.__id, bctx, ictx, ff, e_Read, dependencies, _usage)) << nxl;
