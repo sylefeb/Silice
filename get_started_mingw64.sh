@@ -28,9 +28,9 @@ pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-boost
 pacman -S --noconfirm --needed ${MINGW_PACKAGE_PREFIX}-glfw
 
 # -------------- retrieve oss-cad-suite package --------------
-OSS_CAD_MONTH=11
-OSS_CAD_DAY=29
-OSS_CAD_YEAR=2023
+OSS_CAD_MONTH=07
+OSS_CAD_DAY=03
+OSS_CAD_YEAR=2025
 OSS_PACKAGE=oss-cad-suite-windows-x64-$OSS_CAD_YEAR$OSS_CAD_MONTH$OSS_CAD_DAY.exe
 
 rm -rf tools/fpga-binutils/
