@@ -104,6 +104,12 @@ module top(
   input  clk
   );
 
+// Change 
+reg clk25;
+always @(posedge clk) begin
+	clk25 = ~clk25;
+end
+
 wire [7:0]  __main_out_leds;
 
 `ifdef SDRAM
@@ -119,7 +125,7 @@ wire [12:0] __main_out_sdram_a;
 `endif
 
 `ifdef UART
-wire        __main_out_uart_rx;
+wire        __main_out_uart_tx;
 `endif
 
 `ifdef SDCARD
@@ -141,7 +147,7 @@ always @* begin
   RST_d = RST_q >> 1;
 end
 
-always @(posedge clk) begin
+always @(posedge clk25) begin
   if (ready) begin
     RST_q <= RST_d;
   end else begin
@@ -185,7 +191,7 @@ M_main __main(
   .inout_gpio          (gpio),
 `endif
 `ifdef UART
-  .out_uart_tx  (__main_out_uart_rx),
+  .out_uart_tx  (__main_out_uart_tx),
   .in_uart_rx   (usb_rx),
 `endif
 `ifdef SPIFLASH
@@ -219,7 +225,7 @@ M_main __main(
   .out_ram_csn(qqspi_csn),
   .out_ram_bank({qqspi_bank1,qqspi_bank0}),
 `endif
-  .clock         (clk)
+  .clock         (clk25)
 );
 
 assign leds          = __main_out_leds;
@@ -243,7 +249,7 @@ assign sd_mosi       = __main_sd_mosi;
 `endif
 
 `ifdef UART
-assign usb_rx        = __main_out_uart_rx;
+assign usb_tx        = __main_out_uart_tx;
 `endif
 
 `ifdef HDMI
