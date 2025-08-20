@@ -1,14 +1,31 @@
-algorithm main(output uint8 leds)
+unit main(output uint8 leds)
 {
   uint32 cycle(0);
-  uint8 v = cycle; // should be detected as trickling
 
-    __display("[cycle %d] ==== in:%d",cycle,v);
+  always {
 
+  { // pipeline is restricted within { ... }
+
+    uint8 v = cycle;  // should be detected as trickling
+
+    __display("[stage 0, cycle %d] ==== in:%d",cycle,v);
   ->
+    // empty
   ->
+    // empty
   ->
+    // empty
   ->
-     __display("[cycle %d] ==== result:%d",cycle,v);
+     __display("[stage 4, cycle %d] ==== out:%d",cycle,v);
+
+  }
+
+     __display("[at cycle %d (reset:%b)]",cycle,reset);
+    cycle = cycle + 1;
+
+    if (cycle == 32) {
+      __finish();
+    }
+  }
 
 }

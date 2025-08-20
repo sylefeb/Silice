@@ -1547,6 +1547,16 @@ void LuaPreProcessor::executeLuaString(std::string lua_code, std::string dst_fil
 {
   // reset line counter
   m_CurOutputLine = 0;
+  // backup and undef params from the lua global context so their existing
+  // definition does not override lua_cindex
+  std::map<std::string,luabind::object> backup;
+  for (const auto& p : ictx.params) {
+    luabind::object o = luabind::globals(m_LuaState)[p.first];
+    if (o) {
+      backup.insert(std::make_pair(p.first,o));
+      luabind::globals(m_LuaState)[p.first] = luabind::object();
+    }
+  }
   // prepare instantiation context
   g_LuaInstCtx.insert(std::make_pair(m_LuaState, ictx));
   // prepare output
@@ -1573,6 +1583,14 @@ void LuaPreProcessor::executeLuaString(std::string lua_code, std::string dst_fil
     }
     cerr << Console::gray;
     LPP_THROW("the preprocessor was interrupted");
+  }
+  // restore state
+  for (const auto& p : ictx.params) {
+    if (backup.count(p.first)) {
+      luabind::globals(m_LuaState)[p.first] = backup.at(p.first);
+    } else {
+      luabind::globals(m_LuaState)[p.first] = luabind::object();
+    }
   }
   // reload config
   load_config_from_lua(m_LuaState);
