@@ -402,8 +402,8 @@ void ExpressionLinter::typeNfo(
   auto expr9  = dynamic_cast<siliceParser::Expression_9Context*>(expr);
   auto expr10 = dynamic_cast<siliceParser::Expression_10Context*>(expr);
   if (term) {
-    if (term->getSymbol()->getType() == siliceParser::CONSTANT) {
-      constantTypeInfo(term->getText(), _nfo);
+    if (term->getSymbol()->getType() == siliceParser::SIZED_NUMBER) {
+      numberTypeInfo(term->getText(), _nfo);
     } else if (term->getSymbol()->getType() == siliceParser::NUMBER) {
       _nfo.base_type = UInt;
       _nfo.width     = -1; // undetermined (NOTE: verilog default to 32 bits ...)

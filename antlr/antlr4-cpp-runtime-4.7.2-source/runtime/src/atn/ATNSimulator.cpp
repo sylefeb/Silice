@@ -27,6 +27,7 @@ ATNSimulator::~ATNSimulator() {
 }
 
 void ATNSimulator::clearDFA() {
+  ANTLR_WILL_THROW;
   throw UnsupportedOperationException("This ATN simulator does not support clearing the DFA.");
 }
 

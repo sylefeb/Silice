@@ -1,0 +1,17 @@
+
+
+bitfield HL {
+  uint4 high,
+  uint4 low
+}
+
+unit main(output int8 leds)
+{
+  always {
+    uint8 test0 = HL(high=4b1001,low=4b0110);
+    __display("test0: %b (high is on MSBs)",test0);
+    uint8 test1 = HL(low=4b0110,high=4b1001);
+    __display("test1: %b (same as expected)",test1);
+    __finish();
+  }
+}

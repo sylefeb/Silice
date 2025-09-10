@@ -74,74 +74,73 @@ $$end
   uint5        shamt(0); // shifter status
   uint$cycleW$ cycle(0); // cycle counter
 
-  // ==== decode immediates
-  int32 imm_u  <: {instr[12,20],12b0};
-  int32 imm_j  <: {{12{instr[31,1]}},instr[12,8],instr[20,1],instr[21,10],1b0};
-  int32 imm_i  <: {{20{instr[31,1]}},instr[20,12]};
-  int32 imm_b  <: {{20{instr[31,1]}},instr[7,1],instr[25,6],instr[8,4],1b0};
-  int32 imm_s  <: {{20{instr[31,1]}},instr[25,7],instr[7,5]};
-
-  // ==== decode opcode
-  uint5 opcode    <: instr[ 2, 5];
-  uint1 AUIPC     <: opcode == 5b00101;  uint1 LUI    <: opcode == 5b01101;
-  uint1 JAL       <: opcode == 5b11011;  uint1 JALR   <: opcode == 5b11001;
-  uint1 IntImm    <: opcode == 5b00100;  uint1 IntReg <: opcode == 5b01100;
-  uint1 CSR       <: opcode == 5b11100;  uint1 branch <: opcode == 5b11000;
-  uint1 regOrImm  <: IntReg  | branch;                    // reg or imm in ALU?
-  uint1 pcOrReg   <: AUIPC   | JAL    | branch;           // pc or reg in addr?
-  uint1 sub       <: IntReg  & Rtype(instr).sign;         // subtract
-  uint1 aluShift  <: (IntImm | IntReg) & op[0,2] == 2b01; // shift requested
-$$if ICEV_MULDIV then
-  uint1 muldiv    <: IntReg & Rtype(instr).muldiv;        // mul or div
-  div32 div<reginputs>;
-  uint1 dividing(0);
-  uint1 div_done(0);
-$$end
-
-  // ==== select next address adder first input
-  int$addrW+3$ addr_a <: pcOrReg ? __signed({1b0,pc[0,$addrW-1$],2b0}) : xa;
-  // ==== select ALU second input
-  int32 b             <: regOrImm ? (xb) : imm_i;
-
-$$if ICEV_ALU_LATCH then
-  int32 ra(0);    int32 rb(0);
-$$else
-  int32 ra <: xa; int32 rb <: b;
-$$end
-
-  // ==== allows to do subtraction and all comparisons with a single adder
-  // trick from femtorv32/swapforth/J1
-  int33 a_minus_b <: {1b1,~rb} + {1b0,ra} + 33b1;
-  uint1 a_lt_b    <: (ra[31,1] ^ rb[31,1]) ? ra[31,1] : a_minus_b[32,1];
-  uint1 a_lt_b_u  <: a_minus_b[32,1];
-  uint1 a_eq_b    <: a_minus_b[0,32] == 0;
-
-  // ==== select immediate for the next address computation
-  // 'or trick' from femtorv32
-  int$addrW+3$ addr_imm <: (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
-                        |  (branch ? imm_b : 32b0) | ((JALR|load) ? imm_i : 32b0)
-                        |  (store  ? imm_s : 32b0);
-  // ==== set decoder outputs depending on incoming instructions
-  // load/store?
-  load         := opcode == 5b00000;   store        := opcode == 5b01000;
-  // operator for load/store           // register to write to?
-  op           := Rtype(instr).op;     write_rd     := Rtype(instr).rd;
-  // do we have to write a result to a register?
-  no_rd        := branch  | store  | (Rtype(instr).rd == 5b0);
-  // integer operations                // store next address?
-  intop        := (IntImm | IntReg);   storeAddr    := AUIPC;
-  // value to store directly
-$$if ICEV_USERDATA then
-  val          :=    (LUI                ? imm_u                 : 32b0)
-                |  ( (CSR &~instr[20,1]) ? {cycle[0,31],core_id} : 32b0)
-                |  ( (CSR & instr[20,1]) ? user_data             : 32b0);
-$$else
-  val          := LUI ? imm_u : {cycle[0,31],core_id};
-$$end
-  // store value?
-  storeVal     := LUI | CSR;
-
   always {
+
+    // ==== decode immediates
+    int32 imm_u  = {instr[12,20],12b0};
+    int32 imm_j  = {{12{instr[31,1]}},instr[12,8],instr[20,1],instr[21,10],1b0};
+    int32 imm_i  = {{20{instr[31,1]}},instr[20,12]};
+    int32 imm_b  = {{20{instr[31,1]}},instr[7,1],instr[25,6],instr[8,4],1b0};
+    int32 imm_s  = {{20{instr[31,1]}},instr[25,7],instr[7,5]};
+
+    // ==== decode opcode                  // load-store op
+    uint5 opcode    = instr[ 2, 5];       op           = Rtype(instr).op;
+    uint1 AUIPC     = opcode == 5b00101;  uint1 LUI    = opcode == 5b01101;
+    uint1 JAL       = opcode == 5b11011;  uint1 JALR   = opcode == 5b11001;
+    uint1 IntImm    = opcode == 5b00100;  uint1 IntReg = opcode == 5b01100;
+    uint1 CSR       = opcode == 5b11100;  uint1 branch = opcode == 5b11000;
+    uint1 regOrImm  = IntReg  | branch;                    // reg or imm in ALU?
+    uint1 pcOrReg   = AUIPC   | JAL    | branch;           // pc or reg in addr?
+    uint1 sub       = IntReg  & Rtype(instr).sign;         // subtract
+    uint1 aluShift  = (IntImm | IntReg) & op[0,2] == 2b01; // shift requested
+  $$if ICEV_MULDIV then
+    uint1 muldiv    = IntReg & Rtype(instr).muldiv;        // mul or div
+    div32 div<reginputs>;
+    uint1 dividing(0);
+    uint1 div_done(0);
+  $$end
+
+    // ==== select next address adder first input
+    int$addrW+3$ addr_a = pcOrReg ? __signed({1b0,pc[0,$addrW-1$],2b0}) : xa;
+    // ==== select ALU second input
+    int32 b             = regOrImm ? (xb) : imm_i;
+
+  $$if ICEV_ALU_LATCH then
+    int32 ra(0);    int32 rb(0);
+  $$else
+    int32 ra = xa; int32 rb = b;
+  $$end
+
+    // ==== allows to do subtraction and all comparisons with a single adder
+    // trick from femtorv32/swapforth/J1
+    int33 a_minus_b = {1b1,~rb} + {1b0,ra} + 33b1;
+    uint1 a_lt_b    = (ra[31,1] ^ rb[31,1]) ? ra[31,1] : a_minus_b[32,1];
+    uint1 a_lt_b_u  = a_minus_b[32,1];
+    uint1 a_eq_b    = a_minus_b[0,32] == 0;
+
+    // ==== set decoder outputs depending on incoming instructions
+    // load/store?
+    load         = opcode == 5b00000;   store        = opcode == 5b01000;
+    // do we have to write a result to a register?
+    no_rd        = branch  | store  | (Rtype(instr).rd == 5b0);
+    // integer operations                // store next address?
+    intop        = (IntImm | IntReg);   storeAddr    = AUIPC;
+    // value to store directly
+  $$if ICEV_USERDATA then
+    val          =    (LUI                ? imm_u                 : 32b0)
+                  |  ( (CSR &~instr[20,1]) ? {cycle[0,31],core_id} : 32b0)
+                  |  ( (CSR & instr[20,1]) ? user_data             : 32b0);
+  $$else
+    val          = LUI ? imm_u : {cycle[0,31],core_id};
+  $$end
+    // register to write to?           // store value?
+    write_rd     = Rtype(instr).rd;   storeVal     = LUI | CSR;
+    // ==== select immediate for the next address computation
+    // 'or trick' from femtorv32
+    int$addrW+3$ addr_imm = (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
+                          | (branch ? imm_b : 32b0) | ((JALR|load) ? imm_i : 32b0)
+                          | (store  ? imm_s : 32b0);
+
     uint1 j(0); // temp variables for and comparator
 
     // ====================== ALU

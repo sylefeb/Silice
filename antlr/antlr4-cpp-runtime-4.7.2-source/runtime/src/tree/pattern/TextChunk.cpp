@@ -11,6 +11,7 @@ using namespace antlr4::tree::pattern;
 
 TextChunk::TextChunk(const std::string &text) : text(text) {
   if (text == "") {
+    ANTLR_WILL_THROW;
     throw IllegalArgumentException("text cannot be nul");
   }
 

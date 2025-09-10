@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.10)
 project(silice)
 
 INCLUDE_DIRECTORIES(
@@ -101,6 +101,7 @@ set(SILICE_CORE
   src/libs/LibSL-small/src/LibSL/Math/Math.cpp
   src/tga.cpp
   src/tga.h
+  src/wasi.cpp
 )
 
 add_definitions(-DANTLR4CPP_STATIC)
@@ -164,7 +165,7 @@ else()
   install(PROGRAMS  bin/report-cycles.py  DESTINATION bin/)
   install(FILES     projects/ice-v/CPUs/ice-v.si      DESTINATION share/silice/projects/ice-v/CPUs/)
   install(FILES     projects/ice-v/CPUs/ice-v-dual.si DESTINATION share/silice/projects/ice-v/CPUs/)
-  install(FILES     projects/common/divint_std.si     DESTINATION share/silice/projects/common/)
+  install(DIRECTORY projects/common       DESTINATION share/silice/projects/ USE_SOURCE_PERMISSIONS)
   install(DIRECTORY frameworks            DESTINATION share/silice/ USE_SOURCE_PERMISSIONS)
   install(DIRECTORY src/libs/LibSL-small  DESTINATION share/silice/src/libs/)
 

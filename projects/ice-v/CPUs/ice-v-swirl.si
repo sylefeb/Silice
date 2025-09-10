@@ -715,7 +715,8 @@ $$if ICEV_MULDIV then
     uint1 signb    = xb[31,1]; // vvvvvvvvvv keep the sign?
     int33 ma       = {signa & (mulh | mulhsu), xa};
     int33 mb       = {signb &  mulh,           xb};
-    int64 mul      = ma * mb;  // multiply
+    int64 mul      = __signed(ma) * __signed(mb);  // multiply
+    //               ^^^^^^^^       ^^^^^^^^ due to a yosys/Silice issue, see Algorithm.cpp L1523
     uint1 signdiv  = ~ op[0,1];
     uint1 divdone      = isdone(div) & ~prev_divdone; // pulses on div done
     uint1 prev_divdone = isdone(div);

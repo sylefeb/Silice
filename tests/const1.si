@@ -1,0 +1,17 @@
+algorithm test(input int8 v,output int8 o)
+{
+  __display("n=%d",v);
+  o = v;
+}
+
+algorithm main(output uint8 leds)
+{
+
+  int8 a = -3;
+  int8 n = -4 + a;
+
+  test t(v <: n, o :> leds);
+
+  () <- t <- ();
+
+}

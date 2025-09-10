@@ -53,6 +53,7 @@ void ATNDeserializationOptions::setGenerateRuleBypassTransitions(bool generate) 
 
 void ATNDeserializationOptions::throwIfReadOnly() {
   if (isReadOnly()) {
+    ANTLR_WILL_THROW;
     throw "The object is read only.";
   }
 }

@@ -57,7 +57,7 @@ The main source code is [./src/tunnel_fermata.c](./src/tunnel_fermata.c)
 > **Warning:** Once SPIflash enters the QPI mode, it might become impossible to program the board with iceprog. **Do not panic** (I did ;) ) you can recover by adding a jumper on the CRESET pins (may not be soldered, simply add a two pin header). Place a jumper, program, remove the jumper and you are back to normal.
 
 <p align="center">
-  <img src="icebreaker-creset.png" width="400px"><br>
+  <img src="icebreaker-creset.jpg" width="400px"><br>
 </p>
 
 ## Memory interface

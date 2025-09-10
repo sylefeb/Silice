@@ -65,6 +65,8 @@ $$if SPIFLASH then
   output uint1   sf_csn,
   output uint1   sf_mosi,
   input  uint1   sf_miso,
+  output uint1   sf_io2(1),
+  output uint1   sf_io3(1),
 $$end
 $$if UART then
   output uint1 uart_tx,

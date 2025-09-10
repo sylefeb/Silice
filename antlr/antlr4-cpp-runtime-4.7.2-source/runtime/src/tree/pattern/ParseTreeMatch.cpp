@@ -15,6 +15,7 @@ ParseTreeMatch::ParseTreeMatch(ParseTree *tree, const ParseTreePattern &pattern,
                                ParseTree *mismatchedNode)
   : _tree(tree), _pattern(pattern), _labels(labels), _mismatchedNode(mismatchedNode) {
   if (tree == nullptr) {
+    ANTLR_WILL_THROW;
     throw IllegalArgumentException("tree cannot be nul");
   }
 }

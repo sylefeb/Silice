@@ -105,7 +105,9 @@ namespace atn {
     std::string toString() const;
 
   private:
-    mutable std::mutex _mutex;
+  #if !defined(__wasi__)
+  mutable std::mutex _mutex;
+  #endif
   };
 
 } // namespace atn

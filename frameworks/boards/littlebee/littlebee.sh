@@ -36,7 +36,7 @@ rm build*
 # python -c 'import site; print(site.getsitepackages())'
 
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
-yosys -p "synth_gowin -json build.json -top top" build.v
+yosys -p "read_verilog -sv build.v" -p "synth_gowin -json build.json -top top"
 
 pip install apycula
 

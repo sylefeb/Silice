@@ -154,7 +154,7 @@ IDENTIFIER          : LETTER+ (DIGIT|LETTERU)* ;
 
 NONAME              : '_';
 
-CONSTANT            : '-'? DIGIT+ ('b'|'h'|'d') (DIGIT|[a-fA-Fxz])+ ;
+SIZED_NUMBER        : '-'? DIGIT+ ('b'|'h'|'d') (DIGIT|[a-fA-Fxz])+ ;
 
 REPEATID            : '__id' ;
 
@@ -178,7 +178,7 @@ ERROR_CHAR          : . ; // catch-all to move lexer errors to parser
 
 /* -- Declarations, init and bindings -- */
 
-constValue          : minus='-'? NUMBER | CONSTANT | (WIDTHOF '(' base=IDENTIFIER ('.' member=IDENTIFIER)? ')');
+constValue          : minus='-'? NUMBER | SIZED_NUMBER | (WIDTHOF '(' base=IDENTIFIER ('.' member=IDENTIFIER)? ')');
 
 value               : constValue | initBitfield ;
 
@@ -192,7 +192,7 @@ sformdepth          :  '#depth' '=' NUMBER ;
 sformtimeout        :  '#timeout' '=' NUMBER ;
 sformmode           :  '#mode' '=' IDENTIFIER ('&' IDENTIFIER)* ;
 sspecialize         :  IDENTIFIER ':' TYPE ;
-sparam              :  IDENTIFIER '=' (NUMBER|CONSTANT) ;
+sparam              :  IDENTIFIER '=' (NUMBER|SIZED_NUMBER|STRING) ;
 
 bpModifier          : sclock | sreset | sautorun | sonehot | sstacksz | sformdepth | sformtimeout | sformmode | sreginput | sspecialize | sparam;
 bpModifiers         : '<' bpModifier (',' bpModifier)* '>' ;
@@ -319,7 +319,7 @@ concatenation       : '{' (NUMBER concatenation | expression_0 (',' expression_0
 
 combcast            : ':' (access | IDENTIFIER);
 
-atom                : CONSTANT
+atom                : SIZED_NUMBER
                     | NUMBER
                     | IDENTIFIER
                     | REPEATID

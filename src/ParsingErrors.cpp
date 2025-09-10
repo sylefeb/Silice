@@ -138,7 +138,11 @@ void LexerErrorListener::syntaxError(
   const std::string& msg, std::exception_ptr e)
 {
   ReportError err(nullptr, (int)line-1, nullptr, nullptr, antlr4::misc::Interval(), msg);
+#ifdef __wasi__
+  exit(1);
+#else
   throw Fatal("[lexical error]");
+#endif
 }
 
 // -------------------------------------------------
@@ -152,7 +156,11 @@ void ParserErrorListener::syntaxError(
   std::exception_ptr  e)
 {
   ReportError err(nullptr, (int)line-1, dynamic_cast<antlr4::TokenStream*>(recognizer->getInputStream()), tk, antlr4::misc::Interval::INVALID, msg);
-   throw Fatal("[syntax error]");
+#ifdef __wasi__
+  exit(1);
+#else
+  throw Fatal("[syntax error]");
+#endif
 }
 
 // -------------------------------------------------

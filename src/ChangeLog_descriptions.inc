@@ -30,6 +30,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 // might impact existing code. See ChangeLog.cpp
 
 /// TODO: auto-generate from text file?
+/// NOTE: avoid using 'error' in the description to not break test script...
 
 const std::string c_CL0001_desc =
 "  The new instantiation-time preprocessor introduced a few constraints.\n"
@@ -146,6 +147,15 @@ const std::string c_CL0005_desc =
 "  nested (versus 3 cycles before).\n"
 ;
 
+const std::string c_CL0006_desc = 
+"  The mechanism for declaring pins has been revised to be simpler\n"
+"  and more powerful. You are getting this message because a pin in\n"
+"  your design is not properly declared in the board framework.\n"
+"  Please make sure this is not due to a typo which could result\n"
+"  in incorrect code. Using frameworks provided with Silice should\n"
+"  not produce this message (please open a github issue in this case).\n"
+"  Add --no-pin-check on the command line to bypass this check.\n"
+;
 
 /// \brief A change log case.
 typedef struct {
@@ -162,6 +172,7 @@ std::map<std::string,t_changelog_case> c_ChangleLogCases = {
     {"CL0003", {"0.1.2", "Pipeline syntax",                  c_CL0003_desc}},
     {"CL0004", {"0.1.2", "While loops cycle rules",          c_CL0004_desc}},
     {"CL0005", {"0.1.2", "If-else cycle rules",              c_CL0005_desc}},
+    {"CL0006", {"1.0.0", "Pin declarations in frameworks",   c_CL0006_desc}},
 };
 
 // -------------------------------------------------

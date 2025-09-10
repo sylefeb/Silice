@@ -54,6 +54,24 @@ std::vector<context_rec> s_context_stack;
 
 // -------------------------------------------------
 
+#ifdef __wasi__
+#include "antlr4-common.h"
+
+class StaticParsingErrorReporting : public antlr4::StaticErrorReporting
+{
+  public:
+    void reportError(antlr4::Token *tk)
+    {
+      ParsingContext *pctx = ParsingContext::activeContext();
+      ReportError err(pctx, (int)tk->getLine()-1, pctx->parser->getTokenStream(), tk, antlr4::misc::Interval(), "syntax error");
+    }
+};
+
+StaticParsingErrorReporting s_StaticErrorReporting;
+#endif
+
+// -------------------------------------------------
+
 ParsingContext::ParsingContext(
   std::string              fresult_,
   AutoPtr<LuaPreProcessor> lpp_,
@@ -67,6 +85,9 @@ ParsingContext::ParsingContext(
   lexerErrorListener  = AutoPtr<LexerErrorListener>(new LexerErrorListener(*lpp));
   parserErrorListener = AutoPtr<ParserErrorListener>(new ParserErrorListener(*lpp));
   err_handler         = std::make_shared<ParserErrorHandler>();
+  #ifdef __wasi__
+  antlr4::StaticErrorReporting::setUniqueInstance(&s_StaticErrorReporting);
+  #endif
 }
 
 // -------------------------------------------------

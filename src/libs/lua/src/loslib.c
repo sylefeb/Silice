@@ -21,7 +21,6 @@
 #include "lauxlib.h"
 #include "lualib.h"
 
-
 /*
 ** {==================================================================
 ** List of valid conversion specifiers for the 'strftime' function;
@@ -126,9 +125,18 @@ static time_t l_checktime (lua_State *L, int arg) {
 
 #else				/* }{ */
 
+#if defined(__wasi__) /* { */
+
+#define LUA_TMPNAMBUFSIZE	32
+#define lua_tmpnam(b,e) e = 1;
+
+#else       /* }{ */
+
 /* ISO C definitions */
 #define LUA_TMPNAMBUFSIZE	L_tmpnam
 #define lua_tmpnam(b,e)		{ e = (tmpnam(b) == NULL); }
+
+#endif				/* } */
 
 #endif				/* } */
 

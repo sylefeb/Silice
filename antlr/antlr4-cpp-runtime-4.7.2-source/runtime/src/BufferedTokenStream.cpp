@@ -65,6 +65,7 @@ void BufferedTokenStream::consume() {
   }
 
   if (!skipEofCheck && LA(1) == Token::EOF) {
+    ANTLR_WILL_THROW;
     throw IllegalStateException("cannot consume EOF");
   }
 
@@ -113,6 +114,7 @@ size_t BufferedTokenStream::fetch(size_t n) {
 
 Token* BufferedTokenStream::get(size_t i) const {
   if (i >= _tokens.size()) {
+    ANTLR_WILL_THROW;
     throw IndexOutOfBoundsException(std::string("token index ") +
                                     std::to_string(i) +
                                     std::string(" out of range 0..") +
@@ -210,6 +212,7 @@ std::vector<Token *> BufferedTokenStream::getTokens(size_t start, size_t stop) {
 std::vector<Token *> BufferedTokenStream::getTokens(size_t start, size_t stop, const std::vector<size_t> &types) {
   lazyInit();
   if (stop >= _tokens.size() || start >= _tokens.size()) {
+    ANTLR_WILL_THROW;
     throw IndexOutOfBoundsException(std::string("start ") +
                                     std::to_string(start) +
                                     std::string(" or stop ") +
@@ -281,6 +284,7 @@ ssize_t BufferedTokenStream::previousTokenOnChannel(size_t i, size_t channel) {
 std::vector<Token *> BufferedTokenStream::getHiddenTokensToRight(size_t tokenIndex, ssize_t channel) {
   lazyInit();
   if (tokenIndex >= _tokens.size()) {
+    ANTLR_WILL_THROW;
     throw IndexOutOfBoundsException(std::to_string(tokenIndex) + " not in 0.." + std::to_string(_tokens.size() - 1));
   }
 
@@ -304,6 +308,7 @@ std::vector<Token *> BufferedTokenStream::getHiddenTokensToRight(size_t tokenInd
 std::vector<Token *> BufferedTokenStream::getHiddenTokensToLeft(size_t tokenIndex, ssize_t channel) {
   lazyInit();
   if (tokenIndex >= _tokens.size()) {
+    ANTLR_WILL_THROW;
     throw IndexOutOfBoundsException(std::to_string(tokenIndex) + " not in 0.." + std::to_string(_tokens.size() - 1));
   }
 

@@ -213,6 +213,7 @@ void ParserInterpreter::visitState(atn::ATNState *p) {
     {
       atn::PredicateTransition *predicateTransition = static_cast<atn::PredicateTransition*>(transition);
       if (!sempred(_ctx, predicateTransition->ruleIndex, predicateTransition->predIndex)) {
+        ANTLR_WILL_THROW;
         throw FailedPredicateException(this);
       }
     }
@@ -228,12 +229,14 @@ void ParserInterpreter::visitState(atn::ATNState *p) {
     case atn::Transition::PRECEDENCE:
     {
       if (!precpred(_ctx, static_cast<atn::PrecedencePredicateTransition*>(transition)->precedence)) {
+        ANTLR_WILL_THROW;
         throw FailedPredicateException(this, "precpred(_ctx, " + std::to_string(static_cast<atn::PrecedencePredicateTransition*>(transition)->precedence) +  ")");
       }
     }
       break;
 
     default:
+      ANTLR_WILL_THROW;
       throw UnsupportedOperationException("Unrecognized ATN transition type.");
   }
 

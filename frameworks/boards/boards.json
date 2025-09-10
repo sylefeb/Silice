@@ -67,7 +67,16 @@
       "name" : "minimal"
     },
     {
+      "name" : "tang_nano_20k"
+    },
+    {
       "name" : "colorlight"
+    },
+    {
+      "name" : "tinytapeout"
+    },
+    {
+      "name" : "musbx"
     }
   ]
 }

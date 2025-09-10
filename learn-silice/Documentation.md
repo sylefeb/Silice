@@ -3,7 +3,7 @@
 
 This is the Silice main documentation.
 
-When designing with Silice your code describes circuits. If not done already, I recommended to [watch the introductory video](https://www.youtube.com/watch?v=_OhxEY72qxI) (youtube) to get more familiar with this notion and what it entails. The video is slightly outdated in terms of what Silice can do, but still useful when getting started.
+When designing with Silice your code describes circuits. If not done already, I recommended to [watch the introductory video](https://www.youtube.com/watch?v=_OhxEY72qxI) (youtube) to get more familiar with this notion and what it entails. The video is slightly outdated in terms of what Silice can do, but still useful when getting started. Another more recent video that focuses on graphics applications and showcases new capabilities is [here](https://www.youtube.com/watch?v=XycwTFPDZ6w).
 
 ## Table of content
 
@@ -49,6 +49,7 @@ When designing with Silice your code describes circuits. If not done already, I 
   - [Clock and reset](#clock-and-reset)
   - [Modifiers](#modifiers)
 - [Execution flow and cycle utilization rules](#execution-flow-and-cycle-utilization-rules)
+  - [Cycle report](#cycle-report)
   - [Control flow](#control-flow-1)
     - [Switches](#switches)
   - [Cycle costs of calls to algorithms and subroutines](#cycle-costs-of-calls-to-algorithms-and-subroutines)
@@ -2117,6 +2118,33 @@ The bitfield can also be used to initialize the wider variable:
 uint32 data = Node(left=16hffff,right=16h1234);
 ```
 
+[Here is an example](../tests/bitfield1.si) that you can run to test bitfields:
+``` c
+bitfield HL {
+  uint4 high,
+  uint4 low
+}
+
+unit main(output int8 leds)
+{
+  always {
+    uint8 test0 = HL(high=4b1001,low=4b0110);
+    __display("test0: %b (high is on MSBs)",test0);
+    uint8 test1 = HL(low=4b0110,high=4b1001);
+    __display("test1: %b (same as expected)",test1);
+    __finish();
+  }
+}
+```
+
+The output of `make bitfield1` (from within the `Silice/tests` directory) is:
+
+```
+test0: 10010110 (high is on MSBs)
+test1: 10010110 (same as expected)
+- build.v:275: Verilog $finish
+```
+
 ## Intrinsics
 
 Silice has convenient intrinsics:
@@ -2318,6 +2346,20 @@ declaration, and between the `{` and `}` of the unit block.
 However there should not be any top level if-then-else enclosing and repeating
 these parentheses and braces.
 
+## Preprocessor additional functions
+
+In addition to the standard Lua functions, the following functions are
+available to the preprocessor:
+- `print(<string>)` prints the string in the console when reached by the preprocessor.
+- `error(<string>)` prints the string and exits immediately.
+- `clog2(<number>)` returns the ceil of the log2 of the input number.
+- `lshift(<number>,<number>)` returns the first input number left shifted by the second number (note: Lua now also supports `<<`).
+- `rshift(<number>)` returns the first input number right shifted by the second number (note: Lua now also supports `>>`).
+- `widthof(<identifier>)` returns the bit width of the given variable.
+- `signed(<identifier>)` returns whether the given variable is signed.
+- `findFile(<string>)` searches for a file in all known paths and returns the
+absolute path if found, the unmodified file name otherwise.
+
 ## Preprocessor image and palette functions
 
 The pre-processor has a number of function to facilitate the inclusion
@@ -2391,6 +2433,57 @@ Silice comes with [many host hardware frameworks](../frameworks/boards/), some e
 For practical usage examples please refer to the [*Getting started* guide](../GetStarted.md).
 
 New frameworks for additional boards [can be easily created](../frameworks/boards/README.md).
+
+## Lua pre-processor in frameworks
+
+Frameworks can 'escape' Verilog to add [Lua preprocessor](#lua-preprocessor) instructions.
+Beware that this happens before the Verilog file is parsed, so the Verilog syntax
+does not influence these pre-processor lines. This is particularly the case
+for comments.
+
+For instance, consider the following framework file:
+
+``` verilog
+// This is a Verilog framework 'glue' file
+
+// Next some Verilog defines, these are only seen by the FPGA/ASIC/simulation
+// toolchain in the final compiled file.
+`define ICEBREAKER 1
+`define ICE40 1
+`default_nettype none
+// Next some lines escaping to the Lua preprocessor, these lines are visible
+// to Silice at compile time, but are oblivious to the surrounding Verilog code.
+$$ICEBREAKER  = 1
+$$ICE40       = 1
+$$HARDWARE    = 1
+// For instance consider the following
+/*
+$$VAR1 = 1
+*/
+// The comment around the $$ escaped line is invisible to Silice, so VAR1 is
+// indeed defined in Silice!
+// This is also true of something like this:
+`ifdef NOT_DEFINED
+$$VAR2 = 1
+`endif
+// The variable VAR2 will be defined as seen by the preprocessor, even though
+// NOT_DEFINED is not defined in the Verilog part. Again the Lua preprocessor
+// executes before Verilog is parsed by the toolchain.
+
+// Here are several possible ways to resolve this:
+// 1) Use a Lua comment
+$$ -- VAR3 = 3
+// ^^ this is a comment in the preprocessor language (Lua), the line is ignored
+// 2) Use preprocessor conditions to disable multiple lines
+$$ if false then
+$$   VAR4 = 4
+$$   VAR5 = 5
+$$ end
+// ^^ here the definition of VAR3 is skipped
+// 3) Use a single line comment, this is properly taken into account by the
+//    framework parser, for convenience.
+// $$ VAR6 = 6
+```
 
 ## VGA and OLED simulation
 

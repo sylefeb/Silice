@@ -1,0 +1,9 @@
+algorithm main(output uint8 leds)
+{
+
+  uint8 b := 210;
+  leds    := b;
+
+  __display("leds: %d",leds);
+
+}

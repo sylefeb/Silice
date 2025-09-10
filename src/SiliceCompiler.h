@@ -86,9 +86,18 @@ namespace Silice {
     /// \brief gather a unit body from the parsed tree
     void gatherUnitBody(AutoPtr<Algorithm> unit,antlr4::tree::ParseTree* tree, const Blueprint::t_instantiation_context& ictx);
     /// \brief writes the design body in the output stream
-    void writeBody(std::ostream& _out, const Blueprint::t_instantiation_context& ictx);
+    void writeBody(const t_parsed_unit& parsed, std::ostream& _out, const Blueprint::t_instantiation_context& ictx);
     /// \brief writes the formal tests in the output stream
     void writeFormalTests(std::ostream& _out, const Blueprint::t_instantiation_context& ictx);
+    /// \brief enum for port types
+    enum e_PortType { Input,Output,InOut };
+    /// \brief add a port to the top module signature, returns false if the port is not found
+    bool addTopModulePort(std::string port, Utils::t_source_loc srcloc, e_PortType type, std::map<std::string, e_PortType>& _used_pins);
+    /// \brief prepare the top level module signature from the used pins
+    std::string verilogTopModuleSignature(const std::map<std::string, e_PortType>& used_pins);
+    /// \brief prepare the top level main module glue
+    std::string verilogMainGlue(const std::map<std::string, e_PortType>& used_ports);
+
 
   public:
 
@@ -101,7 +110,8 @@ namespace Silice {
       const std::vector<std::string>& defines,
       const std::vector<std::string>& configs,
       std::string to_export,
-      const std::vector<std::string>& export_params);
+      const std::vector<std::string>& export_params,
+      std::string top_module_name);
 
     /// \brief writes a unit in the output stream
     void writeUnit(

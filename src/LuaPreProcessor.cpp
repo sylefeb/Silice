@@ -65,6 +65,22 @@ extern "C" {
 
 // -------------------------------------------------
 
+#ifdef __wasi__
+#define LPP_THROW(msg)  { \
+      std::cerr << "\n========== preprocessor error ==========\n" \
+        << msg << std::endl; \
+      exit(1); }
+#define LPP_THROW_ARGS(msg,args...)  { \
+      std::cerr << "\n========== preprocessor error ==========\n" \
+        << sprint(msg,args) << std::endl; \
+      exit(1); }
+#else
+#define LPP_THROW(msg) throw Fatal(msg);
+#define LPP_THROW_ARGS(msg,args...) throw Fatal(msg,args);
+#endif
+
+// -------------------------------------------------
+
 static void load_config_into_lua(lua_State *L)
 {
   luabind::object table = luabind::newtable(L);
@@ -135,6 +151,7 @@ std::string LuaPreProcessor::findFile(std::string fname) const
 std::map<lua_State*, std::ofstream>                      g_LuaOutputs;
 std::map<lua_State*, Blueprint::t_instantiation_context> g_LuaInstCtx;
 std::map<lua_State*, LuaPreProcessor*>                   g_LuaPreProcessors;
+std::set<lua_State*>                                     g_LuaProcessingHeader;
 
 // -------------------------------------------------
 
@@ -168,7 +185,9 @@ static void lua_preproc_error(lua_State *L, std::string str)
 
 static void lua_print(lua_State *L, std::string str)
 {
-  cerr << "[preprocessor] " << Console::white << str << Console::gray << "\n";
+  cerr << "[preprocessor] " << Console::bold << Console::white
+       << str
+       << Console::normal << Console::gray << "\n";
 }
 
 // -------------------------------------------------
@@ -205,13 +224,29 @@ static bool is_number(std::string s)
 
 // -------------------------------------------------
 
+static void lua_pin(lua_State *L, std::string name)
+{
+  std::cerr << "adding pin " << name << std::endl;
+  luabind::globals(L)["pins"][name] = 1;
+}
+
+static void lua_pin_width(lua_State *L, std::string name,int w)
+{
+  std::cerr << "adding pin " << name << std::endl;
+  luabind::globals(L)["pins"][name] = w;
+}
+
+// -------------------------------------------------
+
 static int lua_cindex(lua_State *L)
 {
   auto C = g_LuaInstCtx.find(L);
   if (C == g_LuaInstCtx.end()) {
     return 0;
   }
+  // get name
   const char *name = lua_tostring(L, 2);
+  // search params
   auto P = C->second.params.find(name);
   if (P != C->second.params.end()) {
     if (is_number(P->second)) {
@@ -222,6 +257,108 @@ static int lua_cindex(lua_State *L)
     return 1;
   }
   return 0;
+}
+
+// -------------------------------------------------
+
+int lua_pin_index(lua_State *L)
+{
+  // get pre-processor
+  auto P = g_LuaPreProcessors.find(L);
+  if (P == g_LuaPreProcessors.end()) {
+    lua_pushliteral(L, "[pin declaration] internal error");
+    lua_error(L);
+    return 0;
+  }
+  LuaPreProcessor *lpp = P->second;
+  // get name
+  const char *name = lua_tostring(L, 2);
+  // check it has been declared
+  if (!lpp->hasPin(name)) {
+    lua_pushstring(L, sprint("[pin declaration] using pin '%s' that was not declared", name) );
+    lua_error(L);
+    return 0;
+  }
+  // return as table of strings
+  luabind::object table = luabind::newtable(L);
+  for (int b = 0; b < lpp->pinWidth(name);++b) {
+    table[b] = std::string(name) + ":" + std::to_string(b);
+  }
+  // add the 'all bits' marker, used by allBits to check if the user
+  // is giving the entire table (all bits) or selecting a bit
+  table["allbits"] = std::string(name);
+  luabind::detail::push_to_lua(L, table);
+  return 1;
+}
+
+std::string allBits(luabind::object t)
+{
+  std::string s = luabind::object_cast_nothrow<std::string>(t["allbits"], std::string());
+  return s;
+}
+
+int lua_pin_newindex(lua_State *L)
+{
+  // get pre-processor
+  auto P = g_LuaPreProcessors.find(L);
+  if (P == g_LuaPreProcessors.end()) {
+    lua_pushliteral(L, "[pin declaration] internal error");
+    lua_error(L);
+    return 0;
+  }
+  LuaPreProcessor *lpp = P->second;
+  // get name and return as value
+  const char *key   = lua_tostring(L, 2);
+  if (lua_isnumber(L, 3)) {
+    int value = lua_tonumber(L, 3);
+    lpp->addPin(key, value);
+  } else if (lua_istable(L, 3)) {
+    std::vector<std::pair<std::string, int> > pins;
+    luabind::object o(luabind::from_stack(L,3));
+    std::string all = allBits(o);
+    if (!all.empty()) {
+      pins.push_back(std::make_pair(all, -1));
+    } else {
+      // create group (may have empty entries for unused bits, given as '0' values in the group)
+      for (luabind::iterator i(o), end; i != end; ++i) {
+        if (luabind::type(*i) == LUA_TSTRING) {
+          // bit select
+          std::string pin_bitsel = luabind::object_cast_nothrow<std::string>(*i, std::string());
+          auto split = pin_bitsel.find(':');
+          if (split == string::npos) LPP_THROW("[pin declaration] malformed bit select string");
+          std::string name = pin_bitsel.substr(0, split);
+          std::string bit  = pin_bitsel.substr(split+1);
+          pins.push_back(make_pair(name,atoi(bit.c_str())));
+        } else if (luabind::type(*i) == LUA_TTABLE) {
+          all = allBits(*i);
+          if (!all.empty()) {
+            pins.push_back(std::make_pair(all, -1));
+          } else {
+            LPP_THROW("[pin declaration] malformed pin group table");
+          }
+        } else if (luabind::type(*i) == LUA_TNUMBER) {
+          int v = luabind::object_cast_nothrow<int>(*i, 0);
+          if (v == 0) {
+            pins.push_back(std::make_pair(std::string(), -1));
+          } else {
+            lua_pushstring(L, sprint("[pin declaration] incorrect assignment to pin '%s', the value can only be 0 to skip bits (got %d)", key, v));
+            lua_error(L);
+            return 0;
+          }
+        } else {
+          lua_pushstring(L, sprint("[pin declaration] incorrect assignment to pin '%s'", key));
+          lua_error(L);
+          return 0;
+        }
+      }
+    }
+    lpp->addPinGroup(key, pins);
+  } else {
+    lua_pushstring(L, sprint("[pin declaration] incorrect assignment to pin '%s'", key) );
+    lua_error(L);
+    return 0;
+  }
+  return 1;
 }
 
 // -------------------------------------------------
@@ -665,10 +802,12 @@ static void bindScript(lua_State *L)
       luabind::def("lshift",        &lua_lshift),
       luabind::def("rshift",        &lua_rshift),
       luabind::def("widthof",       &lua_widthof),
-      luabind::def("signed",        &lua_signed)
+      luabind::def("signed",        &lua_signed),
+      luabind::def("pin",           &lua_pin),
+      luabind::def("pin",           &lua_pin_width)
     ];
 
-  // install an index hook
+  // install an index hook on _G
   lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_GLOBALS);
   lua_newtable(L);
   lua_pushstring(L, "__index");
@@ -676,6 +815,17 @@ static void bindScript(lua_State *L)
   lua_settable(L, -3);
   lua_setmetatable(L, -2);
   lua_pop(L, 1);
+  // create pin table and install an index hook on it
+  lua_newtable(L);
+  lua_createtable(L, 0, 2);
+  lua_pushcfunction(L, lua_pin_index);
+  lua_setfield(L, -2, "__index");
+  lua_pushcfunction(L, lua_pin_newindex);
+  lua_setfield(L, -2, "__newindex");
+  lua_setmetatable(L, -2);
+  lua_setglobal(L, "pin");
+
+  //////////////////////////////
 }
 
 // -------------------------------------------------
@@ -719,18 +869,42 @@ void LuaPreProcessor::enableFilesReport(std::string fname)
 
 // -------------------------------------------------
 
+void LuaPreProcessor::pinsUsedByIOPort(std::string port, std::vector<std::pair<std::string,int> >& _pins)
+{
+  if (m_Pins.count(port)) {
+    _pins.push_back(make_pair(port,-1));
+  } else if (m_PinGroups.count(port)) {
+    _pins = m_PinGroups.at(port);
+  } else {
+    LPP_THROW("pinsUsedByIOPort cannot find io port in pins or pin groups");
+  }
+}
+
+// -------------------------------------------------
+
+int  LuaPreProcessor::pinWidth(std::string pin)
+{
+  if (m_Pins.count(pin)) {
+    return m_Pins.at(pin);
+  } else {
+    LPP_THROW("pinWidth called on unkown pin");
+  }
+}
+
+// -------------------------------------------------
+
 std::string LuaPreProcessor::assembleSource(
   std::string parent_path,
   std::string src_file,
   std::unordered_set<std::string> alreadyIncluded,
   int& _output_line_count)
 {
-  cerr << "assembling source " << src_file << '.' << "\n";
+  cerr << "assembling source " << std::filesystem::absolute(src_file) << '.' << "\n";
   if (!LibSL::System::File::exists(src_file.c_str())) {
-    throw Fatal("cannot find source file '%s'", src_file.c_str());
+    LPP_THROW_ARGS("cannot find source file '%s'", src_file.c_str());
   }
   if (alreadyIncluded.find(src_file) != alreadyIncluded.end()) {
-    throw Fatal("source file '%s' already included (cyclic dependency)", src_file.c_str());
+    LPP_THROW_ARGS("source file '%s' already included (cyclic dependency)", src_file.c_str());
   }
   // generate a report with all the loaded files
   if (!m_FilesReportName.empty()) {
@@ -766,13 +940,13 @@ std::string LuaPreProcessor::assembleSource(
         auto next = parser.readChar();
         if (next != '"' && next != '\'') {
           // TODO: improve error report
-          throw Fatal("parse error in include");
+          LPP_THROW("parse error in include");
         }
         std::string fname = parser.readString("\"'");
         bool ok = parser.reachChar(')');
         if (!ok) {
           // TODO: improve error report
-          throw Fatal("parse error in include");
+          LPP_THROW("parse error in include");
         }
         // find file
         fname = findFile(path, fname);
@@ -781,7 +955,7 @@ std::string LuaPreProcessor::assembleSource(
         code += assembleSource(path + "/", fname, alreadyIncluded, _output_line_count);
       } else if (w == "$display") {
         // early Silice versions supported $display, we now issue an error and indicate the replacement
-        throw Fatal("$display is deprecated, please use __display instead (line %d).",1+src_line);
+        LPP_THROW_ARGS("$display is deprecated, please use __display instead (line %d).",1+src_line);
       } else {
         code += " " + w;
       }
@@ -843,7 +1017,7 @@ int jumpOverComment(t_Parser& parser, BufferStream& bs)
     }
     if (parser.eof()) {
       // TODO: improve error report
-      throw Fatal("[parser] Reached end of file while parsing comment block");
+      LPP_THROW("[parser] Reached end of file while parsing comment block");
     }
   } else {
     return -1; // not a comment
@@ -871,7 +1045,7 @@ std::string jumpOverString(t_Parser& parser, BufferStream& bs)
     }
   }
   // TODO: improve error report
-  throw Fatal("[parser] Reached end of file while parsing string");
+  LPP_THROW("[parser] Reached end of file while parsing string");
 }
 
 // -------------------------------------------------
@@ -914,13 +1088,13 @@ public:
         } else if (w == "end") {
           if (m_IfSide.empty()) {
             // TODO: better message!
-            throw Fatal("[parser] Pre-processor directives are unbalanced within the unit, this is not supported.\n       (please refer to the documentation, Documentation.md#preprocessor-constraints)");
+            LPP_THROW("[parser] Pre-processor directives are unbalanced within the unit, this is not supported.\n       (please refer to the documentation, Documentation.md#preprocessor-constraints)");
           }
           m_IfSide.pop_back();
         } else if (w == "else" || w == "elseif") {
           if (m_IfSide.empty()) {
             // TODO: better message!
-            throw Fatal("[parser] Pre-processor directives are unbalanced within the unit, this is not supported.\n       (please refer to the documentation, Documentation.md#preprocessor-constraints)");
+            LPP_THROW("[parser] Pre-processor directives are unbalanced within the unit, this is not supported.\n       (please refer to the documentation, Documentation.md#preprocessor-constraints)");
           }
           m_IfSide.pop_back();
           m_IfSide.push_back(false);
@@ -1001,7 +1175,7 @@ void jumpOverNestedBlocks(t_Parser& parser, BufferStream& bs,LuaCodePath& lcp, c
       parser.readChar();
     }
   }
-  throw Fatal("[parser] Reached end of file while skipping blocks. Are %c %c unbalanced?",
+  LPP_THROW_ARGS("[parser] Reached end of file while skipping blocks. Are %c %c unbalanced?",
                c_in,c_out);
 }
 
@@ -1015,14 +1189,14 @@ void jumpOverUnit(t_Parser& parser, BufferStream& bs, LuaCodePath& lcp, int& _io
   jumpOverNestedBlocks(parser,bs, lcp, '(', ')');
   int nlvl_after_io = lcp.nestLevel();
   if (nlvl_before != nlvl_after_io) {
-    throw Fatal("[parser] Pre-processor directives are spliting the unit io definitions, this is not supported:\n"
+    LPP_THROW("[parser] Pre-processor directives are spliting the unit io definitions, this is not supported:\n"
                 "                A unit io definition has to be entirely contained within if-then-else directives");
   }
   _io_end   = bs.pos();
   jumpOverNestedBlocks(parser,bs, lcp, '{', '}');
   int nlvl_after  = lcp.nestLevel();
   if (nlvl_before != nlvl_after) {
-    throw Fatal("[parser] Pre-processor directives are spliting the unit, this is not supported:\n"
+    LPP_THROW("[parser] Pre-processor directives are spliting the unit, this is not supported:\n"
                 "                A unit has to be entirely contained within if-then-else directives");
   }
 }
@@ -1055,7 +1229,7 @@ void LuaPreProcessor::decomposeSource(
       if (w == "unit" || w == "algorithm" || w == "algorithm#" || w == "circuitry") {
         std::string name = parser.readString("( \t\r");
         if (name.empty()) {
-          throw Fatal("%s",(w + " has no name").c_str()); // TODO: improve error report (line)
+          LPP_THROW_ARGS("%s",(w + " has no name").c_str()); // TODO: improve error report (line)
         }
         cerr << "functionalizing " << w << ' ' << name << '\n';
         if (w == "algorithm#") {
@@ -1268,6 +1442,17 @@ std::string fileAbsolutePath(std::string f)
 
 // -------------------------------------------------
 
+static int lua_table_size(luabind::object tbl)
+{
+  int count = 0;
+  for (luabind::iterator j(tbl), endj; j != endj; ++j) {
+    ++count;
+  }
+  return count;
+}
+
+// -------------------------------------------------
+
 void LuaPreProcessor::generateBody(
   std::string src_file,
   const std::vector<std::string>& defaultLibraries,
@@ -1278,6 +1463,8 @@ void LuaPreProcessor::generateBody(
   // add current directory to search dirs
   m_SearchPaths.push_back(getCurrentPath());
   m_SearchPaths.push_back(extractPath(fileAbsolutePath(src_file)));
+  m_SearchPaths.push_back(std::string(SILICE_DEFAULT_PATH) + "/projects/common/");
+  m_SearchPaths.push_back(std::string(SILICE_DEFAULT_PATH) + "/share/silice/projects/common/");
 
   // get code
   std::unordered_set<std::string> inclusions;
@@ -1301,7 +1488,7 @@ void LuaPreProcessor::generateBody(
   // decompose the soure into body and units
   decomposeSource(source_code, m_Units);
   // prepare the Lua code, with units as functions
-  std::string lua_code = prepareCode(lua_header_code, source_code, m_Units);
+  std::string lua_code = prepareCode("", source_code, m_Units);
 
   if (0) {
     ofstream dbg(extractFileName(fileAbsolutePath(src_file) + ".pre.lua"), std::ios::binary);
@@ -1310,6 +1497,10 @@ void LuaPreProcessor::generateBody(
 
   // create Lua context
   createLuaContext();
+  // execute header
+  g_LuaProcessingHeader.insert(m_LuaState); // this enables using pin name in the pins table without prior declaration
+  executeLuaString(lua_header_code, dst_file, ictx);
+  g_LuaProcessingHeader.erase(m_LuaState);
   // execute body (Lua context also contains all unit functions)
   executeLuaString(lua_code, dst_file, ictx);
 
@@ -1356,6 +1547,16 @@ void LuaPreProcessor::executeLuaString(std::string lua_code, std::string dst_fil
 {
   // reset line counter
   m_CurOutputLine = 0;
+  // backup and undef params from the lua global context so their existing
+  // definition does not override lua_cindex
+  std::map<std::string,luabind::object> backup;
+  for (const auto& p : ictx.params) {
+    luabind::object o = luabind::globals(m_LuaState)[p.first];
+    if (o) {
+      backup.insert(std::make_pair(p.first,o));
+      luabind::globals(m_LuaState)[p.first] = luabind::object();
+    }
+  }
   // prepare instantiation context
   g_LuaInstCtx.insert(std::make_pair(m_LuaState, ictx));
   // prepare output
@@ -1381,7 +1582,15 @@ void LuaPreProcessor::executeLuaString(std::string lua_code, std::string dst_fil
       cerr << errmsg << "\n";
     }
     cerr << Console::gray;
-    throw Fatal("the preprocessor was interrupted");
+    LPP_THROW("the preprocessor was interrupted");
+  }
+  // restore state
+  for (const auto& p : ictx.params) {
+    if (backup.count(p.first)) {
+      luabind::globals(m_LuaState)[p.first] = backup.at(p.first);
+    } else {
+      luabind::globals(m_LuaState)[p.first] = luabind::object();
+    }
   }
   // reload config
   load_config_from_lua(m_LuaState);

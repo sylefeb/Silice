@@ -36,6 +36,7 @@ bool ATNConfigSet::add(const Ref<ATNConfig> &config) {
 
 bool ATNConfigSet::add(const Ref<ATNConfig> &config, PredictionContextMergeCache *mergeCache) {
   if (_readonly) {
+    ANTLR_WILL_THROW;
     throw IllegalStateException("This set is readonly");
   }
   if (config->semanticContext != SemanticContext::NONE) {
@@ -121,6 +122,7 @@ Ref<ATNConfig> ATNConfigSet::get(size_t i) const {
 
 void ATNConfigSet::optimizeConfigs(ATNSimulator *interpreter) {
   if (_readonly) {
+    ANTLR_WILL_THROW;
     throw IllegalStateException("This set is readonly");
   }
   if (_configLookup.empty())
@@ -168,6 +170,7 @@ bool ATNConfigSet::isEmpty() {
 
 void ATNConfigSet::clear() {
   if (_readonly) {
+    ANTLR_WILL_THROW;
     throw IllegalStateException("This set is readonly");
   }
   configs.clear();

@@ -49,10 +49,12 @@ ParseTreePatternMatcher::~ParseTreePatternMatcher() {
 
 void ParseTreePatternMatcher::setDelimiters(const std::string &start, const std::string &stop, const std::string &escapeLeft) {
   if (start.empty()) {
+    ANTLR_WILL_THROW;
     throw IllegalArgumentException("start cannot be null or empty");
   }
 
   if (stop.empty()) {
+    ANTLR_WILL_THROW;
     throw IllegalArgumentException("stop cannot be null or empty");
   }
 
@@ -95,6 +97,7 @@ ParseTreePattern ParseTreePatternMatcher::compile(const std::string &pattern, in
     parserInterp.setErrorHandler(std::make_shared<BailErrorStrategy>());
     tree = parserInterp.parse(patternRuleIndex);
   } catch (ParseCancellationException &e) {
+    ANTLR_WILL_THROW;
 #if defined(_MSC_FULL_VER) && _MSC_FULL_VER < 190023026
     // rethrow_if_nested is not available before VS 2015.
     throw e;
@@ -115,6 +118,7 @@ ParseTreePattern ParseTreePatternMatcher::compile(const std::string &pattern, in
 
   // Make sure tree pattern compilation checks for a complete parse
   if (tokens.LA(1) != Token::EOF) {
+    ANTLR_WILL_THROW;
     throw StartRuleDoesNotConsumeFullPattern();
   }
 
@@ -132,10 +136,12 @@ Parser* ParseTreePatternMatcher::getParser() {
 ParseTree* ParseTreePatternMatcher::matchImpl(ParseTree *tree, ParseTree *patternTree,
                                               std::map<std::string, std::vector<ParseTree *>> &labels) {
   if (tree == nullptr) {
+    ANTLR_WILL_THROW;
     throw IllegalArgumentException("tree cannot be nul");
   }
 
   if (patternTree == nullptr) {
+    ANTLR_WILL_THROW;
     throw IllegalArgumentException("patternTree cannot be nul");
   }
 
@@ -243,17 +249,20 @@ std::vector<std::unique_ptr<Token>> ParseTreePatternMatcher::tokenize(const std:
       if (isupper(tagChunk.getTag()[0])) {
         size_t ttype = _parser->getTokenType(tagChunk.getTag());
         if (ttype == Token::INVALID_TYPE) {
+          ANTLR_WILL_THROW;
           throw IllegalArgumentException("Unknown token " + tagChunk.getTag() + " in pattern: " + pattern);
         }
         tokens.emplace_back(new TokenTagToken(tagChunk.getTag(), (int)ttype, tagChunk.getLabel()));
       } else if (islower(tagChunk.getTag()[0])) {
         size_t ruleIndex = _parser->getRuleIndex(tagChunk.getTag());
         if (ruleIndex == INVALID_INDEX) {
+          ANTLR_WILL_THROW;
           throw IllegalArgumentException("Unknown rule " + tagChunk.getTag() + " in pattern: " + pattern);
         }
         size_t ruleImaginaryTokenType = _parser->getATNWithBypassAlts().ruleToTokenType[ruleIndex];
         tokens.emplace_back(new RuleTagToken(tagChunk.getTag(), ruleImaginaryTokenType, tagChunk.getLabel()));
       } else {
+        ANTLR_WILL_THROW;
         throw IllegalArgumentException("invalid tag: " + tagChunk.getTag() + " in pattern: " + pattern);
       }
     } else {
@@ -297,16 +306,19 @@ std::vector<Chunk> ParseTreePatternMatcher::split(const std::string &pattern) {
   }
 
   if (starts.size() > stops.size()) {
+    ANTLR_WILL_THROW;
     throw IllegalArgumentException("unterminated tag in pattern: " + pattern);
   }
 
   if (starts.size() < stops.size()) {
+    ANTLR_WILL_THROW;
     throw IllegalArgumentException("missing start tag in pattern: " + pattern);
   }
 
   size_t ntags = starts.size();
   for (size_t i = 0; i < ntags; i++) {
     if (starts[i] >= stops[i]) {
+      ANTLR_WILL_THROW;
       throw IllegalArgumentException("tag delimiters out of order in pattern: " + pattern);
     }
   }

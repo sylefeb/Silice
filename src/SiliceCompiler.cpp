@@ -31,6 +31,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "RISCVSynthesizer.h"
 #include "Utils.h"
 #include "ChangeLog.h"
+#include "VerilogTemplate.h"
 
 // -------------------------------------------------
 
@@ -45,6 +46,12 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 using namespace Silice;
 using namespace Silice::Utils;
+
+// -------------------------------------------------
+
+bool g_Disable_CL0006 = false; // turn the check for missing pins into a warning
+
+extern bool g_SplitInouts;
 
 // -------------------------------------------------
 
@@ -299,6 +306,15 @@ void SiliceCompiler::gatherUnitBody(AutoPtr<Algorithm> unit, antlr4::tree::Parse
 
 // -------------------------------------------------
 
+std::string ltrim(const std::string s)
+{
+  std::string r = s;
+  r.erase(r.begin(),
+    std::find_if(r.begin(), r.end(), [](unsigned char c) { return !std::isspace(c); }
+  ));
+  return r;
+}
+
 void SiliceCompiler::prepareFramework(std::string fframework, std::string& _lpp, std::string& _verilog)
 {
   // if we don't have a framework (as for the formal board),
@@ -315,6 +331,7 @@ void SiliceCompiler::prepareFramework(std::string fframework, std::string& _lpp,
   }
   std::string line;
   while (std::getline(infile, line)) {
+    line = ltrim(line);
     if (line.substr(0, 2) == "$$") {
       _lpp += line.substr(2) + "\n";
     } else {
@@ -362,6 +379,7 @@ void SiliceCompiler::beginParsing(
   CONFIG.keyValues()["frameworks_dir"] = frameworks_dir;
   CONFIG.keyValues()["templates_path"] = frameworks_dir + "/templates";
   CONFIG.keyValues()["libraries_path"] = frameworks_dir + "/libraries";
+  CONFIG.keyValues()["allow_deprecated_framework"] = "yes"; /// TODO: enforce this next major version
   // create the preprocessor
   AutoPtr<LuaPreProcessor> lpp(new LuaPreProcessor());
   lpp->enableFilesReport(fresult + ".files.log");
@@ -530,7 +548,99 @@ void SiliceCompiler::parseUnitBody(t_parsed_unit& _parsed, const Blueprint::t_in
 
 // -------------------------------------------------
 
-void SiliceCompiler::writeBody(std::ostream& _out, const Blueprint::t_instantiation_context& ictx)
+bool SiliceCompiler::addTopModulePort(
+  std::string                      port,
+  Utils::t_source_loc              srcloc,
+  e_PortType                       type,
+  std::map<std::string, e_PortType>& _used_pins
+) {
+  if (!m_BodyContext->lpp->isIOPortDefined(port)) {
+    CHANGELOG.addPointOfInterest("CL0006", srcloc);
+    if (g_Disable_CL0006 || CONFIG.keyValues()["allow_deprecated_framework"] == "yes") {
+      warn(Deprecation, srcloc, "pin '%s' is not declared in framework\n             This may result in incorrect Verilog code.\n", port.c_str());
+    } else {
+      reportError(srcloc, "pin '%s' is not declared in framework\n         This may result in incorrect Verilog code.\n         Use --no-pin-check on command line to force.", port.c_str());
+    }
+    return false;
+  } else {
+    std::vector<std::pair<std::string,int> > pins;
+    m_BodyContext->lpp->pinsUsedByIOPort(port, pins);
+    if (pins.empty()) {
+      reportError(srcloc, "pin group %s is empty", port.c_str());
+    }
+    for (auto p : pins) {
+      if (!p.first.empty()) {
+        if (p.second == -1) {
+          if (_used_pins.count(p.first)) {
+            reportError(srcloc, "pin %s is used multiple times", port.c_str());
+          }
+        } else {
+          /// TODO: bit level double use check
+        }
+        _used_pins.insert(std::make_pair(p.first,type));
+      }
+    }
+    return true;
+  }
+}
+
+// -------------------------------------------------
+
+std::string SiliceCompiler::verilogTopModuleSignature(const std::map<std::string, e_PortType>& used_pins)
+{
+  std::string sig;
+  for (const auto& P : used_pins) {
+    switch (P.second)
+    {
+    case Input:  sig += "input  "; break;
+    case Output: sig += "output "; break;
+    case InOut:  sig += "inout  "; break;
+    }
+    int w = m_BodyContext->lpp->pinWidth(P.first);
+    if (w > 1) {
+      sig += "[" + std::to_string(w - 1) + ":0] ";
+    }
+    sig += P.first + ",\n";
+  }
+  return sig;
+}
+
+// -------------------------------------------------
+
+std::string SiliceCompiler::verilogMainGlue(const std::map<std::string, e_PortType>& used_ports)
+{
+  std::string glue;
+  for (const auto& P : used_ports) {
+    switch (P.second) {
+    case Input:  glue += ".in_"; break;
+    case Output: glue += ".out_"; break;
+    case InOut:  glue += ".inout_"; break;
+    }
+    std::vector<std::pair<std::string,int> > pins;
+    m_BodyContext->lpp->pinsUsedByIOPort(P.first, pins);
+    sl_assert(!pins.empty()); // checked before
+    std::string bitvec = "{";
+    for (int p = 0; p < pins.size(); ++p) {
+      if (pins[p].first.empty()) {
+        bitvec += "__unused_" + P.first + "_" + std::to_string(p) + ",";
+      } else {
+        if (pins[p].second == -1) {
+          bitvec += pins[p].first + ",";
+        } else {
+          bitvec += pins[p].first + "[" + std::to_string(pins[p].second) + "],";
+        }
+      }
+    }
+    bitvec  = bitvec.substr(0, bitvec.length() - 1); // remove last comma
+    bitvec += "}";
+    glue += P.first + "(" + bitvec + "),\n";
+  }
+  return glue;
+}
+
+// -------------------------------------------------
+
+void SiliceCompiler::writeBody(const t_parsed_unit& parsed, std::ostream& _out, const Blueprint::t_instantiation_context& ictx)
 {
   // check parser is active
   if (m_BodyContext.isNull()) {
@@ -547,13 +657,53 @@ void SiliceCompiler::writeBody(std::ostream& _out, const Blueprint::t_instantiat
         _out << "`define " << d.substr(0, eq) << " " << d.substr(eq + 1) << nxl;
       }
     }
+    if (g_SplitInouts) {
+      _out << "`define SPLIT_INOUTS\n";
+    }
+    // build the top module signature, verify in/out/inout match pins, verify no pin is used twise
+    std::map<std::string, e_PortType> used_ports;
+    std::map<std::string, e_PortType> used_pins;
+    for (auto in : parsed.unit->inputs()) {
+      if (addTopModulePort(in.name, in.srcloc, Input, used_pins)) {
+        used_ports.insert(std::make_pair(in.name, Input));
+      }
+    }
+    for (auto ou : parsed.unit->outputs()) {
+      if (addTopModulePort(ou.name, ou.srcloc, Output, used_pins)) {
+        used_ports.insert(std::make_pair(ou.name, Output));
+      }
+    }
+    for (auto io : parsed.unit->inOuts()) {
+      if (addTopModulePort(io.name, io.srcloc, InOut, used_pins)) {
+        used_ports.insert(std::make_pair(io.name, InOut));
+      }
+    }
+    // check all ports are found, produce unused wires declarations
+    std::string wire_decl;
+    for (const auto& P : used_ports) {
+      std::vector<std::pair<std::string,int> > pins;
+      m_BodyContext->lpp->pinsUsedByIOPort(P.first, pins);
+      sl_assert(!pins.empty()); // checked before
+      for (int p = 0; p < pins.size(); ++p) {
+        if (pins[p].first.empty()) {
+          wire_decl += "wire __unused_" + P.first + "_" + std::to_string(p) + ";\n";
+        }
+      }
+    }
+    // update framework
+    VerilogTemplate frmwrk;
+    std::unordered_map<std::string, std::string> replacements;
+    replacements["TOP_NAME"]      = CONFIG.keyValues()["top_module_name"]; // top module name
+    replacements["TOP_SIGNATURE"] = verilogTopModuleSignature(used_pins); // top module signature
+    replacements["MAIN_GLUE"]     = verilogMainGlue(used_ports); // main module glue
+    replacements["WIRE_DECL"]     = wire_decl; // main module wire declarations
+    frmwrk.fromString(m_BodyContext->framework_verilog, replacements);
     // write framework (top) module
-    _out << m_BodyContext->framework_verilog;
+    _out << frmwrk.code();
     // write includes
     for (auto fname : m_AppendsInDeclOrder) {
       _out << Utils::fileToString(fname.c_str()) << nxl;
     }
-
     // write static blueprints
     for (auto miordr : m_BlueprintsInDeclOrder) {
       Module *mod = dynamic_cast<Module*>(m_Blueprints.at(miordr).raw());
@@ -581,10 +731,10 @@ void SiliceCompiler::writeBody(std::ostream& _out, const Blueprint::t_instantiat
     // done
     m_BodyContext->unbind();
 
-  } catch (ReportError&) {
+  } catch (ReportError& e) {
 
     m_BodyContext->unbind();
-    throw Fatal("[SiliceCompiler] writer stopped");
+    throw e;
 
   }
 
@@ -703,10 +853,10 @@ void SiliceCompiler::run(
   const std::vector<std::string>& defines,
   const std::vector<std::string>& configs,
   std::string to_export,
-  const std::vector<std::string>& export_params)
+  const std::vector<std::string>& export_params,
+  std::string top_module_name)
 {
   try {
-
     // create top instantiation context
     Blueprint::t_instantiation_context ictx;
     ictx.compiler = this;
@@ -724,6 +874,8 @@ void SiliceCompiler::run(
     }
     // begin parsing
     beginParsing(fsource, fresult, fframework, frameworks_dir, defines, ictx);
+    // configure top module name
+    CONFIG.keyValues()["top_module_name"] = top_module_name;
     // apply command line config options
     for (auto cfg : configs) {
       auto eq = cfg.find('=');
@@ -735,17 +887,18 @@ void SiliceCompiler::run(
     CONFIG.print();
     // create output stream
     std::ofstream out(m_BodyContext->fresult);
-    // write body
-    writeBody(out, ictx);
     // which algorithm to export?
     if (to_export.empty()) {
       to_export = "main"; // export main by default
     }
     ictx.top_name = "M_" + to_export;
-    // parse and write top unit
+    // parse top unit
     auto bp = parseUnitIOs(to_export, ictx);
     parseUnitBody(bp, ictx);
     bp.unit->setAsTopMost();
+    // write body
+    writeBody(bp, out, ictx);
+    // write top unit
     // -> first pass
     writeUnit(bp, ictx, out, true);
     // -> second pass

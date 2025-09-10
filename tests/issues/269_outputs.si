@@ -1,0 +1,28 @@
+
+algorithm test(
+  output uint8 default1(255),
+  output uint8 default2(123),
+  output uint8 default3(100)
+) <autorun> {
+  while (1) {
+    default3 = default3 + 1;
+  }
+}
+
+algorithm main(output uint8 leds)
+{
+  test t;
+  ++:
+  __display("1) default1: %d, default2: %d, default3: %d",
+             t.default1, t.default2, t.default3
+    );
+  ++:
+  __display("2) default1: %d, default2: %d, default3: %d",
+             t.default1, t.default2, t.default3
+    );
+  ++:
+  __display("3) default1: %d, default2: %d, default3: %d",
+             t.default1, t.default2, t.default3
+    );
+
+}

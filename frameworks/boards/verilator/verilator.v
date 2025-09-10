@@ -65,6 +65,8 @@ module top(
   output video_vs,
   output [5:0] sdram_word_width,
   output [4:0] video_color_depth,
+  // PWM Audio
+  output pwm_audio,
   // SPI screen
   output spiscreen_clk,
   output spiscreen_mosi,
@@ -167,6 +169,9 @@ M_main __main(
   .out_video_b(__main_video_b),
   .out_video_hs(__main_video_hs),
   .out_video_vs(__main_video_vs),
+`endif
+`ifdef PWM_AUDIO
+  .out_pwm_audio(pwm_audio),
 `endif
 `ifdef OLED
   .out_oled_clk(spiscreen_clk),

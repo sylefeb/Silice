@@ -117,5 +117,8 @@ def main():
 
     platform.build(soc)
 
+    prog = platform.create_programmer()
+    prog.load_bitstream("build/top.bin")
+
 if __name__ == "__main__":
     main()

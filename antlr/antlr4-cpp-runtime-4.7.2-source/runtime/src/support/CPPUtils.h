@@ -66,10 +66,12 @@ namespace antlrcpp {
     void writeUnlock();
 
   private:
+    #if !defined(__wasi__)
     std::condition_variable _readerGate;
     std::condition_variable _writerGate;
 
     std::mutex _mutex;
+    #endif
     size_t _activeReaders = 0;
     size_t _waitingWriters = 0;
     size_t _activeWriters = 0;

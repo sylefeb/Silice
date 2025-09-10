@@ -170,6 +170,7 @@ std::vector<tree::ParseTreeListener *> Parser::getParseListeners() {
 
 void Parser::addParseListener(tree::ParseTreeListener *listener) {
   if (!listener) {
+    ANTLR_WILL_THROW;
     throw NullPointerException("listener");
   }
 
@@ -216,11 +217,12 @@ Ref<TokenFactory<CommonToken>> Parser::getTokenFactory() {
 const atn::ATN& Parser::getATNWithBypassAlts() {
   std::vector<uint16_t> serializedAtn = getSerializedATN();
   if (serializedAtn.empty()) {
+    ANTLR_WILL_THROW;
     throw UnsupportedOperationException("The current parser does not support an ATN with bypass alternatives.");
   }
-
+#if !defined(__wasi__)
   std::lock_guard<std::mutex> lck(_mutex);
-
+#endif
   // XXX: using the entire serialized ATN as key into the map is a big resource waste.
   //      How large can that thing become?
   if (bypassAltsAtnCache.find(serializedAtn) == bypassAltsAtnCache.end())
@@ -243,6 +245,7 @@ tree::pattern::ParseTreePattern Parser::compileParseTreePattern(const std::strin
       return compileParseTreePattern(pattern, patternRuleIndex, lexer);
     }
   }
+  ANTLR_WILL_THROW;
   throw UnsupportedOperationException("Parser can't discover a lexer to use");
 }
 
@@ -553,8 +556,9 @@ std::vector<std::string> Parser::getRuleInvocationStack(RuleContext *p) {
 std::vector<std::string> Parser::getDFAStrings() {
   atn::ParserATNSimulator *simulator = getInterpreter<atn::ParserATNSimulator>();
   if (!simulator->decisionToDFA.empty()) {
+    #if !defined(__wasi__)
     std::lock_guard<std::mutex> lck(_mutex);
-
+    #endif
     std::vector<std::string> s;
     for (size_t d = 0; d < simulator->decisionToDFA.size(); d++) {
       dfa::DFA &dfa = simulator->decisionToDFA[d];
@@ -568,7 +572,9 @@ std::vector<std::string> Parser::getDFAStrings() {
 void Parser::dumpDFA() {
   atn::ParserATNSimulator *simulator = getInterpreter<atn::ParserATNSimulator>();
   if (!simulator->decisionToDFA.empty()) {
+    #if !defined(__wasi__)
     std::lock_guard<std::mutex> lck(_mutex);
+    #endif
     bool seenOne = false;
     for (size_t d = 0; d < simulator->decisionToDFA.size(); d++) {
       dfa::DFA &dfa = simulator->decisionToDFA[d];
@@ -645,4 +651,3 @@ void Parser::InitializeInstanceFields() {
   _tracer = nullptr;
   _ctx = nullptr;
 }
-

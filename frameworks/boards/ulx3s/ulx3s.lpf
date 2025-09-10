@@ -27,6 +27,11 @@ IOBUF PORT "ftdi_nrts" PULLMODE=UP IO_TYPE=LVCMOS33;
 IOBUF PORT "ftdi_ndtr" PULLMODE=UP IO_TYPE=LVCMOS33;
 IOBUF PORT "ftdi_txden" PULLMODE=UP IO_TYPE=LVCMOS33;
 
+LOCATE COMP "uart_tx" SITE "L4"; # FPGA transmits to ftdi
+LOCATE COMP "uart_rx" SITE "M1"; # FPGA receives from ftdi
+IOBUF PORT "uart_tx" PULLMODE=UP IO_TYPE=LVCMOS33 DRIVE=4;
+IOBUF PORT "uart_rx" PULLMODE=UP IO_TYPE=LVCMOS33;
+
 ## LED indicators "blinkey" and "gpio" sheet
 LOCATE COMP "leds[7]" SITE "H3";
 LOCATE COMP "leds[6]" SITE "E1";
@@ -213,12 +218,12 @@ IOBUF PORT "usb_fpga_pu_dn" PULLMODE=NONE IO_TYPE=LVCMOS33 DRIVE=16;
 #IOBUF PORT "jtag_tms" PULLMODE=UP IO_TYPE=LVCMOS33 DRIVE=4;
 
 ## SDRAM "ram" sheet
-LOCATE COMP "sdram_clk" SITE "F19";
-LOCATE COMP "sdram_cke" SITE "F20";
-LOCATE COMP "sdram_csn" SITE "P20";
-LOCATE COMP "sdram_wen" SITE "T20";
-LOCATE COMP "sdram_rasn" SITE "R20";
-LOCATE COMP "sdram_casn" SITE "T19";
+LOCATE COMP "sdram_clk"  SITE "F19";
+LOCATE COMP "sdram_cle"  SITE "F20";
+LOCATE COMP "sdram_cs"   SITE "P20";
+LOCATE COMP "sdram_we"   SITE "T20";
+LOCATE COMP "sdram_ras"  SITE "R20";
+LOCATE COMP "sdram_cas"  SITE "T19";
 LOCATE COMP "sdram_a[0]" SITE "M20";
 LOCATE COMP "sdram_a[1]" SITE "M19";
 LOCATE COMP "sdram_a[2]" SITE "L20";

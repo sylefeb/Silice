@@ -49,6 +49,10 @@ ParallelScreen *g_ParallelScreen = nullptr; // parallel screen simulation
 #include "sdr_sdram.h"
 SimulSDRAM     *g_SDRAM     = nullptr; // SDRAM simulation
 #endif
+#ifdef PWM_AUDIO
+#include "PWMAudio.h"
+PWMAudio       *g_AudioChip   = nullptr; // Audio simulation
+#endif
 
 // ----------------------------------------------------------------------------
 
@@ -136,6 +140,10 @@ int step()
   #endif
 #endif
 
+#ifdef PWM_AUDIO
+  g_AudioChip->eval(g_Design->clk, g_Design->pwm_audio);
+#endif
+
   // increment time
   g_MainTime ++;
 
@@ -146,7 +154,7 @@ int step()
 
 int main(int argc,char **argv)
 {
-  // Verilated::commandArgs(argc,argv);
+  Verilated::commandArgs(argc,argv);
 
   // unbuffered stdout and stderr
   setbuf(stdout, NULL);
@@ -241,6 +249,11 @@ int main(int argc,char **argv)
   }
   g_SDRAM = new SimulSDRAM(13 /*8192*/, 10 /*1024*/, sdram_flags, NULL);
                                                              //"sdram.txt");
+#endif
+
+#ifdef PWM_AUDIO
+  // instantiate audio chip
+  g_AudioChip = new PWMAudio(/*TODO*/25.0);
 #endif
 
   bool has_display_loop = false;

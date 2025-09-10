@@ -167,7 +167,7 @@ ATN ATNDeserializer::deserialize(const std::vector<uint16_t>& input) {
   int version = data[p++];
   if (version != SERIALIZED_VERSION) {
     std::string reason = "Could not deserialize ATN with version" + std::to_string(version) + "(expected " + std::to_string(SERIALIZED_VERSION) + ").";
-
+    ANTLR_WILL_THROW;
     throw UnsupportedOperationException(reason);
   }
 
@@ -177,7 +177,7 @@ ATN ATNDeserializer::deserialize(const std::vector<uint16_t>& input) {
   if (uuidIterator == SUPPORTED_UUIDS().end()) {
     std::string reason = "Could not deserialize ATN with UUID " + uuid.toString() + " (expected " +
       SERIALIZED_UUID().toString() + " or a legacy UUID).";
-
+    ANTLR_WILL_THROW;
     throw UnsupportedOperationException(reason);
   }
 
@@ -347,11 +347,13 @@ ATN ATNDeserializer::deserialize(const std::vector<uint16_t>& input) {
 
       // we need to know the end state to set its start state
       if (startState->endState == nullptr) {
+        ANTLR_WILL_THROW;
         throw IllegalStateException();
       }
 
       // block end states can only be associated to a single block start state
       if (startState->endState->startState != nullptr) {
+        ANTLR_WILL_THROW;
         throw IllegalStateException();
       }
 
@@ -384,9 +386,10 @@ ATN ATNDeserializer::deserialize(const std::vector<uint16_t>& input) {
   for (size_t i = 1; i <= ndecisions; i++) {
     size_t s = data[p++];
     DecisionState *decState = dynamic_cast<DecisionState*>(atn.states[s]);
-    if (decState == nullptr)
+    if (decState == nullptr) {
+      ANTLR_WILL_THROW;
       throw IllegalStateException();
-
+    }
     atn.decisionToState.push_back(decState);
     decState->decision = (int)i - 1;
   }
@@ -485,8 +488,8 @@ ATN ATNDeserializer::deserialize(const std::vector<uint16_t>& input) {
         }
 
         if (endState == nullptr) {
+          ANTLR_WILL_THROW;
           throw UnsupportedOperationException("Couldn't identify final state of the precedence rule prefix section.");
-
         }
 
         excludeTransition = (static_cast<StarLoopEntryState*>(endState))->loopBackState->transitions[0];
@@ -585,8 +588,8 @@ void ATNDeserializer::verifyATN(const ATN &atn) {
         checkCondition(is<StarBlockStartState *>(starLoopEntryState->transitions[1]->target));
         checkCondition(starLoopEntryState->nonGreedy);
       } else {
+        ANTLR_WILL_THROW;
         throw IllegalStateException();
-
       }
     }
 
@@ -626,6 +629,7 @@ void ATNDeserializer::checkCondition(bool condition) {
 
 void ATNDeserializer::checkCondition(bool condition, const std::string &message) {
   if (!condition) {
+    ANTLR_WILL_THROW;
     throw IllegalStateException(message);
   }
 }
@@ -670,7 +674,7 @@ Transition *ATNDeserializer::edgeFactory(const ATN &atn, size_t type, size_t /*s
     case Transition::WILDCARD:
       return new WildcardTransition(target);
   }
-
+  ANTLR_WILL_THROW;
   throw IllegalArgumentException("The specified transition type is not valid.");
 }
 
@@ -718,6 +722,7 @@ ATNState* ATNDeserializer::stateFactory(size_t type, size_t ruleIndex) {
       break;
     default :
       std::string message = "The specified state type " + std::to_string(type) + " is not valid.";
+      ANTLR_WILL_THROW;
       throw IllegalArgumentException(message);
   }
 
@@ -752,6 +757,7 @@ Ref<LexerAction> ATNDeserializer::lexerActionFactory(LexerActionType type, int d
       return std::make_shared<LexerTypeAction>(data1);
 
     default:
+      ANTLR_WILL_THROW;
       throw IllegalArgumentException("The specified lexer action type " + std::to_string(static_cast<size_t>(type)) +
                                      " is not valid.");
   }

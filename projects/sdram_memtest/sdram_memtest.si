@@ -281,7 +281,7 @@ $$if true then
       sio.in_valid   = 1; // go ahead!
       while (!sio.done) { }
       if (~pass[0,1]) {
-        leds = count[16,8];
+        // leds = count[16,8];
         $$if SIMULATION then
         if (count < 128 || count > $TEST_SIZE-128$) {
           __display("write [%x] = %x",count,sio.data_in);

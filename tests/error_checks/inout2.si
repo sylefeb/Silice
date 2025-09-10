@@ -1,0 +1,23 @@
+unit test(
+  input  uint1 a,
+  output uint2 b,
+  inout  uint3 c
+) {
+
+}
+
+
+unit main(
+  inout  uint8 uio
+) {
+  test _(
+    a <:  uio[0,1],
+    b  :> uio[1,2],
+    c <:> uio[3,3]    
+  );
+  
+  always {
+    // uio = 1; // cannot use uio directly in expression
+    uio.o[6,1] = 1; // forbidden as uio is bound
+  }
+}

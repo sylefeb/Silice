@@ -15,6 +15,7 @@ RuleTagToken::RuleTagToken(const std::string &/*ruleName*/, int _bypassTokenType
 RuleTagToken::RuleTagToken(const std::string &ruleName, size_t bypassTokenType, const std::string &label)
   : ruleName(ruleName), bypassTokenType(bypassTokenType), label(label) {
   if (ruleName.empty()) {
+    ANTLR_WILL_THROW;
     throw IllegalArgumentException("ruleName cannot be null or empty.");
   }
 

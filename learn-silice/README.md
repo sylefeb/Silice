@@ -65,6 +65,12 @@ If you have an FPGA you could replace `verilator` by the name of your board. Plu
 
 > In the first entries, simulated designs run forever, hit CTRL-C to stop them.
 
+## Troubleshooting
+
+If you target an actual FPGA for the first time, you may run into trouble with programming the board, e.g. receiving a message like `unable to open ftdi device`.
+
+Please refer to the [troubleshooting guide](../TROUBLESHOOTING.md) for typical issues under both Linux and Windows.
+
 ___
 ### T1: a simple blinker
 
@@ -641,16 +647,16 @@ In Silice you can declare and use arrays like this:
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t9.si&syntax=c) -->
 <!-- The below code snippet is automatically added from ./tutorial/t9.si -->
 ```c
-  unit main(output uint8 leds) {
-    algorithm {
-      uint8 table[8] = {0,1,2,3,4,5,6,7};
-      uint8 n = 0;
-      while (n != 8) {
-        __display("[%d] = %d",n,table[n]);
-        n = n + 1;
-      }
+unit main(output uint8 leds) {
+  algorithm {
+    uint8 table[8] = {0,1,2,3,4,5,6,7};
+    uint8 n = 0;
+    while (n != 8) {
+      __display("[%d] = %d",n,table[n]);
+      n = n + 1;
     }
   }
+}
 ```
 <!-- MARKDOWN-AUTO-DOCS:END -->
 
@@ -668,18 +674,18 @@ Here is the same example using a BRAM:
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t9_2.si&syntax=c) -->
 <!-- The below code snippet is automatically added from ./tutorial/t9_2.si -->
 ```c
-  unit main(output uint8 leds) {
-    algorithm {
-      bram uint8 table[8] = {0,1,2,3,4,5,6,7};
-      uint8 n = 0;
+unit main(output uint8 leds) {
+  algorithm {
+    bram uint8 table[8] = {0,1,2,3,4,5,6,7};
+    uint8 n = 0;
+    table.addr = n;
+    while (n != 8) {
+      __display("[%d] = %d",n,table.rdata);
+      n = n + 1;
       table.addr = n;
-      while (n != 8) {
-        __display("[%d] = %d",n,table.rdata);
-        n = n + 1;
-        table.addr = n;
-      }
     }
   }
+}
 ```
 <!-- MARKDOWN-AUTO-DOCS:END -->
 
@@ -720,26 +726,26 @@ Let's use this to produce interesting LED patterns, with the following:
 <!-- MARKDOWN-AUTO-DOCS:START (CODE:src=./tutorial/t10.si&syntax=c) -->
 <!-- The below code snippet is automatically added from ./tutorial/t10.si -->
 ```c
-  unit main(output uint5 leds) {
+unit main(output uint5 leds) {
 
-    bram uint5 patterns[] = { // BRAM with 17 patterns
-      5b00001, 5b00011, 5b00111, 5b01111, 5b11111, 5b11110,
-      5b11100, 5b11000, 5b10000, 5b11000, 5b11100, 5b11110,
-      5b11111, 5b01111, 5b00111, 5b00011, 5b00001,
-    };
+  bram uint5 patterns[] = { // BRAM with 17 patterns
+    5b00001, 5b00011, 5b00111, 5b01111, 5b11111, 5b11110,
+    5b11100, 5b11000, 5b10000, 5b11000, 5b11100, 5b11110,
+    5b11111, 5b01111, 5b00111, 5b00011, 5b00001,
+  };
 
-    always_before {
-      leds = patterns.rdata; // assign leds to the current BRAM value
-    }
+  always_before {
+    leds = patterns.rdata; // assign leds to the current BRAM value
+  }
 
-    algorithm {
-      while (1) { // forever
-        uint22 n = 0;
-        while ( ~ n[21,1] ) { n = n + 1; } // wait
-        patterns.addr = patterns.addr == 16 ? 0 : patterns.addr + 1;
-      }
+  algorithm {
+    while (1) { // forever
+      uint22 n = 0;
+      while ( ~ n[21,1] ) { n = n + 1; } // wait
+      patterns.addr = patterns.addr == 16 ? 0 : patterns.addr + 1;
     }
   }
+}
 ```
 <!-- MARKDOWN-AUTO-DOCS:END -->
 
@@ -762,8 +768,8 @@ ___
 
 The algorithm in main always starts automatically, since it is the entry point
 of the design. However, algorithms in other units do not start automatically
-by default. To start them, we either have to choose *autostart* or *call* them.
-Let's first see autostart. We introduce calls in T12.
+by default. To start them, we either have to choose *autorun* or *call* them.
+Let's first see autorun. We introduce calls in T12.
 
 Below, we take our LED pattern from T10 and move it to a different unit, `k2000`.
 We also adapt the design for simulation by removing the waiting loop.
@@ -814,10 +820,10 @@ leds 00001
 ...
 ```
 
-However, if you remove the `<autostart>` from unit's `k2000` algorithm nothing
+However, if you remove the `<autorun>` from unit's `k2000` algorithm nothing
 happens anymore. That is because the algorithm never starts. So adding
 `algorithm <autorun> { ... }` ensures that the algorithm is automatically triggered
-when the unit comes out of reset. In unit main `<autostart>` has no effect
+when the unit comes out of reset. In unit main `<autorun>` has no effect
 since the algorithm always automatically starts already.
 
 ___
@@ -887,7 +893,7 @@ Three algorithms are responsible for creating this pattern. First, `left` and
 `right` which respectively generate a 'left shift' and 'right shift' moving
 bit pattern. Let us take `left` for the example since `right` is almost the same.
 
-The algorithm in `left` does *not* autostart. It is a loop that continues
+The algorithm in `left` does *not* autorun. It is a loop that continues
 until the left-most bit (Most Significant Bit, MSB) of `v` is 1:
 `while (~v[4,1]) { ... }`. But where is `v` defined? It is actually an
 output to the algorithm: `unit left(output uint5 v = 5b00001)`. This not
@@ -995,6 +1001,9 @@ unit main(output uint5 leds) <@cpu_clock> { ... }
 Running the design with and without the modifier (comment or remove `<@cpu_clock>`), we see that it's twice as fast with it: The IceStick runs at 12 MHz by default and the PLL makes the design go twice as fast at 25 MHz!
 
 > Is the sky the limit? Nope, because if you look at NextPNR's report, it tells us `Info: Max frequency for clock '__main._w_pll_unnamed_0_clock_out_$glb_clk': 178.76 MHz`. So we could run at up to 178 MHz but not faster or the design would glitch (well, in reality there is a bit of margin, and this even depends on operating temperature!).
+
+> **Troubleshooting:** if you use a different board you may get an error such as
+`binding 'clock_in': wrong binding point`. That is because the imported PLL file is using a different name for the clock inputs/outpts. Open the PLL Verilog file to check the names and adjust the example above accordingly.
 
 ___
 ### T14: inouts

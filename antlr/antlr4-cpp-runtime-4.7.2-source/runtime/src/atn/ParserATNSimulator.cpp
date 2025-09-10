@@ -182,7 +182,7 @@ size_t ParserATNSimulator::execATN(dfa::DFA &dfa, dfa::DFAState *s0, TokenStream
       if (alt != ATN::INVALID_ALT_NUMBER) {
         return alt;
       }
-
+      ANTLR_WILL_THROW_TK(e.getOffendingToken());
       throw e;
     }
 
@@ -236,6 +236,7 @@ size_t ParserATNSimulator::execATN(dfa::DFA &dfa, dfa::DFAState *s0, TokenStream
       BitSet alts = evalSemanticContext(D->predicates, outerContext, true);
       switch (alts.count()) {
         case 0:
+          ANTLR_WILL_THROW;
           throw noViableAlt(input, outerContext, D->configs.get(), startIndex, false);
 
         case 1:
@@ -357,6 +358,7 @@ size_t ParserATNSimulator::execATNWithFullContext(dfa::DFA &dfa, dfa::DFAState *
       if (alt != ATN::INVALID_ALT_NUMBER) {
         return alt;
       }
+      ANTLR_WILL_THROW;
       throw e;
     }
     if (previous != s0) // Don't delete the start set.

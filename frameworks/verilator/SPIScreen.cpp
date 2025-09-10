@@ -72,7 +72,7 @@ void SPIScreen::eval(
             vluint8_t csn,
             vluint8_t resn)
 {
-  // fprintf(stdout,"csn:%d clk:%d mosi:%d dc:%d resn:%d\n",csn,clk,mosi,dc,resn);
+  // fprintf(stderr,"csn:%d clk:%d mosi:%d dc:%d resn:%d\n",csn,clk,mosi,dc,resn);
   if (resn == 0) {        // reset?
     m_reading = 0;
   } else if (!csn) { // chip selected
@@ -135,7 +135,7 @@ void SPIScreen::cmd_idle_ST7789_ILI9351()
 {
   m_step = 0;
   if (!m_dc) {
-    fprintf(stdout,"command: %x\n", m_byte);
+    // fprintf(stdout,"command: %x\n", m_byte);
     switch (m_byte) {
       case 0x2A:
         m_command = std::bind( &SPIScreen::cmd_start_end, this, &m_x_start, &m_x_end, 2);

@@ -89,7 +89,9 @@ misc::IntervalSet ATN::nextTokens(ATNState *s, RuleContext *ctx) const {
 
 misc::IntervalSet const& ATN::nextTokens(ATNState *s) const {
   if (!s->_nextTokenUpdated) {
+    #if !defined(__wasi__)
     std::unique_lock<std::mutex> lock { _mutex };
+    #endif
     if (!s->_nextTokenUpdated) {
       s->_nextTokenWithinRule = nextTokens(s, nullptr);
       s->_nextTokenUpdated = true;
@@ -131,6 +133,7 @@ size_t ATN::getNumberOfDecisions() const {
 
 misc::IntervalSet ATN::getExpectedTokens(size_t stateNumber, RuleContext *context) const {
   if (stateNumber == ATNState::INVALID_STATE_NUMBER || stateNumber >= states.size()) {
+    ANTLR_WILL_THROW;
     throw IllegalArgumentException("Invalid state number.");
   }
 
@@ -206,4 +209,3 @@ std::string ATN::toString() const {
 
   return ss.str();
 }
-

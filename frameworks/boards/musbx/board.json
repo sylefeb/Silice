@@ -1,0 +1,96 @@
+{
+  "name": "musbx",
+  "variants": [
+    {
+      "name"      : "configurable",
+      "framework" : "musbx.v",
+      "pins"      : [
+        {"set"    : "basic", "define" : "BASIC=1"},
+        {"set"    : "buttons", "define" : "BUTTONS=1"},
+        {"set"    : "pmod", "define" : "PMOD=1"},
+        {"set"    : "serial_in", "define" : "SERIAL_IN=1"},
+        {"set"    : "uart", "define" : "UART=1"},
+        {"set"    : "uart_rx_only", "define" : "UART_RX_ONLY=1"},
+        {"set"    : "uart2", "define" : "UART2=1"},
+        {"set"    : "spiflash", "define" : "SPIFLASH=1"},
+        {"set"    : "spiflash_dspi", "define" : "SPIFLASH_DSPI=1"},
+        {"set"    : "pmod_dspi", "define" : "PMOD_DSPI=1"},
+        {"set"    : "pmod_com_out", "define" : "PMOD_COM_OUT=1"},
+        {"set"    : "pmod_com_in", "define" : "PMOD_COM_IN=1"},
+        {"set"    : "parallel_screen", "define" : "PARALLEL_SCREEN=1"},
+        {"set"    : "qpsram", "define" : "QPSRAM=1"},
+        {"set"    : "sync_in",  "define" : "SYNC_IN=1"},
+        {"set"    : "sync_out", "define" : "SYNC_OUT=1"},
+        {"set"    : "ps2", "define" : "PS2=1"},
+        {"set"    : "sdcard", "define" : "SDCARD=1"},
+        {"set"    : "vga", "define" : "VGA=1"},
+        {"set"    : "extra", "define" : "EXTRA=1"}
+      ],
+      "builders": [
+        {
+          "name": "edalize",
+          "builder" : "edalize",
+          "description": "Build using Edalize",
+          "tool": "icestorm",
+          "tool_options": [
+            {
+                "icepack_options": ["-s"],
+                "yosys_synth_options": ["-dsp","-abc9","-device u","-top top"],
+                "nextpnr_options": ["--up5k", "--freq 12", "--package sg48", "-r"],
+                "pnr": "next"
+            }
+          ],
+          "bitstream"  : "build.bin",
+          "constraints": [{"name": "musbx.pcf", "file_type": "PCF"}],
+          "program": [
+            {"cmd" : "cp", "args" : "build.bin build.dfu"},
+            {"cmd" : "dfu-suffix", "args" : "-v 1d50 -p 6146 -a build.dfu"},
+            {"cmd" : "dfu-util", "args" : "-a 0 -D build.dfu"}
+          ]
+        },
+        {
+          "name": "edalize_relut",
+          "builder" : "edalize",
+          "description": "Build using Edalize",
+          "tool": "icestorm",
+          "tool_options": [
+            {
+                "icepack_options": ["-s"],
+                "yosys_synth_options": ["-relut","-dsp","-abc9","-device u","-top top"],
+                "nextpnr_options": ["--up5k", "--freq 12", "--package sg48", "-r"],
+                "pnr": "next"
+            }
+          ],
+          "bitstream"  : "build.bin",
+          "constraints": [{"name": "musbx.pcf", "file_type": "PCF"}],
+          "program": [
+            {"cmd" : "cp", "args" : "build.bin build.dfu"},
+            {"cmd" : "dfu-suffix", "args" : "-v 1d50 -p 6146 -a build.dfu"},
+            {"cmd" : "dfu-util", "args" : "-a 0 -D build.dfu"}
+          ]
+        },
+        {
+          "name": "edalize_no_abc9",
+          "builder" : "edalize",
+          "description": "Build using Edalize",
+          "tool": "icestorm",
+          "tool_options": [
+            {
+                "icepack_options": ["-s"],
+                "yosys_synth_options": ["-dsp","-device u","-top top"],
+                "nextpnr_options": ["--up5k", "--freq 12", "--package sg48", "-r", "--opt-timing"],
+                "pnr": "next"
+            }
+          ],
+          "bitstream"  : "build.bin",
+          "constraints": [{"name": "musbx.pcf", "file_type": "PCF"}],
+          "program": [
+            {"cmd" : "cp", "args" : "build.bin build.dfu"},
+            {"cmd" : "dfu-suffix", "args" : "-v 1d50 -p 6146 -a build.dfu"},
+            {"cmd" : "dfu-util", "args" : "-a 0 -D build.dfu"}
+          ]
+        }
+      ]
+    }
+  ]
+}
