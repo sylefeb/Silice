@@ -12,6 +12,7 @@
         {"set"    : "uart", "define" : "UART=1"},
         {"set"    : "uart_rx_only", "define" : "UART_RX_ONLY=1"},
         {"set"    : "uart2", "define" : "UART2=1"},
+        {"set"    : "uart2_rx_only", "define" : "UART2_RX_ONLY=1"},
         {"set"    : "spiflash", "define" : "SPIFLASH=1"},
         {"set"    : "spiflash_dspi", "define" : "SPIFLASH_DSPI=1"},
         {"set"    : "pmod_dspi", "define" : "PMOD_DSPI=1"},
@@ -24,7 +25,9 @@
         {"set"    : "ps2", "define" : "PS2=1"},
         {"set"    : "sdcard", "define" : "SDCARD=1"},
         {"set"    : "vga", "define" : "VGA=1"},
-        {"set"    : "extra", "define" : "EXTRA=1"}
+        {"set"    : "hdmi", "define" : "HDMI=1"},
+        {"set"    : "extra", "define" : "EXTRA=1"},
+        {"set"    : "audio", "define" : "AUDIO=1"}
       ],
       "builders": [
         {
