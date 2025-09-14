@@ -42,9 +42,9 @@ else
 fi
 
 # -------------- retrieve oss-cad-suite package --------------
-OSS_CAD_MONTH=11
-OSS_CAD_DAY=29
-OSS_CAD_YEAR=2023
+OSS_CAD_MONTH=09
+OSS_CAD_DAY=13
+OSS_CAD_YEAR=2025
 OSS_PACKAGE=oss-cad-suite-linux-x64-$OSS_CAD_YEAR$OSS_CAD_MONTH$OSS_CAD_DAY.tgz
 
 echo "Downloading and installing oss-cad-suite ..."

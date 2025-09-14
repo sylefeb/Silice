@@ -6,6 +6,7 @@ function set_toolchain_names(platform)
   as  = 'riscv' .. platform .. '-as'
   ld  = 'riscv' .. platform .. '-ld'
   oc  = 'riscv' .. platform .. '-objcopy'
+  od  = 'riscv' .. platform .. '-objdump'
 end
 
 -- =========================================================================
@@ -70,6 +71,9 @@ function compile(file)
   cmd =  oc .. ' '
       .. '-O verilog code.elf code.hex'
   os.execute(cmd)
+  cmd = od .. ' ' .. '--disassemble code.elf > code.d.s'
+  os.execute(cmd)
+
 end
 
 -- =========================================================================
