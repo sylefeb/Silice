@@ -43,7 +43,7 @@ $$end
   rv32i_cpu cpu( mem <:> memio );
 
   // io mapping
-  always_before {
+  always {
     uint1 wen      = (memio.wenable != 0);
     uint1 io_write = (memio.addr[$external$,1]    &  wen);
     uint1 io_read  = (prev_mem_addr[$external$,1] & ~prev_mem_rw);

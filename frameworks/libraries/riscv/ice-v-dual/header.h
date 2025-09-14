@@ -18,4 +18,3 @@ void *memcpy(void *dst, const void* src, long unsigned int size)
   const char *c_src   = (const char*)w_src;
   for (long unsigned int i = 0 ; i < c; ++i) { *(c_dst++) = *(c_src++); }
 }
-
