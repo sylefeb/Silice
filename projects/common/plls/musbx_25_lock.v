@@ -21,7 +21,7 @@ module pll(
                   .DIVR(4'b0000),
                   .DIVF(7'b0010011),
                   .DIVQ(3'b101),
-                  .FILTER_RANGE(3'b001),
+                  .FILTER_RANGE(3'b011),
 //
                   .DELAY_ADJUSTMENT_MODE_FEEDBACK("FIXED"),
                   .FDA_FEEDBACK(4'b0000),
