@@ -32,6 +32,7 @@ S = int(time.time())
 # S = 42
 
 if True:
+# if False:
   # send start tag
   packet = bytearray()
   packet.append(0xD5) # write
