@@ -55,7 +55,7 @@ import('ecp5_out.v')
 $$end
 $$end
 
-$$if MUSBX then
+$$if MUSBX and not MUSBX_V4 then
 $$ error('Use qpsram2x_esp64.si instead!')
 $$end
 
@@ -196,7 +196,9 @@ $$end
         data_next               = wenable; // request next if writting
         stage                   = 0; //  wait
         wait                    = wenable ? //_ 16 => 2 cycles, 6 => 12 cycles, 7 => 11 cycles
-$$if ECP5 then
+$$if MUSBX_V4 then
+                                            13 : 7;
+$$elseif ECP5 then
 $$  if qpsram_fast then
                                             13 : 4;
 $$  else

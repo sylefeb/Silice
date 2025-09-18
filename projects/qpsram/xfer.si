@@ -35,7 +35,10 @@ $$elseif ULX3S then
   import('../common/plls/ulx3s_90.v')
   $$uart_in_clock_freq_mhz = 90
   $$qpsram_fast            = true   -- false if freq <= 60
-$$elseif BROT or MUSBX then
+$$elseif MUSBX_V4 then
+  import('../common/plls/musbx_50_lock.v')
+  $$uart_in_clock_freq_mhz = 50
+$$elseif BROT then
   import('../common/plls/brot_50_lock.v')
   $$uart_in_clock_freq_mhz = 50
 $$else
@@ -47,7 +50,7 @@ $$if ICE40 then
 import('../common/ice40_warmboot.v')
 $$end
 
-$$if MUSBX then
+$$if MUSBX and not MUSBX_V4 then
 $include('../common/qpsram2x_esp64.si') // NOTE: special for musbx
 $$else
 $include('../common/qpsram2x.si')
@@ -59,7 +62,9 @@ $include('../common/uart.si')
 unit main(
   output  uint5 leds,
   input   uint1 uart_rx,
+$$if not MUSBX_V4 then
   output  uint1 uart_tx,
+$$end
   inout   uint1 ram_io0,
   inout   uint1 ram_io1,
   inout   uint1 ram_io2,
@@ -122,7 +127,11 @@ $$end
   uart_out uo;
   uart_sender usend(
     io      <:> uo,
+$$if not MUSBX_V4 then
     uart_tx :>  uart_tx
+$$else
+    uart_tx :>  sd_mosi
+$$end
   );
 
 $$if ICE40 then
@@ -148,6 +157,9 @@ $$end
     uo.data_in_ready = 0; // maintain low, pulse high to send
     ram.in_ready     = 0; // maintain low, pulse high to read/write
     ram.init         = 0; // maintain low, pulse high to init
+$$if MUSBX_V4 then
+    sd_csn           = 1;
+$$end
   }
 
   algorithm {

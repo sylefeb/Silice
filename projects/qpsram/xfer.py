@@ -11,8 +11,8 @@ if len(sys.argv) < 4:
   sys.exit()
 
 # open serial port
-ser = serial.Serial(sys.argv[1],500000, timeout=1)
-# ser = serial.Serial(sys.argv[1],115200, timeout=1)
+# ser = serial.Serial(sys.argv[1],500000, timeout=1)
+ser = serial.Serial(sys.argv[1],115200, timeout=1)
 
 # op to perform
 op = sys.argv[2]
@@ -70,6 +70,7 @@ packet.append((size_m1>>8)&255)
 packet.append(size_m1&255)
 ser.write(packet)
 
+crc = 0
 if op == 'r':
   f = open('read.bytes', 'wb')
   # read data
@@ -80,6 +81,7 @@ if op == 'r':
     if len(b) == 0:
       break
     f.write(b)
+    crc = crc ^ int.from_bytes(b,byteorder='little')
     print("{:02X}".format(int.from_bytes(b,byteorder='little')),end=" ")
     ba.append(int.from_bytes(b,byteorder='little'))
     i = i + 1
@@ -106,5 +108,5 @@ elif op == 'w':
       packet = bytearray()
       n = 0
   ser.write(packet)
-
+print("CRC: {:02X}".format(crc,end=" "))
 ser.close()

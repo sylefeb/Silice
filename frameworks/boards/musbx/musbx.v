@@ -129,7 +129,7 @@ module top(
   output GPIO1,  // out serial  // DEPRECATED, TX is mixed with sd_mosi
 `endif
 `ifdef UART2_RX_ONLY
-  output GPIO0,  // in serial
+  input  GPIO0,  // in serial
 `endif
 `ifdef PS2
   input  GPIO2, // clock

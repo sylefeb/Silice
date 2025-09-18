@@ -3,7 +3,8 @@ echo "--------------------------------------------------------------------"
 echo "This script installs necessary packages, compiles and install Silice"
 echo "Please refer to the script source code to see the list of packages"
 echo "--------------------------------------------------------------------"
-echo "     >>>> it will request sudo access to install packages <<<<"
+echo ">>> it will request sudo access to install packages              <<<"
+echo ">>> it will install python packages with --break-system-packages <<<"
 echo "--------------------------------------------------------------------"
 
 non_interactive=false

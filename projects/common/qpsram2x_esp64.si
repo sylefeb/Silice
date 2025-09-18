@@ -192,7 +192,9 @@ $$end
         data_next               = wenable; // request next if writing
         stage                   = 0; //  wait
         wait                    = wenable ? //_ 16 => 2 cycles, 6 => 12 cycles, 7 => 11 cycles
-$$if ECP5 then
+$$if MUSBX_V4 then
+                                            17 : 8;
+$$elseif ECP5 then
 $$  if qpsram_fast then
                                             13 : 4;
 $$  else
