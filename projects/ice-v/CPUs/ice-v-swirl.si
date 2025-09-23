@@ -14,7 +14,7 @@
 //
 
 $$if ICEV_MULDIV then
-$$ print("Ice-V-swirl configured with mul and div (*not* full RV32IM)")
+$$ print("Ice-V-swirl configured with RV32IM")
 $$div_width     = 32
 $$div_unsigned  = 1
 $$div_remainder = 1

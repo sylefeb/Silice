@@ -50,7 +50,7 @@ $$if ICE40 then
 import('../common/ice40_warmboot.v')
 $$end
 
-$$if MUSBX and not MUSBX_V4 then
+$$if MUSBX or MUSBX_V4 then
 $include('../common/qpsram2x_esp64.si') // NOTE: special for musbx
 $$else
 $include('../common/qpsram2x.si')
