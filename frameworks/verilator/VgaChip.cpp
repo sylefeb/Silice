@@ -153,11 +153,14 @@ void VgaChip::eval(
         255);
       if (x == m_h_res - 1 && y == m_v_res - 1) {
         // save image
+#if 1   // TODO make this a command line switch
         saveImage("last_frame.tga",&m_framebuffer);
-        // static int cnt = 0;
-        // char str[256];
-        // snprintf(str,256,"frame_%04d.tga",cnt++);
-        // saveImage(str,&m_framebuffer);
+#else
+        static int cnt = 0;
+        char str[256];
+        snprintf(str,256,"frame_%04d.tga",cnt++);
+        saveImage(str,&m_framebuffer);
+#endif
       }
     }
     // update horizontal coordinate

@@ -14,9 +14,10 @@
 // point instead for computers.
 
 // SL 2024-01-22 Silice port from https://www.shadertoy.com/view/XflXDs
+// SL 2024-03-28 Animated version https://www.shadertoy.com/view/4ft3Wn
 
 $$VGA_640_480 = 1
-$$delay       = 27338
+$$delay       = 27338-4-3-2-2
 
 $include('vga_demo_main.si')
 
@@ -42,7 +43,11 @@ unit frame_display(
   //     feeding it with pixels
   algorithm <autorun> {
 
+    int22 t = 0;
+
     while (1) { // forever
+
+      t = t + 17; // time passes ...
 
       // ===== Here we synch the pipeline with the vertical sync.
       //       The pipeline starts during vblank so latency is hidden and
@@ -67,6 +72,30 @@ unit frame_display(
 
         // ----- pipeline starts here -----
 
+        // animation
+        int22 t1 = 512 + t[0,12];
+        int22 tt = t1 < 4095 ? t1 : 4095;
+        // vert
+        int22 ft = tt[0,10];
+        int22 it = 1023 - __signed((tt>>>2)&16hff00);
+        int22 q3 = 1023 - ft;
+
+      ->  // --- next pipeline stage
+        int22 q2 = (q3*ft)>>10;
+      ->  // --- next pipeline stage
+        int22 q1 = (q2*it)>>10;
+      ->  // --- next pipeline stage
+        int22 q  = (q1*it)>>10;
+      ->  // --- next pipeline stage
+
+        int22 v0 = q>>3;
+        // hori
+        int22 q4 = 4095-tt;
+      ->  // --- next pipeline stage
+        int22 qh = (__signed({{8{q4[21,1]}},q4})*q4)>>10;
+      ->  // --- next pipeline stage
+        int22 u0 = qh>>8;
+
         int16 x = px >> 3;
         int16 y = py >> 3;
         // increment pixel coordinates
@@ -78,11 +107,12 @@ unit frame_display(
         //-------------------------
         // Section A (2 MUL, 3 ADD)
         //-------------------------
-        int16  u  = x-36;
+        int16  u  = x-36-u0;
         int16  v  = 18-y;
+        int16  z  = v - v0;
 
         uint22 u2 = u*u;
-        uint22 v2 = v*v;
+        uint22 v2 = z*z;
 
       ->  // --- next pipeline stage
 
@@ -106,7 +136,7 @@ unit frame_display(
       ->  // --- next pipeline stage
 
         // bounce light
-        int16 w = 18 + (((p*5-q*13))>>>9);
+        int16 w = 18 + (((p*5-q*13))>>>9) - (v0>>2);
 
       ->  // --- next pipeline stage
 
@@ -115,7 +145,7 @@ unit frame_display(
       ->  // --- next pipeline stage
 
         // sky light / ambient occlusion
-        int22 o = q + 900;
+        int22 o = q + 900 + (v0<<3);
         R = (R*o)>>>__signed(12);
         B = (B*o)>>>__signed(12);
 
@@ -146,7 +176,7 @@ unit frame_display(
 
         // int22 c = 240*(-v) - p;
         // this one is heavy, we split it in stages
-        int22 c = 240*(-v);
+        int22 c = (240+(v0<<4))*(-v);
       ->
         c       = c - p;
 
@@ -181,8 +211,21 @@ unit frame_display(
       ->  // --- next pipeline stage
 
         // sun/key light with soft shadow
-        int16 r = c + u*v;
-        int16 d = 3200 - h - (r<<<1);
+        int16 w = (v<<2) + 50;
+        int16 r = u - w;
+
+      ->  // --- next pipeline stage
+
+        // int16 d = r*r + (u+v0)*(w+24+v0) - 90;
+        int16 d  = r*r;
+      ->  // --- next pipeline stage
+        int16 d1 = (u+v0);
+      ->  // --- next pipeline stage
+        int16 d2 = (w+24+v0);
+      ->  // --- next pipeline stage
+        int16 d3 = d1*d2;
+      ->  // --- next pipeline stage
+        d = d + d3 - 90;
 
       ->  // --- next pipeline stage
 

@@ -3,8 +3,8 @@ unit main(output uint8 leds)
   uint16 cycle = 0; // cycle counter
   algorithm {
     uint16 a = 0;
-    while (a<3) { // this pipeline has a middle stage that takes multiple cycles
-      // stage 0
+    while (a<3) { // this pipeline has a middle stage
+      // stage 0  //       that takes multiple cycles
       uint16 b = a;
       __display("cycle %d [stage 0] b = %d",cycle,b);
       a = a + 1;

@@ -60,6 +60,7 @@ namespace antlr4 {
     /// created the interpreter from it.
     /// </summary>
     virtual const std::vector<uint16_t> getSerializedATN() const {
+      ANTLR_WILL_THROW;
       throw "there is no serialized ATN";
     }
 
@@ -147,7 +148,9 @@ namespace antlr4 {
     atn::ATNSimulator *_interpreter; // Set and deleted in descendants (or the profiler).
 
     // Mutex to manage synchronized access for multithreading.
+    #if !defined(__wasi__)
     std::mutex _mutex;
+    #endif
 
   private:
     static std::map<const dfa::Vocabulary*, std::map<std::string, size_t>> _tokenTypeMapCache;

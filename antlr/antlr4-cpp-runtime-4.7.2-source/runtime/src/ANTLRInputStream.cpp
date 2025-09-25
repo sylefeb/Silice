@@ -58,6 +58,7 @@ void ANTLRInputStream::reset() {
 void ANTLRInputStream::consume() {
   if (p >= _data.size()) {
     assert(LA(1) == IntStream::EOF);
+    ANTLR_WILL_THROW;
     throw IllegalStateException("cannot consume EOF");
   }
 

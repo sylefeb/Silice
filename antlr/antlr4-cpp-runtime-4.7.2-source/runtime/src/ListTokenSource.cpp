@@ -18,6 +18,7 @@ ListTokenSource::ListTokenSource(std::vector<std::unique_ptr<Token>> tokens_, co
   : tokens(std::move(tokens_)), sourceName(sourceName_) {
   InitializeInstanceFields();
   if (tokens.empty()) {
+    ANTLR_WILL_THROW;
     throw "tokens cannot be null";
   }
 

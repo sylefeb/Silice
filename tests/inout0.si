@@ -1,0 +1,19 @@
+unit test(
+  input  uint1 a,
+  output uint2 b,
+  inout  uint3 c
+) {
+
+}
+
+
+unit main(
+  inout  uint8 uio
+) {
+  test _(
+    a <:  uio[0,1],
+    b  :> uio[1,2],
+    c <:> uio[3,3]    
+  );
+
+}

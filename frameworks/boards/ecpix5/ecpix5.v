@@ -28,52 +28,39 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 `define ECPIX5 1
 `define ECP5   1
+`default_nettype none
 $$ECPIX5   = 1
 $$ECP5     = 1
 $$HARDWARE = 1
 $$NUM_LEDS = 12
 $$color_depth=6
 $$color_max  =63
+// config
 $$config['dualport_bram_supported'] = 'yes'
-`default_nettype none
+// declare package pins (has to match the hardware pin definition)
+// pin.NAME = <WIDTH>
+$$pin.leds=12
+$$pin.uart_rx=1
+$$pin.uart_tx=1
+$$pin.P0A1=1 pin.P0A2=1 pin.P0A3=1 pin.P0A4=1
+$$pin.P0A7=1 pin.P0A8=1 pin.P0A9=1 pin.P0A10=1
+$$pin.P1A1=1 pin.P1A2=1 pin.P1A3=1 pin.P1A4=1
+$$pin.P1A7=1 pin.P1A8=1 pin.P1A9=1 pin.P1A10=1
+$$pin.P2A1=1 pin.P2A2=1 pin.P2A3=1 pin.P2A4=1
+$$pin.P2A7=1 pin.P2A8=1 pin.P2A9=1 pin.P2A10=1
+// pin groups and renaming
+$$pin.video_r   = {pin.P0A4,pin.P0A3,pin.P0A2,pin.P0A1,0,0}
+$$pin.video_g   = {pin.P1A4,pin.P1A3,pin.P1A2,pin.P1A1,0,0}
+$$pin.video_b   = {pin.P0A10,pin.P0A9,pin.P0A8,pin.P0A7,0,0}
+$$pin.video_hs  = {pin.P1A7}
+$$pin.video_vs  = {pin.P1A8}
+$$pin.ram_clk   = {pin.P2A4} pin.ram_csn   = {pin.P2A1}
+$$pin.ram_io0   = {pin.P2A2} pin.ram_io1   = {pin.P2A3}
+$$pin.ram_io2   = {pin.P2A7} pin.ram_io3   = {pin.P2A8}
+$$pin.ram_bank  = {pin.P2A10,pin.P2A9}
 
 module top(
-  // basic
-  output [11:0] leds,
-`ifdef UART
-  // uart
-  output  uart_rx,
-  input   uart_tx,
-`endif
-`ifdef VGA
-  output P0A1, // r0
-  output P0A2, // r1
-  output P0A3, // r2
-  output P0A4, // r3
-
-  output P0A7,   // b0
-  output P0A8,   // b1
-  output P0A9,   // b2
-  output P0A10,  // b3
-
-  output P1A1,  // g0
-  output P1A2,  // g1
-  output P1A3,  // g2
-  output P1A4,  // g3
-
-  output P1A7,  // hs
-  output P1A8,  // vs
-`endif
-`ifdef PMOD_QQSPI
-  output P2A1,
-  inout  P2A2,
-  inout  P2A3,
-  output P2A4,
-  inout  P2A7,
-  inout  P2A8,
-  output P2A9,
-  output P2A10,
-`endif
+  %TOP_SIGNATURE%
   input  clk100
   );
 
@@ -95,67 +82,19 @@ always @(posedge clk100) begin
   end
 end
 
-wire [11:0] __main_leds;
-
-`ifdef VGA
-wire __main_out_vga_hs;
-wire __main_out_vga_vs;
-wire __main_out_vga_v0;
-wire [5:0] __main_out_vga_r;
-wire [5:0] __main_out_vga_g;
-wire [5:0] __main_out_vga_b;
-`endif
-
 wire run_main;
 assign run_main = 1'b1;
 
+wire design_clk;
+
+%WIRE_DECL%
+
 M_main __main(
-  .reset         (RST_q[0]),
-  .in_run        (run_main),
-  .out_leds      (__main_leds),
-`ifdef UART
-  .out_uart_tx  (uart_rx),
-  .in_uart_rx   (uart_tx),
-`endif
-`ifdef VGA
-  .out_video_hs(__main_out_vga_hs),
-  .out_video_vs(__main_out_vga_vs),
-  .out_video_r(__main_out_vga_r),
-  .out_video_g(__main_out_vga_g),
-  .out_video_b(__main_out_vga_b),
-`endif
-`ifdef PMOD_QQSPI
-  .inout_ram_io0(P2A2),
-  .inout_ram_io1(P2A3),
-  .inout_ram_io2(P2A7),
-  .inout_ram_io3(P2A8),
-  .out_ram_clk(P2A4),
-  .out_ram_csn(P2A1),
-  .out_ram_bank({P2A10,P2A9}),
-`endif
-  .clock         (clk100)
+  .clock    (clk100),
+  .out_clock(design_clk),
+  .reset    (RST_q[0]),
+  %MAIN_GLUE%
+  .in_run   (run_main)
 );
-
-assign leds = ~__main_leds;
-
-`ifdef VGA
-assign P0A1  = __main_out_vga_r[2+:1];
-assign P0A2  = __main_out_vga_r[3+:1];
-assign P0A3  = __main_out_vga_r[4+:1];
-assign P0A4  = __main_out_vga_r[5+:1];
-
-assign P0A7  = __main_out_vga_b[2+:1];
-assign P0A8  = __main_out_vga_b[3+:1];
-assign P0A9  = __main_out_vga_b[4+:1];
-assign P0A10 = __main_out_vga_b[5+:1];
-
-assign P1A1  = __main_out_vga_g[2+:1];
-assign P1A2  = __main_out_vga_g[3+:1];
-assign P1A3  = __main_out_vga_g[4+:1];
-assign P1A4  = __main_out_vga_g[5+:1];
-
-assign P1A7  = __main_out_vga_hs;
-assign P1A8  = __main_out_vga_vs;
-`endif
 
 endmodule

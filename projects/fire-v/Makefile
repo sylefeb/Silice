@@ -1,9 +1,9 @@
 
 .DEFAULT: wildfire.si
-		silice-make.py -s wildfire.si -b $@ -p basic,sdram,hdmi,sdcard -o BUILD_$(subst :,_,$@)  $(ARGS)
+		silice-make.py -s wildfire.si -b $@ -p basic,sdram,hdmi,sdcard -o BUILD_$(subst :,_,$@) $(ARGS)
 
 ulx3s: wildfire.si
-		silice-make.py -s wildfire.si -b $@ -p basic,sdram,hdmi,sdcard -o BUILD_$(subst :,_,$@) -t shell $(ARGS)
+		silice-make.py -s wildfire.si -b $@ -p basic,sdram,hdmi,sdcard -o BUILD_$(subst :,_,$@) $(ARGS)
 
 icepi_zerp: wildfire.si
 		silice-make.py -s wildfire.si -b $@ -p basic,sdram,hdmi,sdcard -o BUILD_$(subst :,_,$@) -t shell $(ARGS)

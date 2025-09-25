@@ -1,7 +1,7 @@
 #!/bin/bash
 
 case "$(uname -s)" in
-MINGW*|CYGWIN*) 
+MINGW*|CYGWIN*)
 SILICE_DIR=`cygpath $SILICE_DIR`
 BUILD_DIR=`cygpath $BUILD_DIR`
 FRAMEWORKS_DIR=`cygpath $FRAMEWORKS_DIR`
@@ -33,6 +33,6 @@ rm build.v
 
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
 
-yosys -p 'synth ; show -width -stretch -colors 4242' build.v
+yosys -p "read_verilog -sv build.v" -p 'synth ; show -width -stretch -colors 4242'
 
 dot -Tpdf:cairo show.dot -O

@@ -3,12 +3,9 @@
 // https://github.com/sylefeb/Silice
 // @sylefeb 2019
 
-$$VGA_800_600   = 1
+$$VGA_800_600   = nil
 $$VGA_1024_768  = nil
 $$VGA_1920_1080 = nil
-
-// VGA driver
-$include('../common/vga.si')
 
 $$if MOJO then
 // Clock
@@ -50,6 +47,8 @@ import('../common/plls/ulx3s_100_25.v')
 $$end
 
 $$if ECPIX5 then
+// Select resolution
+$$VGA_800_600 = 1
 // Clock
 $$if VGA_1024_768 then
 import('../common/plls/ecpix5_65.v')
@@ -61,6 +60,9 @@ $$else
 import('../common/plls/ecpix5_25.v')
 $$end
 $$end
+
+// VGA driver
+$include('../common/vga.si')
 
 $$if HARDWARE then
 // Reset

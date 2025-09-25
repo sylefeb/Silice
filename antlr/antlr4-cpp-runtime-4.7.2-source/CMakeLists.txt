@@ -1,5 +1,5 @@
 # -*- mode:cmake -*-
-cmake_minimum_required (VERSION 3.5)
+cmake_minimum_required (VERSION 3.10)
 # 2.8 needed because of ExternalProject
 
 # Detect build type, fallback to release and throw a warning if use didn't specify any
@@ -26,17 +26,17 @@ option(WITH_STATIC_CRT "(Visual C++) Enable to statically link CRT, which avoids
 project(LIBANTLR4)
 
 if(CMAKE_VERSION VERSION_EQUAL "3.0.0" OR
-   CMAKE_VERSION VERSION_GREATER "3.0.0")
+  CMAKE_VERSION VERSION_GREATER "3.0.0")
   CMAKE_POLICY(SET CMP0026 NEW)
-  #CMAKE_POLICY(SET CMP0054 OLD)
-  #CMAKE_POLICY(SET CMP0045 OLD)
-  #CMAKE_POLICY(SET CMP0042 OLD)
+  # CMAKE_POLICY(SET CMP0054 OLD)
+  # CMAKE_POLICY(SET CMP0045 OLD)
+  # CMAKE_POLICY(SET CMP0042 OLD)
 endif()
 
 if(CMAKE_VERSION VERSION_EQUAL "3.3.0" OR
    CMAKE_VERSION VERSION_GREATER "3.3.0")
-  #CMAKE_POLICY(SET CMP0059 OLD)
-  #CMAKE_POLICY(SET CMP0054 OLD)
+  # CMAKE_POLICY(SET CMP0059 OLD)
+  # CMAKE_POLICY(SET CMP0054 OLD)
 endif()
 
 if(CMAKE_SYSTEM_NAME MATCHES "Linux")

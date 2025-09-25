@@ -39,6 +39,7 @@ std::vector<std::unique_ptr<XPathElement>> XPath::split(const std::string &path)
   } catch (LexerNoViableAltException &) {
     size_t pos = lexer.getCharPositionInLine();
     std::string msg = "Invalid tokens or characters at index " + std::to_string(pos) + " in path '" + path + "'";
+    ANTLR_WILL_THROW;
     throw IllegalArgumentException(msg);
   }
 
@@ -80,6 +81,7 @@ std::vector<std::unique_ptr<XPathElement>> XPath::split(const std::string &path)
         break;
 
       default :
+        ANTLR_WILL_THROW;
         throw IllegalArgumentException("Unknown path element " + el->toString());
     }
   }
@@ -89,6 +91,7 @@ std::vector<std::unique_ptr<XPathElement>> XPath::split(const std::string &path)
 
 std::unique_ptr<XPathElement> XPath::getXPathElement(Token *wordToken, bool anywhere) {
   if (wordToken->getType() == Token::EOF) {
+    ANTLR_WILL_THROW;
     throw IllegalArgumentException("Missing path element at end of path");
   }
 
@@ -104,6 +107,7 @@ std::unique_ptr<XPathElement> XPath::getXPathElement(Token *wordToken, bool anyw
     case XPathLexer::TOKEN_REF:
     case XPathLexer::STRING :
       if (ttype == Token::INVALID_TYPE) {
+        ANTLR_WILL_THROW;
         throw IllegalArgumentException(word + " at index " + std::to_string(wordToken->getStartIndex()) + " isn't a valid token name");
       }
       if (anywhere)
@@ -112,6 +116,7 @@ std::unique_ptr<XPathElement> XPath::getXPathElement(Token *wordToken, bool anyw
 
     default :
       if (ruleIndex == -1) {
+        ANTLR_WILL_THROW;
         throw IllegalArgumentException(word + " at index " + std::to_string(wordToken->getStartIndex()) + " isn't a valid rule name");
       }
       if (anywhere)

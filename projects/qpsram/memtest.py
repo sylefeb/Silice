@@ -19,10 +19,6 @@ if len(sys.argv) < 4:
 # ser = serial.Serial(sys.argv[1],500000, timeout=1)
 ser = serial.Serial(sys.argv[1],115200, timeout=1)
 
-# seed
-S = int(time.time())
-# S = 42
-
 # address
 addr = int(sys.argv[2], 0)
 print("base address is ",addr)
@@ -30,6 +26,10 @@ print("base address is ",addr)
 # size
 size = int(sys.argv[3], 0)
 size = math.ceil(size / read_packed_size) * read_packed_size
+
+# seed
+S = int(time.time())
+# S = 42
 
 if True:
   # send start tag
@@ -64,6 +64,12 @@ if True:
   random.seed(S)
   while True:
     b = random.randint(0,255)
+
+    #if n % 2 == 0:
+    #  b = 0x55
+    #else:
+    #  b = 0xAA
+
     packet.append(b)
     n = n + 1
     if n == 32768 or ntot+n == size:
@@ -127,6 +133,12 @@ i = 0
 print('read {0} bytes'.format(len(rb)))
 for v in rb:
   check = random.randint(0,255)
+
+  #if i % 2 == 0:
+  #  check = 0x55
+  #else:
+  #  check = 0xAA
+
   if check != v:
     print("expected {0:02X} found {1:02X} at {2:02X}".format(check,v,i))
     error = error + 1

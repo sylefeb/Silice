@@ -165,6 +165,7 @@ namespace antlrcpp {
 
   std::string what(std::exception_ptr eptr) {
     if (!eptr) {
+      ANTLR_WILL_THROW;
       throw std::bad_exception();
     }
 
@@ -175,6 +176,7 @@ namespace antlrcpp {
       try {
         std::exception_ptr yeptr;
         std::swap(eptr, yeptr);
+        ANTLR_WILL_THROW;
         std::rethrow_exception(yeptr);
       }
       catch (const std::exception &e) {
@@ -211,30 +213,37 @@ namespace antlrcpp {
   //----------------- SingleWriteMultipleRead --------------------------------------------------------------------------
 
   void SingleWriteMultipleReadLock::readLock() {
+    #if !defined(__wasi__)
     std::unique_lock<std::mutex> lock(_mutex);
     while (_waitingWriters != 0)
       _readerGate.wait(lock);
     ++_activeReaders;
     lock.unlock();
+    #endif
   }
 
   void SingleWriteMultipleReadLock::readUnlock() {
+    #if !defined(__wasi__)
     std::unique_lock<std::mutex> lock(_mutex);
     --_activeReaders;
     lock.unlock();
     _writerGate.notify_one();
+    #endif
   }
 
   void SingleWriteMultipleReadLock::writeLock() {
+    #if !defined(__wasi__)
     std::unique_lock<std::mutex> lock(_mutex);
     ++_waitingWriters;
     while (_activeReaders != 0 || _activeWriters != 0)
       _writerGate.wait(lock);
     ++_activeWriters;
     lock.unlock();
+    #endif
   }
 
   void SingleWriteMultipleReadLock::writeUnlock() {
+    #if !defined(__wasi__)
     std::unique_lock<std::mutex> lock(_mutex);
     --_waitingWriters;
     --_activeWriters;
@@ -243,6 +252,7 @@ namespace antlrcpp {
     else
       _readerGate.notify_all();
     lock.unlock();
+    #endif
   }
 
 } // namespace antlrcpp

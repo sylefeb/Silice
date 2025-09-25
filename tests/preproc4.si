@@ -40,8 +40,8 @@ unit main(output uint8 leds)
 
   test3 t0(i <: i3);
   test0 t1(i <: i0);
+  test0 t3<i=5>(i <: i1); // override with instantiation time pre-proc
   test3 t2(i <: i2);
-  test0 t3(i <: i1);
 
   algorithm {}
 }

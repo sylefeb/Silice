@@ -22,6 +22,7 @@ UnbufferedCharStream::UnbufferedCharStream(std::wistream &input) : _input(input)
 
 void UnbufferedCharStream::consume() {
   if (LA(1) == EOF) {
+    ANTLR_WILL_THROW;
     throw IllegalStateException("cannot consume EOF");
   }
 
@@ -91,6 +92,7 @@ size_t UnbufferedCharStream::LA(ssize_t i) {
   // We can look back only as many chars as we have buffered.
   ssize_t index = static_cast<ssize_t>(_p) + i - 1;
   if (index < 0) {
+    ANTLR_WILL_THROW;
     throw IndexOutOfBoundsException();
   }
 
@@ -121,6 +123,7 @@ ssize_t UnbufferedCharStream::mark() {
 void UnbufferedCharStream::release(ssize_t marker) {
   ssize_t expectedMark = -static_cast<ssize_t>(_numMarkers);
   if (marker != expectedMark) {
+    ANTLR_WILL_THROW;
     throw IllegalStateException("release() called with an invalid marker.");
   }
 
@@ -149,8 +152,10 @@ void UnbufferedCharStream::seek(size_t index) {
   // index == to bufferStartIndex should set p to 0
   ssize_t i = static_cast<ssize_t>(index) - static_cast<ssize_t>(getBufferStartIndex());
   if (i < 0) {
+    ANTLR_WILL_THROW;
     throw IllegalArgumentException(std::string("cannot seek to negative index ") + std::to_string(index));
   } else if (i >= static_cast<ssize_t>(_data.size())) {
+    ANTLR_WILL_THROW;
     throw UnsupportedOperationException("Seek to index outside buffer: " + std::to_string(index) +
                                         " not in " + std::to_string(getBufferStartIndex()) + ".." +
                                         std::to_string(getBufferStartIndex() + _data.size()));
@@ -166,6 +171,7 @@ void UnbufferedCharStream::seek(size_t index) {
 }
 
 size_t UnbufferedCharStream::size() {
+  ANTLR_WILL_THROW;
   throw UnsupportedOperationException("Unbuffered stream cannot know its size");
 }
 
@@ -179,17 +185,20 @@ std::string UnbufferedCharStream::getSourceName() const {
 
 std::string UnbufferedCharStream::getText(const misc::Interval &interval) {
   if (interval.a < 0 || interval.b >= interval.a - 1) {
+    ANTLR_WILL_THROW;
     throw IllegalArgumentException("invalid interval");
   }
 
   size_t bufferStartIndex = getBufferStartIndex();
   if (!_data.empty() && _data.back() == 0xFFFF) {
     if (interval.a + interval.length() > bufferStartIndex + _data.size()) {
+      ANTLR_WILL_THROW;
       throw IllegalArgumentException("the interval extends past the end of the stream");
     }
   }
 
   if (interval.a < static_cast<ssize_t>(bufferStartIndex) || interval.b >= ssize_t(bufferStartIndex + _data.size())) {
+    ANTLR_WILL_THROW;
     throw UnsupportedOperationException("interval " + interval.toString() + " outside buffer: " +
       std::to_string(bufferStartIndex) + ".." + std::to_string(bufferStartIndex + _data.size() - 1));
   }

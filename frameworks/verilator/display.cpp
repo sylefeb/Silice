@@ -162,6 +162,9 @@ void display_loop(DisplayChip *chip)
     glfwGetFramebufferSize(window, &width, &height);
     glViewport(0, 0, width, height);
     render();
+#ifdef WIN32
+    Sleep(1);
+#endif
     glfwSwapBuffers(window);
     glfwPollEvents();
   }

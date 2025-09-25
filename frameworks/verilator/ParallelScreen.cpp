@@ -186,7 +186,7 @@ void ParallelScreen::cmd_write_ram()
     m_rgb[0] = (m_byte & 31);
     //fprintf(stdout,"565 x %d, y %d rgb:%02x,%02x,%02x\n",
     //        m_x_cur,m_y_cur,(int)m_rgb[0],(int)m_rgb[1],(int)m_rgb[2]);
-    m_rgb[0] <<= 3;      m_rgb[1] <<= 2;      m_rgb[2] <<= 3;
+    m_rgb[0] <<= 3;      m_rgb[1] <<= 2;      m_rgb[2] <<= 3;    m_rgb[3]=255;
     m_framebuffer.pixel<LibSL::Memory::Array::Wrap>(
                                 m_x_cur,m_y_cur) = m_rgb;
     m_framebuffer_changed = true; // update every pixel
@@ -203,6 +203,12 @@ void ParallelScreen::cmd_write_ram()
         if (m_x_cur > m_x_end) {
           m_x_cur = m_x_start;
           m_framebuffer_changed = true;
+#if 0
+          static int cnt = 0;
+          char str[256];
+          snprintf(str,256,"frame_%04d.tga",cnt++);
+          saveImage(str,&m_framebuffer);
+#endif
         }
       }
     } else {
@@ -213,6 +219,12 @@ void ParallelScreen::cmd_write_ram()
         if (m_y_cur > m_x_end) {
           m_y_cur = m_x_start;
           m_framebuffer_changed = true;
+#if 0
+          static int cnt = 0;
+          char str[256];
+          snprintf(str,256,"frame_%04d.tga",cnt++);
+          saveImage(str,&m_framebuffer);
+#endif
         }
       }
     }

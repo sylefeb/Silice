@@ -38,57 +38,51 @@ unit execute(
   output uint1  intop, output int32  r,         // integer operations
 ) {
   uint5  shamt(0);  uint32 cycle(0); // shifter status and cycle counter
-
-  // ==== decode immediates
-  int32 imm_u  <: {instr[12,20],12b0};
-  int32 imm_j  <: {{12{instr[31,1]}},instr[12,8],instr[20,1],instr[21,10],1b0};
-  int32 imm_i  <: {{20{instr[31,1]}},instr[20,12]};
-  int32 imm_b  <: {{20{instr[31,1]}},instr[7,1],instr[25,6],instr[8,4],1b0};
-  int32 imm_s  <: {{20{instr[31,1]}},instr[25,7],instr[7,5]};
-
-  // ==== decode opcode
-  uint5 opcode    <: instr[ 2, 5];
-  uint1 AUIPC     <: opcode == 5b00101;  uint1 LUI    <: opcode == 5b01101;
-  uint1 JAL       <: opcode == 5b11011;  uint1 JALR   <: opcode == 5b11001;
-  uint1 IntImm    <: opcode == 5b00100;  uint1 IntReg <: opcode == 5b01100;
-  uint1 Cycles    <: opcode == 5b11100;  uint1 branch <: opcode == 5b11000;
-  uint1 regOrImm  <: IntReg  | branch;                    // reg or imm in ALU?
-  uint1 pcOrReg   <: AUIPC   | JAL    | branch;           // pc or reg in addr?
-  uint1 sub       <: IntReg  & Rtype(instr).sign;         // subtract
-  uint1 aluShift  <: (IntImm | IntReg) & op[0,2] == 2b01; // shift requested
-
-  // ==== select next address adder first input
-  int32 addr_a    <: pcOrReg ? __signed({1b0,pc[0,$addrW-2$],2b0}) : xa;
-  // ==== select ALU second input
-  int32 b         <: regOrImm ? (xb) : imm_i;
-
-  // ==== allows to do subtraction and all comparisons with a single adder
-  // trick from femtorv32/swapforth/J1
-  int33 a_minus_b <: {1b1,~b} + {1b0,xa} + 33b1;
-  uint1 a_lt_b    <: (xa[31,1] ^ b[31,1]) ? xa[31,1] : a_minus_b[32,1];
-  uint1 a_lt_b_u  <: a_minus_b[32,1];
-  uint1 a_eq_b    <: a_minus_b[0,32] == 0;
-
-  // ==== select immediate for the next address computation
-  // 'or trick' from femtorv32
-  int32 addr_imm  <: (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
-                  |  (branch ? imm_b : 32b0) | ((JALR|load) ? imm_i : 32b0)
-                  |  (store  ? imm_s : 32b0);
-  // ==== set decoder outputs depending on incoming instructions
-  // load/store?
-  load         := opcode == 5b00000;   store        := opcode == 5b01000;
-  // operator for load/store           // register to write to?
-  op           := Rtype(instr).op;     write_rd     := Rtype(instr).rd;
-  // do we have to write a result to a register?
-  no_rd        := branch  | store  | (Rtype(instr).rd == 5b0);
-  // integer operations                // store next address?
-  intop        := (IntImm | IntReg);   storeAddr    := AUIPC;
-  // value to store directly           // store value?
-  val          := LUI ? imm_u : cycle; storeVal     := LUI     | Cycles;
-  // ==== increment cycle counter
-  cycle        := cycle + 1;
-
   always {
+    // ==== decode immediates
+    int32 imm_u  = {instr[12,20],12b0};
+    int32 imm_j  = {{12{instr[31,1]}},instr[12,8],instr[20,1],instr[21,10],1b0};
+    int32 imm_i  = {{20{instr[31,1]}},instr[20,12]};
+    int32 imm_b  = {{20{instr[31,1]}},instr[7,1],instr[25,6],instr[8,4],1b0};
+    int32 imm_s  = {{20{instr[31,1]}},instr[25,7],instr[7,5]};
+    // ==== decode opcode                 // load-store op
+    uint5 opcode    = instr[ 2, 5];       op           = Rtype(instr).op;
+    uint1 AUIPC     = opcode == 5b00101;  uint1 LUI    = opcode == 5b01101;
+    uint1 JAL       = opcode == 5b11011;  uint1 JALR   = opcode == 5b11001;
+    uint1 IntImm    = opcode == 5b00100;  uint1 IntReg = opcode == 5b01100;
+    uint1 Cycles    = opcode == 5b11100;  uint1 branch = opcode == 5b11000;
+    uint1 regOrImm  = IntReg  | branch;                    // reg or imm in ALU?
+    uint1 pcOrReg   = AUIPC   | JAL    | branch;           // pc or reg in addr?
+    uint1 sub       = IntReg  & Rtype(instr).sign;         // subtract
+    uint1 aluShift  = (IntImm | IntReg) & op[0,2] == 2b01; // shift requested
+    // ==== select next address adder first input
+    int32 addr_a    = pcOrReg ? __signed({1b0,pc[0,$addrW-2$],2b0}) : xa;
+    // ==== select ALU second input
+    int32 b         = regOrImm ? (xb) : imm_i;
+    // ==== allows to do subtraction and all comparisons with a single adder
+    // trick from femtorv32/swapforth/J1
+    int33 a_minus_b = {1b1,~b} + {1b0,xa} + 33b1;
+    uint1 a_lt_b    = (xa[31,1] ^ b[31,1]) ? xa[31,1] : a_minus_b[32,1];
+    uint1 a_lt_b_u  = a_minus_b[32,1];
+    uint1 a_eq_b    = a_minus_b[0,32] == 0;
+    // ==== set decoder outputs depending on incoming instructions
+    // register to write to?
+    write_rd     = Rtype(instr).rd;
+    // load/store?
+    load         = opcode == 5b00000;   store        = opcode == 5b01000;
+    // do we have to write a result to a register?
+    no_rd        = branch  | store  | (Rtype(instr).rd == 5b0);
+    // integer operations                // store next address?
+    intop        = (IntImm | IntReg);   storeAddr    = AUIPC;
+    // value to store directly           // store value?
+    val          = LUI ? imm_u : cycle; storeVal     = LUI     | Cycles;
+    // ==== select immediate for the next address computation
+    // 'or trick' from femtorv32
+    int32 addr_imm  =  (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
+                    |  (branch ? imm_b : 32b0) | ((JALR|load) ? imm_i : 32b0)
+                    |  (store  ? imm_s : 32b0);
+    // ==== increment cycle counter
+    cycle        = cycle + 1;
     int32 shift(0);  uint1 j(0); // temp variables for shifter and comparator
     // ====================== ALU
 $$if not ICEV_FAST_SHIFT then
@@ -122,7 +116,6 @@ $$end
       case 3b111: { r = xa & b; }     // AND
       default:    { r = {32{1bx}}; }  // don't care
     }
-
     // ====================== Comparator for branching
     switch (op[1,2]) {
       case 2b00:  { j = a_eq_b;  } /*BEQ */ case 2b10: { j=a_lt_b;} /*BLT*/
@@ -130,10 +123,8 @@ $$end
     }
     jump = (JAL | JALR) | (branch & (j ^ op[0,1]));
     //                                   ^^^^^^^ negates comparator result
-
     // ====================== Next address adder
     n = addr_a + addr_imm;
-
   }
 
 }

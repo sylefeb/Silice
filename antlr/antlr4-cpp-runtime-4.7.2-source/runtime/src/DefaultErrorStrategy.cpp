@@ -114,7 +114,7 @@ void DefaultErrorStrategy::sync(Parser *recognizer) {
       if (singleTokenDeletion(recognizer) != nullptr) {
         return;
       }
-
+      ANTLR_WILL_THROW_TK(recognizer->getCurrentToken());
       throw InputMismatchException(recognizer);
 
     case atn::ATNState::PLUS_LOOP_BACK:
@@ -161,6 +161,7 @@ void DefaultErrorStrategy::reportFailedPredicate(Parser *recognizer, const Faile
 }
 
 void DefaultErrorStrategy::reportUnwantedToken(Parser *recognizer) {
+
   if (inErrorRecoveryMode(recognizer)) {
     return;
   }
@@ -206,6 +207,7 @@ Token* DefaultErrorStrategy::recoverInline(Parser *recognizer) {
   }
 
   // Even that didn't work; must throw the exception.
+  ANTLR_WILL_THROW;
   throw InputMismatchException(recognizer);
 }
 

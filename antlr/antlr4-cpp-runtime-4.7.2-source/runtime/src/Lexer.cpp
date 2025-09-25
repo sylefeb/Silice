@@ -124,6 +124,7 @@ void Lexer::pushMode(size_t m) {
 
 size_t Lexer::popMode() {
   if (modeStack.empty()) {
+    ANTLR_WILL_THROW;
     throw EmptyStackException();
   }
 #if DEBUG_LEXER == 1

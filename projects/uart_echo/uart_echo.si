@@ -9,7 +9,13 @@ $include('../common/uart.si')
 algorithm main(
   output uint$NUM_LEDS$ leds,
   output uint1 uart_tx,
-  input  uint1 uart_rx
+  input  uint1 uart_rx,
+$$if BROT then
+  output  uint1 sd_csn(0), /// NOTE: special for musbx
+  output  uint1 sd_clk(0),
+  output  uint1 sd_mosi(0),
+  input   uint1 sd_miso,
+$$end
 ) {
 
   uint1 send_asap = 0;
@@ -27,7 +33,7 @@ algorithm main(
   );
 
   uo.data_in_ready := 0; // maintain low
-  leds             := 0;
+  leds             := 1; // light one LED
 
   // NOTE: We only have to be carefull to wait for a previous
   // transmission to be done before starting a new one.

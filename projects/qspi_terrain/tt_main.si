@@ -1,0 +1,42 @@
+// SL 2024-08-16 @sylefeb
+// ========================================================
+//
+// ========================================================
+// https://github.com/sylefeb/Silice
+// MIT license, see LICENSE_MIT in Silice repo root
+// ========================================================
+
+$include('explorer.si')
+
+unit main(
+  input  uint8 ui,
+  output uint8 uo,
+  inout  uint8 uio
+) {
+  uint5 leds(0); // unused
+
+  explorer ex(
+    leds      :> leds,
+
+    ram_io0  <:> uio[1,1],
+    ram_io1  <:> uio[2,1],
+    ram_io2  <:> uio[4,1],
+    ram_io3  <:> uio[5,1],
+    ram_bank  :> uio[6,2], // NOTE: this is fine, Silice
+                           // configures inout as output
+    ram_csn   :> uio[0,1],
+    ram_clk   :> uio[3,1],
+    spiscreen_clk  :> uo[1,1],
+    spiscreen_csn  :> uo[2,1],
+    spiscreen_dc   :> uo[3,1],
+    spiscreen_mosi :> uo[4,1],
+    spiscreen_resn :> uo[5,1],
+    btn_0 <: ui[0,1],
+    btn_1 <: ui[1,1],
+    btn_2 <: ui[2,1],
+    btn_3 <: ui[3,1]
+  );
+
+}
+
+// --------------------------------------------------

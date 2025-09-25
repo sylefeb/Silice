@@ -318,14 +318,14 @@ $$end
     ram.wdata        = memio.wdata;
     ram.addr         = memio.addr;
     // writes CPU => peripherals
-$$if Solution_HWFBUFFER and Solution_STREAM then
-    if (peripheral_w & ~audio_access & ~framebuffer_access) {
-$$else
 $$if Solution_STREAM then
-    if (peripheral_w & ~audio_access) {
+    if (peripheral_w & ~audio_access
+$$if Solution_HWFBUFFER then
+     & ~framebuffer_access
+$$end
+                                    ) {
 $$else
     if (peripheral_w) {
-$$end
 $$end
 $$if Solution_LED then
       /// LEDs

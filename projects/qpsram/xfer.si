@@ -8,12 +8,17 @@
 // --------------------------------------------------------------
 
 $$ bank_width = 23
+$$ num_banks = 4
+$$if MUSBX then
+$$ num_banks = 1
+$$end
 
 $$if SIMULATION then
 $$print("simulating ICE40 cells")
 $$ICE40_SIMULATION = 1
 $$ICE40 = 1
-append('../../tools/fpga-binutils/mingw64/bin/share/ice40/cells_sim.v')
+// append('../../tools/fpga-binutils/mingw64/bin/share/ice40/cells_sim.v')
+append('ice40_cells_sim.v')
 $$end
 
 $$if ICESTICK then
@@ -30,7 +35,7 @@ $$elseif ULX3S then
   import('../common/plls/ulx3s_90.v')
   $$uart_in_clock_freq_mhz = 90
   $$qpsram_fast            = true   -- false if freq <= 60
-$$elseif BROT then
+$$elseif BROT or MUSBX then
   import('../common/plls/brot_50_lock.v')
   $$uart_in_clock_freq_mhz = 50
 $$else
@@ -42,7 +47,11 @@ $$if ICE40 then
 import('../common/ice40_warmboot.v')
 $$end
 
+$$if MUSBX then
+$include('../common/qpsram2x_esp64.si') // NOTE: special for musbx
+$$else
 $include('../common/qpsram2x.si')
+$$end
 
 $$uart_bauds = 115200 -- 500000
 $include('../common/uart.si')
@@ -55,9 +64,15 @@ unit main(
   inout   uint1 ram_io1,
   inout   uint1 ram_io2,
   inout   uint1 ram_io3,
-  output  uint1 ram_clk,
-  output  uint1 ram_csn,
+  output  uint1 ram_clk(0),
+  output  uint1 ram_csn(0),
   output  uint2 ram_bank(2b00),
+$$if MUSBX then
+  output  uint1 sd_csn(0), /// NOTE: special for musbx: sd_csn has to be held low
+  output  uint1 sd_clk(0), ///       for proper UART operation (pin sharing)
+  output  uint1 sd_mosi(0),
+  input   uint1 sd_miso,
+$$end
 )
 // clocking (pll) and reset
 $$if ICESTICK or ICEBREAKER then
@@ -67,7 +82,7 @@ $$if ICESTICK or ICEBREAKER then
     clock_in  <: clock,
     clock_out :> clock_pll,
   );
-$$elseif BROT then
+$$elseif BROT or MUSBX then
 <@clock_pll,!rst> {
   uint1 clock_pll = uninitialized;
   uint1 rst       = uninitialized;
@@ -137,8 +152,15 @@ $$end
 
   algorithm {
 
+$$if not SIMULATION then
+    leds = 3b001;
+    uint28 delay(0);
+    while(~delay[27,1]) { delay = delay + 1; }
+    leds = 0;
+$$end
+
     // initialize all four banks
-$$for bank=0,3 do
+$$for bank=0,num_banks-1 do
     ram_bank = $bank$;
     ram.init = 1;
     while (ram.busy) {}
@@ -193,7 +215,7 @@ $$end
   }
 
   always_after {
-    leds         = {blip,write,1b1,ram_bank};
+    leds         = {write,1b1,blip};
     blip         = blip >> 1;
     // receiving
     if (ui.data_out_ready) {

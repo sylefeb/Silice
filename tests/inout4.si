@@ -1,0 +1,7 @@
+unit test(inout uint8 uio) {}
+
+unit main( ) {
+  uint8 foo(0);
+  
+  test _(uio <:> foo);
+}

@@ -240,8 +240,8 @@ $$end
   io.ready = 1;
 
   while (1) {
-    uint6 instruction <: {io.clear_display, io.return_home, io.display_onoff ^ io.cursor_onoff ^ io.blink_onoff,
-                          io.shift_display, io.print, io.set_cursor};
+    uint6 instruction = {io.clear_display, io.return_home, io.display_onoff ^ io.cursor_onoff ^ io.blink_onoff,
+                         io.shift_display, io.print, io.set_cursor};
 
     if (instruction != 0) {
       io.ready = 0;
@@ -273,8 +273,8 @@ $$end
         }
         case 0: {
           // Set DDRAM Address: RS, RW=0; D = 1ADDRESS; delay 37us
-          uint4 num_lines    <: 4d$LCD_2LINES+1$;
-          uint4 row          <: io.data[4, 4] >= num_lines ? num_lines - 1 : io.data[4, 4];
+          uint4 num_lines    = 4d$LCD_2LINES+1$;
+          uint4 row          = io.data[4, 4] >= num_lines ? num_lines - 1 : io.data[4, 4];
 
           uint7 offset = uninitialized;
 
@@ -295,5 +295,5 @@ $$end
   }
 }
 
-$$__LCD_SIZE=nil
-$$__LCD_PIXEL_RATIO=nil
+$$ -- __LCD_SIZE=nil
+$$ -- __LCD_PIXEL_RATIO=nil

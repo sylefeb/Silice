@@ -14,13 +14,8 @@ unit main(output uint8 leds)
   nth_sum s<N=8>;        // top of the resursive instantiation
 
   algorithm {
-
     uint8 n(0);
-
     (n) <- s <- ();      // call
-
-     __display("%d\n",n);
-
+    __display("%d\n",n);
   }
-
 }

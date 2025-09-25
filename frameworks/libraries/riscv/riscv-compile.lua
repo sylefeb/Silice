@@ -6,6 +6,7 @@ function set_toolchain_names(platform)
   as  = 'riscv' .. platform .. '-as'
   ld  = 'riscv' .. platform .. '-ld'
   oc  = 'riscv' .. platform .. '-objcopy'
+  od  = 'riscv' .. platform .. '-objdump'
 end
 
 -- =========================================================================
@@ -44,14 +45,14 @@ function compile(file)
   local cmd
   cmd =  gcc .. ' '
 	    .. '-I' .. PATH .. ' '
-      .. '-fno-builtin -fno-stack-protector -fno-unroll-loops -O' .. O .. ' -fno-pic '
+      .. '-fno-builtin -fno-stack-protector -fno-unroll-loops -fdata-sections -ffunction-sections -O' .. O .. ' -fno-pic '
 			.. '-march=' .. arch .. ' -mabi=ilp32 '
 			.. '-c -o code.o '
       .. SRC
   os.execute(cmd)
   cmd =  gcc .. ' '
 	    .. '-I' .. PATH .. ' '
-      .. '-fno-builtin -fno-stack-protector -fno-unroll-loops -O' .. O .. ' -fno-pic '
+      .. '-fno-builtin -fno-stack-protector -fno-unroll-loops -fdata-sections -ffunction-sections -O' .. O .. ' -fno-pic '
 			.. '-march=' .. arch .. ' -mabi=ilp32 '
 			.. '-fverbose-asm -S -o code.s '
       .. SRC
@@ -65,11 +66,14 @@ function compile(file)
   os.execute(cmd)
   cmd =  ld .. ' '
       .. '-m elf32lriscv -b elf32-littleriscv -T' .. LD_CONFIG
-			.. ' --no-relax -o code.elf code.o'
+			.. ' --gc-sections --no-relax -o code.elf code.o'
   os.execute(cmd)
   cmd =  oc .. ' '
       .. '-O verilog code.elf code.hex'
   os.execute(cmd)
+  cmd = od .. ' ' .. '--disassemble code.elf > code.d.s'
+  os.execute(cmd)
+
 end
 
 -- =========================================================================
@@ -131,7 +135,7 @@ end
 
 -- print('source file = ' .. SRC)
 
-if not O then O=1 end
+if not O then O='s' end
 
 find_toolchain()
 

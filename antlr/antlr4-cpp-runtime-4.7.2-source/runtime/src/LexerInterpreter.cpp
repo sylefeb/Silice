@@ -28,6 +28,7 @@ LexerInterpreter::LexerInterpreter(const std::string &grammarFileName, const dfa
                   _vocabulary(vocabulary) {
 
   if (_atn.grammarType != atn::ATNType::LEXER) {
+    ANTLR_WILL_THROW;
     throw IllegalArgumentException("The ATN must be a lexer ATN.");
   }
 

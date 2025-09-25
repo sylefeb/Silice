@@ -56,7 +56,12 @@ void Utils::reportError(const t_source_loc& srcloc, const char *msg, ...)
   } else {
     pctx = ParsingContext::activeContext();
   }
+  #ifdef __wasi__
+  ReportError err(pctx, -1, pctx->parser->getTokenStream(), nullptr, srcloc.interval, message);
+  exit(1);
+  #else
   throw ReportError(pctx, -1, pctx->parser->getTokenStream(), nullptr, srcloc.interval, message);
+  #endif
 }
 
 // -------------------------------------------------
@@ -273,7 +278,7 @@ std::string Utils::extractCodeBetweenTokens(std::string file, antlr4::TokenStrea
 // -------------------------------------------------
 
 void Utils::getSourceInfo(
-  antlr4::TokenStream* tk_stream, antlr4::Token* offender, antlr4::misc::Interval interval, 
+  antlr4::TokenStream* tk_stream, antlr4::Token* offender, antlr4::misc::Interval interval,
   std::string& _file, std::string& _code, int& _first, int& _last)
 {
   sl_assert(tk_stream != nullptr);

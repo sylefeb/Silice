@@ -177,6 +177,7 @@ void TokenStreamRewriter::replace(Token *from, Token *to, const std::string& tex
 
 void TokenStreamRewriter::replace(const std::string &programName, size_t from, size_t to, const std::string& text) {
   if (from > to || to >= tokens->size()) {
+    ANTLR_WILL_THROW;
     throw IllegalArgumentException("replace: range invalid: " + std::to_string(from) + ".." + std::to_string(to) +
                                    "(size = " + std::to_string(tokens->size()) + ")");
   }
@@ -358,6 +359,7 @@ std::unordered_map<size_t, TokenStreamRewriter::RewriteOperation*> TokenStreamRe
         std::cout << "new rop " << rop << std::endl;
       }
       else if (!disjoint) {
+        ANTLR_WILL_THROW;
         throw IllegalArgumentException("replace op boundaries of " + rop->toString() +
                                        " overlap with previous " + prevRop->toString());
       }
@@ -393,6 +395,7 @@ std::unordered_map<size_t, TokenStreamRewriter::RewriteOperation*> TokenStreamRe
         continue;
       }
       if (iop->index >= rop->index && iop->index <= rop->lastIndex) {
+        ANTLR_WILL_THROW;
         throw IllegalArgumentException("insert op " + iop->toString() + " within boundaries of previous " + rop->toString());
       }
     }
@@ -404,6 +407,7 @@ std::unordered_map<size_t, TokenStreamRewriter::RewriteOperation*> TokenStreamRe
       continue;
     }
     if (m.count(op->index) > 0) {
+      ANTLR_WILL_THROW;
       throw RuntimeException("should only be one op per index");
     }
     m[op->index] = op;

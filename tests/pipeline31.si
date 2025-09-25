@@ -1,0 +1,76 @@
+
+// goto in pipeline test
+
+unit u(input uint32 i,output uint32 o)
+{
+  always {
+    uint32 n = i + 10000;
+  ->
+    n = n + 100000;
+  ->
+    o = n + 1000000;  
+  }
+} 
+
+algorithm main(output uint8 leds)
+{
+  u a;
+  
+  uint5 i = 0;
+  while (i!=6)
+  {
+
+      // stage 0
+      uint32 n = i;
+      i = i + 1;
+      __display("[A] n = %d",n);
+
+    ->
+
+      n = n + 100;
+      __display("[B] n = %d",n);
+
+    ->
+
+      n = n + 1000;
+      __display("[C] n = %d",n);
+
+      a.i = n;
+      
+    -> // a takes three stages
+    ->
+    ->
+    
+      n = a.o;
+      __display("[D] n = %d",n);
+
+  }
+
+}
+
+/*
+[A] n =          0
+[A] n =          1
+[B] n =        100
+[A] n =          2
+[B] n =        101
+[C] n =       1100
+[A] n =          3
+[B] n =        102
+[C] n =       1101
+[A] n =          4
+[B] n =        103
+[C] n =       1102
+[A] n =          5
+[B] n =        104
+[C] n =       1103
+[D] n =    1111100
+[B] n =        105
+[C] n =       1104
+[D] n =    1111101
+[C] n =       1105
+[D] n =    1111102
+[D] n =    1111103
+[D] n =    1111104
+[D] n =    1111105
+*/

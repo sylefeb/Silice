@@ -1,0 +1,26 @@
+// @sylefeb 2020
+// https://github.com/sylefeb/Silice
+// MIT license, see LICENSE_MIT in Silice repo root
+
+$$if not ICESTICK then
+$$ error('This example is meant for the icestick as it manipulate pin definitions directly')
+$$end
+
+// Here we create a 'proxy' pin by combining two of the icestick output pins
+// note that this pin is now a 2-wire signal, so uint2 in Silice
+$$pin.two_leds     = {pin.D5,pin.D4}
+
+algorithm main(
+  output uint1 D1,       // D1 is a pin defined in icestick.pcf
+  output uint2 two_leds, // uses our proxy pin
+  )
+{
+
+  uint28 cnt = 0; // 28 bits wide unsigned int
+  always {
+    D1       = cnt[23,1];
+    two_leds = cnt[21,2];
+    cnt      = cnt + 1;
+  }
+
+}

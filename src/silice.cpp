@@ -35,6 +35,10 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include <LibSL/LibSL.h>
 
+#if defined (__wasi__)
+#define throw // NOTE: heavy handed approach to disabling exceptions, with the
+        // constructors exiting with an error message (see TCLAP::ArgException)
+#endif
 #include <tclap/CmdLine.h>
 #include <tclap/UnlabeledValueArg.h>
 
@@ -43,12 +47,21 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 using namespace Silice;
 
 // -------------------------------------------------
+// global switches
+
+extern bool g_Disable_CL0006;
+extern bool g_ForceResetInit;
+extern bool g_SplitInouts;
+
+// -------------------------------------------------
+
 
 int main(int argc, char **argv)
 {
+
   try {
 
-    const std::string version_string = std::string(" 1.0.0") + " " + c_GitHash;
+    const std::string version_string = std::string(" 1.0.11") + " " + c_GitHash;
     //                                               ^ ^ ^
     //                                               | | |
     //                                               | | \_ increments with features in wip/draft (x.x.x)
@@ -77,10 +90,23 @@ int main(int argc, char **argv)
     cmd.add(toExport);
     TCLAP::MultiArg<std::string> exportParam("P", "export_param", "specifies an export parameter for algorithm instantiation, e.g. -P name=value", false, "string");
     cmd.add(exportParam);
+    TCLAP::SwitchArg             forceResetInit("", "force-reset-init", "forces initialization at reset of initialized registers", false);
+    cmd.add(forceResetInit);
+    TCLAP::SwitchArg             disableCL0006("", "no-pin-check", "force disable check for pin declaration in frameworks (see CL0006)", false);
+    cmd.add(disableCL0006);
+    TCLAP::SwitchArg             splitInouts("", "split-inouts", "splits all inouts into enable, in, out pins", false);
+    cmd.add(splitInouts);
+    TCLAP::ValueArg<std::string> top("", "top", "Name of the top module in generated Verilog", false, "top", "string");
+    cmd.add(top);
 
     cmd.parse(argc, argv);
 
+    g_Disable_CL0006 = disableCL0006.getValue();
+    g_ForceResetInit = forceResetInit.getValue();
+    g_SplitInouts    = splitInouts.getValue();
+
     SiliceCompiler compiler;
+
     compiler.run(
       source.getValue(),
       output.getValue(),
@@ -89,7 +115,8 @@ int main(int argc, char **argv)
       defines.getValue(),
       configs.getValue(),
       toExport.getValue(),
-      exportParam.getValue());
+      exportParam.getValue(),
+      top.getValue());
 
   } catch (TCLAP::ArgException& err) {
     std::cerr << "command line error: " << err.what() << "\n";
@@ -101,6 +128,7 @@ int main(int argc, char **argv)
     std::cerr << "error: " << err.what() << "\n";
     return -3;
   }
+
   return 0;
 }
 

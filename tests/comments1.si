@@ -1,0 +1,31 @@
+
+unit main(output uint8 leds)
+{
+
+  // This is a comment
+  /*
+    This is a comment
+  */
+  
+  $$ VAR1 = 1 -- this is a comment in preprocessor escape (Lua language)
+  
+  // $$ VAR2 = 2
+  // ^^ ignored as commented in Silice source
+
+  /*
+  $$ VAR3 = 3
+  ^^ ignored as commented in Silice source
+  */
+
+  $$ -- VAR4 = 4   => ignored as commented in preprocessor (leading --)
+
+  $$ print('VAR1 = ' .. VAR1)
+  $$ if VAR2 then print('VAR2 defined') else print('VAR2 NOT defined') end
+  $$ if VAR3 then print('VAR3 defined') else print('VAR3 NOT defined') end
+  $$ if VAR4 then print('VAR4 defined') else print('VAR4 NOT defined') end
+
+  always {
+    __finish();
+  }
+
+}

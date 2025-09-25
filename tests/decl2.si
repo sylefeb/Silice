@@ -1,21 +1,26 @@
-algorithm main(output uint8 leds)
+algorithm test(output uint8 v)
 {
   uint8 w <:: a + 10;
   uint8 a(50);
+  uint8 c = uninitialized;
+  uint8 cst(123);
 
   a = 1;
-  uint8 b = a + 10;
-  uint8 c = b + 100;
 
-  // b = a; // ok
-  // b = c; // ok
+  uint8 b = a + 10; // declaration that could be a const
 
-  a = 9;
+  a = 9; // invalidates b as const since its value would change with a
 
-  //uint8 b = a + 10 + b; /// FIXME TODO: should trigger an error
+  c = b + 100;      // temporary that could be a const
 
-  // b = 5;
+  v = c;
 
-  __display("%d",c);
+}
+
+algorithm main(output uint8 leds)
+{
+  test t;
+  () <- t <- ();
+  __display("%d",t.v);
 
 }

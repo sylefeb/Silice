@@ -1,0 +1,68 @@
+{
+  "name": "tinytapeout",
+  "variants": [
+    {
+      "name"      : "configurable",
+      "framework" : "tinytapeout.v",
+      "pins"      : [
+        {"set"    : "basic", "define" : "BASIC=1"}
+      ],
+      "builders": [
+        {
+          "name"       : "tinytapeout",
+          "builder"    : "shell",
+          "command"    : "tinytapeout.sh",
+          "description": "Custom shell script using yosys"
+        },
+        {
+          "name"       : "tt_icestick",
+          "builder"    : "shell",
+          "framework"  : "tt_icestick.v",
+          "command"    : "tt_icestick.sh",
+          "description": "Tinytapeout simulation on icestick"
+        },
+        {
+          "name"       : "tt_icebreaker",
+          "builder"    : "shell",
+          "framework"  : "tt_icebreaker.v",
+          "command"    : "tt_icebreaker.sh",
+          "description": "Tinytapeout simulation on icebreaker"
+        },
+        {
+          "name"       : "tt_ecpix5",
+          "builder"    : "edalize",
+          "framework"  : "tt_ecpix5.v",
+          "description": "Tinytapeout simulation on ecpix5",
+          "tool"       : "trellis",
+          "tool_options": [
+            {
+                "yosys_synth_options": ["-top top -abc9"],
+                "nextpnr_options": ["--um5g-85k", "--freq 100", "--package CABGA554", "--timing-allow-fail", "--force"],
+                "pnr": "next"
+            }
+          ],
+          "bitstream"  : "build.bit",
+          "constraints": [{"name": "../ecpix5/ecpix5.lpf", "file_type": "LPF"}],
+          "program": [{"cmd" : "openFPGAloader", "args" : " -b ecpix5 build.bit"}]
+        },
+        {
+          "name"       : "tt_ulx3s",
+          "builder"    : "edalize",
+          "framework"  : "tt_ulx3s.v",
+          "description": "Tinytapeout simulation on ulx3s",
+          "tool"       : "trellis",
+          "tool_options": [
+            {
+              "yosys_synth_options": ["-abc9 -top top"],
+              "nextpnr_options": ["--85k", "--freq 25", "--package CABGA381", "--timing-allow-fail"],
+              "pnr": "next"
+            }
+          ],
+          "bitstream"  : "build.bit",
+          "constraints": [{"name": "../ulx3s/ulx3s.lpf", "file_type": "LPF"}],
+          "program": [{"cmd" : "openFPGALoader", "args" : "-b ulx3s build.bit"}]
+        }
+      ]
+    }
+  ]
+}

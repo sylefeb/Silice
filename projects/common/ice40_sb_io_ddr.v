@@ -8,7 +8,11 @@ module sb_io_ddr(
   output       pin
   );
 
+`ifdef SIM_SB_IO
+  _SB_IO #(
+`else
   SB_IO #(
+`endif
     .PIN_TYPE(6'b0100_01)
     //                ^^ ignored (input)
     //           ^^^^ DDR output
@@ -16,6 +20,7 @@ module sb_io_ddr(
       .PACKAGE_PIN(pin),
       .D_OUT_0(out_0),
       .D_OUT_1(out_1),
+      .OUTPUT_ENABLE(1'b1),
       .OUTPUT_CLK(clock)
   );
 
