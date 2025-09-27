@@ -301,7 +301,6 @@ unit qpsram_qspi(
   // internal state
   uint1 dc(0);  uint8 sending(0);  uint1 osc(0);
   // driving the QPSRAM chip clock with a ddr module
-  uint1 trigger_delay(0);
   uint1 send_else_read_delay(0);
   uint1 enable(0); uint1 enable_delay(0);
   // setup registered tristate ios
@@ -347,7 +346,6 @@ $$end
     chip_select_1 = ~ enable & chip_select;
     chip_select   = ~ enable;
 
-    trigger_delay        = trigger;
     send_else_read_delay = send_else_read;
   }
 }

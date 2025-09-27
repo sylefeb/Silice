@@ -282,6 +282,7 @@ $$end
     // init QPSRAM     NOTE: assume already initialized for now
     // ram.init = 1;
     // while (ram.busy) {}
+
     // main loop
 
     while (1) {
