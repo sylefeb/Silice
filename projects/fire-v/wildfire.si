@@ -6,7 +6,7 @@
 //  - hardware accelerated triangle rasterizer (why not?)
 //  - overclocks up to 160 MHz on the ULX3S
 //
-// Test on: ULX3S, Verilator, Icarus
+// Test on: ULX3S, Verilator, Icarus, Icepi Zero
 //
 // -------------------------
 // @sylefeb 2020
@@ -17,7 +17,7 @@ $$if SIMULATION then
 $$ verbose = nil
 $$end
 
-$$if not (ULX3S or ICARUS or VERILATOR) then
+$$if not (ULX3S or ICEPI_ZERO or ICARUS or VERILATOR) then
 $$error('Sorry, Wildfire is currently not supported on this board.')
 $$end
 

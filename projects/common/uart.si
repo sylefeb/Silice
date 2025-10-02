@@ -26,6 +26,8 @@ $$  elseif BROT then
 $$    uart_in_clock_freq_mhz = 48
 $$  elseif ECPIX5 then
 $$    uart_in_clock_freq_mhz = 100
+$$  elseif ICEPI_ZERO then
+$$    uart_in_clock_freq_mhz = 25
 $$  else
 $$    error("[uart] clock frequency 'uart_in_clock_freq_mhz' not specified")
 $$  end
