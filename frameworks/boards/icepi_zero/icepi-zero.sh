@@ -42,7 +42,7 @@ if [[ ! -z "${NO_BUILD}" ]]; then
   exit
 fi
 
-yosys -p 'scratchpad -copy abc9.script.flow3 abc9.script; synth_ecp5 -abc9 -json build.json -top top' build.v
+yosys -p "read_verilog -sv build.v" -p 'scratchpad -copy abc9.script.flow3 abc9.script; synth_ecp5 -abc9 -json build.json -top top'
 
 nextpnr-ecp5 --25k --package CABGA256 --freq 50 --json build.json --textcfg build.config --lpf $BOARD_DIR/icepi-zero.lpf --timing-allow-fail -r
 # --seed 700001

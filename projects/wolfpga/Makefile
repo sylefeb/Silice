@@ -5,7 +5,7 @@
 icarus: wolfpga.si
 		silice-make.py -s wolfpga.si -b $@ -p basic,vga -o BUILD_$(subst :,_,$@) $(ARGS)
 
-ulx3s colorlight: wolfpga.si
+ulx3s colorlight icepi_zero: wolfpga.si
 		silice-make.py -s wolfpga.si -b $@ -p basic,hdmi,sdram -o BUILD_$(subst :,_,$@) $(ARGS)
 
 clean:
