@@ -1,4 +1,4 @@
-# muSBX v3 rev2 - 2024-10-17
+# muSBX v4 rev11 - 2024-10-17
 # @sylefeb
 # -------
 
@@ -31,7 +31,7 @@
 #   GPIO6      x18/y31    26   0
 #   GPIO7      x18/y31    27   0
 
-set_io CLK_48	35  # G0
+set_io CLK_48	35  # G0 # 40MHz in V4
 
 set_io EX5  	40
 set_io EX6   	41
