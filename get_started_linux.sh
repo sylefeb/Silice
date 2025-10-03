@@ -3,7 +3,8 @@ echo "--------------------------------------------------------------------"
 echo "This script installs necessary packages, compiles and install Silice"
 echo "Please refer to the script source code to see the list of packages"
 echo "--------------------------------------------------------------------"
-echo "     >>>> it will request sudo access to install packages <<<<"
+echo ">>> it will request sudo access to install packages              <<<"
+echo ">>> it will install python packages with --break-system-packages <<<"
 echo "--------------------------------------------------------------------"
 
 non_interactive=false
@@ -42,9 +43,9 @@ else
 fi
 
 # -------------- retrieve oss-cad-suite package --------------
-OSS_CAD_MONTH=11
-OSS_CAD_DAY=29
-OSS_CAD_YEAR=2023
+OSS_CAD_MONTH=09
+OSS_CAD_DAY=13
+OSS_CAD_YEAR=2025
 OSS_PACKAGE=oss-cad-suite-linux-x64-$OSS_CAD_YEAR$OSS_CAD_MONTH$OSS_CAD_DAY.tgz
 
 echo "Downloading and installing oss-cad-suite ..."

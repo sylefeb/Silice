@@ -33,7 +33,7 @@ $$BROT=1
 $$MUSBX=1
 $$ICE40=1
 $$HARDWARE=1
-$$NUM_LEDS=1
+$$NUM_LEDS=3
 $$NUM_BTNS=0
 $$color_depth=6
 $$color_max  =63
@@ -45,7 +45,9 @@ $$config['simple_dualport_bram_wenable1_width'] = '1'
 
 module top(
 `ifdef BASIC
-  output LED,
+  output LED_R,
+  output LED_G,
+  output LED_B,
 `endif
 `ifdef BUTTONS
 `error_this_board_has_no_buttons
@@ -125,11 +127,8 @@ module top(
   input  PMOD_B10, // RX
 `endif
 `ifdef UART2
-  input  GPIO0,  // in  serial
-  output GPIO1,  // out serial  // DEPRECATED, TX is mixed with sd_mosi
-`endif
-`ifdef UART2_RX_ONLY
-  input  GPIO0,  // in serial
+  input  GPIO0,  // TX
+  output GPIO1, // RX
 `endif
 `ifdef PS2
   input  GPIO2, // clock
@@ -172,53 +171,28 @@ module top(
   output PMOD_B9,
 `endif
 `ifdef VGA
-  output GPIO0,    // R0
-  output GPIO1,    // R1
-  output GPIO2,    // R2
-  output EX1,      // R3
-  output PMOD_B1,  // G0
-  output GPIO3,    // G1
-  output GPIO4,    // G2
-  output GPIO5,    // G3
-  output EX2,      // G4
-  output PMOD_B2,  // B0
-  output PMOD_B8,  // B1
-  output GPIO6,    // B2
-  output EX3,      // B3
-  output GPIO7,    // HS
-  output PMOD_B7,  // VS
-  output EX4,      // backlight on/off
-`endif
-`ifdef HDMI
-  output EX3,      // R3
-  output EX2,      // R2
-  output EX1,      // R1
-  output GPIO7,    // R0
-  output GPIO6,    // G4
-  output GPIO5,    // G3
-  output GPIO4,    // G2
-  output GPIO3,    // G1
-  output EX6,      // G0
-  output GPIO2,    // B3
-  output GPIO1,    // B2
-  output PMOD_B2,  // B1
-  output PMOD_B8,  // B0
-  output EX5,      // HS
-  output PMOD_B7,  // VS
-  output GPIO0,    // DVI_CLK
-  output PMOD_B1,  // DVI_DE
-  output EX4,      // backlight on/off
+  output GPIO0,   // R0
+  output GPIO1,   // R1
+  output GPIO2,   // R2
+  output EX1,     // R3
+  output PMOD_B1, // G0
+  output GPIO3,   // G1
+  output GPIO4,   // G2
+  output GPIO5,   // G3
+  output EX2,     // G4
+  output PMOD_B2, // B0
+  output PMOD_B8, // B1
+  output GPIO6,   // B2
+  output EX3,     // B3
+  output GPIO7,   // HS
+  output PMOD_B7, // VS
+  output EX4,     // backlight on/off
 `endif
 `ifdef EXTRA
   inout  EX1,
   inout  EX2,
   inout  EX3,
   inout  EX4,
-`endif
-`ifdef AUDIO
-  output EX5,
-  output EX6,
-  output GPIO1,
 `endif
   input  CLK_48
   );
@@ -280,6 +254,15 @@ assign SPI_SS_RAM = 1'b1;
 `endif
 `endif
 
+`ifdef BASIC
+wire lr;
+wire lg;
+wire lb;
+assign LED_R = ~lr;
+assign LED_G = ~lg;
+assign LED_B = ~lb;
+`endif
+
 `ifdef PARALLEL_SCREEN
 wire prlscreen_unused;
 `endif
@@ -289,7 +272,7 @@ M_main __main(
   .out_clock(design_clk),
   .reset(~RST_q[15]),
 `ifdef BASIC
-  .out_leds(LED),
+  .out_leds({lb,lg,lr}),
 `endif
 `ifdef BUTTONS
 `endif
@@ -316,8 +299,8 @@ M_main __main(
 `endif
 `ifdef QPSRAM
   .out_ram_csn  (SPI_SS_RAM),
-  .inout_ram_io0(/*SPI_MOSI*/SPI_MISO), /// NOTE: routing "mistake" in v3
-  .inout_ram_io1(/*SPI_MISO*/SPI_MOSI), ///       kept same in v4
+  .inout_ram_io0(/*SPI_MOSI*/SPI_MISO), /// NOTE: routing mistake in v3
+  .inout_ram_io1(/*SPI_MISO*/SPI_MOSI),
   .inout_ram_io2(SPI_IO2),
   .inout_ram_io3(SPI_IO3),
   .out_ram_clk  (SPI_SCK),
@@ -341,11 +324,8 @@ M_main __main(
 `ifdef UART_RX_ONLY
   .in_uart_rx (PMOD_B10),
 `endif
-`ifdef UART2 // DEPRECATED, TX is mixed with sd_mosi
+`ifdef UART2
   .out_uart_tx(GPIO1),
-  .in_uart_rx (GPIO0),
-`endif
-`ifdef UART2_RX_ONLY
   .in_uart_rx (GPIO0),
 `endif
 `ifdef PS2
@@ -357,11 +337,6 @@ M_main __main(
   .out_sd_clk  (GPIO5),
   .out_sd_mosi (GPIO6),
   .in_sd_miso  (GPIO7),
-`endif
-`ifdef AUDIO
-  .out_audio_bck_btn_clk(EX5),
-  .out_audio_lr_btn_latch(EX6),
-  .out_audio_din(GPIO1),
 `endif
 `ifdef SYNC_IN
   .in_sync(PMOD_A1),
@@ -401,16 +376,6 @@ PMOD_A8 is on a global buffer on the 'in fpga' and has to be used for the clock
   .out_video_hs(GPIO7),
   .out_video_vs(PMOD_B7),
   .out_backlight(EX4),
-`endif
-`ifdef HDMI
-  .out_video_r  ({EX3,EX2,EX1,GPIO7}),
-  .out_video_g  ({GPIO6,GPIO5,GPIO4,GPIO3,EX6}),
-  .out_video_b  ({GPIO2,GPIO1,PMOD_B2,PMOD_B8}),
-  .out_video_hs (EX5),
-  .out_video_vs (PMOD_B7),
-  .out_dvi_clock(GPIO0),
-  .out_dvi_de   (PMOD_B1),
-  .out_dvi_on_n (EX4),
 `endif
 `ifdef EXTRA
   .inout_extra({EX4,EX3,EX2,EX1}),

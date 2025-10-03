@@ -28,10 +28,11 @@ size = int(sys.argv[3], 0)
 size = math.ceil(size / read_packed_size) * read_packed_size
 
 # seed
-S = int(time.time())
-# S = 42
+# S = int(time.time())
+S = 42
 
 if True:
+# if False:
   # send start tag
   packet = bytearray()
   packet.append(0xD5) # write
