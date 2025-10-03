@@ -72,7 +72,7 @@ inline long my_userdata()
   return id;
 }
 
-inline void draw_triangle_raw(int t,unsigned int p0,unsigned int p1,unsigned int p2)
+void draw_triangle_raw(int t,unsigned int p0,unsigned int p1,unsigned int p2)
 {
   register int px0 = p0 & 1023;
   register int px1 = p1 & 1023;

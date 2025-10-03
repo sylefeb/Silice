@@ -12,6 +12,9 @@ ulx3s: video_sdram_test.si
 colorlight: video_sdram_test.si
 		silice-make.py -s video_sdram_test.si -b $@ -p basic,hdmi,sdram -o BUILD_$(subst :,_,$@) $(ARGS)
 
+icepi_zero: video_sdram_test.si
+		silice-make.py -s video_sdram_test.si -b $@ -p basic,hdmi,sdram -o BUILD_$(subst :,_,$@) -t shell $(ARGS)
+
 icarus: video_sdram_test.si
 		silice-make.py -s video_sdram_test.si -b $@ -p basic,vga -o BUILD_$(subst :,_,$@) $(ARGS)
 

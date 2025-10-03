@@ -6,7 +6,7 @@
 // NOTE: there is tearing currently (unrestricted frame rate)
 //
 
-$$if ULX3S then
+$$if ULX3S or ICEPI_ZERO then
 $$  HAS_COMPUTE_CLOCK    = true
 $$else
 $$  error('only tested on ULX3S, other boards will require changes')

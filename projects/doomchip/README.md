@@ -2,6 +2,10 @@
 
 *It will run Doom forever*
 
+[![A video recording of the DooM-chip in action, rendering E1M1](https://img.youtube.com/vi/ByCw1N0cJGI/0.jpg)](https://www.youtube.com/watch?v=ByCw1N0cJGI)
+
+(click to watch on YouTube)
+
 ## Foreword
 
 This is the DooM-chip! A partial recreation of Doom 1993 in hardware: there is no CPU, the entire render loop and (very basic) game logic is hardcoded in LUTs, flip-flops and wires. This is very different from a source port: there is zero reuse of the original game code, everything is new and written in Silice. Only the game data is reused.

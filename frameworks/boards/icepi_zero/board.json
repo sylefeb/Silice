@@ -1,0 +1,56 @@
+{
+  "name": "icepi_zero",
+  "variants": [
+    {
+      "name": "25k",
+      "framework" : "icepi_zero.v",
+      "pins": [
+        {"set"    : "basic"},
+        {"set"    : "buttons", "define" : "BUTTONS=1"},
+        {"set"    : "sdram",   "define" : "SDRAM=1"},
+        {"set"    : "sdcard",  "define" : "SDCARD=1"},
+        {"set"    : "hdmi",    "define" : "HDMI=1"},
+        {"set"    : "gpio",    "define" : "GPIO=1"},
+        {"set"    : "uart",    "define" : "UART=1"},
+        {"set"    : "spiflash","define" : "SPIFLASH=1"},
+        {"set"    : "qspiflash", "define" : "QSPIFLASH=1"},
+        {"set"    : "us2_ps2", "define" : "US2_PS2=1"},
+        {"set"    : "i2c",     "define" : "I2C=1"},
+        {"set"    : "pmod_qqspi", "define" : "PMOD_QQSPI=1"}
+      ],
+      "builders": [
+      {
+        "builder" : "edalize",
+        "description": "Build using Edalize",
+        "tool": "trellis",
+        "tool_options": [
+          {
+              "yosys_synth_options": ["-abc9 -top top"],
+              "nextpnr_options": ["--25k", "--freq 50", "--package CABGA256", "--timing-allow-fail"],
+              "pnr": "next"
+          }
+        ],
+        "bitstream"  : "build.bit",
+        "constraints": [{"name": "icepi-zero.lpf", "file_type": "LPF"}],
+        "program": [{"cmd" : "openFPGALoader", "args" : "-b icepi-zero build.bit"}]
+      },
+      {
+        "builder" : "edalize",
+        "description": "Build using Edalize and Diamond",
+        "tool": "diamond",
+        "tool_options": [{
+          "part": "LFE5U-25F-6BG256C"
+        }],
+        "bitstream"  : "build.bit",
+        "constraints": [{"name": "icepi-zero.lpf", "file_type": "LPF"}],
+        "program": [{"cmd" : "openFPGAloader", "args" : " -b icepi-zero ./Implementation0/build_Implementation0.bit"}]
+      },
+      {
+        "builder" : "shell",
+        "command" : "icepi-zero.sh",
+        "description": "Custom shell scripts using yosys and nextpnr"
+      }
+      ]
+    }
+  ]
+}

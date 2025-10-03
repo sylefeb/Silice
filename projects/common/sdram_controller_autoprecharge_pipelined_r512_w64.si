@@ -28,7 +28,7 @@ $$end
 
 import('inout16_set.v')
 
-$$if ULX3S then
+$$if ULX3S or ICEPI_ZERO then
 import('inout16_ff_ulx3s.v')
 import('out1_ff_ulx3s.v')
 import('out2_ff_ulx3s.v')
@@ -344,7 +344,7 @@ $$end
       work_todo = 0;
       // prepare read/write sequence
       burst         =
-$$if ULX3S then
+$$if ULX3S or ICEPI_ZERO then
               9b100000000;
 $$elseif ICARUS then
               9b110000000;

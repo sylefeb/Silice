@@ -48,6 +48,11 @@ $$if ULX3S then
 import('../common/plls/ulx3s_50_25_100_100ph180.v')
 $$end
 
+$$if ICEPI_ZERO then
+// Clock
+import('../common/plls/icepi_zero_50_25_100_100ph180.v')
+$$end
+
 $$if DE10NANO then
 import('../common/plls/de10nano_50_25_100_100ph180.v')
 $$end
@@ -95,7 +100,7 @@ $$else
 $$end
 $$end
 )
-$$if ULX3S or DE10NANO or DE2 then
+$$if ULX3S or DE10NANO or DE2 or ICEPI_ZERO then
 <@sdram_clock,!rst>
 $$end
 {
@@ -189,7 +194,7 @@ $$if VERILATOR then
   sdram_clock := clock;
 $$end
 
-$$if ULX3S or DE10NANO or DE2 then
+$$if ULX3S or DE10NANO or DE2 or ICEPI_ZERO then
   // --- clock
   uint1 video_clock   = 0;
   uint1 sdram_clock   = 0;
@@ -231,6 +236,17 @@ $$if DE2 then
     locked   :> pll_lock
   );
   compute_clock := clock;
+$$end
+$$if ICEPI_ZERO then
+  $$print('ULX3S at 50 MHz compute clock, 100 MHz SDRAM')
+  pll_50_25_100_100ph180 clk_gen(
+    clkin    <: clock,
+    clkout0  :> compute_clock,
+    clkout1  :> video_clock,
+    clkout2  :> sdram_clock, // controller
+    clkout3  :> sdram_clk,   // chip
+    locked   :> pll_lock
+  );
 $$end
 $$end
 
