@@ -61,16 +61,15 @@ sudo cp tools/oss-cad-suite-env.sh /usr/local/share/silice/
 cd /usr/local/share/silice ; sudo tar xvfz ./$OSS_PACKAGE ; sudo rm ./$OSS_PACKAGE ; cd -
 echo "done."
 
+# -------------- add path to .bashrc ------------------------
+echo 'source /usr/local/share/silice/oss-cad-suite-env.sh' >> ~/.bashrc
+
 # -------------- python environment -------------------------
 sudo cp tools/setup-python-env.sh /usr/local/share/silice/
 sudo cp tools/requirements.txt /usr/local/share/silice/
 
 # -------------- compile Silice -----------------------------
 ./compile_silice_linux.sh
-
-# -------------- add path to .bashrc ------------------------
-DIR=`pwd`
-echo 'source /usr/local/share/silice/oss-cad-suite-env.sh' >> ~/.bashrc
 
 echo ""
 echo "--------------------------------------------------------------------"
