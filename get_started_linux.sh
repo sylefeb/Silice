@@ -3,8 +3,7 @@ echo "--------------------------------------------------------------------"
 echo "This script installs necessary packages, compiles and install Silice"
 echo "Please refer to the script source code to see the list of packages"
 echo "--------------------------------------------------------------------"
-echo ">>> it will request sudo access to install packages              <<<"
-echo ">>> it will install python packages with --break-system-packages <<<"
+echo ">>>      it will request sudo access to install packages         <<<"
 echo "--------------------------------------------------------------------"
 
 non_interactive=false
@@ -42,6 +41,9 @@ else
 	fi
 fi
 
+# -------------- cleanup prior installs ----------------------
+rm -rf ./BUILD
+
 # -------------- retrieve oss-cad-suite package --------------
 OSS_CAD_MONTH=09
 OSS_CAD_DAY=13
@@ -58,6 +60,10 @@ sudo mv $OSS_PACKAGE /usr/local/share/silice/
 sudo cp tools/oss-cad-suite-env.sh /usr/local/share/silice/
 cd /usr/local/share/silice ; sudo tar xvfz ./$OSS_PACKAGE ; sudo rm ./$OSS_PACKAGE ; cd -
 echo "done."
+
+# -------------- python environment -------------------------
+sudo cp tools/setup-python-env.sh /usr/local/share/silice/
+sudo cp tools/requirements.txt /usr/local/share/silice/
 
 # -------------- compile Silice -----------------------------
 ./compile_silice_linux.sh

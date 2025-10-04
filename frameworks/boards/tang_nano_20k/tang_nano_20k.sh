@@ -38,7 +38,6 @@ rm build*
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
 yosys -p "synth_gowin -json build.json -top top" build.v
 
-pip install apycula
 # nextpnr should be compiled using 'humbaechel', see the discussion here: https://github.com/YosysHQ/apicula/issues/220#issuecomment-1876682997
 # the following command is from apicula/examples/himbaechel/Makefile.himbaechel
 nextpnr-himbaechel --json build.json --write outbuild.json --device GW2AR-LV18QN88C8/I7 --vopt family=GW2A-18C --vopt cst=$BOARD_DIR/tang_nano_20k.cst

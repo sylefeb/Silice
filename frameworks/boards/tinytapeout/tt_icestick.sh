@@ -44,4 +44,5 @@ nextpnr-ice40 --force --hx1k --json build.json --pcf $BOARD_DIR/../icestick/ices
 
 icepack build.asc build.bin
 
-iceprog build.bin
+# iceprog build.bin
+openFPGALoader -b ice40_generic build.bin

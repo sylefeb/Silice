@@ -38,8 +38,6 @@ rm build*
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
 yosys -p "read_verilog -sv build.v" -p "synth_gowin -json build.json -top top"
 
-pip install apycula
-
 nextpnr-gowin --json build.json --write outbuild.json --device GW1NR-UV9QN881C6/I5 --cst $BOARD_DIR/littlebee.cst
 gowin_pack -d GW1N-9 -o pack.fs outbuild.json
 dos2unix pack.fs

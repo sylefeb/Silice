@@ -1,0 +1,6 @@
+edalize
+apycula
+yowasp-yosys
+yowasp-nextpnr-ice40
+yowasp-nextpnr-ecp5
+yowasp-nextpnr-himbaechel-gowin

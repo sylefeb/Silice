@@ -7,11 +7,7 @@ mkdir BUILD
 cd BUILD
 
 echo -e "\nInstalling compilation packages for building Silice\n"
-pacman -S --noconfirm --needed unzip wget perl ${MINGW_PACKAGE_PREFIX}-cmake ${MINGW_PACKAGE_PREFIX}-gcc ${MINGW_PACKAGE_PREFIX}-make ${MINGW_PACKAGE_PREFIX}-python3 ${MINGW_PACKAGE_PREFIX}-python-pip ${MINGW_PACKAGE_PREFIX}-freeglut
-
-echo -e "\nInstalling python packages for building designs\n"
-pip install termcolor
-pip install edalize
+pacman -S --noconfirm --needed unzip wget perl ${MINGW_PACKAGE_PREFIX}-cmake ${MINGW_PACKAGE_PREFIX}-gcc ${MINGW_PACKAGE_PREFIX}-make ${MINGW_PACKAGE_PREFIX}-python3 ${MINGW_PACKAGE_PREFIX}-python-pip ${MINGW_PACKAGE_PREFIX}-freeglut ${MINGW_PACKAGE_PREFIX}-python-termcolor
 
 echo -e "\nDownloading JDK (for building only, not required afterwards)\n"
 wget -c https://download.java.net/java/GA/jdk14.0.1/664493ef4a6946b186ff29eb326336a2/7/GPL/openjdk-14.0.1_windows-x64_bin.zip

@@ -1,0 +1,17 @@
+yosys
+yosys-smtbmc
+yosys-witness
+sby
+nextpnr-ice40
+nextpnr-ecp5
+nextpnr-himbaechel-gowin
+ecpbram
+ecpmulti
+ecppack
+ecppll
+ecpunpack
+icebram
+icemulti
+icepack
+icepll
+iceunpack
