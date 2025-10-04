@@ -66,6 +66,7 @@ echo 'source /usr/local/share/silice/oss-cad-suite-env.sh' >> ~/.bashrc
 
 # -------------- python environment -------------------------
 sudo cp tools/setup-python-env.sh /usr/local/share/silice/
+sudo chmod 755 /usr/local/share/silice/setup-python-env.sh
 sudo cp tools/requirements.txt /usr/local/share/silice/
 
 # -------------- compile Silice -----------------------------
