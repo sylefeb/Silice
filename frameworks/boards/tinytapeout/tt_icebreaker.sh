@@ -52,4 +52,5 @@ if [[ ! -z "${NO_PROGRAM}" ]]; then
   exit
 fi
 
-iceprog build.bin
+# iceprog build.bin
+openFPGALoader -b ice40_generic build.bin

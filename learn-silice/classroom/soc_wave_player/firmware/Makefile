@@ -12,7 +12,7 @@ $(PRGS): %: %.o $(OBJS)
 		$(ARCH)-objdump --disassemble code.elf > code.s
 
 %.o : %.c
-		$(CC) -ffunction-sections -fdata-sections -U_FORTIFY_SOURCE -fno-builtin -fno-unroll-loops $(DEFINES) -Os -fno-stack-protector -fno-pic -march=rv32i -mabi=ilp32 -c $< -o $@
+		$(CC) -I/usr/include/ -ffunction-sections -fdata-sections -U_FORTIFY_SOURCE -fno-builtin -fno-unroll-loops $(DEFINES) -Os -fno-stack-protector -fno-pic -march=rv32i -mabi=ilp32 -c $< -o $@
 
 %.o : %.s
 		$(AS) -march=rv32i -mabi=ilp32 $< -o $@

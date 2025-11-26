@@ -17,6 +17,11 @@
       ],
       "builders": [
         {
+          "builder" : "shell",
+          "command" : "icestick.sh",
+          "description": "Custom shell scripts using yosys and nextpnr"
+        },
+        {
           "builder" : "edalize",
           "description": "Build using Edalize",
           "tool": "icestorm",
@@ -30,11 +35,6 @@
           "bitstream"  : "build.bin",
           "constraints": [{"name": "icestick.pcf", "file_type": "PCF"}],
           "program": [{"cmd" : "iceprog", "args" : "build.bin"}]
-        },
-        {
-          "builder" : "shell",
-          "command" : "icestick.sh",
-          "description": "Custom shell scripts using yosys and nextpnr"
         },
         {
           "builder" : "yowasp",

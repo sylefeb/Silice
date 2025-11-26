@@ -28,6 +28,7 @@ $$config['bram_wmask_byte_wenable_width'] = 'data'
 $include('../../../projects/ice-v/CPUs/ice-v.si')
 $$if Solution_SCREEN then
 // Includes the SPIscreen driver
+$$ OLED_SLOW=1
 $include('../../../projects/ice-v/SOCs/ice-v-oled.si')
 $$end
 $$if Solution_UART then
@@ -141,7 +142,7 @@ $$if Solution_HWFBUFFER then
   uint1  fb_enabled  = 0;
   uint14 fb_pixcount = 0;
   uint3  fb_channel  = 3b010;
-  uint17 fb_wait     = 1;
+  uint33 fb_wait     = 1;
 $$end
 
 $$if Solution_SPIflash then
@@ -258,7 +259,7 @@ $$if Solution_HWFBUFFER then
     fb_channel              = (fb_enabled & fb_wait[0,1])
                                            ? {fb_channel[0,2],fb_channel[2,1]}
                                            : fb_channel;
-    fb_wait                 = (fb_enabled) ? {fb_wait[0,16],fb_wait[16,1]}
+    fb_wait                 = (fb_enabled) ? {fb_wait[0,32],fb_wait[32,1]}
                                            : fb_wait;
     fb_pixcount             = (fb_enabled & fb_wait[0,1] & fb_channel[0,1])
                                            ? fb_pixcount + 1

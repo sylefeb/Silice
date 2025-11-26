@@ -25,10 +25,6 @@ sudo make -j$(nproc) install
 cd ..
 cd ..
 
-echo -e "\nInstalling python packages for building designs\n"
-pip3 install --break-system-packages --upgrade termcolor
-pip3 install --break-system-packages --upgrade edalize
-
 echo " "
 echo " "
 echo "======================================"

@@ -2,7 +2,7 @@
 icebreaker: ../fire-v/spark.si
 		make -C blinky_reboot
 		./compile.sh
-		silice-make.py --no_program -s ../fire-v/spark.si -b $@ -p basic,spiflash -o BUILD_$(subst :,_,$@) -D WARMBOOT=1 $(ARGS)
+		silice-make.sh --no_program -s ../fire-v/spark.si -b $@ -p basic,spiflash -o BUILD_$(subst :,_,$@) -D WARMBOOT=1 $(ARGS)
 		cp BUILD_icebreaker/build.bin bin/bootloader.bin
 		icemulti bin/bootloader.bin -o bin/multi.bin
 		cp bin/multi.bin bin/header.bin
@@ -15,7 +15,7 @@ spram_test: ../fire-v/spark.si
 		make -C spram_fill
 		make -C spram_show
 		./compile.sh
-		silice-make.py --no_program -s ../fire-v/spark.si -b icebreaker -p basic,spiflash -o BUILD_$(subst :,_,$@) -D WARMBOOT=1 $(ARGS)
+		silice-make.sh --no_program -s ../fire-v/spark.si -b icebreaker -p basic,spiflash -o BUILD_$(subst :,_,$@) -D WARMBOOT=1 $(ARGS)
 		cp BUILD_spram_test/build.bin bin/bootloader.bin
 		icemulti bin/bootloader.bin -o bin/multi.bin
 		cp bin/multi.bin bin/header.bin
@@ -28,7 +28,7 @@ bram_test: ../fire-v/spark.si
 		make -C bram_fill
 		make -C bram_show
 		./compile.sh
-		silice-make.py --no_program -s ../fire-v/spark.si -b icebreaker -p basic,spiflash -o BUILD_$(subst :,_,$@) -D WARMBOOT=1 $(ARGS)
+		silice-make.sh --no_program -s ../fire-v/spark.si -b icebreaker -p basic,spiflash -o BUILD_$(subst :,_,$@) -D WARMBOOT=1 $(ARGS)
 		cp BUILD_bram_test/build.bin bin/bootloader.bin
 		icemulti bin/bootloader.bin -o bin/multi.bin
 		cp bin/multi.bin bin/header.bin

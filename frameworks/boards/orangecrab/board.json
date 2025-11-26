@@ -10,6 +10,11 @@
       ],
       "builders": [
         {
+          "builder" : "shell",
+          "command" : "orangecrab.sh",
+          "description": "Custom shell scripts using yosys and nextpnr"
+        },
+        {
           "builder" : "edalize",
           "description": "Build using Edalize",
           "tool": "trellis",
@@ -30,11 +35,6 @@
             {"cmd" : "dfu-suffix", "args" : "-v 1209 -p 5af0 -a build.dfu"},
             {"cmd" : "dfu-util", "args" : "-D build.dfu"}
           ]
-        },
-        {
-          "builder" : "shell",
-          "command" : "orangecrab.sh",
-          "description": "Custom shell scripts using yosys and nextpnr"
         }
       ]
     }
