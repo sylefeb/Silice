@@ -31,6 +31,11 @@
       ],
       "builders": [
         {
+          "builder" : "shell",
+          "command" : "musbx.sh",
+          "description": "Custom shell scripts using yosys and nextpnr"
+        },
+        {
           "name": "edalize",
           "builder" : "edalize",
           "description": "Build using Edalize",

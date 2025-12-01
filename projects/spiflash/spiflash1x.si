@@ -137,7 +137,7 @@ unit spiflash_rom_core(
     io1    <:> sf_io1,
   );
 
-  uint11 wait(0);
+  uint4  wait(0);
   uint4  four(0);
   uint3  stage(0);
   uint3  after(1);
@@ -170,7 +170,7 @@ $$if ICARUS then
         // this is necessary for icarus as init is otherwise 1bz
         spiflash.trigger = reset ? 0 : spiflash.trigger;
 $$end
-        stage = wait[10,1] ? after : 0; // counts up to 1024 and goes to after
+        stage = wait[3,1] ? after : 0; // counts up to 8 and goes to after
         wait  = wait + 1;
       }
       case 1: { accept_in = 1; }
@@ -182,7 +182,7 @@ $$end
         spiflash.send           = sendvec[24,8];
         sendvec                 = sendvec << 8;
         stage                   = 0; // wait
-        wait                    = 1022; //_ 4 cycles
+        wait                    = 6; //_ 4 cycles
         after                   = four[0,1] ? 3 : 2;
         four                    = four >> 1;
       }
@@ -193,10 +193,10 @@ $$end
         // send dummy
 $$if ULX3S then
         $$error('TODO: adjust delays')
-        wait                    = 1023; //_ 3 cycles
+        wait                    = 7; //_ 3 cycles
 $$else
-        wait                    = init[0,1] ? 1019 : 1021;
-        //                                    ^^^^
+        wait                    = init[0,1] ? 3 : 5;
+        //                                    ^
         //                         init needs a longer delay
 $$end
 
@@ -207,9 +207,9 @@ $$end
         stage                   = 0; // wait
 $$if ULX3S then
         $$error('TODO: adjust delays')
-        wait                    = 1021;
+        wait                    = 5;
 $$else
-        wait                    = 1020; //_ 6 cycles (one extra due to registered ios)
+        wait                    = 4; //_ 6 cycles (one extra due to registered ios)
 $$end
         after                   = 5;
       }
@@ -224,7 +224,7 @@ $$end
         spiflash.trigger        = continue;
         busy                    = continue;
         init                    = {1b0,init[1,1]};
-        wait                    = 1022; //_ 4 cycles
+        wait                    = 6; //_ 4 cycles
         // return to start stage if no further reads, otherwise wait and ...
         stage                   = ~continue ? 1 : 0;
         after                   = 5; // ... keep reading
