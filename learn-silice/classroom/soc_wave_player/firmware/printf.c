@@ -50,6 +50,7 @@ int printf(const char *fmt,...)
       fmt++;
       if (*fmt=='s')      print_string(va_arg(ap,char *));
       else if (*fmt=='x') print_hex(va_arg(ap,int));
+      else if (*fmt=='b') print_hex_digits(((unsigned int)(va_arg(ap,int))),2);
       else if (*fmt=='d') print_dec(va_arg(ap,int));
       else if (*fmt=='c') f_putchar(va_arg(ap,int));
       else                f_putchar(*fmt);

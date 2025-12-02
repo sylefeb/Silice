@@ -103,7 +103,8 @@ algorithm sdcard(
   //uint48 acmd41 = 48b011010010100000000000000000000000000000011111111;
   //uint48 acmd41 = 48b01 101001 0 1 0 1 000 0 0000000000000000 00000000 11111111;
 
-  uint48 acmd41 = 48b011010010100000000000000000000000000000011111111;
+  //uint48 acmd41 = 48b011010010100000000000000000000000000000011111111;
+  uint48 acmd41   = 48b011010010100000000011000000000000000000000011001;
   //uint48 acmd41 = 48b011010010100000011111111100000000000000011111111;
 
   uint48 cmd16  = 48b010100000000000000000000000000100000000000010101;
@@ -191,6 +192,7 @@ algorithm sdcard(
   uint8 wait(1);
   while (1) {
     //debug = wait;
+    sd_csn = 0;
     wait  = {wait[0,1],wait[1,7]};
     () <- send <- (cmd55);
     (status) <- read <- (8,1,255, 16hffff);
@@ -198,18 +200,19 @@ algorithm sdcard(
     //debug  = status;
     () <- send <- (acmd41);
     (status) <- read <- (8,1,255, 16hffff);
+    sd_csn = 1;
     debug = status;
     if (status[0,8] == 0) {
       break;
     }
     // while (1) {} //////////////////////////
     // ponder
-    sd_csn = 1;
     () <- send <- (48hffffffffffff);
-    sd_csn = 0;
     // pause
     count = 1; while (count != 0) { count = count + 1; }
   }
+
+  sd_csn = 0;
   debug = 8b00001111;
 
   () <- send <- (cmd16);

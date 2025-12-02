@@ -22,18 +22,23 @@ void main()
   oled_init();
   oled_fullscreen();
   oled_clear(0);
+  display_set_cursor(0,0);
+  display_set_front_back_color(0,255);
+  printf("    ===== files =====    \n\n");
+  display_refresh();
   // init sdcard
   sdcard_init();
   // initialise File IO Library
   fl_init();
+  *LEDS = 0xDB;
+  int iter = 0;
   // attach media access functions to library
   while (fl_attach_media(sdcard_readsector, sdcard_writesector) != FAT_INIT_OK) {
     // keep trying, we need this
+    *LEDS = ++iter;
   }
+  *LEDS = 0x81;
   // header
-  display_set_cursor(0,0);
-  display_set_front_back_color(0,255);
-  printf("    ===== files =====    \n\n");
   display_refresh();
   display_set_front_back_color(255,0);
   // list files (see fl_listdirectory if at_io_lib/src/fat_filelib.c)

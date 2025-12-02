@@ -14,6 +14,10 @@
 
 void main()
 {
+  int inc_per_cycle = (1<<24) / 56818;
+  //                            ^ num cycles for 440 Hz
+  *SNDGEN = (inc_per_cycle << 8) | 255;
+  /*
   int i=0;
   // get current cycle
   unsigned int last_tm = rdcycle();
@@ -28,7 +32,7 @@ void main()
     // check elapsed time
     int elapsed = rdcycle() - last_tm; // NOTE: beware of 2^32 wrap around on rdcycle
     if (elapsed > period) {
-      // increment sample (sawtooth wave)
+      // increment sample (triangle wave)
       ++i;
       // change period progressively
       if (period >= period_max) { dir = -1; }
@@ -38,5 +42,5 @@ void main()
       last_tm = rdcycle();
     }
   }
-
+  */
 }
