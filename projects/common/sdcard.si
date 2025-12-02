@@ -31,6 +31,7 @@ algorithm sdcard(
   output  uint1  sd_mosi,
   output  uint1  sd_csn,
   input   uint1  sd_miso,
+  output  uint8  debug,
   // read io
   sdcardio_ctrl  io,
   // storage
@@ -65,15 +66,18 @@ algorithm sdcard(
     input  uint1    wait,
     output uint40   answer,
     input  uint8    rate,
+    input  uint16   timeout,
     readwrites      sd_clk,
     writes          sd_mosi,
     reads           sd_miso
   ) {
     uint16 count = 0;
-    uint6  n     = 0;
+    uint16 n     = 0;
+    sd_mosi      = 1;
     answer       = 40hffffffffff;
     while ( // will only stop on sd_clk == 0
-      (wait && answer[len-1,1]) || ((!wait) && n < len)
+      ((wait && answer[len-1,1]) || ((!wait) && n < len))
+        && (n != timeout)
     ) { // read answer
       if ((count&rate) == rate) { // swap clock
         sd_clk  = ~sd_clk;
@@ -91,7 +95,17 @@ algorithm sdcard(
   uint48 cmd0   = 48b010000000000000000000000000000000000000010010101;
   uint48 cmd8   = 48b010010000000000000000000000000011010101010000111;
   uint48 cmd55  = 48b011101110000000000000000000000000000000000000001;
-  uint48 acmd41 = 48b011010010100000000000000000000000000000000000001;
+
+  // uint48 acmd41 = 48b011010010100000000000000000000000000000000000000;
+  // uint48 acmd41 = 48b011010010100000000010000000000000000000011111101;
+
+  //uint48 acmd41 = 48b011010010101000000000000000000000000000011111111;
+  //uint48 acmd41 = 48b011010010100000000000000000000000000000011111111;
+  //uint48 acmd41 = 48b01 101001 0 1 0 1 000 0 0000000000000000 00000000 11111111;
+
+  uint48 acmd41 = 48b011010010100000000000000000000000000000011111111;
+  //uint48 acmd41 = 48b011010010100000011111111100000000000000011111111;
+
   uint48 cmd16  = 48b010100000000000000000000000000100000000000010101;
   uint48 cmd17  = 48b010100010000000000000000000000000000000001010101;
   //                 01ccccccaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaarrrrrrr1
@@ -113,15 +127,18 @@ algorithm sdcard(
 
   sd_mosi = 1;
   sd_csn  = 1;
-  sd_clk  = 0;
+  sd_clk  = 1;
 
+  debug = 8b10101010;
   // wait 2 msec (power up), @50 MHz
   count = 0;
-  while (count < 100000) { count = count + 1; }
+  while (count < 500000) { count = count + 1; }
+
+  debug = 8b10000001;
 
   // request SPI mode
   count   = 0;
-  while (count < $2*256*80$) { // 74+ clock pulses @~400 kHz (assumes 50 MHz clock)
+  while (count < $2*256*80 *2 $) { // 74+ clock pulses @~400 kHz (assumes 50 MHz clock)
     if ((count&255) == 255) {
       sd_clk = ~sd_clk;
     }
@@ -131,25 +148,72 @@ algorithm sdcard(
   sd_csn         = 0;
   store.addr1    = 0;
 
-  // init
-  () <- send <- (cmd0);
-  (status) <- read <- (8,1,255);
+  // () <- send <- (48hffffffffffff);
 
-  () <- send <- (cmd8);
-  (status) <- read <- (40,1,255);
+  // init
 
   while (1) {
+
+    debug = 8b11000011;
+    () <- send <- (cmd0);
+    (status) <- read <- (8,1,255, $8*100$);
+    if (status[0,8] == 8h01) {
+      debug = 8b11100111;
+      break;
+    }
+    sd_csn = 1;
+    () <- send <- (48hffffffffffff);
+    debug = 8b00111100;
+    count = 1; while (count != 0) { count = count + 1; }
+    sd_csn = 0;
+  }
+
+  // ponder
+  sd_csn = 1;
+  () <- send <- (48hffffffffffff);
+  sd_csn = 0;
+
+  () <- send <- (cmd8);
+  (status) <- read <- (40,1,255, 16hffff);
+  debug = status; // checked: ok
+
+  while (status[0,8] != 8haa) { debug = 8b10011001; } // ERROR
+
+  // ponder
+  sd_csn = 1;
+  () <- send <- (48hffffffffffff);
+  sd_csn = 0;
+
+// while (1) {} ///////////////////
+
+  debug = 8b11011011;
+
+  uint8 wait(1);
+  while (1) {
+    //debug = wait;
+    wait  = {wait[0,1],wait[1,7]};
     () <- send <- (cmd55);
-    (status) <- read <- (8,1,255);
+    (status) <- read <- (8,1,255, 16hffff);
+    while (status[0,8] != 8h01) { debug = status[0,8] | 128; } // ERROR
+    //debug  = status;
     () <- send <- (acmd41);
-    (status) <- read <- (8,1,255);
+    (status) <- read <- (8,1,255, 16hffff);
+    debug = status;
     if (status[0,8] == 0) {
       break;
     }
+    // while (1) {} //////////////////////////
+    // ponder
+    sd_csn = 1;
+    () <- send <- (48hffffffffffff);
+    sd_csn = 0;
+    // pause
+    count = 1; while (count != 0) { count = count + 1; }
   }
+  debug = 8b00001111;
 
   () <- send <- (cmd16);
-  (status) <- read <- (8,1,255);
+  (status) <- read <- (8,1,255, 16hffff);
 
   io.ready = 1;
 
@@ -162,21 +226,21 @@ algorithm sdcard(
       // read some!
       () <- send <- ({cmd17[40,8],do_addr_sector,cmd17[0,8]});
 
-      (status) <- read <- (8,1,3); // response
+      (status) <- read <- (8,1,3, 16hffff); // response
 
       if (status[0,8] == 8h00) {
         uint9 progress = 0;
 
-        (status) <- read <- (1,1,3); // start token
+        (status) <- read <- (1,1,3, 16hffff); // start token
 
         store.addr1 = io.offset;
-        (store.wdata1) <- read <- (8,0,3); // bytes
+        (store.wdata1) <- read <- (8,0,3, 16hffff); // bytes
         while (progress < 511) {
-          (store.wdata1) <- read <- (8,0,3); // bytes
+          (store.wdata1) <- read <- (8,0,3, 16hffff); // bytes
           store.addr1 = store.addr1 + 1;
           progress    = progress + 1;
         }
-        (status) <- read <- (16,1,3); // CRC
+        (status) <- read <- (16,1,3, 16hffff); // CRC
 
         io.ready = 1;
 
