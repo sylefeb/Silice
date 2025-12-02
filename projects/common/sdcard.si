@@ -31,6 +31,7 @@ algorithm sdcard(
   output  uint1  sd_mosi,
   output  uint1  sd_csn,
   input   uint1  sd_miso,
+  output  uint8  debug,
   // read io
   sdcardio_ctrl  io,
   // storage
@@ -91,7 +92,13 @@ algorithm sdcard(
   uint48 cmd0   = 48b010000000000000000000000000000000000000010010101;
   uint48 cmd8   = 48b010010000000000000000000000000011010101010000111;
   uint48 cmd55  = 48b011101110000000000000000000000000000000000000001;
-  uint48 acmd41 = 48b011010010100000000000000000000000000000000000001;
+
+  // uint48 acmd41 = 48b011010010100000000000000000000000000000000000000;
+  // uint48 acmd41 = 48b011010010100000000010000000000000000000011111101;
+
+  uint48 acmd41 = 48b011010010101000000000000000000000000000011111111;
+  // uint48 acmd41 = 48b01 101001 0 1 0 1 000 0 0000000000000000 00000000 11111111;
+
   uint48 cmd16  = 48b010100000000000000000000000000100000000000010101;
   uint48 cmd17  = 48b010100010000000000000000000000000000000001010101;
   //                 01ccccccaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaarrrrrrr1
@@ -113,15 +120,18 @@ algorithm sdcard(
 
   sd_mosi = 1;
   sd_csn  = 1;
-  sd_clk  = 0;
+  sd_clk  = 1;
 
+  debug = 8b10101010;
   // wait 2 msec (power up), @50 MHz
   count = 0;
-  while (count < 100000) { count = count + 1; }
+  while (count < 500000) { count = count + 1; }
+
+  debug = 8b10000001;
 
   // request SPI mode
   count   = 0;
-  while (count < $2*256*80$) { // 74+ clock pulses @~400 kHz (assumes 50 MHz clock)
+  while (count < $2*256*80 *2 $) { // 74+ clock pulses @~400 kHz (assumes 50 MHz clock)
     if ((count&255) == 255) {
       sd_clk = ~sd_clk;
     }
@@ -131,22 +141,60 @@ algorithm sdcard(
   sd_csn         = 0;
   store.addr1    = 0;
 
-  // init
-  () <- send <- (cmd0);
-  (status) <- read <- (8,1,255);
+  () <- send <- (48hffffffffffff);
 
+  // init
+  debug = 128;
+
+  uint8 i = 0;
+  while (i < 64) {
+
+    () <- send <- (cmd0);
+    (status) <- read <- (8,0,255);
+    () <- send <- (48hffffffffffff);
+    count = 0; while (count < (1<<20)) { count = count + 1; }
+
+    i = i + 1;
+
+  }
+
+  debug = 8b11110000;
   () <- send <- (cmd8);
   (status) <- read <- (40,1,255);
+  // debug = status; // checked: ok
 
   while (1) {
+    //debug = 4;
     () <- send <- (cmd55);
-    (status) <- read <- (8,1,255);
+    (status) <- read <- (8,1,255);  // checked: ok
+    debug  = status;
+    count  = 0;
+    sd_csn = 1;
+    while (count < 16) {
+      () <- send <- (48hffffffffffff);
+      count = count + 1;
+    }
+    sd_csn = 0;
     () <- send <- (acmd41);
+    /*
+    count = 0;
+    while (count < 1024) {
+      (status) <- read <- (8,0,255);
+      if (status[0,8] == 0) {
+        break;
+      }
+      count = count + 1;
+    }
+    */
     (status) <- read <- (8,1,255);
+    if (status != 255) {
+      debug = status;
+    }
     if (status[0,8] == 0) {
       break;
     }
   }
+  debug = 8b00001111;
 
   () <- send <- (cmd16);
   (status) <- read <- (8,1,255);
