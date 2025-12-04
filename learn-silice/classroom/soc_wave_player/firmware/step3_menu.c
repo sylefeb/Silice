@@ -10,13 +10,13 @@
 
 #define N_ITEMS 5
 
-  const char *items[N_ITEMS] = {
-    "the sound of silence",
-    "sunday bloody sunday",
-    "envole-moi",
-    "boys don't cry",
-    "blouson noir",
-  };
+const char *items[N_ITEMS] = {
+  "the sound of silence",
+  "sunday bloody sunday",
+  "envole-moi",
+  "boys don't cry",
+  "blouson noir",
+};
 
 void main()
 {

@@ -252,7 +252,9 @@ To improve sound quality we implement a hardware audio PWM ([see here for the pr
 Somewhat surprisingly I got best results with the PWM using a single bit of the DAC, considering all 8 sample bits as fractional part.
 
 Implementing the PWM does not require a lot of code ; the solution should
-take only a few lines. Tip: all that is needed is a counter and a comparison.
+take only a few lines.
+
+> Tip: all that is needed is a counter and a comparison.
 
 ### Final
 
@@ -271,6 +273,16 @@ Prepare the file using `./encode_music.sh <file.mp3>`, this generates a file
 `music.raw` in the expected format (uncompressed wave file, PCM mono **unsigned** 8 bits at 8KHz).
 
 > **Note:** ffmpeg has to be installed for the script to work.
+
+### Execution size in RAM
+
+The following comand `size firmware/code.elf` will return the executable size information. The `dec` column gives the size in bytes. By default the design allocates 64KB of RAM (remember the stack grows top-bottom, if it overlaps the code or bss section, firmware *will* crash).
+
+### Configure the board in a non-volatile manner
+
+Use the following command:
+
+```openFPGALoader -f -b ulx3s BUILD_<step>/build.bit```
 
 ## Credits
 
