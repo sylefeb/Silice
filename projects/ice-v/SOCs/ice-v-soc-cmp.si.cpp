@@ -124,6 +124,21 @@ void cpu_retires(int id,unsigned int pc,unsigned int instr,
 		}
 		exit (-1);
 	}
+#if 0
+  // DEBUG output each retired instruction
+  if (id == 1) {
+    fprintf(stderr,"[%4d|%8s] @%03x %08x",cycles,cpu_names[id-1],pc,instr);
+    if (instr == 0x0000006f) {
+      exit (-1); // ret
+    }
+    if (rd != 0) {
+      fprintf(stderr," reg[%2d]=%08x",rd,val);
+    } else {
+      fprintf(stderr,"                 ");
+    }
+    fprintf(stderr,"\n");
+  }
+#endif
 	t_retired_instr ri;
 	ri.pc = pc;    ri.instr = instr;
 	ri.rd = rd&31; ri.val   = val;
@@ -146,6 +161,13 @@ int cpu_reinstr(int id)
 void cpu_putc(int id,int c)
 {
   cpu_stdout[id-1] += (char)c;
+}
+
+// --------------------------------------------------
+
+double sc_time_stamp()
+{
+  return cycles;
 }
 
 // --------------------------------------------------

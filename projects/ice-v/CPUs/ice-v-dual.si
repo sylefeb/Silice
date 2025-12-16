@@ -65,7 +65,7 @@ unit execute(
   output uint3  op,    output uint5  write_rd, output  uint1  no_rd,
   output uint1  jump,  output uint1  load,     output  uint1  store,
   output int32  val,   output uint1  storeVal, output  uint1  working(0),
-  output uint$addrW+2$ n,     output uint1  storeAddr, // next address adder
+  output uint$addrW+3$ n,     output uint1  storeAddr, // next address adder
   output uint1  intop, output int32  r,         // integer operations
 $$if ICEV_USERDATA then
   input  uint32 user_data
@@ -311,9 +311,10 @@ $$if SIMULATION then
   uint32 cycle(0);
 $$end
 
+  int32 sext_n <: {{$32-(addrW+2)${exec.n[$addrW+2$,1]}},exec.n[0,$addrW+2$]};
   // what do we write in register? (pc, alu, val or load)
   int32 write_back <: (exec.jump      ? (pc_plus1<<2)       : 32b0)
-                    | (exec.storeAddr ? exec.n[0,$addrW+2$] : 32b0)
+                    | (exec.storeAddr ? sext_n              : 32b0)
                     | (exec.storeVal  ? exec.val            : 32b0)
                     | (exec.load      ? loaded              : 32b0)
                     | (exec.intop     ? exec.r              : 32b0);

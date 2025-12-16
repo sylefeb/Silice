@@ -16,4 +16,4 @@ $ARCH-gcc -DICEBREAKER_SWIRL -fstack-reuse=none -fno-builtin -O3 -fno-stack-prot
 
 $ARCH-objcopy -O verilog $DST/code.elf $DST/code.hex
 
-$ARCH-objdump.exe -drwCS $DST/code.elf > $DST/disasm.txt
+$ARCH-objdump.exe -drwCS $DST/code.elf > $DST/code.s

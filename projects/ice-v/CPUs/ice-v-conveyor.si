@@ -192,8 +192,9 @@ $$end
                         } ) << exec.n[0,2];
       }
       // write back
+      int32 sext_n = {{$32-(addrW+2)${exec.n[$addrW+2$,1]}},exec.n[0,$addrW+2$]};
       write_back = (exec.jump      ? ((pc+1)<<2)         : 32b0)
-                 | (exec.storeAddr ? exec.n[0,$addrW+2$] : 32b0)
+                 | (exec.storeAddr ? sext_n              : 32b0)
                  | (exec.storeVal  ? exec.val            : 32b0)
                  | (exec.intop     ? exec.r              : 32b0);
       // status from decoder to trickle down the pipeline
@@ -234,7 +235,7 @@ $$if ICEV_VERILATOR_TRACE then
       // this is used by SOCs/ice-v-cmp, to track retired instr. and compare CPUs
       if (instr_done) {
 				__verilog("$c32(\"cpu_retires(2,\",%,\",\",%,\",\",%,\",\",%,\");\");",
-          pc<<2,instr,Rtype(instr).rd,xregsA.wdata1);
+          pc<<2,instr,xregsA.wenable1?Rtype(instr).rd:0,xregsA.wdata1);
 			}
 $$end
 $$if TRACE_conveyor then
@@ -312,7 +313,7 @@ unit decode_and_ALU_conveyor(
   output uint3  op,       output uint5  write_rd, output  uint1  no_rd,
   output uint1  jump,     output uint1  load,     output  uint1  store,
   output int32  val,      output uint1  storeVal, output  uint1  working(0),
-  output uint$addrW+2$ n, output uint1  storeAddr, // next address adder
+  output int$addrW+3$ n,  output uint1  storeAddr, // next address adder
   output uint1  intop,    output int32  r,         // integer operations
 ) {
   uint5  shamt(0);  uint24 cycle(0); // shifter status and cycle counter
@@ -349,9 +350,9 @@ unit decode_and_ALU_conveyor(
 
   // ==== select immediate for the next address computation
   // 'or trick' from femtorv32
-  int$addrW+3$ addr_imm  <: (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
-                  |  (branch ? imm_b : 32b0) | ((JALR|load) ? imm_i : 32b0)
-                  |  (store  ? imm_s : 32b0);
+  int$addrW+3$ addr_imm <: (AUIPC  ? imm_u : 32b0) | (JAL         ? imm_j : 32b0)
+                        |  (branch ? imm_b : 32b0) | ((JALR|load) ? imm_i : 32b0)
+                        |  (store  ? imm_s : 32b0);
   // ==== set decoder outputs depending on incoming instructions
   // load/store?
   load         := opcode == 5b00000;   store        := opcode == 5b01000;
