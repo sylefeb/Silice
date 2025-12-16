@@ -34,6 +34,8 @@ void display_set_front_back_color(unsigned char f,unsigned char b)
   back_color = b;
 }
 
+#define min(a,b) ((a)<(b)?(a):(b))
+
 void display_putchar(int c)
 {
   if (c == 10) {
@@ -46,8 +48,10 @@ void display_putchar(int c)
     return;
   }
   if (c >= 32) {
-    for (int j=0;j<8;j++) {
-      for (int i=0;i<5;i++) {
+    int sz_j = min( 128-cursor_y, 8 );
+    int sz_i = min( 128-cursor_x, 5 );
+    for (int j=0;j<sz_j;j++) {
+      for (int i=0;i<sz_i;i++) {
         framebuffer[ (cursor_y + j) + ((cursor_x+i)<<7) ]
             = (font[c-32][i] & (1<<j)) ? front_color : back_color;
       }

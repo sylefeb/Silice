@@ -13,6 +13,7 @@ then
 fi
 
 # -------------- install packages ----------------------------
+pacman -S --noconfirm --needed git
 pacman -S --noconfirm --needed unzip
 pacman -S --noconfirm --needed wget
 pacman -S --noconfirm --needed make

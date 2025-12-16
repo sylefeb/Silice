@@ -291,8 +291,7 @@ algorithm main(
 
   }
 
-  always_after
-  {
+  always_after {
     leds = sd.debug;
   }
 

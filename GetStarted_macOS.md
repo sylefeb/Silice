@@ -23,8 +23,8 @@ make -j16 install
 
 (the Java jre/jdk is only used during compilation)
 
-### Optional : 
-add the following line to your .zprofile file : 
+### Optional :
+add the following line to your .zprofile file :
 
 ```
 export PATH="/path/to/Silice/bin:$PATH
@@ -52,24 +52,30 @@ Yosys, icestorm, trellis, nextpnr, verilator are not difficult to compile and in
 - [Verilator](https://github.com/verilator/verilator)
 
 
-Note that trellis and icestorm have to be compiled and installed before nextpnr (please refer to the NextPNR setup instructions). 
+Note that trellis and icestorm have to be compiled and installed before nextpnr (please refer to the NextPNR setup instructions).
 
 These tools take a bit of time to compile, but is worth doing as they constantly improve.
 
 ### Use homebrew
 
-To install those package, type following commands : 
+To install those package, type following commands :
 
 ```
 brew tap ktemkin/oss-fpga
-brew install --HEAD icestorm yosys nextpnr-ice40 project-trellis nextpnr-trellis verilator icarus-verilog 
+brew install --HEAD icestorm yosys nextpnr-ice40 project-trellis nextpnr-trellis verilator icarus-verilog
 ```
 
 To install gtkwave checkout this git [gtkwave](https://ughe.github.io/2018/11/06/gtkwave-osx) for detailled instruction
 
 ### Use compiled binaries
 
-Checkout the [fpga-toolchain project](https://github.com/open-tool-forge/fpga-toolchain) as they provide nightly builds of many tools for multiple platforms. 
+Checkout the [fpga-toolchain project](https://github.com/open-tool-forge/fpga-toolchain) as they provide nightly builds of many tools for multiple platforms.
+
+### Get the RiscV tool chain
+```
+  brew tap riscv-software-src/riscv
+  brew install riscv-tools
+```
 
 ## Testing
 

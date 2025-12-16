@@ -418,7 +418,7 @@ $$if Solution_HWFBUFFER then
       frame_buffer.wenable1 = framebuffer_access;
       fb_enabled            = fb_enabled | framebuffer_access;
       frame_buffer.addr1    = {prev_mem_addr[0,12],which}; //addr from CPU (32bits)
-      uint8 clr = prev_wdata[{which,3b000},8]; // get 8 bit channel value
+      uint8 clr   = prev_wdata >> {which,3b0}; // get 8 bit channel value
       frame_buffer.wdata1   = {2b00,clr[2,6]}; // remap to 6 bits per channel
 $$end
     }

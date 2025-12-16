@@ -17,6 +17,9 @@ http://chlazza.nfshost.com/sdcardinfo.html
 #include "config.h"
 #include "std.h"
 
+//#include "printf.h"
+//#include "display.h"
+
 const unsigned char cmd0[]   = {0x40,0x00,0x00,0x00,0x00,0x95};
 const unsigned char cmd8[]   = {0x48,0x00,0x00,0x01,0xAA,0x87};
 const unsigned char cmd55[]  = {0x77,0x00,0x00,0x00,0x00,0x01};
@@ -35,7 +38,7 @@ void sdcard_select()
 
 // Keep the clock running a bit
 //   unclear whether this is really important https://electronics.stackexchange.com/questions/303745/sd-card-initialization-problem-cmd8-wrong-response
-void sdcard_ponder()
+__attribute__((optimize("O0"))) void sdcard_ponder()
 {
   int clk = 0;
   for (int i = 0; i < 16 ; i++) {
@@ -56,7 +59,7 @@ void sdcard_unselect()
     *SDCARD     = (mosi<<1) | clk;\
     clk         = 1-clk;
 
-void sdcard_send(int indata)
+__attribute__((optimize("O0"))) void sdcard_send(int indata)
 {
   int clk  = 0;
   int mosi = 0;
@@ -82,7 +85,7 @@ void sdcard_send(int indata)
     *SDCARD     = 3;\
     n ++;
 
-unsigned char sdcard_read(unsigned char in_len,unsigned char in_wait)
+__attribute__((optimize("O0"))) unsigned char sdcard_read(unsigned char in_len,unsigned char in_wait)
 {
     int wait = in_wait;
     int len  = in_len;
@@ -97,7 +100,7 @@ unsigned char sdcard_read(unsigned char in_len,unsigned char in_wait)
     return answer;
 }
 
-unsigned char sdcard_get(unsigned char len,unsigned char wait)
+__attribute__((optimize("O0"))) unsigned char sdcard_get(unsigned char len,unsigned char wait)
 {
     unsigned char status;
     sdcard_select();
@@ -106,10 +109,11 @@ unsigned char sdcard_get(unsigned char len,unsigned char wait)
         status = sdcard_read(8,0);
     }
     sdcard_unselect();
+    // sdcard_ponder();
     return status;
 }
 
-void sdcard_cmd(const unsigned char *cmd)
+__attribute__((optimize("O0"))) void sdcard_cmd(const unsigned char *cmd)
 {
     sdcard_select();
     for (int i=0;i<6;i++) {
@@ -118,7 +122,7 @@ void sdcard_cmd(const unsigned char *cmd)
     sdcard_unselect();
 }
 
-unsigned char sdcard_start_sector(int sector)
+__attribute__((optimize("O0"))) unsigned char sdcard_start_sector(int sector)
 {
     sdcard_select();
     sdcard_send(cmd17[0]);
@@ -128,12 +132,17 @@ unsigned char sdcard_start_sector(int sector)
     sdcard_send((sector    )&255);
     sdcard_send(cmd17[5]);
     sdcard_unselect();
+    sdcard_ponder();
     return sdcard_get(8,1);
 }
 
-unsigned char *sdcard_read_sector(int sector,unsigned char *dst)
+__attribute__((optimize("O0"))) unsigned char *sdcard_read_sector(int sector,unsigned char *dst)
 {
   unsigned char status = sdcard_start_sector(sector);
+  //display_set_cursor(0,0);
+  //printf("cmd17: %x\n",status);
+  //display_refresh();
+  //while (status != 0) { *LEDS = status; }
   if (status != 0) {
     return dst;
   } else {
@@ -141,13 +150,20 @@ unsigned char *sdcard_read_sector(int sector,unsigned char *dst)
     for (int i=0;i<512;i++) {
       unsigned char by = sdcard_get(8,0);
       *(dst++)         = by;
+      //if (i < 8) {
+      //  printf("%b ",by);
+      //}
     }
-    sdcard_get(16,1); // CRC
+    int crc = sdcard_get(16,0); // CRC
+    sdcard_unselect();
+    sdcard_ponder();
+    //printf("crc: %x\n",crc);
+    //display_refresh();
   }
   return dst;
 }
 
-void sdcard_preinit()
+__attribute__((optimize("O0"))) void sdcard_preinit()
 {
   *SDCARD = 4 | 2;
   pause(20000000);
@@ -161,37 +177,53 @@ void sdcard_preinit()
   *SDCARD = 4 | 2;
 }
 
-void sdcard_init()
+__attribute__((optimize("O0"))) void sdcard_init()
 {
   unsigned char status;
   sdcard_while_loading_callback = sdcard_idle;
+  //*LEDS = 0xAA;
   while (1) {
     sdcard_preinit();
     sdcard_cmd(cmd0);
     status = sdcard_get(8,1);
+    //printf("cmd0: %x\n",status);
+    //display_refresh();
     sdcard_ponder();
     if (status != 0xff) {
         break;
     }
     pause(20000000);
   }
+  //*LEDS = 0x55;
   sdcard_cmd(cmd8);
   status = sdcard_get(40,1);
   sdcard_ponder();
   while (1) {
     sdcard_cmd(cmd55);
-    sdcard_get(8,1);
+    status = sdcard_get(8,1);
+    //printf("cmd55: %x\n",status);
+    //display_refresh();
     sdcard_ponder();
     sdcard_cmd(acmd41);
     status = sdcard_get(8,1);
+    //printf("acmd41: %x\n",status);
+    //display_refresh();
+    //*LEDS = status;
     sdcard_ponder();
     if (status == 0) {
       break;
     }
+    sdcard_unselect();
+    sdcard_ponder();
     pause(2000000);
+    sdcard_select();
   }
+  //*LEDS = 0xC3;
   sdcard_cmd(cmd16);
-  sdcard_get(8,1);
+  status = sdcard_get(8,1);
+  //printf("cmd16: %x\n",status);
+  //display_refresh();
+  //while (status != 0) { *LEDS = status; }
   sdcard_ponder();
 }
 
