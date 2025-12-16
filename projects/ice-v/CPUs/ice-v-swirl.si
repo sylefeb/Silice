@@ -194,7 +194,7 @@ $$end
     { // ==== stage 1 ==========================================================
 $$if DEBUG_swirl then
 if (debug_on) {
-      __display("[1] cycle:%d reset:%b stall_cpu:%b refetch:%b refetch_addr:%x refetching:%b pc:%x",cycle,reset,stall_cpu,refetch,refetch_addr<<2,refetching,pc<<2);
+      __display("[1] cycle:%d reset:%b stall_cpu:%b refetch:%b refetch_addr:%x refetching:%b pc:%x",cycle,reset,stall_cpu,refetch,refetch_addr<<2,refetching,{pc,2b00});
       __display("[1] cycle:%d imem.addr:%x imem.rdata:%x dmem.addr:%x dmem.rdata:%x",cycle,imem.addr<<2,imem.rdata,dmem.addr<<2,dmem.rdata);
 }
 $$end
@@ -228,9 +228,9 @@ $$if DEBUG_swirl then
 if (debug_on) {
       if (~stall_cpu | on_stall) {
         __display("[1] cycle:%d instr: %x @%x (bubble:%b reset:%b refetch:%b hold:%b stall_cpu:%b alu_busy:%b rs1 %d rs2 %d)",
-          cycle,instr,pc<<2,bubble,reset,refetch,hold,stall_cpu,exec.working,xregsA.addr0,xregsB.addr0);
+          cycle,instr,{pc,2b00},bubble,reset,refetch,hold,stall_cpu,exec.working,xregsA.addr0,xregsB.addr0);
         if (bpred) {
-          __display("[1] pc @%x following branch to @%x",pc<<2,imem.addr<<2);
+          __display("[1] pc @%x following branch to @%x",{pc,2b00},imem.addr<<2);
         }
       }
 }
@@ -308,7 +308,7 @@ $$end
 $$if DEBUG_swirl then
 if (debug_on) {
       if (~stall_cpu | on_stall) {
-        __display("[2] instr: %x @%x (bubble:%b bpred:%b) rA(%d):%x rB(%d):%x",instr,pc<<2,bubble,bpred,Rtype(instr).rs1,xregsA.rdata0,Rtype(instr).rs2,xregsB.rdata0);
+        __display("[2] instr: %x @%x (bubble:%b bpred:%b) rA(%d):%x rB(%d):%x",instr,{pc,2b00},bubble,bpred,Rtype(instr).rs1,xregsA.rdata0,Rtype(instr).rs2,xregsB.rdata0);
       }
 }
 $$end
@@ -379,7 +379,7 @@ $$end
 $$if DEBUG_swirl then
 if (debug_on) {
       if (~stall_cpu | on_stall) {
-        __display("[3] instr: %x @%x (bubble:%b bpred:%b exec.r:%d)",instr,pc<<2,bubble,bpred,exec.r);
+        __display("[3] instr: %x @%x (bubble:%b bpred:%b exec.r:%d)",instr,{pc,2b00},bubble,bpred,exec.r);
       }
 }
 $$end
@@ -407,7 +407,7 @@ $$end
 $$if DEBUG_swirl then
 if (debug_on) {
       if (~stall_cpu | on_stall) {
-        __display("[4] instr: %x @%x (bubble:%b bpred:%b alu_r:%d)",instr,pc<<2,bubble,bpred,alu_r);
+        __display("[4] instr: %x @%x (bubble:%b bpred:%b alu_r:%d)",instr,{pc,2b00},bubble,bpred,alu_r);
       }
 }
 $$end
@@ -440,7 +440,7 @@ $$if SIMULATION then
       // check for unaligned loads (unsupported)
       if ((load|store) & ~bubble & ~jumping
         & (op[0,2]==2b10) & (alu_n[0,2] != 2b00)) {
-        __display("[cycle %d] ERROR @%h %h, unaligned access (%b) @%h",cycle,pc<<2,instr,store,alu_n);
+        __display("[cycle %d] ERROR @%h %h, unaligned access (%b) @%h",cycle,{pc,2b00},instr,store,alu_n);
         __finish();
       }
 $$end
@@ -473,16 +473,16 @@ $$if ICEV_VERILATOR_TRACE then
       // this is used by SOCs/ice-v-cmp, to track retired instr. and compare CPUs
       if (instr_done) {
 				__verilog("$c32(\"cpu_retires(3,\",%,\",\",%,\",\",%,\",\",%,\");\");",
-          pc<<2,instr,xregsA.wenable1?Rtype(instr).rd:0,xregsA.wdata1);
+          {pc,2b00},instr,xregsA.wenable1?Rtype(instr).rd:0,xregsA.wdata1);
 			}
 $$end
 $$if DEBUG_swirl then
 if (debug_on) {
     if (~stall_cpu | on_stall) {
-      __display("[5] instr: %x @%x (bubble:%b jump:%b bpred:%b load:%b alu_r:%d) nretired:%d",instr,pc<<2,bubble,jump,bpred,load,alu_r,nretired);
+      __display("[5] instr: %x @%x (bubble:%b jump:%b bpred:%b load:%b alu_r:%d) nretired:%d",instr,{pc,2b00},bubble,jump,bpred,load,alu_r,nretired);
       if (instr_done) {
         __display("[5] ++++ %x (@%x) jump %b, wreg:[%d]=%x (%b) nretired:%d",
-          instr,pc<<2,jump,Rtype(instr).rd,xregsA.wdata1,xregsA.wenable1,nretired);
+          instr,{pc,2b00},jump,Rtype(instr).rd,xregsA.wdata1,xregsA.wenable1,nretired);
       }
     }
     if (xregsA.wenable1) {
@@ -498,7 +498,7 @@ $$end
 $$if TRACE_swirl then
     if (trace_on) {
       if (instr_done) {
-        __write("@%h %h ",pc<<2,instr);
+        __write("@%h %h ",{pc,2b00},instr);
         last_cycle = cycle;
         if (xregsA.wenable1) {
           __display("x[%d]=%h",xregsA.addr1,xregsA.wdata1);
@@ -537,7 +537,7 @@ $$if DEBUG_swirl then
 if (debug_on) {
       if (~stall_cpu | on_stall) {
         if (bpred & ~refetch) {
-          __display("[5] pc @%x branch predicted towards @%x (jump %b)",pc<<2,alu_n,jump);
+          __display("[5] pc @%x branch predicted towards @%x (jump %b)",{pc,2b00},alu_n,jump);
         }
         if (refetch) {
           __display("[5] REFETCH to @%x (stall_cpu %b jump %b bpred %b)",refetch_addr<<2,stall_cpu,jump,bpred);
@@ -584,11 +584,11 @@ $$end
     xregsB.addr1    = xregsA.addr1;
 $$if SIMULATION then
     if (xregsA_conflict_possible & xa_regR & ~stage2_bubble) {
-      __display("[cycle %d] ERROR reading from a written register (A) @%h",cycle,pc<<2);
+      __display("[cycle %d] ERROR reading from a written register (A) @%h",cycle,{pc,2b00});
       __finish();
     }
     if (xregsB_conflict_possible & xb_regR & ~stage2_bubble & has_rs2) {
-      __display("[cycle %d] ERROR reading from a written register (B) @%h",cycle,pc<<2);
+      __display("[cycle %d] ERROR reading from a written register (B) @%h",cycle,{pc,2b00});
       __finish();
     }
 $$end
@@ -664,7 +664,7 @@ $$if ICEV_MULDIV then
   div32 div<reginputs>;
 $$end
   // ==== select next address adder first input
-  int$addrW+3$ addr_a <: pcOrReg ? __signed({1b0,pc[0,$addrW-1$],2b0}) : xa;
+  int$addrW+3$ addr_a <: pcOrReg ? __signed({1b0,pc,2b0}) : xa;
   // ==== select ALU second input
   int32 b             <: regOrImm ? (xb) : imm_i;
   // ==== allows to do subtraction and all comparisons with a single adder

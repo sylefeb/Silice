@@ -8,6 +8,7 @@ MEMORY
 }
 
 SECTIONS {
+
     /* The program code and other data goes into ROM, mapped in a first BRAM */
     .text :
     {

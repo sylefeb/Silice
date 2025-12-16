@@ -117,7 +117,7 @@ void cpu_retires(int id,unsigned int pc,unsigned int instr,
                         unsigned int rd,unsigned int val)
 {
 	if (instr == 0 && id == 1) {
-		fprintf(stderr,"null instruction from cpu %d: halting",id);
+		fprintf(stderr,"null instruction from cpu %d @%03x: halting",id,pc);
 		for (int i=0;i<3;++i) {
 			fprintf(stderr,"\n<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< CPU %d >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>",1+i);
 			fprintf(stderr,"%s\n",cpu_stdout[i].c_str());

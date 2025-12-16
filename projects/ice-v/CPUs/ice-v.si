@@ -56,7 +56,7 @@ unit execute(
     uint1 sub       = IntReg  & Rtype(instr).sign;         // subtract
     uint1 aluShift  = (IntImm | IntReg) & op[0,2] == 2b01; // shift requested
     // ==== select next address adder first input
-    int32 addr_a    = pcOrReg ? __signed({1b0,pc[0,$addrW-2$],2b0}) : xa;
+    int32 addr_a    = pcOrReg ? __signed({1b0,pc,2b0}) : xa;
     // ==== select ALU second input
     int32 b         = regOrImm ? (xb) : imm_i;
     // ==== allows to do subtraction and all comparisons with a single adder
@@ -224,7 +224,7 @@ unit rv32i_cpu(bram_port mem) {
 $$if ICEV_VERILATOR_TRACE then
           // this is used by SOCs/ice-v-cmp, to track retired instr. and compare CPUs
 					__verilog("$c32(\"cpu_retires(1,\",%,\",\",%,\",\",%,\",\",%,\");\");",
-                    pc<<2,instr,xregsA.wenable?exec.write_rd:0,write_back);
+                    {pc,2b00},instr,xregsA.wenable?exec.write_rd:0,write_back);
 $$end
           break;
           //  instruction read from BRAM and write to register
@@ -241,7 +241,7 @@ $$end
 $$if ICEV_VERILATOR_TRACE then
           // this is used by SOCs/ice-v-cmp, to track retired instr. and compare CPUs
 					__verilog("$c32(\"cpu_retires(1,\",%,\",\",%,\",\",%,\",\",%,\");\");",
-                    pc<<2,instr,xregsA.wenable?exec.write_rd:0,write_back);
+                    {pc,2b00},instr,xregsA.wenable?exec.write_rd:0,write_back);
 $$end
             break;
             //  instruction read from BRAM and write to register

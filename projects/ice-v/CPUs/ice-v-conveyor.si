@@ -143,7 +143,7 @@ $$end
       // flag register being written
       written_regs_ins = {31b0,has_rd & ~bubble} << Rtype(rom.rdata).rd;
 $$if DEBUG_conveyor then
-      __display("[1] instr: %x @%x (bubble:%b refetch:%b alu:%b alu_was:%b)",instr,pc<<2,bubble,refetch,exec.working,alu_was_working);
+      __display("[1] instr: %x @%x (bubble:%b refetch:%b alu:%b alu_was:%b)",instr,{pc,2b00},bubble,refetch,exec.working,alu_was_working);
 $$end
       // remember ALU was just busy
       alu_was_working vv= exec.working ? 3b100 : (alu_was_working>>1);
@@ -157,7 +157,7 @@ $$end
       // give instruction, pc and registers to decoder+ALU
       instr        = bubble ? exec.instr : instr;
 $$if DEBUG_conveyor then
-      __display("[2] instr: %x @%x (bubble:%b)",instr,pc<<2,bubble);
+      __display("[2] instr: %x @%x (bubble:%b)",instr,{pc,2b00},bubble);
 $$end
 $$if SIMULATION then
       // for correct PC display, otherwise not required
@@ -176,7 +176,7 @@ $$end
       // start a bubble on refectch or ALU busy, resume when ALU stops being busy
       bubble   = (bubble & ~alu_was_working[2,1]) | refetch | exec.working;
 $$if DEBUG_conveyor then
-      __display("[3] instr: %x @%x (bubble:%b)",instr,pc<<2,bubble);
+      __display("[3] instr: %x @%x (bubble:%b)",instr,{pc,2b00},bubble);
 $$end
       // memory address from which to load/store
       mem.addr = (exec.n >> 2);
@@ -222,10 +222,10 @@ $$end
       xregsA.wdata1    = load ? loaded : write_back;
 $$if DEBUG_conveyor then
       __display("[4] instr: %x @%x (bubble:%b refetch:%b), loaded:%x, alu_n:%x",
-          instr,pc<<2,bubble,refetch,loaded,alu_n);
+          instr,{pc,2b00},bubble,refetch,loaded,alu_n);
       if (~bubble & ~refetch) {
         __display("[4] ++++ %x (@%x) jump %b, wreg:[%d]=%x (%b)",
-          instr,pc<<2,jump,Rtype(instr).rd,xregsA.wdata1,xregsA.wenable1);
+          instr,{pc,2b00},jump,Rtype(instr).rd,xregsA.wdata1,xregsA.wenable1);
       }
 $$end
 $$if SIMULATION then
@@ -235,7 +235,7 @@ $$if ICEV_VERILATOR_TRACE then
       // this is used by SOCs/ice-v-cmp, to track retired instr. and compare CPUs
       if (instr_done) {
 				__verilog("$c32(\"cpu_retires(2,\",%,\",\",%,\",\",%,\",\",%,\");\");",
-          pc<<2,instr,xregsA.wenable1?Rtype(instr).rd:0,xregsA.wdata1);
+          {pc,2b00},instr,xregsA.wenable1?Rtype(instr).rd:0,xregsA.wdata1);
 			}
 $$end
 $$if TRACE_conveyor then
@@ -244,7 +244,7 @@ $$if TRACE_conveyor then
     }
     if (trace_on) {
       if (instr_done) {
-        __write("@%h %h ",pc<<2,instr);
+        __write("@%h %h ",{pc,2b00},instr);
         if (xregsA.wenable1) {
           __display("x[%d]=%h",Rtype(instr).rd,xregsA.wdata1);
         } else {
@@ -337,7 +337,7 @@ unit decode_and_ALU_conveyor(
   uint1 aluShift  <: (IntImm | IntReg) & op[0,2] == 2b01; // shift requested
 
   // ==== select next address adder first input
-  int$addrW+3$ addr_a    <: pcOrReg ? __signed({1b0,pc[0,$addrW-2$],2b0}) : xa;
+  int$addrW+3$ addr_a    <: pcOrReg ? __signed({1b0,pc,2b0}) : xa;
   // ==== select ALU second input
   int32 b         <: regOrImm ? (xb) : imm_i;
 

@@ -64,6 +64,7 @@ for str in string.gmatch(code, "([^ \r\n]+)") do
         end
         out:write(string.pack('B', 0 ))
       end
+      written = addr
     end
   else
     h32 = str .. h32
@@ -93,7 +94,7 @@ code_size_bytes = numwords * 4
 print('code size: ' .. numwords .. ' 32bits words ('
       .. code_size_bytes .. ' bytes)')
 data_size_bytes = datanumwords * 4
-print('dara size: ' .. datanumwords .. ' 32bits words ('
+print('data size: ' .. datanumwords .. ' 32bits words ('
       .. data_size_bytes .. ' bytes)')
 meminit  = meminit  .. 'pad(0)}'
 datainit = datainit .. 'pad(0)}'
