@@ -90,7 +90,7 @@ step7.si : hardware/main.si
 	python3 ../tools/solutions.py -i hardware/main.si -s LED,AUDIO,SCREEN,BTN,SD,STREAM,HWFBUFFER > $@
 
 final: final.si
-	make -C firmware $(FIRMWARE)
+	make -C firmware $(FIRMWARE) DEFINES="-DHWFBUFFER"
 ifeq ($(BOARD),verilator)
 	silice-make.sh -s $@.si -b $(BOARD) -p basic,oled -o BUILD_$(subst :,_,$@) $(ARGS)
 else
