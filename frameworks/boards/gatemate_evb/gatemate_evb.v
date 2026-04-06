@@ -40,6 +40,22 @@ $$config['allow_deprecated_framework'] = 'no'
 // pin.NAME = <WIDTH>
 $$pin.leds       = 8
 $$pin.btns       = 1
+$$pin.p1_1       = 1
+$$pin.p1_2       = 1
+$$pin.p1_3       = 1
+$$pin.p1_4       = 1
+$$pin.p1_7       = 1
+$$pin.p1_8       = 1
+$$pin.p1_9       = 1
+$$pin.p1_10      = 1
+$$pin.p2_1       = 1
+$$pin.p2_2       = 1
+$$pin.p2_3       = 1
+$$pin.p2_4       = 1
+$$pin.p2_7       = 1
+$$pin.p2_8       = 1
+$$pin.p2_9       = 1
+$$pin.p2_10      = 1
 
 module top(
   %TOP_SIGNATURE%

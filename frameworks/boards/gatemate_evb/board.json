@@ -5,7 +5,8 @@
       "name"      : "configurable",
       "framework" : "gatemate_evb.v",
       "pins"      : [
-        {"set"    : "basic"}
+        {"set"    : "basic"},
+        {"set"    : "vga", "define" : "VGA=1"}
       ],
       "builders": [
         {

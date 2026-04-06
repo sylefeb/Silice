@@ -61,6 +61,16 @@ import('../common/plls/ecpix5_25.v')
 $$end
 $$end
 
+$$if GATEMATE_EVB then
+import('../common/plls/gatemate_evb_25.v')
+$$color_depth  = 6
+$$pin.video_r  = {pin.p1_4,pin.p1_3,pin.p1_2,pin.p1_1,0,0}
+$$pin.video_g  = {pin.p2_4,pin.p2_3,pin.p2_2,pin.p2_1,0,0}
+$$pin.video_b  = {pin.p1_10,pin.p1_9,pin.p1_8,pin.p1_7,0,0}
+$$pin.video_hs = {pin.p2_7}
+$$pin.video_vs = {pin.p2_8}
+$$end
+
 // VGA driver
 $include('../common/vga.si')
 
@@ -207,6 +217,14 @@ $$elseif ECPIX5 then
     clkin    <: clock,
     clkout0  :> video_clock,
     locked   :> pll_lock
+  );
+$$elseif GATEMATE_EVB then
+  // --- clock
+  uint1 pll_lock = 0;
+  pll clk_gen(
+    clock_in  <: clock,
+    clock_out :> video_clock,
+    locked    :> pll_lock
   );
 $$end
   // --- video reset
