@@ -1,0 +1,19 @@
+{
+  "name": "musbx",
+  "variants": [
+    {
+      "name"      : "configurable",
+      "framework" : "gatemate_evb.v",
+      "pins"      : [
+        {"set"    : "basic"}
+      ],
+      "builders": [
+        {
+          "builder" : "shell",
+          "command" : "gatemate_evb.sh",
+          "description": "Custom shell scripts using yosys and nextpnr"
+        }
+      ]
+    }
+  ]
+}

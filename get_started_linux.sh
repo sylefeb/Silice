@@ -45,9 +45,9 @@ fi
 rm -rf ./BUILD
 
 # -------------- retrieve oss-cad-suite package --------------
-OSS_CAD_MONTH=09
-OSS_CAD_DAY=13
-OSS_CAD_YEAR=2025
+OSS_CAD_MONTH=04
+OSS_CAD_DAY=05
+OSS_CAD_YEAR=2026
 OSS_PACKAGE=oss-cad-suite-linux-x64-$OSS_CAD_YEAR$OSS_CAD_MONTH$OSS_CAD_DAY.tgz
 
 echo "Downloading and installing oss-cad-suite ..."

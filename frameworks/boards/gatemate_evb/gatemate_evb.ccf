@@ -1,0 +1,60 @@
+# GateMate A1 Evaluation Board
+
+# --- Clock ---
+# 10 MHz onboard oscillator (Western Bank)
+Pin_in  "clk"       Loc = "IO_SB_A8" | SCHMITT_TRIGGER=true;
+
+# --- LEDs ---
+Pin_out "leds[0]"    Loc = "IO_EB_B1";
+Pin_out "leds[1]"    Loc = "IO_EB_B2";
+Pin_out "leds[2]"    Loc = "IO_EB_B3";
+Pin_out "leds[3]"    Loc = "IO_EB_B4";
+Pin_out "leds[4]"    Loc = "IO_EB_B5";
+Pin_out "leds[5]"    Loc = "IO_EB_B6";
+Pin_out "leds[6]"    Loc = "IO_EB_B7";
+Pin_out "leds[7]"    Loc = "IO_EB_B8";
+
+# --- User Button ---
+Pin_in  "btns"       Loc = "IO_EB_B0";
+
+# --- SPI flash ---
+Pin_out "SPIFLASH_CLK"   Loc = "IO_WA_B8" | DRIVE=9;
+Pin_out "SPIFLASH_CS_N"  Loc = "IO_WA_A8";
+Pin_out "SPIFLASH_MOSI"  Loc = "IO_WA_B7";
+Pin_in  "SPIFLASH_MISO"  Loc = "IO_WA_A7";
+
+# --- PMOD 1 (J17A) ---
+Pin_inout  "p1_1"      Loc = "IO_NB_A0";
+Pin_inout  "p1_2"      Loc = "IO_NB_A1";
+Pin_inout  "p1_3"      Loc = "IO_NB_A2";
+Pin_inout  "p1_4"      Loc = "IO_NB_A3";
+Pin_inout  "p1_7"      Loc = "IO_NB_B0";
+Pin_inout  "p1_8"      Loc = "IO_NB_B1";
+Pin_inout  "p1_9"      Loc = "IO_NB_B2";
+Pin_inout  "p1_10"     Loc = "IO_NB_B3";
+
+# --- PMOD 2 (J17B) ---
+Pin_inout  "p2_1"      Loc = "IO_NB_A4";
+Pin_inout  "p2_2"      Loc = "IO_NB_A5";
+Pin_inout  "p2_3"      Loc = "IO_NB_A6";
+Pin_inout  "p2_4"      Loc = "IO_NB_A7";
+Pin_inout  "p2_7"      Loc = "IO_NB_B4";
+Pin_inout  "p2_8"      Loc = "IO_NB_B5";
+Pin_inout  "p2_9"      Loc = "IO_NB_B6";
+Pin_inout  "p2_10"     Loc = "IO_NB_B7";
+
+# --- HyperRAM ---
+Pin_inout  "hr_dq[0]"  Loc = "IO_WB_A5";
+Pin_inout  "hr_dq[1]"  Loc = "IO_WB_B5";
+Pin_inout  "hr_dq[2]"  Loc = "IO_WB_A6";
+Pin_inout  "hr_dq[3]"  Loc = "IO_WB_B6";
+Pin_inout  "hr_dq[4]"  Loc = "IO_WB_A7";
+Pin_inout  "hr_dq[5]"  Loc = "IO_WB_B7";
+Pin_inout  "hr_dq[6]"  Loc = "IO_WB_A8";
+Pin_inout  "hr_dq[7]"  Loc = "IO_WB_B8";
+
+Pin_inout  "hr_rwds"   Loc = "IO_WB_B4";
+Pin_out "hr_rst_n"  Loc = "IO_WB_A2";
+Pin_out "hr_cs_n"   Loc = "IO_WB_B0";
+Pin_out "hr_ck_p"   Loc = "IO_WB_A3";
+Pin_out "hr_ck_n"   Loc = "IO_WB_B3";

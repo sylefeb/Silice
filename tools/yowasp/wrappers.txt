@@ -5,6 +5,7 @@ sby
 nextpnr-ice40
 nextpnr-ecp5
 nextpnr-himbaechel-gowin
+nextpnr-himbaechel-gatemate
 ecpbram
 ecpmulti
 ecppack
@@ -15,3 +16,5 @@ icemulti
 icepack
 icepll
 iceunpack
+gmpack
+gmunpack
