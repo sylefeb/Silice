@@ -70,11 +70,16 @@ assign run_main = 1'b1;
 
 %WIRE_DECL%
 
+wire [7:0] leds_n;
+`define __alias_leds leds_n
+
 M_main __main(
   .clock         (clk),
   .reset         (/*RST_q[0]*/1'b0),
    %MAIN_GLUE%
   .in_run        (run_main)
 );
+
+assign leds = ~leds_n;
 
 endmodule

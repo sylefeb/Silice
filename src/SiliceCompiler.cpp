@@ -611,11 +611,15 @@ std::string SiliceCompiler::verilogMainGlue(const std::map<std::string, e_PortTy
 {
   std::string glue;
   for (const auto& P : used_ports) {
+    std::string prefix;
     switch (P.second) {
-    case Input:  glue += ".in_"; break;
-    case Output: glue += ".out_"; break;
-    case InOut:  glue += ".inout_"; break;
+    case Input:  prefix = ".in_"; break;
+    case Output: prefix = ".out_"; break;
+    case InOut:  prefix = ".inout_"; break;
     }
+    glue += "`ifdef __alias_" + P.first + "\n";
+    glue += prefix + P.first + "(`__alias_" + P.first + "),\n";
+    glue += "`else\n";
     std::vector<std::pair<std::string,int> > pins;
     m_BodyContext->lpp->pinsUsedByIOPort(P.first, pins);
     sl_assert(!pins.empty()); // checked before
@@ -633,7 +637,8 @@ std::string SiliceCompiler::verilogMainGlue(const std::map<std::string, e_PortTy
     }
     bitvec  = bitvec.substr(0, bitvec.length() - 1); // remove last comma
     bitvec += "}";
-    glue += P.first + "(" + bitvec + "),\n";
+    glue += prefix + P.first + "(" + bitvec + "),\n";
+    glue += "`endif\n";
   }
   return glue;
 }
@@ -660,7 +665,7 @@ void SiliceCompiler::writeBody(const t_parsed_unit& parsed, std::ostream& _out, 
     if (g_SplitInouts) {
       _out << "`define SPLIT_INOUTS\n";
     }
-    // build the top module signature, verify in/out/inout match pins, verify no pin is used twise
+    // build the top module signature, verify in/out/inout match pins, verify no pin is used twice
     std::map<std::string, e_PortType> used_ports;
     std::map<std::string, e_PortType> used_pins;
     for (auto in : parsed.unit->inputs()) {
@@ -689,6 +694,13 @@ void SiliceCompiler::writeBody(const t_parsed_unit& parsed, std::ostream& _out, 
           wire_decl += "wire __unused_" + P.first + "_" + std::to_string(p) + ";\n";
         }
       }
+    }
+    // add a __using_<port> define for each used port
+    for (const auto& P : used_ports) {
+      std::vector<std::pair<std::string,int> > pins;
+      m_BodyContext->lpp->pinsUsedByIOPort(P.first, pins);
+      sl_assert(!pins.empty()); // checked before
+      _out << "`define __using_" << P.first << "\n";
     }
     // update framework
     VerilogTemplate frmwrk;
