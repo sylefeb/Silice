@@ -24,7 +24,7 @@ Pin_out "leds_n[6]"  Loc = "IO_EB_B7";
 Pin_out "leds_n[7]"  Loc = "IO_EB_B8";
 
 # --- User Button ---
-Pin_in  "btns"       Loc = "IO_EB_B0";
+Pin_in  "btns"       Loc = "IO_EB_B0" | PULLUP=true;
 
 # --- SPI flash ---
 Pin_out "SPIFLASH_CLK"   Loc = "IO_WA_B8" | DRIVE=9;

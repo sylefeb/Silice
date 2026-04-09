@@ -224,13 +224,16 @@ $$elseif GATEMATE_EVB then
   pll clk_gen(
     clock_in  <: clock,
     clock_out :> video_clock,
-    locked    :> pll_lock
+    locked    :> pll_lock,
+    reset     :> video_reset
   );
 $$end
+$$if not GATEMATE_EVB then
   // --- video reset
   clean_reset vga_rstcond<@video_clock,!reset> (
     out :> video_reset
   );
+$$end
 $$elseif not BARE then
   // --- simulation pll
   pll clockgen<@clock,!reset>(

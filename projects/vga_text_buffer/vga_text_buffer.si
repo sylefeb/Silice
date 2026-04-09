@@ -41,6 +41,17 @@ $$if HARDWARE then
 $include('../common/clean_reset.si')
 $$end
 
+$$if GATEMATE_EVB then
+import('../common/plls/gatemate_evb_25.v')
+$$color_depth  = 6
+$$color_max    = 63
+$$pin.video_r  = {pin.p1_4,pin.p1_3,pin.p1_2,pin.p1_1,0,0}
+$$pin.video_g  = {pin.p2_4,pin.p2_3,pin.p2_2,pin.p2_1,0,0}
+$$pin.video_b  = {pin.p1_10,pin.p1_9,pin.p1_8,pin.p1_7,0,0}
+$$pin.video_hs = {pin.p2_7}
+$$pin.video_vs = {pin.p2_8}
+$$end
+
 // -------------------------
 
 algorithm text_display(
@@ -97,7 +108,7 @@ $$end
   int12 rand_x = 0;
 
   // ---------- string
-  uint8  str[] = "   HELLO WORLD FROM FPGA#    THIS IS WRITTEN IN SILICE # MY LANGUAGE FOR FPGA DEVEL #FUN AND SIMPLE YET POWERFUL#   --- AVAILABLE ON GITHUB --- ##THIS WAS TESTED ON#-VERILATOR#-ICARUS VERILOG#-MOJO BOARD#-ICESTICK#-ICEBREAKER#-ULX3S#-DE10-NANO#-ECPIX-5#-RIEGEL";
+  uint8  str[] = "   HELLO WORLD FROM FPGA#    THIS IS WRITTEN IN SILICE # MY LANGUAGE FOR FPGA DEVEL #FUN AND SIMPLE YET POWERFUL#   --- AVAILABLE ON GITHUB --- ##THIS WAS TESTED ON#-VERILATOR#-ICARUS VERILOG#-MOJO BOARD#-ICESTICK#-ICEBREAKER#-ULX3S#-DE10-NANO#-ECPIX-5#-RIEGEL#-GATEMATE-EVB";
 
   // --------- print string
   subroutine print_string(
@@ -319,11 +330,22 @@ $$elseif ECPIX5 then
     clkout1  :> video_clock,
     locked   :> pll_lock
   );
+$$elseif GATEMATE_EVB then
+  // --- clock
+  uint1 pll_lock = 0;
+  pll clk_gen(
+    clock_in  <: clock,
+    clock_out :> video_clock,
+    locked    :> pll_lock,
+    reset     :> video_reset
+  );
 $$end
+$$if not GATEMATE_EVB then
   // --- video reset
   clean_reset vga_rstcond<@video_clock,!reset>(
     out :> video_reset
   );
+$$end
 $$end
 
   uint1  active = 0;

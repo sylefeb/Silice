@@ -65,6 +65,17 @@ import('../common/plls/ecpix5_25.v')
 $$end
 $$end
 
+$$if GATEMATE_EVB then
+import('../common/plls/gatemate_evb_25.v')
+$$color_depth  = 6
+$$color_max    = 63
+$$pin.video_r  = {pin.p1_4,pin.p1_3,pin.p1_2,pin.p1_1,0,0}
+$$pin.video_g  = {pin.p2_4,pin.p2_3,pin.p2_2,pin.p2_1,0,0}
+$$pin.video_b  = {pin.p1_10,pin.p1_9,pin.p1_8,pin.p1_7,0,0}
+$$pin.video_hs = {pin.p2_7}
+$$pin.video_vs = {pin.p2_8}
+$$end
+
 $$if HARDWARE then
 // Reset
 $include('../common/clean_reset.si')
@@ -97,9 +108,9 @@ algorithm main(
 $$if BUTTONS then
   input   uint$NUM_BTNS$    btns,
 $$end
-  output! uint$color_depth$ video_r,
-  output! uint$color_depth$ video_g,
-  output! uint$color_depth$ video_b,
+  output  uint$color_depth$ video_r,
+  output  uint$color_depth$ video_g,
+  output  uint$color_depth$ video_b,
   output  uint1             video_hs,
   output  uint1             video_vs,
 $$if SIMULATION or DE2 then
@@ -172,11 +183,22 @@ $$elseif ECPIX5 then
     clkout0  :> video_clock,
     locked   :> pll_lock
   );
+$$elseif GATEMATE_EVB then
+  // --- clock
+  uint1 pll_lock = 0;
+  pll clk_gen(
+    clock_in  <: clock,
+    clock_out :> video_clock,
+    locked    :> pll_lock,
+    reset     :> video_reset
+  );
 $$end
+$$if not GATEMATE_EVB then
   // --- video reset
   clean_reset vga_rstcond<@video_clock,!reset>(
     out   :> video_reset
   );
+$$end
 $$elseif not BARE then
   // --- simulation pll
   pll clockgen<@clock,!reset>(

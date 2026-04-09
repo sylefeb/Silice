@@ -22,5 +22,6 @@ fi
 pip install yowasp-yosys
 pip install yowasp-nextpnr-ice40
 pip install yowasp-nextpnr-ecp5
-pip install yowasp-nextpnr-himbaechel-gowin
 pip install yowasp-silice
+pip install yowasp-nextpnr-himbaechel-gowin
+pip install yowasp-nextpnr-himbaechel-gatemate
