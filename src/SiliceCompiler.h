@@ -59,10 +59,15 @@ namespace Silice {
 
   class SiliceCompiler
   {
-  private:
+  protected:
 
     std::unordered_map<std::string, AutoPtr<Blueprint> >               m_Blueprints;
     std::vector<std::string>                                           m_BlueprintsInDeclOrder;
+
+    friend class LuaPreProcessor;
+
+  private:
+
     std::unordered_map<std::string, siliceParser::SubroutineContext* > m_Subroutines;
     std::unordered_map<std::string, siliceParser::CircuitryContext* >  m_Circuitries;
     std::unordered_map<std::string, siliceParser::GroupContext* >      m_Groups;
@@ -97,7 +102,6 @@ namespace Silice {
     std::string verilogTopModuleSignature(const std::map<std::string, e_PortType>& used_pins);
     /// \brief prepare the top level main module glue
     std::string verilogMainGlue(const std::map<std::string, e_PortType>& used_ports);
-
 
   public:
 
@@ -150,7 +154,6 @@ namespace Silice {
 
     /// \brief returns the static blueprint for 'unit', otherwise null
     AutoPtr<Blueprint> isStaticBlueprint(std::string bpname);
-
 
     /// \brief returns all unit names
     void getUnitNames(std::unordered_set<std::string>& _units);

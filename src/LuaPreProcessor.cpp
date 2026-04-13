@@ -28,6 +28,8 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "ParsingContext.h"
 #include "Config.h"
 #include "Utils.h"
+#include "Module.h"
+#include "SiliceCompiler.h"
 // -------------------------------------------------
 
 #include <iostream>
@@ -104,9 +106,9 @@ static void load_config_from_lua(lua_State *L)
 
 // -------------------------------------------------
 
-LuaPreProcessor::LuaPreProcessor()
+LuaPreProcessor::LuaPreProcessor(SiliceCompiler *host)
 {
-
+  m_Host = host;
 }
 
 // -------------------------------------------------
@@ -775,6 +777,45 @@ int lua_clog2(int w)
 
 // -------------------------------------------------
 
+/// \brief Imports a string as a Verilog module, makes it available immediately to host
+void lua_import_module(lua_State *L, std::string vstr)
+{
+  auto P = g_LuaPreProcessors.find(L);
+  if (P == g_LuaPreProcessors.end()) {
+    lua_pushliteral(L, "[preprocessor] internal error");
+    lua_error(L);
+  }
+  LuaPreProcessor *lpp   = P->second;
+  // now save to a temporary file since this is required for parsing
+  string v_tempfile;
+  {
+    v_tempfile = Utils::tempFileName();
+    v_tempfile = v_tempfile + ".v";
+    ofstream codefile(v_tempfile);
+    // user provided code
+    codefile << vstr << endl;
+  }
+  // call preprocessor
+  lpp->importVerilogModule(v_tempfile.c_str());
+}
+
+void LuaPreProcessor::importVerilogModule(const char *fname)
+{
+  // parse module and add to host
+  if (!LibSL::System::File::exists(fname)) {
+    throw Fatal("cannot find module file '%s'", fname);
+  }
+  AutoPtr<Module> vmodule(new Module(std::string(fname)));
+  if (m_Host->m_Blueprints.find(std::string(fname)) != m_Host->m_Blueprints.end()) {
+    throw Fatal("an algorithm or module with the same name already exists!");
+  }
+  std::cerr << "parsing module " << vmodule->name() << nxl;
+  m_Host->m_Blueprints.insert(std::make_pair(vmodule->name(), vmodule));
+  m_Host->m_BlueprintsInDeclOrder.push_back(vmodule->name());
+}
+
+// -------------------------------------------------
+
 static void bindScript(lua_State *L)
 {
   luabind::open(L);
@@ -783,21 +824,22 @@ static void bindScript(lua_State *L)
 
   luabind::module(L)
     [
-      luabind::def("print", &lua_print),
-      luabind::def("error", &lua_preproc_error),
-      luabind::def("output", &lua_output),
-      luabind::def("dofile", &lua_dofile),
+      luabind::def("print",    &lua_print),
+      luabind::def("error",    &lua_preproc_error),
+      luabind::def("output",   &lua_output),
+      luabind::def("dofile",   &lua_dofile),
       luabind::def("findfile", &lua_findfile),
       luabind::def("write_image_in_table", &lua_write_image_in_table),
       luabind::def("write_image_in_table", &lua_write_image_in_table_simple),
       luabind::def("write_palette_in_table", &lua_write_palette_in_table),
       luabind::def("write_palette_in_table", &lua_write_palette_in_table_simple),
-      luabind::def("get_image_as_table", &lua_get_image_as_table),
-      luabind::def("get_image_as_table", &lua_get_image_as_table_simple),
+      luabind::def("get_image_as_table",   &lua_get_image_as_table),
+      luabind::def("get_image_as_table",   &lua_get_image_as_table_simple),
       luabind::def("get_palette_as_table", &lua_get_palette_as_table),
       luabind::def("get_palette_as_table", &lua_get_palette_as_table_simple),
-      luabind::def("save_table_as_image", &lua_save_table_as_image),
+      luabind::def("save_table_as_image",  &lua_save_table_as_image),
       luabind::def("save_table_as_image_with_palette", &lua_save_table_as_image_with_palette),
+      luabind::def("import_module",    &lua_import_module),
       luabind::def("clog2",         &lua_clog2),
       luabind::def("lshift",        &lua_lshift),
       luabind::def("rshift",        &lua_rshift),
@@ -805,6 +847,7 @@ static void bindScript(lua_State *L)
       luabind::def("signed",        &lua_signed),
       luabind::def("pin",           &lua_pin),
       luabind::def("pin",           &lua_pin_width)
+
     ];
 
   // install an index hook on _G

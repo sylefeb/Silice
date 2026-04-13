@@ -40,10 +40,14 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 struct lua_State;
 int    lua_pin_index(lua_State *L);
 int    lua_pin_newindex(lua_State *L);
+void   lua_import_module(lua_State *L, std::string vstr);
 
 // -------------------------------------------------
 
 namespace Silice {
+
+  /// \brief Forward declarations
+  class SiliceCompiler;
 
   // -------------------------------------------------
 
@@ -72,6 +76,7 @@ namespace Silice {
     std::string findFile(std::string path, std::string fname) const;
 
     lua_State                         *m_LuaState = nullptr;
+    SiliceCompiler                    *m_Host;
 
     std::map<int, std::pair<std::string, t_unit_loc> > m_Units;
     std::set<std::string>              m_FormalUnits;
@@ -96,22 +101,25 @@ namespace Silice {
     void addPin(const char *key, int value) { m_Pins.insert(std::make_pair(key, value)); }
     /// \brief adds a pin group (during framework parsing)
     void addPinGroup(const char *key, const std::vector<std::pair<std::string,int> >& pins) { m_PinGroups.insert(std::make_pair(key, pins)); }
+    /// \brief imports a Verilog module, makes it available immediately to host
+    void importVerilogModule(const char *fname);
 
     void createLuaContext();
     void destroyLuaContext();
     void executeLuaString(std::string lua_code, std::string dst_file, const Blueprint::t_instantiation_context& ictx);
 
-    friend int ::lua_pin_index(lua_State *L);
-    friend int ::lua_pin_newindex(lua_State *L);
+    friend int  ::lua_pin_index(lua_State *L);
+    friend int  ::lua_pin_newindex(lua_State *L);
+    friend void ::lua_import_module(lua_State *L, std::string vstr);
 
   public:
 
-    LuaPreProcessor();
+    LuaPreProcessor(SiliceCompiler *host);
     virtual ~LuaPreProcessor();
     /// \brief generates the body source code in file dst_file
-    void generateBody(std::string                               src_file, 
+    void generateBody(std::string                               src_file,
                       const std::vector<std::string>&           defaultLibraries,
-                      const Blueprint::t_instantiation_context& ictx, 
+                      const Blueprint::t_instantiation_context& ictx,
                       std::string lua_header_code, std::string  dst_file);
     /// \brief generates a unit IO source code (the part defining unit ios) in dst_file
     void generateUnitIOSource(std::string unit, std::string dst_file, const Blueprint::t_instantiation_context& ictx);

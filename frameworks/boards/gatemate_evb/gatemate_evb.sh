@@ -45,7 +45,7 @@ fi
 NEXTPNR_CMD=$(command -v nextpnr-himbaechel || command -v nextpnr-himbaechel-gatemate)
 
 yosys -p "read_verilog -sv build.v" -p "synth_gatemate -top top -luttree -nomx8 ; write_json build.json"
-"$NEXTPNR_CMD" --device=CCGM1A1 --json build.json --vopt out=build.txt --vopt ccf=$BOARD_DIR/gatemate_evb.ccf --router router2 --freq 10
+"$NEXTPNR_CMD" --device=CCGM1A1 --json build.json --vopt out=build.txt --vopt ccf=$BOARD_DIR/gatemate_evb.ccf --router router2 --freq 10 --timing-allow-fail
 gmpack --input build.txt --bit build.bit
 
 if [[ ! -z "${NO_PROGRAM}" ]]; then

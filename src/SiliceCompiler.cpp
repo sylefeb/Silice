@@ -381,7 +381,7 @@ void SiliceCompiler::beginParsing(
   CONFIG.keyValues()["libraries_path"] = frameworks_dir + "/libraries";
   CONFIG.keyValues()["allow_deprecated_framework"] = "yes"; /// TODO: enforce this next major version
   // create the preprocessor
-  AutoPtr<LuaPreProcessor> lpp(new LuaPreProcessor());
+  AutoPtr<LuaPreProcessor> lpp(new LuaPreProcessor(this));
   lpp->enableFilesReport(fresult + ".files.log");
   std::string preprocessed = std::string(fresult) + ".lpp";
   Algorithm::setLuaPreProcessor(lpp.raw());
