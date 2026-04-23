@@ -1048,12 +1048,7 @@ void Algorithm::getBindings(
         // check if this is a group binding
         if ((bindings->bpBinding()->BDEFINE() != nullptr || bindings->bpBinding()->BDEFINEDBL() != nullptr)) {
           // verify right is an identifier
-          std::string vio;
-          if (bindings->bpBinding()->right->IDENTIFIER() == nullptr) {
-            vio = determineAccessedVar(bindings->bpBinding()->right->access(), nullptr);
-          } else {
-            vio = bindings->bpBinding()->right->IDENTIFIER()->getText();
-          }
+          std::string vio = determineAccessedVar(bindings->bpBinding()->right, nullptr);
           // inout pins do not bind as groups
           if (!isInOut(vio)) {
             // check if this is a group
@@ -3017,13 +3012,13 @@ Algorithm::t_combinational_block* Algorithm::gatherCircuitryInst(
   getIdentifiers(ci->outs, outs_idents, _current, _context, _);
   // -> checks
   if (ins.size() != ins_idents.size()) {
-    reportError(sourceloc(ci->IDENTIFIER()), "Incorrect number of inputs in circuitry instanciation (circuitry '%s')", name.c_str());
+    reportError(sourceloc(ci->IDENTIFIER()), "Incorrect number of inputs in circuitry instantiation (circuitry '%s')", name.c_str());
   }
   if (outs.size() != outs_idents.size()) {
-    reportError(sourceloc(ci->IDENTIFIER()), "Incorrect number of outputs in circuitry instanciation (circuitry '%s')", name.c_str());
+    reportError(sourceloc(ci->IDENTIFIER()), "Incorrect number of outputs in circuitry instantiation (circuitry '%s')", name.c_str());
   }
   if (!_.empty()) {
-    reportError(sourceloc(_.front().second), "Circuitry outputs cannot be expressions in circuitry instanciation (circuitry '%s')", name.c_str());
+    reportError(sourceloc(_.front().second), "Circuitry outputs cannot be expressions in circuitry instantiation (circuitry '%s')", name.c_str());
   }
   // -> rewrite rules
   auto prev_rules = _current->context.vio_rewrites;
@@ -5316,6 +5311,15 @@ std::string Algorithm::bindingRightIdentifier(const t_binding_nfo& bnd, const t_
 
 // -------------------------------------------------
 
+std::string Algorithm::determineAccessedVar(siliceParser::IdOrAccessContext *idOrAccess, const t_combinational_block_context *bctx) const
+{
+  if (idOrAccess->IDENTIFIER() == nullptr) {
+    return determineAccessedVar(idOrAccess->access(), nullptr);
+  } else {
+    return idOrAccess->IDENTIFIER()->getText();
+  }
+}
+
 std::string Algorithm::determineAccessedVar(siliceParser::IoAccessContext* access,const t_combinational_block_context* bctx) const
 {
   std::string base = access->base->getText();
@@ -5437,18 +5441,13 @@ void Algorithm::determineVIOAccess(
       }
     }
   } else {
-    // track writes explicitely
+    // track writes explicitly
     bool recurse = true;
     {
       auto assign = dynamic_cast<siliceParser::AssignmentContext*>(node);
       if (assign) {
         // retrieve var
-        std::string var;
-        if (assign->access() != nullptr) {
-          var = determineAccessedVar(assign->access(), bctx);
-        } else {
-          var = assign->IDENTIFIER()->getText();
-        }
+        std::string var = determineAccessedVar(assign->idOrAccess(), bctx);
         // tag var as written
         if (!var.empty()) {
           var = translateVIOName(var, bctx);
@@ -5459,11 +5458,11 @@ void Algorithm::determineVIOAccess(
         // recurse on rhs expression
         determineVIOAccess(assign->expression_0(), vios, block, _read, _written);
         // recurse on lhs expression, if any
-        if (assign->access() != nullptr) {
-          if (assign->access()->tableAccess() != nullptr) {
-            determineVIOAccess(assign->access()->tableAccess()->expression_0(), vios, block, _read, _written);
-          } else if (assign->access()->partSelect() != nullptr) {
-            determineVIOAccess(assign->access()->partSelect()->expression_0(), vios, block, _read, _written);
+        if (assign->idOrAccess()->access() != nullptr) {
+          if (assign->idOrAccess()->access()->tableAccess() != nullptr) {
+            determineVIOAccess(assign->idOrAccess()->access()->tableAccess()->expression_0(), vios, block, _read, _written);
+          } else if (assign->idOrAccess()->access()->partSelect() != nullptr) {
+            determineVIOAccess(assign->idOrAccess()->access()->partSelect()->expression_0(), vios, block, _read, _written);
             /// NOTE: possible tag as a partial write, since this is a part select
           }
         }
@@ -5735,12 +5734,7 @@ void Algorithm::determinePipelineSpecificAssignments(
   auto assign = dynamic_cast<siliceParser::AssignmentContext *>(node);
   if (assign) {
       // retrieve var
-      std::string var;
-      if (assign->access() != nullptr) {
-        var = determineAccessedVar(assign->access(), bctx);
-      } else {
-        var = assign->IDENTIFIER()->getText();
-      }
+      std::string var = determineAccessedVar(assign->idOrAccess(), bctx);
       // tag var as written
       if (!var.empty()) {
         var = translateVIOName(var, bctx);
@@ -6630,7 +6624,7 @@ void Algorithm::checkExpressions(const t_instantiation_context &ictx,antlr4::tre
     linter.lint(expr, &_current->context);
   } else if (assign) {
     ExpressionLinter linter(this,ictx);
-    linter.lintAssignment(assign->access(),assign->IDENTIFIER(), assign->expression_0(), &_current->context);
+    linter.lintAssignment(assign->idOrAccess()->access(),assign->idOrAccess()->IDENTIFIER(), assign->expression_0(), &_current->context);
   } else if (alwasg) {
     ExpressionLinter linter(this,ictx);
     linter.lintAssignment(alwasg->access(), alwasg->IDENTIFIER(), alwasg->expression_0(), &_current->context);
@@ -8506,12 +8500,7 @@ void Algorithm::writeBlock(
       auto assign = dynamic_cast<siliceParser::AssignmentContext *>(a.instr);
       if (assign) {
         // retrieve var
-        string var;
-        if (assign->IDENTIFIER() != nullptr) {
-          var = assign->IDENTIFIER()->getText();
-        } else {
-          var = determineAccessedVar(assign->access(), &block->context);
-        }
+        string var = determineAccessedVar(assign->idOrAccess(), &block->context);
         var = translateVIOName(var, &block->context);
         // check if assigning to a wire
         if (m_VarNames.count(var) > 0) {
@@ -8520,7 +8509,7 @@ void Algorithm::writeBlock(
           }
         }
         // write
-        writeAssignement(prefix, w, a, assign->access(), assign->IDENTIFIER(), assign->expression_0(), &block->context, ictx, FF_Q, _dependencies, _usage);
+        writeAssignement(prefix, w, a, assign->idOrAccess()->access(), assign->idOrAccess()->IDENTIFIER(), assign->expression_0(), &block->context, ictx, FF_Q, _dependencies, _usage);
       }
     } {
       auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext *>(a.instr);

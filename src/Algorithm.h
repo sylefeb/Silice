@@ -982,6 +982,7 @@ private:
     /// \brief determine binding right identifier
     std::string bindingRightIdentifier(const t_binding_nfo& bnd, const t_combinational_block_context* bctx = nullptr) const;
     /// \brief determine accessed variable
+    std::string determineAccessedVar(siliceParser::IdOrAccessContext *access, const t_combinational_block_context *bctx) const;
     std::string determineAccessedVar(siliceParser::AccessContext* access, const t_combinational_block_context* bctx) const;
     std::string determineAccessedVar(siliceParser::IoAccessContext* access, const t_combinational_block_context* bctx) const;
     std::string determineAccessedVar(siliceParser::PartSelectContext* access, const t_combinational_block_context* bctx) const;

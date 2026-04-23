@@ -182,8 +182,8 @@ constValue          : minus='-'? NUMBER | SIZED_NUMBER | (WIDTHOF '(' base=IDENT
 
 value               : constValue | initBitfield ;
 
-sclock              :  '@' IDENTIFIER ;
-sreset              :  '!' IDENTIFIER ;
+sclock              :  '@' IDENTIFIER /*idOrAccess*/ ;
+sreset              :  '!' IDENTIFIER /*idOrAccess*/ ;
 sautorun            :  AUTORUN ;
 sonehot             :  ONEHOT ;
 sreginput           :  'reginputs' ;
@@ -340,13 +340,12 @@ partSelect          : (ioAccess | tableAccess | bitfieldAccess | IDENTIFIER) '['
 tableAccess         : (ioAccess | IDENTIFIER) '[' expression_0 ']' ;
 access              : (ioAccess | tableAccess | partSelect | bitfieldAccess) ;
 
-idOrIoAccess        : (ioAccess | IDENTIFIER) ;
 idOrAccess          : (  access | IDENTIFIER) ;
+idOrIoAccess        : (ioAccess | IDENTIFIER) ;
 
 /* -- Assignments -- */
 
-assignment          : IDENTIFIER  ('=' | ASSIGN_BACKWARD | ASSIGN_FORWARD | ASSIGN_AFTER) expression_0
-                    | access      ('=' | ASSIGN_BACKWARD | ASSIGN_FORWARD | ASSIGN_AFTER) expression_0 ;
+assignment          : idOrAccess  ('=' | ASSIGN_BACKWARD | ASSIGN_FORWARD | ASSIGN_AFTER) expression_0 ;
 
 alwaysAssigned      : IDENTIFIER   (ALWSASSIGN    | LDEFINE   ) expression_0
                     | access        ALWSASSIGN                  expression_0
