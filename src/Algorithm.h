@@ -1116,7 +1116,8 @@ private:
     /// \brief determines table access type/width
     t_type_nfo determineTableAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::TableAccessContext *tblaccess) const;
     /// \brief determines access type/width
-    t_type_nfo determineAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::AccessContext *access, antlr4::tree::TerminalNode *identifier) const;
+    t_type_nfo determineAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::IdOrAccessContext *idOraccess) const;
+    t_type_nfo determineAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::AccessContext *access) const;
     /// \brief determines access on a const bit range (returns -1,-1 if not applicable)
     v2i determineAccessConstBitRange(siliceParser::AccessContext *access, const t_combinational_block_context *bctx) const;
     v2i determineAccessConstBitRange(siliceParser::BitfieldAccessContext *access, const t_combinational_block_context *bctx, v2i range) const;
@@ -1142,8 +1143,7 @@ private:
     /// \brief writes an assignment
     void writeAssignement(std::string prefix, t_writer_context &w,
       const t_instr_nfo& a,
-      siliceParser::AccessContext *access,
-      antlr4::tree::TerminalNode* identifier,
+      siliceParser::IdOrAccessContext *idOrAccess,
       siliceParser::Expression_0Context *expression_0,
       const t_combinational_block_context *bctx, const t_instantiation_context &ictx,
       std::string ff, const t_vio_dependencies& dependencies, t_vio_usage &_usage) const;

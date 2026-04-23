@@ -587,10 +587,10 @@ void Algorithm::gatherDeclarationWire(siliceParser::DeclarationWireContext* wire
 {
   t_var_nfo nfo;
   // checks
-  if (wire->alwaysAssigned()->IDENTIFIER() == nullptr) {
+  if (wire->alwaysAssigned()->idOrAccess()->IDENTIFIER() == nullptr) {
     reportError(sourceloc(wire), "improper wire declaration, has to be an identifier");
   }
-  nfo.name = wire->alwaysAssigned()->IDENTIFIER()->getText();
+  nfo.name = wire->alwaysAssigned()->idOrAccess()->IDENTIFIER()->getText();
   nfo.table_size = 0;
   nfo.do_not_initialize = true;
   nfo.usage = e_Wire;
@@ -601,7 +601,7 @@ void Algorithm::gatherDeclarationWire(siliceParser::DeclarationWireContext* wire
     reportError(sourceloc(wire), "'sameas' wire declaration cannot be refering to a group or interface");
   }
   // add var
-  addVar(nfo, _current, sourceloc(wire, wire->alwaysAssigned()->IDENTIFIER()->getSourceInterval()));
+  addVar(nfo, _current, sourceloc(wire, wire->alwaysAssigned()->idOrAccess()->IDENTIFIER()->getSourceInterval()));
   // insert wire assignment
   _current->decltrackers.push_back(t_instr_nfo(wire->alwaysAssigned(), _current, -1));
   m_WireAssignmentNames .insert( make_pair(nfo.name, (int)m_WireAssignments.size()) );
@@ -3258,14 +3258,14 @@ void Algorithm::gatherAlwaysAssigned(siliceParser::AlwaysAssignedContext* alw, t
   always->instructions.push_back(t_instr_nfo(alw, always, -1));
   // check syntax
   if (alw->LDEFINE() != nullptr || alw->LDEFINEDBL() != nullptr) {
-    reportError(sourceloc(alw), "always assignement can only use := or ::=");
+    reportError(sourceloc(alw), "always assignment can only use := or ::=");
   }
   // check for double flip-flop
   if (alw->ALWSASSIGNDBL() != nullptr) {
     // insert variable
     t_var_nfo var;
     var.name = delayedName(alw);
-    t_type_nfo typenfo = determineAccessTypeAndWidth(nullptr, alw->access(), alw->IDENTIFIER());
+    t_type_nfo typenfo = determineAccessTypeAndWidth(nullptr, alw->idOrAccess());
     var.table_size = 0;
     var.type_nfo = typenfo;
     var.init_values.push_back("0");
@@ -4895,9 +4895,9 @@ void Algorithm::updateAndCheckDependencies(t_vio_dependencies& _depds, const t_v
     for (const auto &a : m_WireAssignments) {
       auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext *>(a.second.instr);
       sl_assert(alw != nullptr);
-      sl_assert(alw->IDENTIFIER() != nullptr);
+      sl_assert(alw->idOrAccess()->IDENTIFIER() != nullptr);
       // -> determine assigned var
-      string wire = translateVIOName(alw->IDENTIFIER()->getText(), &a.second.block->context);
+      string wire = translateVIOName(alw->idOrAccess()->IDENTIFIER()->getText(), &a.second.block->context);
       // -> does it depend on written var?
       if (_depds.dependencies.count(wire) > 0) {
         if (_depds.dependencies.at(wire).count(w) > 0) {
@@ -5472,12 +5472,7 @@ void Algorithm::determineVIOAccess(
       auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext*>(node);
       if (alw) {
         // retrieve var
-        std::string var;
-        if (alw->access() != nullptr) {
-          var = determineAccessedVar(alw->access(), bctx);
-        } else {
-          var = alw->IDENTIFIER()->getText();
-        }
+        std::string var = determineAccessedVar(alw->idOrAccess(), bctx);
         if (!var.empty()) {
           var = translateVIOName(var, bctx);
           if (vios.find(var) != vios.end()) {
@@ -5495,11 +5490,11 @@ void Algorithm::determineVIOAccess(
         // recurse on rhs expression
         determineVIOAccess(alw->expression_0(), vios, block, _read, _written);
         // recurse on lhs expression, if any
-        if (alw->access() != nullptr) {
-          if (alw->access()->tableAccess() != nullptr) {
-            determineVIOAccess(alw->access()->tableAccess()->expression_0(), vios, block, _read, _written);
-          } else if (alw->access()->partSelect() != nullptr) {
-            determineVIOAccess(alw->access()->partSelect()->expression_0(), vios, block, _read, _written);
+        if (alw->idOrAccess()->access() != nullptr) {
+          if (alw->idOrAccess()->access()->tableAccess() != nullptr) {
+            determineVIOAccess(alw->idOrAccess()->access()->tableAccess()->expression_0(), vios, block, _read, _written);
+          } else if (alw->idOrAccess()->access()->partSelect() != nullptr) {
+            determineVIOAccess(alw->idOrAccess()->access()->partSelect()->expression_0(), vios, block, _read, _written);
           }
         }
         recurse = false;
@@ -5954,8 +5949,8 @@ void Algorithm::determineAccessForWires(
       const auto &wa = m_WireAssignments[wai].second;
       auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext *>(wa.instr);
       sl_assert(alw != nullptr);
-      sl_assert(alw->IDENTIFIER() != nullptr);
-      string var = translateVIOName(alw->IDENTIFIER()->getText(), &wa.block->context);
+      sl_assert(alw->idOrAccess()->IDENTIFIER() != nullptr);
+      string var = translateVIOName(alw->idOrAccess()->IDENTIFIER()->getText(), &wa.block->context);
       if (var == v.name) { // found it
         all_wires.insert(make_pair(v.name, wa));
         if (v.access != e_NotAccessed) { // used in design
@@ -6337,7 +6332,7 @@ void Algorithm::determineBlueprintBoundVIO(const t_instantiation_context& ictx)
           } catch (...) {
             reportError(b.srcloc, "cannot determine width of inout '%s'", b.left.c_str());
           }
-          auto tw = determineAccessTypeAndWidth(nullptr, access, nullptr);
+          auto tw = determineAccessTypeAndWidth(nullptr, access);
           if (tw.width != iiow) {
             reportError(b.srcloc, "cannot bind to inout of different width");
           }
@@ -6624,10 +6619,10 @@ void Algorithm::checkExpressions(const t_instantiation_context &ictx,antlr4::tre
     linter.lint(expr, &_current->context);
   } else if (assign) {
     ExpressionLinter linter(this,ictx);
-    linter.lintAssignment(assign->idOrAccess()->access(),assign->idOrAccess()->IDENTIFIER(), assign->expression_0(), &_current->context);
+    linter.lintAssignment(assign->idOrAccess(), assign->expression_0(), &_current->context);
   } else if (alwasg) {
     ExpressionLinter linter(this,ictx);
-    linter.lintAssignment(alwasg->access(), alwasg->IDENTIFIER(), alwasg->expression_0(), &_current->context);
+    linter.lintAssignment(alwasg->idOrAccess(), alwasg->expression_0(), &_current->context);
   } else if (async) {
     if (async->callParamList()) {
       // find algorithm
@@ -7018,25 +7013,31 @@ t_type_nfo Algorithm::determineTableAccessTypeAndWidth(const t_combinational_blo
 
 // -------------------------------------------------
 
-t_type_nfo Algorithm::determineAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::AccessContext *access, antlr4::tree::TerminalNode *identifier) const
+t_type_nfo Algorithm::determineAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::IdOrAccessContext *idOraccess) const
 {
-  if (access) {
-    // table, output or bits
-    if (access->ioAccess() != nullptr) {
-      return determineIOAccessTypeAndWidth(bctx, access->ioAccess());
-    } else if (access->tableAccess() != nullptr) {
-      return determineTableAccessTypeAndWidth(bctx, access->tableAccess());
-    } else if (access->partSelect() != nullptr) {
-      return determinePartSelectTypeAndWidth(bctx, access->partSelect());
-    } else if (access->bitfieldAccess() != nullptr) {
-      return determineBitfieldAccessTypeAndWidth(bctx, access->bitfieldAccess());
-    }
-  } else if (identifier) {
+  if (idOraccess->access()) {
+    // access
+    return determineAccessTypeAndWidth(bctx, idOraccess->access());
+  } else if (idOraccess->IDENTIFIER()) {
     // identifier
-    return determineIdentifierTypeAndWidth(bctx, identifier, sourceloc(identifier));
+    return determineIdentifierTypeAndWidth(bctx, idOraccess->IDENTIFIER(), sourceloc(idOraccess->IDENTIFIER()));
   }
   sl_assert(false);
   return t_type_nfo(UInt, 0);
+}
+
+t_type_nfo Algorithm::determineAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::AccessContext *access) const
+{
+  // table, output or bits
+  if (access->ioAccess() != nullptr) {
+    return determineIOAccessTypeAndWidth(bctx, access->ioAccess());
+  } else if (access->tableAccess() != nullptr) {
+    return determineTableAccessTypeAndWidth(bctx, access->tableAccess());
+  } else if (access->partSelect() != nullptr) {
+    return determinePartSelectTypeAndWidth(bctx, access->partSelect());
+  } else if (access->bitfieldAccess() != nullptr) {
+    return determineBitfieldAccessTypeAndWidth(bctx, access->bitfieldAccess());
+  }
 }
 
 // -------------------------------------------------
@@ -7528,8 +7529,7 @@ void Algorithm::writeAccess(std::string prefix, std::ostream& out, e_AccessType 
 void Algorithm::writeAssignement(
   std::string prefix, t_writer_context &w,
   const t_instr_nfo& a,
-  siliceParser::AccessContext *access,
-  antlr4::tree::TerminalNode* identifier,
+  siliceParser::IdOrAccessContext *idOrAccess,
   siliceParser::Expression_0Context *expression_0,
   const t_combinational_block_context *bctx, const t_instantiation_context &ictx,
   string ff, const t_vio_dependencies& dependencies, t_vio_usage &_usage) const
@@ -7556,13 +7556,8 @@ void Algorithm::writeAssignement(
     }
   }
   // check if var should be assigned as a wire
-  string var;
-  if (access) {
-    var = determineAccessedVar(access, bctx);
-  } else {
-    var  = identifier->getText();
-  }
-  var = translateVIOName(var, bctx);
+  string var = determineAccessedVar(idOrAccess, bctx);
+  var        = translateVIOName(var, bctx);
   ostringstream lvalue;
   std::string is_a_define;
   if (m_VarNames.count(var)) {
@@ -7571,24 +7566,24 @@ void Algorithm::writeAssignement(
     }
   }
   // write access
-  if (access) {
+  if (idOrAccess->access()) {
     // table, output or bits
-    if (isInput(determineAccessedVar(access, bctx))) {
+    if (isInput(determineAccessedVar(idOrAccess->access(), bctx))) {
       reportError(sourceloc(a.instr),
         "cannot assign a value to an input of the algorithm, input '%s'",
-        determineAccessedVar(access, bctx).c_str());
+        determineAccessedVar(idOrAccess->access(), bctx).c_str());
     }
-    writeAccess(prefix, lvalue, e_Write, access, a.__id, bctx, ictx, ff, dependencies, _usage);
+    writeAccess(prefix, lvalue, e_Write, idOrAccess->access(), a.__id, bctx, ictx, ff, dependencies, _usage);
   } else {
-    sl_assert(identifier != nullptr);
+    sl_assert(idOrAccess->IDENTIFIER() != nullptr);
     // check not input
-    if (isInput(identifier->getText())) {
+    if (isInput(idOrAccess->IDENTIFIER()->getText())) {
       reportError(sourceloc(a.instr),
         "cannot assign a value to an input of the algorithm, input '%s'",
-        identifier->getText().c_str());
+        idOrAccess->IDENTIFIER()->getText().c_str());
     }
     // assign variable (lvalue)
-    lvalue << rewriteIdentifier(prefix, var, "", bctx, ictx, sourceloc(identifier), FF_D, e_Write, dependencies, _usage);
+    lvalue << rewriteIdentifier(prefix, var, "", bctx, ictx, sourceloc(idOrAccess->IDENTIFIER()), FF_D, e_Write, dependencies, _usage);
   }
   // = rvalue
   if (!is_a_define.empty()) {
@@ -7692,9 +7687,9 @@ void Algorithm::writeWireAssignements(
   for (const auto &a : m_WireAssignments) {
     auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext *>(a.second.instr);
     sl_assert(alw != nullptr);
-    sl_assert(alw->IDENTIFIER() != nullptr);
+    sl_assert(alw->idOrAccess()->IDENTIFIER() != nullptr);
     // -> determine assigned var
-    string var = translateVIOName(alw->IDENTIFIER()->getText(), &a.second.block->context);
+    string var = translateVIOName(alw->idOrAccess()->IDENTIFIER()->getText(), &a.second.block->context);
     // double check that this always assignment is on a wire var
     bool wire_assign = false;
     if (m_VarNames.count(var) > 0) {
@@ -7708,7 +7703,7 @@ void Algorithm::writeWireAssignements(
     // type of assignment
     bool d_else_q = (alw->ALWSASSIGNDBL() == nullptr && alw->LDEFINEDBL() == nullptr);
     w.out << "assign ";
-    writeAssignement(prefix, w, a.second, alw->access(), alw->IDENTIFIER(), alw->expression_0(), &a.second.block->context, ictx,
+    writeAssignement(prefix, w, a.second, alw->idOrAccess(), alw->expression_0(), &a.second.block->context, ictx,
       d_else_q ? FF_D : FF_Q,
       _dependencies, _usage);
     // update dependencies
@@ -8509,7 +8504,7 @@ void Algorithm::writeBlock(
           }
         }
         // write
-        writeAssignement(prefix, w, a, assign->idOrAccess()->access(), assign->idOrAccess()->IDENTIFIER(), assign->expression_0(), &block->context, ictx, FF_Q, _dependencies, _usage);
+        writeAssignement(prefix, w, a, assign->idOrAccess(), assign->expression_0(), &block->context, ictx, FF_Q, _dependencies, _usage);
       }
     } {
       auto alw = dynamic_cast<siliceParser::AlwaysAssignedContext *>(a.instr);
@@ -8517,12 +8512,7 @@ void Algorithm::writeBlock(
         // check if this always assignment is on a wire var, if yes, skip it
         bool skip = false;
         // -> determine assigned var
-        string var;
-        if (alw->IDENTIFIER() != nullptr) {
-          var = alw->IDENTIFIER()->getText();
-        } else {
-          var = determineAccessedVar(alw->access(), &block->context);
-        }
+        string var = determineAccessedVar(alw->idOrAccess(), &block->context);
         var = translateVIOName(var, &block->context);
         if (m_VarNames.count(var) > 0) {
           skip = (m_Vars.at(m_VarNames.at(var)).usage == e_Wire);
@@ -8531,9 +8521,10 @@ void Algorithm::writeBlock(
           if (alw->ALWSASSIGNDBL() != nullptr) {
             std::ostringstream ostr;
             t_writer_context   wtmp(ostr, w.pipes, w.wires, w.defines);
-            writeAssignement(prefix, wtmp, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), &block->context, ictx, FF_Q, _dependencies, _usage);
+            writeAssignement(prefix, wtmp, a, alw->idOrAccess(), alw->expression_0(), &block->context, ictx, FF_Q, _dependencies, _usage);
             // override stable in cycle to false
-            string var = translateVIOName(alw->IDENTIFIER()->getText(), &block->context);
+            sl_assert(alw->idOrAccess()->IDENTIFIER() != nullptr); // true since ALWSASSIGNDBL
+            string var = translateVIOName(alw->idOrAccess()->IDENTIFIER()->getText(), &block->context);
             _usage.stable_in_cycle[var] = false;
             // modify assignement to insert temporary var
             std::size_t pos    = ostr.str().find('=');
@@ -8543,7 +8534,7 @@ void Algorithm::writeBlock(
             w.out << lvalue << " = " << FF_D << tmpvar << ';' << nxl;
             w.out << FF_D << tmpvar << " = " << rvalue; // rvalue includes the line end ";\n"
           } else {
-            writeAssignement(prefix, w, a, alw->access(), alw->IDENTIFIER(), alw->expression_0(), &block->context, ictx, FF_Q, _dependencies, _usage);
+            writeAssignement(prefix, w, a, alw->idOrAccess(), alw->expression_0(), &block->context, ictx, FF_Q, _dependencies, _usage);
           }
         }
       }

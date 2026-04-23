@@ -347,10 +347,8 @@ idOrIoAccess        : (ioAccess | IDENTIFIER) ;
 
 assignment          : idOrAccess  ('=' | ASSIGN_BACKWARD | ASSIGN_FORWARD | ASSIGN_AFTER) expression_0 ;
 
-alwaysAssigned      : IDENTIFIER   (ALWSASSIGN    | LDEFINE   ) expression_0
-                    | access        ALWSASSIGN                  expression_0
-                    | IDENTIFIER   (ALWSASSIGNDBL | LDEFINEDBL) expression_0
-                    | access        ALWSASSIGNDBL               expression_0
+alwaysAssigned      : idOrAccess  (ALWSASSIGN    | LDEFINE   ) expression_0
+                    | idOrAccess  (ALWSASSIGNDBL | LDEFINEDBL) expression_0
                     ;
 
 /* -- Algorithm calls -- */
