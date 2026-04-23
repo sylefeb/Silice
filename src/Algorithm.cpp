@@ -5313,8 +5313,8 @@ std::string Algorithm::bindingRightIdentifier(const t_binding_nfo& bnd, const t_
 
 std::string Algorithm::determineAccessedVar(siliceParser::IdOrAccessContext *idOrAccess, const t_combinational_block_context *bctx) const
 {
-  if (idOrAccess->IDENTIFIER() == nullptr) {
-    return determineAccessedVar(idOrAccess->access(), nullptr);
+  if (idOrAccess->access() != nullptr) {
+    return determineAccessedVar(idOrAccess->access(), bctx);
   } else {
     return idOrAccess->IDENTIFIER()->getText();
   }
@@ -5669,7 +5669,7 @@ void Algorithm::determineVIOAccess(
       auto ioa = dynamic_cast<siliceParser::IoAccessContext*>(node);
       if (ioa) {
         // special case for io access read
-        std::string var = determineAccessedVar(ioa,bctx);
+        std::string var = determineAccessedVar(ioa, bctx);
         if (!var.empty()) {
           var = translateVIOName(var, bctx);
           if (vios.find(var) != vios.end()) {
@@ -7038,6 +7038,8 @@ t_type_nfo Algorithm::determineAccessTypeAndWidth(const t_combinational_block_co
   } else if (access->bitfieldAccess() != nullptr) {
     return determineBitfieldAccessTypeAndWidth(bctx, access->bitfieldAccess());
   }
+  sl_assert(false);
+  return t_type_nfo(UInt, 0);
 }
 
 // -------------------------------------------------

@@ -47,18 +47,17 @@ void ExpressionLinter::lint(
 // -------------------------------------------------
 
 void ExpressionLinter::lintAssignment(
-  siliceParser::AccessContext                    *access,
-  antlr4::tree::TerminalNode                     *identifier,
+  siliceParser::IdOrAccessContext                *idOrAccess,
   siliceParser::Expression_0Context              *expr,
   const Algorithm::t_combinational_block_context *bctx,
   bool                                            wire_definition) const
 {
   t_type_nfo lvalue_nfo;
-  if (access != nullptr) {
-    typeNfo(access, bctx, lvalue_nfo);
+  if (idOrAccess->access() != nullptr) {
+    typeNfo(idOrAccess->access(), bctx, lvalue_nfo);
   } else {
-    sl_assert(identifier != nullptr);
-    lvalue_nfo = m_Host->determineIdentifierTypeAndWidth(bctx, identifier, sourceloc(identifier));
+    sl_assert(idOrAccess->IDENTIFIER() != nullptr);
+    lvalue_nfo = m_Host->determineIdentifierTypeAndWidth(bctx, idOrAccess->IDENTIFIER(), sourceloc(idOrAccess->IDENTIFIER()));
   }
   t_type_nfo rvalue_nfo;
   typeNfo(expr, bctx, rvalue_nfo);
@@ -68,14 +67,9 @@ void ExpressionLinter::lintAssignment(
   } else {
     if (!wire_definition) {
       // check not assigning a wire
-      std::string vio;
-      if (access != nullptr) {
-        vio = m_Host->determineAccessedVar(access, bctx);
-      } else {
-        vio = m_Host->translateVIOName(identifier->getText(), bctx);
-      }
+      std::string vio = m_Host->determineAccessedVar(idOrAccess, bctx);
       if (m_Host->m_WireAssignmentNames.count(vio) != 0) {
-        reportError(access != nullptr ? sourceloc(access) : sourceloc(identifier),
+        reportError(sourceloc(idOrAccess),
           "cannot assign to an expression tracker (read only)");
       }
     }
@@ -100,8 +94,8 @@ void ExpressionLinter::lintWireAssignment(const Algorithm::t_instr_nfo &wire_ass
 {
   auto alwasg = dynamic_cast<siliceParser::AlwaysAssignedContext *>(wire_assign.instr);
   sl_assert(alwasg != nullptr);
-  sl_assert(alwasg->IDENTIFIER() != nullptr);
-  lintAssignment(nullptr, alwasg->IDENTIFIER(), alwasg->expression_0(), &wire_assign.block->context, true);
+  sl_assert(alwasg->idOrAccess()->IDENTIFIER() != nullptr);
+  lintAssignment(alwasg->idOrAccess(), alwasg->expression_0(), &wire_assign.block->context, true);
   // check for deprecated symbols
   if (alwasg->ALWSASSIGN() != nullptr) {
      warn(Deprecation, sourceloc(alwasg), "use of deprecated syntax :=, please use <: instead.");
@@ -112,7 +106,7 @@ void ExpressionLinter::lintWireAssignment(const Algorithm::t_instr_nfo &wire_ass
   bool d_else_q = (alwasg->ALWSASSIGNDBL() == nullptr && alwasg->LDEFINEDBL() == nullptr);
   if (!d_else_q) {
     // determine assigned var
-    std::string var = m_Host->translateVIOName(alwasg->IDENTIFIER()->getText(), &wire_assign.block->context);
+    std::string var = m_Host->translateVIOName(alwasg->idOrAccess()->IDENTIFIER()->getText(), &wire_assign.block->context);
     // check dependencies
     std::vector<std::pair<bool,std::string> > vars;
     allVars(alwasg->expression_0(), &wire_assign.block->context, vars);
@@ -232,7 +226,7 @@ void ExpressionLinter::lintBinding(
   int rw = -1;
   if (!std::holds_alternative<std::string>(bnfo.right)) {
     auto access = std::get<siliceParser::AccessContext*>(bnfo.right);
-    auto rnfo   = m_Host->determineAccessTypeAndWidth(nullptr, access, nullptr);
+    auto rnfo   = m_Host->determineAccessTypeAndWidth(nullptr, access);
     rw          = rnfo.width;
     rtype       = rnfo.base_type;
   } else {
@@ -418,7 +412,7 @@ void ExpressionLinter::typeNfo(
     }
   } else if (access) {
     // ask host to determine access type
-    _nfo = m_Host->determineAccessTypeAndWidth(bctx, access, nullptr);
+    _nfo = m_Host->determineAccessTypeAndWidth(bctx, access);
     if (_nfo.base_type == Parameterized) {
       resolveParameterized(m_Host->determineAccessedVar(access, bctx), bctx, _nfo);
     }

@@ -102,8 +102,7 @@ namespace Silice
 
     /// \brief Lint an assignment
     void lintAssignment(
-      siliceParser::AccessContext                    *access,
-      antlr4::tree::TerminalNode                     *identifier,
+      siliceParser::IdOrAccessContext                *access,
       siliceParser::Expression_0Context              *expr,
       const Algorithm::t_combinational_block_context *bctx,
       bool                                            wire_definition = false) const;

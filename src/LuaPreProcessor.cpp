@@ -77,8 +77,8 @@ extern "C" {
         << sprint(msg,args) << std::endl; \
       exit(1); }
 #else
-#define LPP_THROW(msg) throw Fatal(msg);
-#define LPP_THROW_ARGS(msg,args...) throw Fatal(msg,args);
+#define LPP_THROW(msg) throw Fatal(msg)
+#define LPP_THROW_ARGS(msg, ...) throw Fatal(msg, __VA_ARGS__)
 #endif
 
 // -------------------------------------------------
