@@ -113,6 +113,9 @@ namespace Silice
     /// \brief enum binding direction
     enum e_BindingDir { e_Left, e_LeftQ, e_Right, e_BiDir, e_Auto, e_AutoQ };
 
+    /// \brief binding point, identifier or access
+    typedef std::variant<std::string, siliceParser::AccessContext *> t_binding_point;
+
     /// \brief algorithm name
     std::string m_Name;
 
@@ -120,7 +123,7 @@ namespace Silice
     bool m_hasHash;
 
     /// \brief algorithm clock
-    std::string m_Clock = ALG_CLOCK;
+    t_binding_point m_Clock = ALG_CLOCK;
 
     /// \brief algorithm reset
     std::string m_Reset = ALG_RESET;
@@ -169,12 +172,12 @@ private:
       bool        do_not_initialize = false;
       bool        delayed           = false;
       std::string custom_template;
-      Utils::t_source_loc      srcloc;
-      std::vector<std::string> clocks;
+      Utils::t_source_loc          srcloc;
+      std::vector<t_binding_point> clocks;
       std::vector<std::pair<std::string, std::string> > in_vars;  // member name, vio name
       std::vector<std::pair<std::string, std::string> > out_vars; // member name, vio name
-      std::vector<std::string> init_values;
-      std::vector<std::string> members;
+      std::vector<std::string>     init_values;
+      std::vector<std::string>     members;
     };
 
     /// \brief holds a reference to the context responsible for a group definition
@@ -209,9 +212,6 @@ private:
     std::unordered_map<std::string, int > m_OutputNames;
     /// \brief all inout names, map contains index in m_InOuts
     std::unordered_map<std::string, int > m_InOutNames;
-
-    /// \brief binding point, identifier or access
-    typedef std::variant<std::string, siliceParser::AccessContext*> t_binding_point;
 
     /// \brief VIO bound to blueprint outputs (wires) (vio name => wire name)
     std::unordered_map<std::string, std::string>      m_VIOBoundToBlueprintOutputs;
@@ -285,7 +285,7 @@ private:
       Utils::t_source_loc           srcloc;
       std::vector<t_binding_nfo>    bindings;
       bool                          autobind;
-      std::string                   instance_clock;
+      t_binding_point               instance_clock;
       std::string                   instance_reset;
       bool                          instance_reginput = false;
       AutoPtr<Blueprint>            blueprint;
@@ -798,7 +798,7 @@ private:
     /// \brief returns a string representing the bond variable
     std::string rewriteBinding(std::string var, const t_combinational_block_context *bctx, const t_instantiation_context& ictx) const;
     /// \brief encapsulates the identifier in whatever is required after rewrite
-    std::string encapsulateIdentifier(std::string var, bool read_access, std::string rewritten, std::string suffix) const;
+    std::string encapsulateIdentifier(std::string var, std::string rewritten, std::string suffix) const;
     /// \brief returns the rewritten indentifier, taking into account bindings, inputs/outputs, custom clocks and resets
     std::string rewriteIdentifier(
       std::string prefix, std::string var, std::string suffix,
@@ -982,7 +982,8 @@ private:
     /// \brief determine binding right identifier
     std::string bindingRightIdentifier(const t_binding_nfo& bnd, const t_combinational_block_context* bctx = nullptr) const;
     /// \brief determine accessed variable
-    std::string determineAccessedVar(siliceParser::IdOrAccessContext *access, const t_combinational_block_context *bctx) const;
+    std::string determineAccessedVar(std::variant<std::string, siliceParser::AccessContext *> idOrAccess, const t_combinational_block_context *bctx) const;
+    std::string determineAccessedVar(siliceParser::IdOrAccessContext *idOrAccess, const t_combinational_block_context *bctx) const;
     std::string determineAccessedVar(siliceParser::AccessContext* access, const t_combinational_block_context* bctx) const;
     std::string determineAccessedVar(siliceParser::IoAccessContext* access, const t_combinational_block_context* bctx) const;
     std::string determineAccessedVar(siliceParser::PartSelectContext* access, const t_combinational_block_context* bctx) const;
@@ -1085,7 +1086,7 @@ private:
     /// \brief initializes the aglorithm
     void init(
       std::string name, bool hasHash,
-      std::string clock, std::string reset,
+      siliceParser::SclockContext *clock, std::string reset,
       bool autorun, bool onehot, std::string formalDepth, std::string formalTimeout, const std::vector<std::string> &modes);
     /// \brief gather inputs and outputs from the parsed tree
     void gatherIOs(siliceParser::InOutListContext* inout);
@@ -1194,6 +1195,8 @@ private:
     /// \brief returns a vio encapsulated as a define
     std::string vioAsDefine(const t_instantiation_context& ictx, std::string vio,std::string value) const;
     std::string vioAsDefine(const t_instantiation_context& ictx, const t_var_nfo& v, std::string value) const;
+    /// \brief writes the clock in a string
+    std::string writeClockAsString(t_binding_point clock, const t_instantiation_context &ictx, t_vio_usage &_usage) const;
     /// \brief writes the const declarations
     void writeConstDeclarations(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx) const;
     /// \brief writes the temporary declarations
@@ -1203,7 +1206,7 @@ private:
     /// \brief writes the flip-flop declarations
     void writeFlipFlopDeclarations(std::string prefix, std::ostream& out, const t_instantiation_context &ictx) const;
     /// \brief writes the flip-flop updates
-    void writeFlipFlopUpdates(std::string prefix, std::ostream& out, const t_instantiation_context &ictx) const;
+    void writeFlipFlopUpdates(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, std::string clockstr) const;
     /// \brief writes flip-flop combinational value update for a variable
     void writeVarFlipFlopCombinationalUpdate(std::string prefix, std::ostream& out, const t_var_nfo& v) const;
     /// \brief write an inout binding as a base and (if applicable) bit-vector access

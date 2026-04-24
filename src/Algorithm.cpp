@@ -145,7 +145,7 @@ void Algorithm::checkBlueprintsBindings(const t_instantiation_context &ictx) con
       // check existence
       if (!isInputOrOutput(br) && !isInOut(br)
         && m_VarNames.count(br) == 0
-        && br != m_Clock && br != ALG_CLOCK
+        && br != determineAccessedVar(m_Clock,nullptr) && br != ALG_CLOCK
         && br != m_Reset && br != ALG_RESET) {
         reportError(b.srcloc, "instance '%s', binding '%s' to '%s': wrong binding point",
           bp.first.c_str(), br.c_str(), b.left.c_str());
@@ -948,21 +948,23 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
     for (auto mod : decl->memModifiers()->memModifier()) {
       if (mod->memClocks() != nullptr) { // clocks
         // check clock signal exist
-        if (!isVIO(mod->memClocks()->clk0->IDENTIFIER()->getText())
-          && mod->memClocks()->clk0->IDENTIFIER()->getText() != ALG_CLOCK
-          && mod->memClocks()->clk0->IDENTIFIER()->getText() != m_Clock) {
-          reportError(sourceloc(mod->memClocks()->clk0->IDENTIFIER()),
+        std::string var0 = determineAccessedVar(mod->memClocks()->clk0->idOrAccess(), &_current->context); /// TODO FIXME TEST
+        if (!isVIO(var0)
+          && var0 != ALG_CLOCK
+          && var0 != determineAccessedVar(m_Clock, nullptr)) {
+          reportError(sourceloc(mod->memClocks()->clk0->idOrAccess()),
             "clock signal '%s' not declared in dual port BRAM", mod->memClocks()->clk0->getText().c_str());
         }
-        if (!isVIO(mod->memClocks()->clk1->IDENTIFIER()->getText())
-          && mod->memClocks()->clk1->IDENTIFIER()->getText() != ALG_CLOCK
-          && mod->memClocks()->clk1->IDENTIFIER()->getText() != m_Clock) {
-          reportError(sourceloc(mod->memClocks()->clk1->IDENTIFIER()),
+        std::string var1 = determineAccessedVar(mod->memClocks()->clk1->idOrAccess(), &_current->context); /// TODO FIXME TEST
+        if (!isVIO(var1)
+          && var1 != ALG_CLOCK
+          && var1 != determineAccessedVar(m_Clock, nullptr)) {
+          reportError(sourceloc(mod->memClocks()->clk1->idOrAccess()),
             "clock signal '%s' not declared in dual port BRAM", mod->memClocks()->clk1->getText().c_str());
         }
         // add
-        mem.clocks.push_back(mod->memClocks()->clk0->IDENTIFIER()->getText());
-        mem.clocks.push_back(mod->memClocks()->clk1->IDENTIFIER()->getText());
+        mem.clocks.push_back(var0);
+        mem.clocks.push_back(var1);
       } else if (mod->memDelayed() != nullptr) { // delayed input ( <:: )
         mem.delayed = true;
       } else if (mod->STRING() != nullptr) {
@@ -1337,7 +1339,7 @@ void Algorithm::gatherDeclarationInstance(siliceParser::DeclarationInstanceConte
   if (alg->bpModifiers() != nullptr) {
     for (auto m : alg->bpModifiers()->bpModifier()) {
       if (m->sclock() != nullptr) {
-        nfo.instance_clock = m->sclock()->IDENTIFIER()->getText();
+        nfo.instance_clock = determineAccessedVar(m->sclock()->idOrAccess(),&_current->context); /// TODO FIXME TEST
       } else if (m->sreset() != nullptr) {
         nfo.instance_reset = m->sreset()->IDENTIFIER()->getText();
       } else if (m->sreginput() != nullptr) {
@@ -1494,7 +1496,7 @@ std::string Algorithm::rewriteBinding(std::string var, const t_combinational_blo
 
 // -------------------------------------------------
 
-std::string Algorithm::encapsulateIdentifier(std::string var, bool read_access, std::string rewritten, std::string suffix) const
+std::string Algorithm::encapsulateIdentifier(std::string var, std::string rewritten, std::string suffix) const
 {
   return rewritten + suffix;
 }
@@ -1568,35 +1570,35 @@ std::string Algorithm::rewriteIdentifier(
     if (m_VIOBoundToBlueprintOutputs.find(var) == m_VIOBoundToBlueprintOutputs.end()) {
       reportError(srcloc, "custom reset signal has to be bound to a module output");
     }
-    return rewriteBinding(var, bctx, ictx);
-  } else if (var == m_Clock) { // cannot be ALG_CLOCK
+    return encapsulateIdentifier(var, rewriteBinding(var, bctx, ictx), suffix);
+  } else if (var == determineAccessedVar(m_Clock, nullptr)) { // cannot be ALG_CLOCK
     if (m_VIOBoundToBlueprintOutputs.find(var) == m_VIOBoundToBlueprintOutputs.end()) {
       reportError(srcloc, "custom clock signal has to be bound to a module output");
     }
-    return rewriteBinding(var, bctx, ictx);
+    return encapsulateIdentifier(var, rewriteBinding(var, bctx, ictx), suffix);
   } else {
     // vio? translate
     var = translateVIOName(var, bctx);
     // keep going
     if (isInput(var)) {
-      return encapsulateIdentifier(var, read_access, ALG_INPUT + prefix + var, suffix);
+      return encapsulateIdentifier(var, ALG_INPUT + prefix + var, suffix);
     } else if (isInOut(var)) {
       if (!on_binding) {
         reportError(srcloc, "cannot use inout directly in an expression");
       }
-      return encapsulateIdentifier(var, read_access, ALG_INOUT + prefix + var, suffix);
+      return encapsulateIdentifier(var, ALG_INOUT + prefix + var, suffix);
     } else if (isOutput(var)) {
       auto usage = m_Outputs.at(m_OutputNames.at(var)).usage;
       if (usage == e_Temporary) {
         // temporary
         updateFFUsage((e_FFUsage)((int)e_D | ff_force), read_access, _usage.ff_usage[var]);
-        return encapsulateIdentifier(var, read_access, FF_TMP + prefix + var, suffix);
+        return encapsulateIdentifier(var, FF_TMP + prefix + var, suffix);
       } else if (usage == e_FlipFlop) {
         // flip-flop
         if (ff == FF_Q) {
           if (dependencies.dependencies.count(var) > 0) {
             updateFFUsage((e_FFUsage)((int)e_D | ff_force), read_access, _usage.ff_usage[var]);
-            return encapsulateIdentifier(var, read_access, FF_D + prefix + var, suffix);
+            return encapsulateIdentifier(var, FF_D + prefix + var, suffix);
           } else {
             updateFFUsage((e_FFUsage)((int)e_Q | ff_force), read_access, _usage.ff_usage[var]);
           }
@@ -1604,10 +1606,10 @@ std::string Algorithm::rewriteIdentifier(
           sl_assert(ff == FF_D);
           updateFFUsage((e_FFUsage)((int)e_D | ff_force), read_access, _usage.ff_usage[var]);
         }
-        return encapsulateIdentifier(var, read_access, ff + prefix + var, suffix);
+        return encapsulateIdentifier(var, ff + prefix + var, suffix);
       } else if (usage == e_Bound) {
         // bound
-        return encapsulateIdentifier(var, read_access, rewriteBinding(var, bctx, ictx), suffix);
+        return encapsulateIdentifier(var, rewriteBinding(var, bctx, ictx), suffix);
       } else {
         reportError(srcloc, "internal error [%s, %d]", __FILE__, __LINE__);
       }
@@ -1620,14 +1622,14 @@ std::string Algorithm::rewriteIdentifier(
         // bound to an output?
         auto Bo = m_VIOBoundToBlueprintOutputs.find(var);
         if (Bo != m_VIOBoundToBlueprintOutputs.end()) {
-          return encapsulateIdentifier(var, read_access, rewriteBinding(var, bctx, ictx), suffix);
+          return encapsulateIdentifier(var, rewriteBinding(var, bctx, ictx), suffix);
         }
         reportError(srcloc, "internal error [%s, %d]", __FILE__, __LINE__);
       } else {
         if (m_Vars.at(V->second).usage == e_Temporary) {
           // temporary
           updateFFUsage((e_FFUsage)((int)e_D | ff_force), read_access, _usage.ff_usage[var]);
-          return encapsulateIdentifier(var, read_access, FF_TMP + prefix + var, suffix);
+          return encapsulateIdentifier(var, FF_TMP + prefix + var, suffix);
         } else if (m_Vars.at(V->second).usage == e_Const) {
           // const
           std::string pre  = std::string(isADefine(m_Vars.at(V->second)) ? "`" : "");
@@ -1643,16 +1645,16 @@ std::string Algorithm::rewriteIdentifier(
               post = post + ")";
             }
           }
-          return encapsulateIdentifier(var, read_access, pre + FF_CST + prefix + var + post, suffix);
+          return encapsulateIdentifier(var, pre + FF_CST + prefix + var + post, suffix);
         } else if (m_Vars.at(V->second).usage == e_Wire) {
           // wire
-          return encapsulateIdentifier(var, read_access, WIRE + prefix + var, suffix);
+          return encapsulateIdentifier(var, WIRE + prefix + var, suffix);
         } else {
           // flip-flop
           if (ff == FF_Q) {
             if (dependencies.dependencies.count(var) > 0) {
               updateFFUsage((e_FFUsage)((int)e_D | ff_force), read_access, _usage.ff_usage[var]);
-              return encapsulateIdentifier(var, read_access, FF_D + prefix + var, suffix);
+              return encapsulateIdentifier(var, FF_D + prefix + var, suffix);
             } else {
               updateFFUsage((e_FFUsage)((int)e_Q | ff_force), read_access, _usage.ff_usage[var]);
             }
@@ -1660,7 +1662,7 @@ std::string Algorithm::rewriteIdentifier(
             sl_assert(ff == FF_D);
             updateFFUsage((e_FFUsage)((int)e_D | ff_force), read_access, _usage.ff_usage[var]);
           }
-          return encapsulateIdentifier(var, read_access, ff + prefix + var, suffix);
+          return encapsulateIdentifier(var, ff + prefix + var, suffix);
         }
       }
     }
@@ -2380,7 +2382,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
       if (m_InputNames.count(ioname) > 0
         || m_OutputNames.count(ioname) > 0
         || m_VarNames.count(ioname) > 0
-        || ioname == m_Clock || ioname == m_Reset) {
+        || ioname == determineAccessedVar(m_Clock, nullptr) || ioname == m_Reset) {
         reportError(sourceloc(P),
           "subroutine '%s' input/output '%s' is using the same name as a host VIO, clock or reset",
           nfo->name.c_str(), ioname.c_str());
@@ -5311,6 +5313,15 @@ std::string Algorithm::bindingRightIdentifier(const t_binding_nfo& bnd, const t_
 
 // -------------------------------------------------
 
+std::string Algorithm::determineAccessedVar(std::variant<std::string, siliceParser::AccessContext*> idOrAccess, const t_combinational_block_context *bctx) const
+{
+  if (std::holds_alternative<std::string>(idOrAccess)) {
+    return std::get<std::string>(idOrAccess);
+  } else {
+    return determineAccessedVar(std::get<siliceParser::AccessContext*>(idOrAccess), bctx);
+  }
+}
+
 std::string Algorithm::determineAccessedVar(siliceParser::IdOrAccessContext *idOrAccess, const t_combinational_block_context *bctx) const
 {
   if (idOrAccess->access() != nullptr) {
@@ -6043,7 +6054,7 @@ void Algorithm::determineAccess(
   // determine variable access due to instances clocks and reset
   for (const auto& bp : m_InstancedBlueprints) {
     std::vector<std::string> candidates;
-    candidates.push_back(bp.second.instance_clock);
+    candidates.push_back(determineAccessedVar(bp.second.instance_clock,nullptr));
     candidates.push_back(bp.second.instance_reset);
     for (auto v : candidates) {
       // variables only
@@ -6426,13 +6437,20 @@ Algorithm::Algorithm(
 
 void Algorithm::init(
   std::string name, bool hasHash,
-  std::string clock, std::string reset,
+  siliceParser::SclockContext *clock, std::string reset,
   bool autorun, bool onehot, std::string formalDepth, std::string formalTimeout, const std::vector<std::string> &modes
 )
 {
   m_Name = name;
   m_hasHash = hasHash;
-  m_Clock = clock;
+  if (clock != nullptr) {
+    if (clock->idOrAccess()->access() != nullptr) {
+      m_Clock = clock->idOrAccess()->access();
+    } else {
+      sl_assert(clock->idOrAccess()->IDENTIFIER() != nullptr);
+      m_Clock = clock->idOrAccess()->IDENTIFIER()->getText();
+    }
+  }
   m_Reset = reset;
   m_FormalDepth = formalDepth;
   m_FormalTimeout = formalTimeout;
@@ -7980,23 +7998,38 @@ void Algorithm::writeVarFlipFlopUpdate(std::string prefix, std::string reset, st
 
 // -------------------------------------------------
 
-void Algorithm::writeFlipFlopUpdates(std::string prefix, std::ostream& out, const t_instantiation_context &ictx) const
+std::string Algorithm::writeClockAsString(t_binding_point clock, const t_instantiation_context &ictx, t_vio_usage &_usage) const
+{
+  t_vio_dependencies _; // always read only access
+  std::string clockstr;
+  if (std::holds_alternative<std::string>(clock)) {
+    clockstr = std::get<std::string>(clock);
+    if (clockstr != ALG_CLOCK) {
+      // in this case, clock has to be bound to a module/algorithm output
+      /// TODO: is this over-constrained? could it also be a variable?
+      auto C = m_VIOBoundToBlueprintOutputs.find(clockstr);
+      if (C == m_VIOBoundToBlueprintOutputs.end()) {
+        reportError(t_source_loc(), "algorithm '%s', clock is not bound to a module or algorithm output", m_Name.c_str());
+      }
+      clockstr = C->second;
+      // rewriteIdentifier("_", clockstr, "", nullptr, ictx, srcloc(), FF_D, e_Read, _, usage, e_None)
+    }
+  } else {
+    auto *access = std::get<siliceParser::AccessContext *>(clock);
+    std::ostringstream ostr;
+    writeAccess("_", ostr, e_Read, access, -1, nullptr, ictx, FF_D, _, _usage);
+    clockstr = ostr.str();
+  }
+  return clockstr;
+}
+
+// -------------------------------------------------
+
+void Algorithm::writeFlipFlopUpdates(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, std::string clockstr) const
 {
   // output flip-flop init and update on clock
   out << nxl;
-  std::string clock = m_Clock;
-  if (m_Clock != ALG_CLOCK) {
-    // in this case, clock has to be bound to a module/algorithm output
-    /// TODO: is this over-constrained? could it also be a variable?
-    auto C = m_VIOBoundToBlueprintOutputs.find(m_Clock);
-    if (C == m_VIOBoundToBlueprintOutputs.end()) {
-      reportError(t_source_loc(), "algorithm '%s', clock is not bound to a module or algorithm output", m_Name.c_str());
-    }
-    clock = C->second;
-  }
-
-  out << "always @(posedge " << clock << ") begin" << nxl;
-
+  out << "always @(posedge " << clockstr << ") begin" << nxl;
   // determine var reset condition
   std::string reset = m_Reset;
   if (m_Reset != ALG_RESET) {
@@ -8123,7 +8156,7 @@ void Algorithm::writeFlipFlopUpdates(std::string prefix, std::ostream& out, cons
       condition = condition + " && " + ALG_INPUT "_" ALG_RUN;
     }
     condition = condition + " && !$initstate)";
-    out << "assume(!" << condition << " || $stable(" << encapsulateIdentifier(chk.varName, true, ALG_INPUT "_" + chk.varName, "") << ")); //%" << silice_position << nxl;
+    out << "assume(!" << condition << " || $stable(" << encapsulateIdentifier(chk.varName, ALG_INPUT "_" + chk.varName, "") << ")); //%" << silice_position << nxl;
   }
 
   out << "end" << nxl;
@@ -9848,6 +9881,7 @@ void Algorithm::writeAsModule(
   std::ostringstream out_defines;
 
   t_vio_usage input_bindings_usage;
+  std::string clockstr = writeClockAsString(m_Clock, ictx, input_bindings_usage);
 
   {
     std::ostringstream& out = out_pre_inst;
@@ -9950,7 +9984,7 @@ void Algorithm::writeAsModule(
     {
       t_vio_dependencies _1, _2;
       out << "assign out_" ALG_CLOCK << " = "
-        << rewriteIdentifier("_", m_Clock, "", nullptr, ictx, t_source_loc(), FF_Q, e_Read, _1, input_bindings_usage)
+        << clockstr
         << ';' << nxl;
     }
   }
@@ -10221,8 +10255,9 @@ void Algorithm::writeAsModule(
     // clock
     if (nfo.blueprint->requiresClock()) {
       t_vio_dependencies _;
+      std::string clockstr = writeClockAsString(nfo.instance_clock, ictx, input_bindings_usage);
       if (!first) { out << ',' << nxl; } first = false;
-      out << '.' << ALG_CLOCK << '(' << rewriteIdentifier("_", nfo.instance_clock, "", nullptr, ictx, nfo.srcloc, FF_Q, e_ReadBinding, _, input_bindings_usage, e_None) << "),";
+      out << '.' << ALG_CLOCK << '(' << clockstr << "),";
       out << ".out_" << ALG_CLOCK << "()" << nxl; // avoids missing pin warning
     }
     // end of instantiation
@@ -10302,19 +10337,19 @@ void Algorithm::writeAsModule(
     if (mem.clocks.empty()) {
       if (mem.mem_type == DUALBRAM || mem.mem_type == SIMPLEDUALBRAM) {
         t_vio_dependencies _1,_2;
-        out << ".clock0(" << rewriteIdentifier("_", m_Clock, "", nullptr, ictx, mem.srcloc, FF_Q, e_ReadBinding, _1, input_bindings_usage, e_None) << ")," << nxl;
-        out << ".clock1(" << rewriteIdentifier("_", m_Clock, "", nullptr, ictx, mem.srcloc, FF_Q, e_ReadBinding, _2, input_bindings_usage, e_None) << ")," << nxl;
+        out << ".clock0(" << clockstr << ")," << nxl;
+        out << ".clock1(" << clockstr << ")," << nxl;
       } else {
         t_vio_dependencies _;
-        out << ".clock("  << rewriteIdentifier("_", m_Clock, "", nullptr, ictx, mem.srcloc, FF_Q, e_ReadBinding, _, input_bindings_usage, e_None) << ")," << nxl;
+        out << ".clock("  << clockstr << ")," << nxl;
       }
     } else {
       sl_assert((mem.mem_type == DUALBRAM || mem.mem_type == SIMPLEDUALBRAM) && mem.clocks.size() == 2);
-      std::string clk0 = mem.clocks[0];
-      std::string clk1 = mem.clocks[1];
+      std::string clk0 = writeClockAsString(mem.clocks[0], ictx, input_bindings_usage);
+      std::string clk1 = writeClockAsString(mem.clocks[1], ictx, input_bindings_usage);
       t_vio_dependencies _1, _2;
-      out << ".clock0(" << rewriteIdentifier("_", clk0, "", nullptr, ictx, mem.srcloc, FF_Q, e_ReadBinding, _1, input_bindings_usage, e_None) << ")," << nxl;
-      out << ".clock1(" << rewriteIdentifier("_", clk1, "", nullptr, ictx, mem.srcloc, FF_Q, e_ReadBinding, _2, input_bindings_usage, e_None) << ")," << nxl;
+      out << ".clock0(" << clk0 << ")," << nxl;
+      out << ".clock1(" << clk1 << ")," << nxl;
     }
     // inputs
     for (const auto& inv : mem.in_vars) {
@@ -10602,7 +10637,7 @@ void Algorithm::writeAsModule(
 #endif
 
   // flip-flop updates
-  writeFlipFlopUpdates("_", out, ictx);
+  writeFlipFlopUpdates("_", out, ictx, clockstr);
   out << nxl;
 
   out << "endmodule" << nxl;
