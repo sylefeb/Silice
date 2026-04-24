@@ -963,8 +963,16 @@ void Algorithm::gatherDeclarationMemory(siliceParser::DeclarationMemoryContext* 
             "clock signal '%s' not declared in dual port BRAM", mod->memClocks()->clk1->getText().c_str());
         }
         // add
-        mem.clocks.push_back(var0);
-        mem.clocks.push_back(var1);
+        if (mod->memClocks()->clk0->idOrAccess()->access() != nullptr) {
+          mem.clocks.push_back(mod->memClocks()->clk0->idOrAccess()->access());
+        } else {
+          mem.clocks.push_back(mod->memClocks()->clk0->idOrAccess()->IDENTIFIER()->getText());
+        }
+        if (mod->memClocks()->clk1->idOrAccess()->access() != nullptr) {
+          mem.clocks.push_back(mod->memClocks()->clk1->idOrAccess()->access());
+        } else {
+          mem.clocks.push_back(mod->memClocks()->clk1->idOrAccess()->IDENTIFIER()->getText());
+        }
       } else if (mod->memDelayed() != nullptr) { // delayed input ( <:: )
         mem.delayed = true;
       } else if (mod->STRING() != nullptr) {
@@ -5313,7 +5321,7 @@ std::string Algorithm::bindingRightIdentifier(const t_binding_nfo& bnd, const t_
 
 // -------------------------------------------------
 
-std::string Algorithm::determineAccessedVar(std::variant<std::string, siliceParser::AccessContext*> idOrAccess, const t_combinational_block_context *bctx) const
+std::string Algorithm::determineAccessedVar(const t_binding_point& idOrAccess, const t_combinational_block_context *bctx) const
 {
   if (std::holds_alternative<std::string>(idOrAccess)) {
     return std::get<std::string>(idOrAccess);
@@ -7031,6 +7039,19 @@ t_type_nfo Algorithm::determineTableAccessTypeAndWidth(const t_combinational_blo
 
 // -------------------------------------------------
 
+t_type_nfo Algorithm::determineAccessTypeAndWidth(const t_combinational_block_context *bctx, const t_binding_point &idOraccess) const
+{
+  if (std::holds_alternative<siliceParser::AccessContext*>(idOraccess)) {
+    // access
+    return determineAccessTypeAndWidth(bctx, std::get<siliceParser::AccessContext *>(idOraccess));
+  } else {
+    // identifier
+    return std::get<0>( determineVIOTypeWidthAndTableSize(translateVIOName(std::get<std::string>(idOraccess), bctx), t_source_loc()) );
+  }
+  sl_assert(false);
+  return t_type_nfo(UInt, 0);
+}
+
 t_type_nfo Algorithm::determineAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::IdOrAccessContext *idOraccess) const
 {
   if (idOraccess->access()) {
@@ -8002,22 +8023,21 @@ std::string Algorithm::writeClockAsString(t_binding_point clock, const t_instant
 {
   t_vio_dependencies _; // always read only access
   std::string clockstr;
+  auto tw = determineAccessTypeAndWidth(nullptr, clock);
+  if (tw.width != 1) {
+    reportError(t_source_loc(), "algorithm '%s', clock signal '%s' is not 1 bit wide", m_Name.c_str(), determineAccessedVar(clock, nullptr).c_str());
+  }
   if (std::holds_alternative<std::string>(clock)) {
+    // clock is an identifier
     clockstr = std::get<std::string>(clock);
     if (clockstr != ALG_CLOCK) {
-      // in this case, clock has to be bound to a module/algorithm output
-      /// TODO: is this over-constrained? could it also be a variable?
-      auto C = m_VIOBoundToBlueprintOutputs.find(clockstr);
-      if (C == m_VIOBoundToBlueprintOutputs.end()) {
-        reportError(t_source_loc(), "algorithm '%s', clock is not bound to a module or algorithm output", m_Name.c_str());
-      }
-      clockstr = C->second;
-      // rewriteIdentifier("_", clockstr, "", nullptr, ictx, srcloc(), FF_D, e_Read, _, usage, e_None)
+      clockstr = rewriteIdentifier("_", clockstr, "", nullptr, ictx, t_source_loc(), FF_Q, e_Read, _, _usage, e_None);
     }
   } else {
+    // clock is an access
     auto *access = std::get<siliceParser::AccessContext *>(clock);
     std::ostringstream ostr;
-    writeAccess("_", ostr, e_Read, access, -1, nullptr, ictx, FF_D, _, _usage);
+    writeAccess("_", ostr, e_Read, access, -1, nullptr, ictx, FF_Q, _, _usage);
     clockstr = ostr.str();
   }
   return clockstr;

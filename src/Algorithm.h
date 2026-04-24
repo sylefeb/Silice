@@ -982,7 +982,7 @@ private:
     /// \brief determine binding right identifier
     std::string bindingRightIdentifier(const t_binding_nfo& bnd, const t_combinational_block_context* bctx = nullptr) const;
     /// \brief determine accessed variable
-    std::string determineAccessedVar(std::variant<std::string, siliceParser::AccessContext *> idOrAccess, const t_combinational_block_context *bctx) const;
+    std::string determineAccessedVar(const t_binding_point& idOrAccess, const t_combinational_block_context *bctx) const;
     std::string determineAccessedVar(siliceParser::IdOrAccessContext *idOrAccess, const t_combinational_block_context *bctx) const;
     std::string determineAccessedVar(siliceParser::AccessContext* access, const t_combinational_block_context* bctx) const;
     std::string determineAccessedVar(siliceParser::IoAccessContext* access, const t_combinational_block_context* bctx) const;
@@ -1117,6 +1117,7 @@ private:
     /// \brief determines table access type/width
     t_type_nfo determineTableAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::TableAccessContext *tblaccess) const;
     /// \brief determines access type/width
+    t_type_nfo determineAccessTypeAndWidth(const t_combinational_block_context *bctx, const t_binding_point& idOraccess) const;
     t_type_nfo determineAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::IdOrAccessContext *idOraccess) const;
     t_type_nfo determineAccessTypeAndWidth(const t_combinational_block_context *bctx, siliceParser::AccessContext *access) const;
     /// \brief determines access on a const bit range (returns -1,-1 if not applicable)
