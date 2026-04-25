@@ -240,6 +240,8 @@ void ExpressionLinter::lintBinding(
         warn(Standard, bnfo.srcloc, "%s, cannot check binding bit-width", msg.c_str());
         return;
       }
+    } else {
+      rw = 1;
     }
   }
   if (rw != lw) {

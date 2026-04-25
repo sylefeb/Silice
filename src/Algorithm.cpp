@@ -145,8 +145,8 @@ void Algorithm::checkBlueprintsBindings(const t_instantiation_context &ictx) con
       // check existence
       if (!isInputOrOutput(br) && !isInOut(br)
         && m_VarNames.count(br) == 0
-        && br != determineAccessedVar(m_Clock,nullptr) && br != ALG_CLOCK
-        && br != m_Reset && br != ALG_RESET) {
+        && br != determineAccessedVar(m_Clock, nullptr) && br != ALG_CLOCK
+        && br != determineAccessedVar(m_Reset, nullptr) && br != ALG_RESET) {
         reportError(b.srcloc, "instance '%s', binding '%s' to '%s': wrong binding point",
           bp.first.c_str(), br.c_str(), b.left.c_str());
       }
@@ -1347,9 +1347,9 @@ void Algorithm::gatherDeclarationInstance(siliceParser::DeclarationInstanceConte
   if (alg->bpModifiers() != nullptr) {
     for (auto m : alg->bpModifiers()->bpModifier()) {
       if (m->sclock() != nullptr) {
-        nfo.instance_clock = determineAccessedVar(m->sclock()->idOrAccess(),&_current->context); /// TODO FIXME TEST
+        nfo.instance_clock = binding_point(m->sclock()->idOrAccess());
       } else if (m->sreset() != nullptr) {
-        nfo.instance_reset = m->sreset()->IDENTIFIER()->getText();
+        nfo.instance_reset = binding_point(m->sreset()->idOrAccess());
       } else if (m->sreginput() != nullptr) {
         nfo.instance_reginput = true;
       } else if (m->sspecialize() != nullptr) {
@@ -1574,7 +1574,7 @@ std::string Algorithm::rewriteIdentifier(
   sl_assert(!(!read_access && ff == FF_Q));
   if (var == ALG_RESET || var == ALG_CLOCK) {
     return var;
-  } else if (var == m_Reset) { // cannot be ALG_RESET
+  } else if (var == determineAccessedVar(m_Reset, nullptr)) { // cannot be ALG_RESET
     if (m_VIOBoundToBlueprintOutputs.find(var) == m_VIOBoundToBlueprintOutputs.end()) {
       reportError(srcloc, "custom reset signal has to be bound to a module output");
     }
@@ -2390,7 +2390,8 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
       if (m_InputNames.count(ioname) > 0
         || m_OutputNames.count(ioname) > 0
         || m_VarNames.count(ioname) > 0
-        || ioname == determineAccessedVar(m_Clock, nullptr) || ioname == m_Reset) {
+        || ioname == determineAccessedVar(m_Clock, nullptr) 
+        || ioname == determineAccessedVar(m_Reset, nullptr)) {
         reportError(sourceloc(P),
           "subroutine '%s' input/output '%s' is using the same name as a host VIO, clock or reset",
           nfo->name.c_str(), ioname.c_str());
@@ -6063,7 +6064,7 @@ void Algorithm::determineAccess(
   for (const auto& bp : m_InstancedBlueprints) {
     std::vector<std::string> candidates;
     candidates.push_back(determineAccessedVar(bp.second.instance_clock,nullptr));
-    candidates.push_back(bp.second.instance_reset);
+    candidates.push_back(determineAccessedVar(bp.second.instance_reset, nullptr));
     for (auto v : candidates) {
       // variables only
       if (m_VarNames.find(v) != m_VarNames.end()) {
@@ -6445,21 +6446,18 @@ Algorithm::Algorithm(
 
 void Algorithm::init(
   std::string name, bool hasHash,
-  siliceParser::SclockContext *clock, std::string reset,
+  siliceParser::SclockContext *clock, siliceParser::SresetContext *reset,
   bool autorun, bool onehot, std::string formalDepth, std::string formalTimeout, const std::vector<std::string> &modes
 )
 {
   m_Name = name;
   m_hasHash = hasHash;
   if (clock != nullptr) {
-    if (clock->idOrAccess()->access() != nullptr) {
-      m_Clock = clock->idOrAccess()->access();
-    } else {
-      sl_assert(clock->idOrAccess()->IDENTIFIER() != nullptr);
-      m_Clock = clock->idOrAccess()->IDENTIFIER()->getText();
-    }
+    m_Clock = binding_point(clock->idOrAccess());
   }
-  m_Reset = reset;
+  if (reset != nullptr) {
+    m_Reset = binding_point(reset->idOrAccess());
+  }
   m_FormalDepth = formalDepth;
   m_FormalTimeout = formalTimeout;
   m_FormalModes = modes;
@@ -7656,7 +7654,7 @@ void Algorithm::writeAssert(std::string prefix,
     (int)expression_0->getStart()->getLine());
   std::string silice_position = file + ":" + std::to_string(line);
 
-  out << "assert(($initstate || " << m_Reset << ") || (" << rewriteExpression(prefix, expression_0, a.__id, bctx, ictx, ff, e_Read, dependencies, _usage) << ")); //%" << silice_position << nxl;
+  out << "assert(($initstate || " << writeResetAsString(m_Reset,ictx,_usage) << ") || (" << rewriteExpression(prefix, expression_0, a.__id, bctx, ictx, ff, e_Read, dependencies, _usage) << ")); //%" << silice_position << nxl;
 }
 
 // -------------------------------------------------
@@ -7676,7 +7674,7 @@ void Algorithm::writeAssume(std::string prefix,
     (int)expression_0->getStart()->getLine());
   std::string silice_position = file + ":" + std::to_string(line);
 
-  out << "assume(($initstate || " << m_Reset << ") || (" << rewriteExpression(prefix, expression_0, a.__id, bctx, ictx, ff, e_Read, dependencies, _usage) << ")); //%" << silice_position << nxl;
+  out << "assume(($initstate || " << writeResetAsString(m_Reset, ictx, _usage) << ") || (" << rewriteExpression(prefix, expression_0, a.__id, bctx, ictx, ff, e_Read, dependencies, _usage) << ")); //%" << silice_position << nxl;
 }
 
 // -------------------------------------------------
@@ -7696,7 +7694,7 @@ void Algorithm::writeRestrict(std::string prefix,
     (int)expression_0->getStart()->getLine());
   std::string silice_position = file + ":" + std::to_string(line);
 
-  out << "restrict(($initstate || " << m_Reset << ") || (" << rewriteExpression(prefix, expression_0, a.__id, bctx, ictx, ff, e_Read, dependencies, _usage) << ")); //%" << silice_position << nxl;
+  out << "restrict(($initstate || " << writeResetAsString(m_Reset, ictx, _usage) << ") || (" << rewriteExpression(prefix, expression_0, a.__id, bctx, ictx, ff, e_Read, dependencies, _usage) << ")); //%" << silice_position << nxl;
 }
 
 // -------------------------------------------------
@@ -8045,47 +8043,62 @@ std::string Algorithm::writeClockAsString(t_binding_point clock, const t_instant
 
 // -------------------------------------------------
 
-void Algorithm::writeFlipFlopUpdates(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, std::string clockstr) const
+std::string Algorithm::writeResetAsString(t_binding_point reset, const t_instantiation_context &ictx, t_vio_usage &_usage) const
+{ // NOTE: this is very nearly the same as writeClockAsString, factor?
+  t_vio_dependencies _; // always read only access
+  std::string resetstr;
+  auto tw = determineAccessTypeAndWidth(nullptr, reset);
+  if (tw.width != 1) {
+    reportError(t_source_loc(), "algorithm '%s', reset signal '%s' is not 1 bit wide", m_Name.c_str(), determineAccessedVar(reset, nullptr).c_str());
+  }
+  if (std::holds_alternative<std::string>(reset)) {
+    // clock is an identifier
+    resetstr = std::get<std::string>(reset);
+    if (resetstr != ALG_RESET) {
+      resetstr = rewriteIdentifier("_", resetstr, "", nullptr, ictx, t_source_loc(), FF_Q, e_Read, _, _usage, e_None);
+    }
+  } else {
+    // clock is an access
+    auto *access = std::get<siliceParser::AccessContext *>(reset);
+    std::ostringstream ostr;
+    writeAccess("_", ostr, e_Read, access, -1, nullptr, ictx, FF_Q, _, _usage);
+    resetstr = ostr.str();
+  }
+  return resetstr;
+}
+
+// -------------------------------------------------
+
+void Algorithm::writeFlipFlopUpdates(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, std::string clockstr, std::string resetstr) const
 {
   // output flip-flop init and update on clock
   out << nxl;
   out << "always @(posedge " << clockstr << ") begin" << nxl;
-  // determine var reset condition
-  std::string reset = m_Reset;
-  if (m_Reset != ALG_RESET) {
-    // in this case, reset has to be bound to a module/algorithm output
-    /// TODO: is this over-constrained? could it also be a variable?
-    auto R = m_VIOBoundToBlueprintOutputs.find(m_Reset);
-    if (R == m_VIOBoundToBlueprintOutputs.end()) {
-      reportError(t_source_loc(), "algorithm '%s', reset is not bound to a module or algorithm output", m_Name.c_str());
-    }
-    reset = R->second;
-  }
   // vars
   for (const auto &v : m_Vars) {
     if (v.usage != e_FlipFlop) continue;
-    writeVarFlipFlopUpdate(prefix, reset, out, ictx, v);
+    writeVarFlipFlopUpdate(prefix, resetstr, out, ictx, v);
   }
   // outputs
   for (const auto &v : m_Outputs) {
     if (v.usage != e_FlipFlop) continue;
-    writeVarFlipFlopUpdate(prefix, reset, out, ictx, v);
+    writeVarFlipFlopUpdate(prefix, resetstr, out, ictx, v);
   }
   // root fsm
   if (!hasNoFSM()) {
     std::string init_cond;
     if (!isNotCallable()) {
-      init_cond = reset + (" | ~" ALG_INPUT "_" ALG_RUN);
+      init_cond = resetstr + (" | ~" ALG_INPUT "_" ALG_RUN);
     } else {
-      init_cond = reset;
+      init_cond = resetstr;
     }
     // root state machine index update
     out << FF_Q << prefix << fsmIndex(&m_RootFSM) << " <= ";
-    out << reset << " ? " << toFSMState(&m_RootFSM, terminationState(&m_RootFSM)) << " : ";
+    out << resetstr << " ? " << toFSMState(&m_RootFSM, terminationState(&m_RootFSM)) << " : ";
     out << fsmNextState(prefix, &m_RootFSM) << ';' << nxl;
     // autorun
     if (m_AutoRun) {
-      out << prefix << ALG_AUTORUN << " <= " << reset << " ? 0 : 1;" << nxl;
+      out << prefix << ALG_AUTORUN << " <= " << resetstr << " ? 0 : 1;" << nxl;
     }
     // caller ids for subroutines
     if (!doesNotCallSubroutines()) {
@@ -8105,11 +8118,11 @@ void Algorithm::writeFlipFlopUpdates(std::string prefix, std::ostream& out, cons
       std::string index_select = FF_D + prefix + fsmIndex(fsm);
       if (!hasNoFSM()) {
         out << FF_Q << prefix << fsmIndex(fsm) << " <= ";
-        out << reset
+        out << resetstr
             << " ? " << toFSMState(fsm, terminationState(fsm))
             << " : " << index_select
             << ';' << nxl;
-        out << FF_Q << prefix << fsmPipelineStageFull(fsm) << " <= " << reset << " ? 0 : "
+        out << FF_Q << prefix << fsmPipelineStageFull(fsm) << " <= " << resetstr << " ? 0 : "
             << FF_D << prefix << fsmPipelineStageFull(fsm) << ';' << nxl;
       } else {
         out << FF_Q << prefix << fsmIndex(fsm) << " <= "
@@ -8135,7 +8148,7 @@ void Algorithm::writeFlipFlopUpdates(std::string prefix, std::ostream& out, cons
         (int)chk.ctx->getStart()->getLine());
       std::string silice_position = file + ":" + std::to_string(line);
       const std::string inState = chk.current_state ? "(" FF_Q + prefix + fsmIndex(&m_RootFSM) + " == " + std::to_string(chk.current_state->state_id) + ")" : "0";
-      std::string condition = "(" + inState + " && !" + reset;
+      std::string condition = "(" + inState + " && !" + resetstr;
       if (!isNotCallable()) {
         condition = condition + " && " + ALG_INPUT "_" ALG_RUN;
       }
@@ -8158,7 +8171,7 @@ void Algorithm::writeFlipFlopUpdates(std::string prefix, std::ostream& out, cons
       silice_position = file + ":" + std::to_string(line);
     }
     const std::string inState = chk.current_state ? "(" FF_Q + prefix + fsmIndex(&m_RootFSM) + " == " + std::to_string(chk.current_state->state_id) + ")" : "0";
-    std::string condition = "(" + inState + " && !" + reset;
+    std::string condition = "(" + inState + " && !" + resetstr;
     if (!isNotCallable()) {
       condition = condition + " && " + ALG_INPUT "_" ALG_RUN;
     }
@@ -8171,7 +8184,7 @@ void Algorithm::writeFlipFlopUpdates(std::string prefix, std::ostream& out, cons
     auto const &[file, line] = s_LuaPreProcessor->lineAfterToFileAndLineBefore(
       ParsingContext::rootContext(chk.ctx), (int)chk.ctx->getStart()->getLine());
     std::string silice_position = file + ":" + std::to_string(line);
-    std::string condition = "(!" + reset;
+    std::string condition = "(!" + resetstr;
     if (!isNotCallable()) {
       condition = condition + " && " + ALG_INPUT "_" ALG_RUN;
     }
@@ -9901,7 +9914,9 @@ void Algorithm::writeAsModule(
   std::ostringstream out_defines;
 
   t_vio_usage input_bindings_usage;
+  
   std::string clockstr = writeClockAsString(m_Clock, ictx, input_bindings_usage);
+  std::string resetstr = writeClockAsString(m_Reset, ictx, input_bindings_usage);
 
   {
     std::ostringstream& out = out_pre_inst;
@@ -10270,14 +10285,13 @@ void Algorithm::writeAsModule(
     if (nfo.blueprint->requiresReset()) {
       if (!first) { out << ',' << nxl; } first = false;
       t_vio_dependencies _;
-      out << '.' << ALG_RESET << '(' << rewriteIdentifier("_", nfo.instance_reset, "", nullptr, ictx, nfo.srcloc, FF_Q, e_ReadBinding, _, input_bindings_usage, e_None) << ")";
+      out << '.' << ALG_RESET << '(' << writeResetAsString(nfo.instance_reset, ictx, input_bindings_usage) << ")";
     }
     // clock
     if (nfo.blueprint->requiresClock()) {
       t_vio_dependencies _;
-      std::string clockstr = writeClockAsString(nfo.instance_clock, ictx, input_bindings_usage);
       if (!first) { out << ',' << nxl; } first = false;
-      out << '.' << ALG_CLOCK << '(' << clockstr << "),";
+      out << '.' << ALG_CLOCK << '(' << writeClockAsString(nfo.instance_clock, ictx, input_bindings_usage) << "),";
       out << ".out_" << ALG_CLOCK << "()" << nxl; // avoids missing pin warning
     }
     // end of instantiation
@@ -10657,7 +10671,7 @@ void Algorithm::writeAsModule(
 #endif
 
   // flip-flop updates
-  writeFlipFlopUpdates("_", out, ictx, clockstr);
+  writeFlipFlopUpdates("_", out, ictx, clockstr, resetstr);
   out << nxl;
 
   out << "endmodule" << nxl;

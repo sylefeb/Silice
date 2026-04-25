@@ -240,7 +240,7 @@ void SiliceCompiler::gatherUnitBody(AutoPtr<Algorithm> unit, antlr4::tree::Parse
   std::string formalDepth = "";
   std::string formalTimeout = "";
   std::vector<std::string> formalModes{};
-  std::string reset = ALG_RESET;
+  siliceParser::SresetContext *reset = nullptr;
   siliceParser::SclockContext *clock = nullptr;
   if (mods != nullptr) {
     for (auto m : mods->bpModifier()) {
@@ -248,7 +248,7 @@ void SiliceCompiler::gatherUnitBody(AutoPtr<Algorithm> unit, antlr4::tree::Parse
         clock = m->sclock();
       }
       if (m->sreset() != nullptr) {
-        reset = m->sreset()->IDENTIFIER()->getText();
+        reset = m->sreset();
       }
       if (m->sautorun() != nullptr) {
         if (u) {

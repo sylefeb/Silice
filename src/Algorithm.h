@@ -116,6 +116,16 @@ namespace Silice
     /// \brief binding point, identifier or access
     typedef std::variant<std::string, siliceParser::AccessContext *> t_binding_point;
 
+    /// \brief helper to make a binding point
+    t_binding_point binding_point(siliceParser::IdOrAccessContext *idOrAccess) {
+      if (idOrAccess->access() != nullptr) {
+        return t_binding_point(idOrAccess->access());
+      } else {
+        sl_assert(idOrAccess->IDENTIFIER() != nullptr);
+        return t_binding_point(idOrAccess->IDENTIFIER()->getText());
+      }
+    }
+
     /// \brief algorithm name
     std::string m_Name;
 
@@ -126,7 +136,7 @@ namespace Silice
     t_binding_point m_Clock = ALG_CLOCK;
 
     /// \brief algorithm reset
-    std::string m_Reset = ALG_RESET;
+    t_binding_point m_Reset = ALG_RESET;
 
     /// \brief whether algorithm autorun at startup
     bool m_AutoRun = false;
@@ -286,7 +296,7 @@ private:
       std::vector<t_binding_nfo>    bindings;
       bool                          autobind;
       t_binding_point               instance_clock;
-      std::string                   instance_reset;
+      t_binding_point               instance_reset;
       bool                          instance_reginput = false;
       AutoPtr<Blueprint>            blueprint;
       t_parsed_unit                 parsed_unit;
@@ -1086,7 +1096,7 @@ private:
     /// \brief initializes the aglorithm
     void init(
       std::string name, bool hasHash,
-      siliceParser::SclockContext *clock, std::string reset,
+      siliceParser::SclockContext *clock, siliceParser::SresetContext *reset,
       bool autorun, bool onehot, std::string formalDepth, std::string formalTimeout, const std::vector<std::string> &modes);
     /// \brief gather inputs and outputs from the parsed tree
     void gatherIOs(siliceParser::InOutListContext* inout);
@@ -1198,6 +1208,8 @@ private:
     std::string vioAsDefine(const t_instantiation_context& ictx, const t_var_nfo& v, std::string value) const;
     /// \brief writes the clock in a string
     std::string writeClockAsString(t_binding_point clock, const t_instantiation_context &ictx, t_vio_usage &_usage) const;
+    /// \brief writes the reset in a string
+    std::string writeResetAsString(t_binding_point reset, const t_instantiation_context &ictx, t_vio_usage &_usage) const;
     /// \brief writes the const declarations
     void writeConstDeclarations(std::string prefix, t_writer_context &w, const t_instantiation_context &ictx) const;
     /// \brief writes the temporary declarations
@@ -1207,7 +1219,7 @@ private:
     /// \brief writes the flip-flop declarations
     void writeFlipFlopDeclarations(std::string prefix, std::ostream& out, const t_instantiation_context &ictx) const;
     /// \brief writes the flip-flop updates
-    void writeFlipFlopUpdates(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, std::string clockstr) const;
+    void writeFlipFlopUpdates(std::string prefix, std::ostream& out, const t_instantiation_context &ictx, std::string clockstr, std::string resetstr) const;
     /// \brief writes flip-flop combinational value update for a variable
     void writeVarFlipFlopCombinationalUpdate(std::string prefix, std::ostream& out, const t_var_nfo& v) const;
     /// \brief write an inout binding as a base and (if applicable) bit-vector access
