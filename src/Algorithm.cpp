@@ -8034,6 +8034,11 @@ std::string Algorithm::writeClockAsString(t_binding_point clock, const t_instant
   } else {
     // clock is an access
     auto *access = std::get<siliceParser::AccessContext *>(clock);
+    auto range = determineAccessConstBitRange(access, nullptr);
+    auto vtw   = determineVIOTypeWidthAndTableSize(determineAccessedVar(access, nullptr),t_source_loc());
+    if (range != v2i(-1) && range[0] >= get<0>(vtw).width) {
+      reportError(t_source_loc(), "algorithm '%s', clock signal '%s', bit out of bounds (uses bit %d, width is %d)", m_Name.c_str(), determineAccessedVar(clock, nullptr).c_str(), range[0], get<0>(vtw).width);
+    }
     std::ostringstream ostr;
     writeAccess("_", ostr, e_Read, access, -1, nullptr, ictx, FF_Q, _, _usage);
     clockstr = ostr.str();
@@ -8060,6 +8065,11 @@ std::string Algorithm::writeResetAsString(t_binding_point reset, const t_instant
   } else {
     // clock is an access
     auto *access = std::get<siliceParser::AccessContext *>(reset);
+    auto range = determineAccessConstBitRange(access, nullptr);
+    auto vtw   = determineVIOTypeWidthAndTableSize(determineAccessedVar(access, nullptr), t_source_loc());
+    if (range != v2i(-1) && range[0] >= get<0>(vtw).width) {
+      reportError(t_source_loc(), "algorithm '%s', reset signal '%s', bit out of bounds (uses bit %d, width is %d)", m_Name.c_str(), determineAccessedVar(reset, nullptr).c_str(), range[0], get<0>(vtw).width);
+    }
     std::ostringstream ostr;
     writeAccess("_", ostr, e_Read, access, -1, nullptr, ictx, FF_Q, _, _usage);
     resetstr = ostr.str();
