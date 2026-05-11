@@ -2390,7 +2390,7 @@ Algorithm::t_combinational_block *Algorithm::gatherSubroutine(siliceParser::Subr
       if (m_InputNames.count(ioname) > 0
         || m_OutputNames.count(ioname) > 0
         || m_VarNames.count(ioname) > 0
-        || ioname == determineAccessedVar(m_Clock, nullptr) 
+        || ioname == determineAccessedVar(m_Clock, nullptr)
         || ioname == determineAccessedVar(m_Reset, nullptr)) {
         reportError(sourceloc(P),
           "subroutine '%s' input/output '%s' is using the same name as a host VIO, clock or reset",
@@ -7516,15 +7516,16 @@ void Algorithm::writePartSelect(std::string prefix, std::ostream& out, e_AccessT
   std::pair<std::string, std::string> range;
   range.first  = rewriteExpression(prefix, partsel->first, __id, bctx, ictx, FF_Q, e_Read, dependencies, _usage);
   range.second = gatherConstValue(partsel->num);
+  std::string suffix = "[" + range.first + "+:" + range.second + ']';
   if (partsel->ioAccess() != nullptr) {
-    writeIOAccess(prefix, out, access_type, partsel->ioAccess(), '[' + range.first + "+:" + range.second + ']', __id, bctx, ictx, ff, dependencies, _usage);
+    writeIOAccess(prefix, out, access_type, partsel->ioAccess(), suffix, __id, bctx, ictx, ff, dependencies, _usage);
   } else if (partsel->tableAccess() != nullptr) {
-    writeTableAccess(prefix, out, access_type, partsel->tableAccess(), '[' + range.first + "+:" + range.second + ']', __id, bctx, ictx, ff, dependencies, _usage);
+    writeTableAccess(prefix, out, access_type, partsel->tableAccess(), suffix, __id, bctx, ictx, ff, dependencies, _usage);
   } else if (partsel->bitfieldAccess() != nullptr) {
     writeBitfieldAccess(prefix, out, access_type, partsel->bitfieldAccess(), range, __id, bctx, ictx, ff, dependencies, _usage);
   } else {
     sl_assert(partsel->IDENTIFIER() != nullptr);
-    out << rewriteIdentifier(prefix, partsel->IDENTIFIER()->getText(), '[' + range.first + "+:" + range.second + ']', bctx, ictx,
+    out << rewriteIdentifier(prefix, partsel->IDENTIFIER()->getText(), suffix, bctx, ictx,
       sourceloc(partsel), (access_type & e_Write) ? FF_D : ff, access_type, dependencies, _usage);
   }
   if (access_type & e_Write) {
@@ -9924,7 +9925,7 @@ void Algorithm::writeAsModule(
   std::ostringstream out_defines;
 
   t_vio_usage input_bindings_usage;
-  
+
   std::string clockstr = writeClockAsString(m_Clock, ictx, input_bindings_usage);
   std::string resetstr = writeClockAsString(m_Reset, ictx, input_bindings_usage);
 
