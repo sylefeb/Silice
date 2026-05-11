@@ -1,0 +1,20 @@
+{
+  "name": "arty_a7",
+  "variants": [
+    {
+      "name"      : "configurable",
+      "framework" : "arty_a7.v",
+      "pins"      : [
+        {"set"    : "basic"},
+        {"set"    : "vga", "define" : "VGA=1"}
+      ],
+      "builders": [
+        {
+          "builder" : "shell",
+          "command" : "arty_a7.sh",
+          "description": "Custom shell scripts using yosys and nextpnr"
+        }
+      ]
+    }
+  ]
+}
