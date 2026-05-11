@@ -20,6 +20,11 @@
       ],
       "builders": [
       {
+        "builder" : "shell",
+        "command" : "icepi-zero.sh",
+        "description": "Custom shell scripts using yosys and nextpnr"
+      },
+      {
         "builder" : "edalize",
         "description": "Build using Edalize",
         "tool": "trellis",
@@ -44,11 +49,6 @@
         "bitstream"  : "build.bit",
         "constraints": [{"name": "icepi-zero.lpf", "file_type": "LPF"}],
         "program": [{"cmd" : "openFPGAloader", "args" : " -b icepi-zero ./Implementation0/build_Implementation0.bit"}]
-      },
-      {
-        "builder" : "shell",
-        "command" : "icepi-zero.sh",
-        "description": "Custom shell scripts using yosys and nextpnr"
       }
       ]
     }

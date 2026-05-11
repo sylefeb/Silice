@@ -83,6 +83,9 @@
     },
     {
       "name" : "gatemate_evb"
+    },
+    {
+      "name" : "arty_a7"
     }
   ]
 }

@@ -31,6 +31,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 $$ICEBREAKER  = 1
 $$ICE40       = 1
 $$HARDWARE    = 1
+$$BOARD_CLOCK_MHZ = 12
 $$color_depth = 6
 $$color_max   = 63
 // config

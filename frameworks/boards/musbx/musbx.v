@@ -33,6 +33,7 @@ $$BROT=1
 $$MUSBX=1
 $$ICE40=1
 $$HARDWARE=1
+$$BOARD_CLOCK_MHZ=40
 $$NUM_LEDS=1
 $$NUM_BTNS=0
 $$color_depth=6

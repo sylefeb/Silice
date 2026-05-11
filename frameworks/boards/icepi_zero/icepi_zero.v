@@ -31,6 +31,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 `default_nettype none
 $$ICEPI_ZERO    = 1
 $$ECP5     = 1
+$$BOARD_CLOCK_MHZ = 50
 $$HARDWARE = 1
 $$NUM_LEDS = 5
 $$NUM_BTNS = 2
@@ -104,7 +105,7 @@ module top(
   input  clk
   );
 
-// Change 
+// Change
 reg clk25;
 always @(posedge clk) begin
 	clk25 = ~clk25;

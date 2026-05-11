@@ -5,21 +5,21 @@ List contributors with: git shortlog -n -s -- <filename>
 
 MIT license
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of 
-this software and associated documentation files (the "Software"), to deal in 
-the Software without restriction, including without limitation the rights to 
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished to do so, 
+the Software, and to permit persons to whom the Software is furnished to do so,
 subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all 
+The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR 
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER 
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 (header_2_M)
@@ -28,6 +28,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 `define DE10NANO 1
 $$DE10NANO = 1
+$$BOARD_CLOCK_MHZ=50
+$$ALTERA_DEVICE = 'Cyclone V'
 $$HARDWARE = 1
 $$NUM_LEDS = 8
 $$NUM_BTNS = 5
@@ -44,15 +46,15 @@ $$color_max   = 63
 `ifdef UART
 `ifdef UART2
   `error_choose_either_uart_or_uart2
-`endif  
-`endif  
+`endif
+`endif
 
 module top(
     output [7:0] leds,
 `ifdef BUTTONS
     // buttons
     input  [4:0] btns,
-`endif  
+`endif
 `ifdef SDRAM
     // sdram
     output  SDRAM_CLK,
@@ -66,25 +68,25 @@ module top(
     output  [1:0] SDRAM_BA,
     output  [12:0] SDRAM_A,
     inout   [15:0] SDRAM_DQ,
-`endif  
-`ifdef VGA  
+`endif
+`ifdef VGA
     // vga
     output  vga_hs,
     output  vga_vs,
     output  [5:0] vga_r,
     output  [5:0] vga_g,
     output  [5:0] vga_b,
-`endif  
+`endif
 `ifdef UART
     // uart
     input  uart_rx,
     output uart_tx,
-`endif  
+`endif
 `ifdef UART2
     // uart, second choice
     input  uart2_rx,
     output uart2_tx,
-`endif  
+`endif
 `ifdef KEYPAD
     // keypad
     output  [3:0] kpadC,
@@ -108,24 +110,24 @@ wire [1:0]  __main_out_sdram_ba;
 wire [12:0] __main_out_sdram_a;
 `endif
 
-`ifdef VGA 
+`ifdef VGA
 wire        __main_out_vga_hs;
 wire        __main_out_vga_vs;
 wire [5:0]  __main_out_vga_r;
 wire [5:0]  __main_out_vga_g;
 wire [5:0]  __main_out_vga_b;
-`endif  
+`endif
 
 `ifdef UART
 wire        __main_out_uart_tx;
-`endif  
+`endif
 `ifdef UART2
 wire        __main_out_uart_tx;
-`endif  
+`endif
 
 `ifdef KEYPAD
 wire [3:0]  __main_out_kpadC;
-`endif  
+`endif
 
 // reset
 
@@ -156,7 +158,7 @@ M_main __main(
   .reset(reset_main),
   .in_run(run_main),
   .out_leds(__main_out_leds),
-`ifdef BUTTONS  
+`ifdef BUTTONS
   .in_btns(btns),
 `endif
 `ifdef SDRAM
@@ -170,7 +172,7 @@ M_main __main(
   .out_sdram_ras(__main_out_sdram_ras),
   .out_sdram_ba(__main_out_sdram_ba),
   .out_sdram_a(__main_out_sdram_a),
-`endif  
+`endif
 `ifdef VGA
   .out_video_hs(__main_out_vga_hs),
   .out_video_vs(__main_out_vga_vs),
@@ -181,11 +183,11 @@ M_main __main(
 `ifdef UART
   .out_uart_tx(__main_out_uart_tx),
   .in_uart_rx(uart_rx),
-`endif  
+`endif
 `ifdef UART2
   .out_uart_tx(__main_out_uart_tx),
   .in_uart_rx(uart2_rx),
-`endif  
+`endif
 `ifdef KEYPAD
   .out_kpadC(__main_out_kpadC),
   .in_kpadR(kpadR),
@@ -206,7 +208,7 @@ assign  SDRAM_nCAS   = __main_out_sdram_cas;
 assign  SDRAM_nRAS   = __main_out_sdram_ras;
 assign  SDRAM_BA     = __main_out_sdram_ba;
 assign  SDRAM_A      = __main_out_sdram_a;
-`endif  
+`endif
 
 `ifdef VGA
 assign  vga_hs       = __main_out_vga_hs;
@@ -214,17 +216,17 @@ assign  vga_vs       = __main_out_vga_vs;
 assign  vga_r        = __main_out_vga_r;
 assign  vga_g        = __main_out_vga_g;
 assign  vga_b        = __main_out_vga_b;
-`endif  
+`endif
 
 `ifdef UART
 assign uart_tx       = __main_out_uart_tx;
-`endif  
+`endif
 `ifdef UART2
 assign uart2_tx      = __main_out_uart_tx;
-`endif  
+`endif
 
 `ifdef KEYPAD
 assign  kpadC        = __main_out_kpadC;
-`endif  
-  
+`endif
+
 endmodule
