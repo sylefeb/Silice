@@ -1,1 +1,135 @@
-// placeholder
+// SL 2026-04-19
+/*
+
+PLL unit, parameters:
+- [required] freq_out:   target output frequency in MHz for clock 0
+- [optional] phase_out:  output phase in degrees for clock 0
+- [optional] freq_out1:  target output frequency in MHz for clock 1
+- [optional] phase_out1: output phase in degrees for clock 1
+- [optional] freq_out2:  target output frequency in MHz for clock 2
+- [optional] phase_out2: output phase in degrees for clock 2
+- [optional] freq_out3:  target output frequency in MHz for clock 3
+- [optional] phase_out3: output phase in degrees for clock 3
+- [optional] freq_in:    input clock frequency in MHz, if not given will attempt
+                         to determine from board framework defines
+
+The number of output clocks is determined from the width of clock_out.
+*/
+unit pll(input uint1 clock_in,output! auto clock_out)
+{
+
+$$if __pll__numplls then
+$$  __pll__numplls = __pll__numplls + 1
+$$else
+$$  __pll__numplls = 0
+$$end
+
+$$local nclocks = widthof('clock_out')
+$$print('[PLL] number of output clocks: ' .. nclocks)
+
+$$if not freq_in then
+$$  if not BOARD_CLOCK_MHZ and not SIMULATION then
+$$    error('[PLL] freq_in was not specified')
+$$  elseif not SIMULATION then
+$$    freq_in = BOARD_CLOCK_MHZ
+$$    print('[PLL] using BOARD_CLOCK_MHZ = ' .. freq_in)
+$$  end
+$$end
+
+// Build the per-clock option string shared across all generators.
+// Clock 0 uses freq_out / phase_out (no numeric suffix).
+// Clocks 1-3 use freq_outN / phase_outN.
+$$local function clock_opts(n)
+$$  local freq, phase, suffix
+$$  if n == 0 then
+$$    freq  = freq_out
+$$    phase = phase_out
+$$    suffix = ''
+$$    prefix = ' -'
+$$  else
+$$    freq  = _G['freq_out'  .. n]
+$$    phase = _G['phase_out' .. n]
+$$    suffix = tostring(n)
+$$    prefix = ' --'
+$$  end
+$$  if not freq then
+$$    error('[PLL] freq_out' .. suffix .. ' was not specified for clock ' .. n)
+$$  end
+$$  local opts = prefix .. 'o' .. suffix .. ' ' .. freq
+$$  if phase then
+$$    opts = opts .. prefix .. 'p' .. suffix .. ' ' .. phase
+$$  end
+$$  return opts
+$$end
+
+$$local pllname = 'pll_' .. __pll__numplls
+$$local clkopts = ''
+$$for i = 0, nclocks - 1 do
+$$  clkopts = clkopts .. clock_opts(i)
+$$end
+
+$$local pllstr,err = nil,nil
+$$if GATEMATE then
+$$  dofile('pll/gmpll.lua')
+$$  pllstr,err = gmpll('-i ' .. freq_in .. clkopts .. ' -n ' .. pllname)
+$$elseif ICE40 then
+$$  dofile('pll/icepll.lua')
+$$  local opt  = PLL_CORE and '' or '-p'
+$$  pllstr,err = icepll(opt .. ' -i ' .. freq_in .. clkopts .. ' -n ' .. pllname)
+$$elseif ECP5 then
+$$  dofile('pll/ecppll.lua')
+$$  pllstr,err = ecppll('-i ' .. freq_in .. clkopts .. ' -n ' .. pllname)
+$$elseif GOWIN_DEVICE then
+$$  dofile('pll/gowinpll.lua')
+$$  pllstr,err = gowinpll('-i ' .. freq_in .. clkopts .. ' -n ' .. pllname .. ' --device ' .. GOWIN_DEVICE)
+$$elseif ALTERA_DEVICE then
+$$  dofile('pll/altpll.lua')
+$$  pllstr,err = altpll('-i ' .. freq_in .. clkopts .. ' -n ' .. pllname .. ' --family \'' .. ALTERA_DEVICE .. '\'')
+$$elseif XILINX_DEVICE then
+$$  dofile('pll/xilpll.lua')
+$$  pllstr,err = xilpll('-i ' .. freq_in .. clkopts .. ' -n ' .. pllname)
+$$elseif SIMULATION then
+$$  dofile('pll/simpll.lua')
+$$  local fin = ''
+$$  if freq_in then
+$$    fin = '-i ' .. freq_in
+$$  end
+$$  pllstr,err = simpll(fin .. clkopts .. ' -n ' .. pllname)
+$$else
+$$  error('[PLL] board not supported, please import a custom Verilog pll module')
+$$end
+
+$$if pllstr then
+$$  print(pllstr)
+$$else
+$$  error(err)
+$$end
+// Imports the string containing the Verilog code as a module, available
+// immediately inside this unit.
+$$import_module(pllstr)
+
+// Build the clock_out port connections for the instantiation.
+// clock_out[0] maps to the single-bit 'clock_out' when nclocks==1,
+// or to indexed bits when nclocks > 1.  Extra named outputs clock_out1..3
+// are wired when present.
+$$local inst_ports = '    clock_in  <: clock_in,\n'
+$$if nclocks == 1 then
+$$  inst_ports = inst_ports .. '    clock_out :> clock_out\n'
+$$else
+$$  for i = 0, nclocks - 1 do
+$$    local sep = (i < nclocks - 1) and ',' or ''
+$$    if i == 0 then
+$$      inst_ports = inst_ports .. '    clock_out  :> clock_out[' .. i .. ',1]' .. sep .. '\n'
+$$    else
+$$      inst_ports = inst_ports .. '    clock' .. i .. '_out :> clock_out[' .. i .. ',1]' .. sep .. '\n'
+$$    end
+$$  end
+$$end
+$$print(inst_ports)
+
+  // Instantiate the actual PLL
+  $pllname$ _(
+    $inst_ports$
+  );
+
+}
