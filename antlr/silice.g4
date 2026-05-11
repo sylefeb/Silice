@@ -182,8 +182,8 @@ constValue          : minus='-'? NUMBER | SIZED_NUMBER | (WIDTHOF '(' base=IDENT
 
 value               : constValue | initBitfield ;
 
-sclock              :  '@' IDENTIFIER /*idOrAccess*/ ;
-sreset              :  '!' IDENTIFIER /*idOrAccess*/ ;
+sclock              :  '@' idOrAccess ;
+sreset              :  '!' idOrAccess ;
 sautorun            :  AUTORUN ;
 sonehot             :  ONEHOT ;
 sreginput           :  'reginputs' ;

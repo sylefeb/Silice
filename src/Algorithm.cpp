@@ -10025,13 +10025,6 @@ void Algorithm::writeAsModule(
       }
     }
 
-    // assign algorithm clock to output clock
-    {
-      t_vio_dependencies _1, _2;
-      out << "assign out_" ALG_CLOCK << " = "
-        << clockstr
-        << ';' << nxl;
-    }
   }
 
   std::ostringstream out;
@@ -10084,6 +10077,13 @@ void Algorithm::writeAsModule(
 
   // wire declaration (vars bound to inouts)
   writeWireDeclarations("_", out, ictx);
+
+  // assign algorithm clock to output clock
+  {
+    out << "assign out_" ALG_CLOCK << " = "
+      << clockstr
+      << ';' << nxl;
+  }
 
   // flip-flops declarations
   writeFlipFlopDeclarations("_", out, ictx);
