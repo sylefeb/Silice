@@ -253,6 +253,32 @@ $$end
   // maintain low (pulses when ready, see below)
   sio.in_valid := 0;
 
+$$if true then
+    sio.rw       = 1;
+    sio.addr     = 0;
+    sio.data_in  = 64h5555555555555555; // 444444444444444;
+    sio.wmask    = 8b11111111;
+    sio.in_valid = 1;
+    while (!sio.done) { }
+
+    sio.rw       =  1;
+    sio.addr     = 16;
+    sio.data_in  = 64haaaaaaaaaaaaaaaa;
+    sio.wmask    = 8b11111111;
+    sio.in_valid = 1;
+    while (!sio.done) { }
+
+    // read
+    sio.rw       =  0;
+    sio.addr     = 16;
+    sio.in_valid =  1;
+    while (!sio.done) { }
+    __display("read : %x",sio.data_out[0,8]);
+    leds = sio.data_out[0,8];
+
+$$end
+
+/*
 $$if false then
   iter = 0;
   while (iter < 32) { // init
@@ -287,7 +313,7 @@ $$if true then
     leds   = 8b10000001;
     count  = 0;
     while (count < $TEST_SIZE$) {
-      // write to sdram
+      // access sdram
   $$if TEST_r128w8 or TEST_r16w16 then
       sio.data_in    = count;
   $$else
@@ -338,4 +364,5 @@ $$end
     pass = pass + 1;
   }
 $$end
+*/
 }

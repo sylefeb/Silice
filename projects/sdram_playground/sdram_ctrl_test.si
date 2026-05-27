@@ -229,7 +229,7 @@ $$else
 $$end
 $$end
 
-  uint1   reg_sdram_cs  (1);
+  uint1   reg_sdram_cs  (0);
   uint1   reg_sdram_cas (0);
   uint1   reg_sdram_ras (0);
   uint1   reg_sdram_we  (0);
@@ -253,24 +253,22 @@ $$CMD_PRECHARGE       = '0010'
 $$CMD_REFRESH         = '0001'
 $$CMD_LOAD_MODE_REG   = '0000'
 $$AddrZ     = '0000000000000'
-$$rowA      = '0000000000000'
-$$rowB      = '0000000000001'
 $$AddrA_row = '0000000000000'
 $$AddrA_col = '0000000000000'
-$$AddrB_row = '0000000000001'
-$$AddrB_col = '0000000000000'
+$$AddrB_row = '0000000000000'
+$$AddrB_col = '0000000001000'
 //          ^ba           ^a
-$$Addr_wait_init     = '0111111111111'
-$$Addr_wait_1        = '0000000000000' -- value are delay - 1 since using cnt sign bit to stop
-$$Addr_wait_2        = '0000000000001' -- value are delay - 1 since using cnt sign bit to stop
-$$Addr_wait_3        = '0000000000010'
-$$Addr_wait_4        = '0000000000011'
-$$Addr_wait_5        = '0000000000100'
-$$Addr_wait_6        = '0000000000101'
-$$Addr_wait_7        = '0000000000110'
-$$Addr_wait_16       = '0000000001111'
+$$Addr_wait_init     = '1111111111111'
+$$Addr_wait_2        = '0000000000000' -- value are delay - 1 since using cnt sign bit to stop
+$$Addr_wait_3        = '0000000000001' -- value are delay - 1 since using cnt sign bit to stop
+$$Addr_wait_4        = '0000000000010'
+$$Addr_wait_5        = '0000000000011'
+$$Addr_wait_6        = '0000000000100'
+$$Addr_wait_7        = '0000000000101'
+$$Addr_wait_8        = '0000000000110'
+$$Addr_wait_16       = '0000000001110'
 $$Addr_precharge_all = '0010000000000'
-$$Addr_mode_reg      = '0001000110000'
+$$Addr_mode_reg      = '0001000110011'
 $$Bank0              = '00'
 $$Bank1              = '01'
 $$Bank2              = '10'
@@ -279,47 +277,48 @@ $$DataZ  = '00000000' .. '00000000'
 // NOTE: sdram_ba: bank on bits 25-24 ( 2 bits)
 //       sdram_a : row  on bits 22-10 (13 bits)
 $$if ICARUS then
-$$  Addr_wait_R = Addr_wait_3
-$$else
 $$  Addr_wait_R = Addr_wait_4
+$$else
+$$  Addr_wait_R = Addr_wait_3
 $$end
 $$bwidth = 4+2+13+2+16+1
   // CMD BANK ADDR DQM DATA DQEN
   brom uint$bwidth$ instructions[] = {
     $bwidth$b$CMD_dummy_WAIT_init .. Bank0 .. Addr_wait_init      .. '00' .. DataZ .. '0'$,
     $bwidth$b$CMD_PRECHARGE       .. Bank0 .. Addr_precharge_all  .. '00' .. DataZ .. '0'$,
-    $bwidth$b$CMD_dummy_WAIT      .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_dummy_WAIT      .. Bank0 .. Addr_wait_2        .. '00' .. DataZ .. '0'$,
     $bwidth$b$CMD_LOAD_MODE_REG   .. Bank0 .. Addr_mode_reg       .. '00' .. DataZ .. '0'$,
-    $bwidth$b$CMD_dummy_WAIT      .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
-    $bwidth$b$CMD_REFRESH         .. Bank0 .. AddrZ               .. '00' .. DataZ .. '0'$,
-    $bwidth$b$CMD_dummy_WAIT      .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
-    // ^ 7
+    $bwidth$b$CMD_dummy_WAIT      .. Bank0 .. Addr_wait_4        .. '00' .. DataZ .. '0'$,
+    //$bwidth$b$CMD_REFRESH         .. Bank0 .. AddrZ               .. '00' .. DataZ .. '0'$,
+    //$bwidth$b$CMD_dummy_WAIT      .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
+    // ^ 5
     // write in rowA
-    $bwidth$b$CMD_PRECHARGE     .. Bank0 .. AddrZ               .. '00' .. DataZ .. '0'$,
-    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
+    //$bwidth$b$CMD_PRECHARGE     .. Bank0 .. AddrZ               .. '00' .. DataZ .. '0'$,
+    //$bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
     $bwidth$b$CMD_ACTIVATE      .. Bank0 .. AddrA_row           .. '00' .. DataZ .. '0'$,
-    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
-    $bwidth$b$CMD_WRITE         .. Bank0 .. AddrA_col           .. '00' .. '1010101010101111' .. '1'$,
-    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
-    // ^ 6
+    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_2        .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_WRITE         .. Bank0 .. AddrA_col           .. '00' .. '0101010101010101' .. '1'$,
+    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_8        .. '00' .. DataZ .. '0'$,
+    // ^ 4
     // write in rowB
-    $bwidth$b$CMD_PRECHARGE     .. Bank0 .. AddrZ               .. '00' .. DataZ .. '0'$,
-    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
-    $bwidth$b$CMD_ACTIVATE      .. Bank0 .. AddrB_row           .. '00' .. DataZ .. '0'$,
-    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
-    $bwidth$b$CMD_WRITE         .. Bank0 .. AddrB_col           .. '00' .. '0101010111110101' .. '1'$,
-    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
-    // ^ 6
+    //$bwidth$b$CMD_PRECHARGE     .. Bank0 .. AddrZ               .. '00' .. DataZ .. '0'$,
+    //$bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
+    //$bwidth$b$CMD_ACTIVATE      .. Bank0 .. AddrB_row           .. '00' .. DataZ .. '0'$,
+    //$bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_WRITE         .. Bank0 .. AddrB_col           .. '00' .. '1010101010101010' .. '1'$,
+    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_8        .. '00' .. DataZ .. '0'$,
+    // ^ 2
     // read from rowB
-    $bwidth$b$CMD_PRECHARGE     .. Bank0 .. AddrZ               .. '00' .. DataZ .. '0'$,
-    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
-    $bwidth$b$CMD_ACTIVATE      .. Bank0 .. AddrB_row           .. '00' .. DataZ .. '0'$,
-    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
+    //$bwidth$b$CMD_PRECHARGE     .. Bank0 .. AddrZ               .. '00' .. DataZ .. '0'$,
+    //$bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
+    //$bwidth$b$CMD_ACTIVATE      .. Bank0 .. AddrB_row           .. '00' .. DataZ .. '0'$,
+    //$bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
     $bwidth$b$CMD_READ          .. Bank0 .. AddrB_col           .. '00' .. DataZ .. '0'$,
     $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_R         .. '00' .. DataZ .. '0'$,
     $bwidth$b$CMD_dummy_GET     .. Bank0 .. AddrZ               .. '00' .. DataZ .. '0'$,
     $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
-    // ^ 8
+    // ^ 4
+/*
     // read from rowA
     $bwidth$b$CMD_PRECHARGE     .. Bank0 .. AddrZ               .. '00' .. DataZ .. '0'$,
     $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
@@ -330,8 +329,9 @@ $$bwidth = 4+2+13+2+16+1
     $bwidth$b$CMD_dummy_GET     .. Bank0 .. AddrZ               .. '00' .. DataZ .. '0'$,
     $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
     // ^ 8
+*/
   };
-  $$n_instr = 7+6+6+8+8
+  $$n_instr = 5+4+2+4
 
   always_before {
     sdram_cle   = 1;
@@ -361,18 +361,18 @@ $$end
   algorithm {
 
     uint6 pc  = 0;
-    int13 cnt = -1;
+    int17 cnt = -1;
     while (pc != $n_instr$) {
       uint$bwidth$ instr = instructions.rdata;
       uint4 cmd          = instr[$bwidth-4$     , 4];
       // __display("cmd: %b",cmd);
       if (cmd[3,1] & cmd[0,1]) {
         if (cmd[2,1]) { // wait command
-          cnt     = ~cnt[12,1] ? (cnt - 1) : instr[$bwidth-4-2-13$  ,13];
+          cnt     = ~cnt[16,1] ? (cnt - 1) : {1b0,{3{instr[$bwidth-4-2-1$,1]}},instr[$bwidth-4-2-13$  ,13]};
           //__display("wait: %d",cnt);
-          (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command({cmd[1,1],3b111});
+          (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command({1b0/*cmd[1,1]*/,3b111});
           __write(".");
-          if (cnt[12,1]) { __display("done"); }
+          if (cnt[16,1]) { __display("done"); }
         } else { // get command (after read)
           reg_dq_i = sdram_dq_i2;
           __display("get: %x",sdram_dq_i2);
@@ -416,7 +416,7 @@ $$if SIMULATION then
         }
 $$end
       }
-      pc                = cnt[12,1] ? pc + 1 : pc;
+      pc                = cnt[16,1] ? pc + 1 : pc;
       instructions.addr = pc;
     }
 
