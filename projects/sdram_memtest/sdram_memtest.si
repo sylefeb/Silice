@@ -270,7 +270,7 @@ $$if true then
 
     // read
     sio.rw       =  0;
-    sio.addr     = 16;
+    sio.addr     =  0;
     sio.in_valid =  1;
     while (!sio.done) { }
     __display("read : %x",sio.data_out[0,8]);
