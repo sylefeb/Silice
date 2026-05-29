@@ -101,9 +101,9 @@ $$end
 
 $$if not ICARUS then
 uint1 rst(1);
-//clean_reset rstcond<@sdram_clock,!reset> (
-//  out   :> rst
-//);
+clean_reset rstcond<@sdram_clock,!reset> (
+  out   :> rst
+);
 $$else
 uint1 sdram_clock(0);
 $$end
@@ -160,7 +160,7 @@ $$if ULX3S then
     clkout2  :> sdram_clock, // controller
     clkout3  :> sdram_clk,   // chip
     locked   :> pll_lock,
-    reset    :> rst
+//    reset    :> rst
   );
 $$end
 $$if DE10NANO then
@@ -314,18 +314,30 @@ $$bwidth = 4+2+13+2+16+1
     $bwidth$b$CMD_WRITE         .. Bank0 .. AddrB_col           .. '10' .. '1010101010101010' .. '1'$,
     $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_8         .. '00' .. DataZ .. '0'$,
     // ^ 6
-    // read
+    // row-copy?
+    // -> activate A
     $bwidth$b$CMD_PRECHARGE     .. Bank0 .. AddrZ               .. '00' .. DataZ .. '0'$,
     $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
     $bwidth$b$CMD_ACTIVATE      .. Bank0 .. AddrA_row           .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_8         .. '00' .. DataZ .. '0'$,
+    // -> illegally activate B
+    $bwidth$b$CMD_PRECHARGE     .. Bank0 .. AddrZ               .. '00' .. DataZ .. '0'$,
+    // $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16         .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_ACTIVATE      .. Bank0 .. AddrB_row           .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_8         .. '00' .. DataZ .. '0'$,
+    // ^ 7
+    // read
+    $bwidth$b$CMD_PRECHARGE     .. Bank0 .. AddrZ               .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_ACTIVATE      .. Bank0 .. AddrB_row           .. '00' .. DataZ .. '0'$,
     $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_2         .. '00' .. DataZ .. '0'$,
-    $bwidth$b$CMD_READ          .. Bank0 .. AddrA_col           .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_READ          .. Bank0 .. AddrB_col           .. '00' .. DataZ .. '0'$,
     $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_R         .. '00' .. DataZ .. '0'$,
     $bwidth$b$CMD_dummy_GET     .. Bank0 .. AddrZ               .. '00' .. DataZ .. '0'$,
     $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
     // ^ 8
   };
-  $$n_instr = 7+6+6+8
+  $$n_instr = 7+6+6+8+7 -- +1
 
   always_before {
     sdram_cle   = 1;
