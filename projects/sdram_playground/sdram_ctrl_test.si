@@ -62,6 +62,49 @@ circuitry command(
   sdram_we  = cmd[0,1];
 }
 
+// SDRAM commands
+$$CMD_dummy_WAIT_init = '1111'
+$$CMD_dummy_WAIT      = '1101'
+$$CMD_dummy_GET       = '1001'
+$$CMD_UNSELECTED      = '1000'
+$$CMD_NOP             = '0111'
+$$CMD_ACTIVATE        = '0011'
+$$CMD_READ            = '0101'
+$$CMD_WRITE           = '0100'
+$$CMD_TERMINATE       = '0110'
+$$CMD_PRECHARGE       = '0010'
+$$CMD_REFRESH         = '0001'
+$$CMD_LOAD_MODE_REG   = '0000'
+$$AddrZ     = '0000000000000'
+$$AddrA_row = '0000000000000'
+$$AddrA_col = '0000000000000'
+$$AddrB_row = '0000000000001'
+$$AddrB_col = '0000000000000'
+$$Addr_wait_init     = '1111111111111'
+$$Addr_wait_2        = '0000000000000' -- value are delay - 1 since using cnt sign bit to stop
+$$Addr_wait_3        = '0000000000001' -- value are delay - 1 since using cnt sign bit to stop
+$$Addr_wait_4        = '0000000000010'
+$$Addr_wait_5        = '0000000000011'
+$$Addr_wait_6        = '0000000000100'
+$$Addr_wait_7        = '0000000000101'
+$$Addr_wait_8        = '0000000000110'
+$$Addr_wait_16       = '0000000001110'
+$$Addr_precharge_all = '0010000000000'
+$$Addr_mode_reg      = '0001000110011'
+$$Bank0              = '00'
+$$Bank1              = '01'
+$$Bank2              = '10'
+$$Bank3              = '11'
+$$DataZ              = '0000000000000000'
+// NOTE: sdram_ba: bank on bits 25-24 ( 2 bits)
+//       sdram_a : row  on bits 22-10 (13 bits)
+$$if ICARUS then
+$$  Addr_wait_R = Addr_wait_4
+$$else
+$$  Addr_wait_R = Addr_wait_5
+$$end
+$$bwidth = 4+2+13+2+16+1
+
 // -------------------------
 
 unit main(
@@ -246,48 +289,6 @@ $$end
   uint3   tmp_dq_en     (0);
   uint1   reg_dq_en = 0;
 
-  // SDRAM commands
-$$CMD_dummy_WAIT_init = '1111'
-$$CMD_dummy_WAIT      = '1101'
-$$CMD_dummy_GET       = '1001'
-$$CMD_UNSELECTED      = '1000'
-$$CMD_NOP             = '0111'
-$$CMD_ACTIVATE        = '0011'
-$$CMD_READ            = '0101'
-$$CMD_WRITE           = '0100'
-$$CMD_TERMINATE       = '0110'
-$$CMD_PRECHARGE       = '0010'
-$$CMD_REFRESH         = '0001'
-$$CMD_LOAD_MODE_REG   = '0000'
-$$AddrZ     = '0000000000000'
-$$AddrA_row = '0000000000000'
-$$AddrA_col = '0000000000000'
-$$AddrB_row = '0000000000001'
-$$AddrB_col = '0000000000000'
-$$Addr_wait_init     = '1111111111111'
-$$Addr_wait_2        = '0000000000000' -- value are delay - 1 since using cnt sign bit to stop
-$$Addr_wait_3        = '0000000000001' -- value are delay - 1 since using cnt sign bit to stop
-$$Addr_wait_4        = '0000000000010'
-$$Addr_wait_5        = '0000000000011'
-$$Addr_wait_6        = '0000000000100'
-$$Addr_wait_7        = '0000000000101'
-$$Addr_wait_8        = '0000000000110'
-$$Addr_wait_16       = '0000000001110'
-$$Addr_precharge_all = '0010000000000'
-$$Addr_mode_reg      = '0001000110011'
-$$Bank0              = '00'
-$$Bank1              = '01'
-$$Bank2              = '10'
-$$Bank3              = '11'
-$$DataZ              = '0000000000000000'
-// NOTE: sdram_ba: bank on bits 25-24 ( 2 bits)
-//       sdram_a : row  on bits 22-10 (13 bits)
-$$if ICARUS then
-$$  Addr_wait_R = Addr_wait_4
-$$else
-$$  Addr_wait_R = Addr_wait_5
-$$end
-$$bwidth = 4+2+13+2+16+1
   // CMD BANK ADDR DQM DATA DQEN
   brom uint$bwidth$ instructions[] = {
     $bwidth$b$CMD_dummy_WAIT_init .. Bank0 .. Addr_wait_init      .. '00' .. DataZ .. '0'$,
