@@ -63,9 +63,7 @@ circuitry command(
 }
 
 // SDRAM commands
-$$CMD_dummy_WAIT_init = '1111'
-$$CMD_dummy_WAIT      = '1101'
-$$CMD_dummy_GET       = '1001'
+$$CMD_dummy_GET       = '1111'
 $$CMD_UNSELECTED      = '1000'
 $$CMD_NOP             = '0111'
 $$CMD_ACTIVATE        = '0011'
@@ -75,35 +73,6 @@ $$CMD_TERMINATE       = '0110'
 $$CMD_PRECHARGE       = '0010'
 $$CMD_REFRESH         = '0001'
 $$CMD_LOAD_MODE_REG   = '0000'
-$$AddrZ     = '0000000000000'
-$$AddrA_row = '0000000000000'
-$$AddrA_col = '0000000000000'
-$$AddrB_row = '0000000000001'
-$$AddrB_col = '0000000000000'
-$$Addr_wait_init     = '1111111111111'
-$$Addr_wait_2        = '0000000000000' -- value are delay - 1 since using cnt sign bit to stop
-$$Addr_wait_3        = '0000000000001' -- value are delay - 1 since using cnt sign bit to stop
-$$Addr_wait_4        = '0000000000010'
-$$Addr_wait_5        = '0000000000011'
-$$Addr_wait_6        = '0000000000100'
-$$Addr_wait_7        = '0000000000101'
-$$Addr_wait_8        = '0000000000110'
-$$Addr_wait_16       = '0000000001110'
-$$Addr_precharge_all = '0010000000000'
-$$Addr_mode_reg      = '0001000110011'
-$$Bank0              = '00'
-$$Bank1              = '01'
-$$Bank2              = '10'
-$$Bank3              = '11'
-$$DataZ              = '0000000000000000'
-// NOTE: sdram_ba: bank on bits 25-24 ( 2 bits)
-//       sdram_a : row  on bits 22-10 (13 bits)
-$$if ICARUS then
-$$  Addr_wait_R = Addr_wait_4
-$$else
-$$  Addr_wait_R = Addr_wait_5
-$$end
-$$bwidth = 4+2+13+2+16+1
 
 // -------------------------
 
@@ -128,77 +97,81 @@ $$else
   void wait() { for (int w = 0 ; w < 100 ; ++w) { asm volatile ("nop;"); } }
 $$end
 
-  #define N_INSTR  (33u+0u) // +1u
-  static const uint64_t sdram_instructions[N_INSTR] = {
+  uint64_t sdram_instructions[] = {
 
       /* ---- Initialisation sequence (7 entries, indices 0-6) ------------- */
-      // INSTR(CMD_dummy_WAIT_init, BANK0, Addr_wait_init,    DQM_NONE,  DataZ,          0),
-      INSTR(CMD_PRECHARGE,       BANK0, Addr_precharge_all,DQM_NONE,  DataZ,          0),
-      INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_2,       DQM_NONE,  DataZ,          0),
-      INSTR(CMD_LOAD_MODE_REG,   BANK0, Addr_mode_reg,     DQM_NONE,  DataZ,          0),
-      INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_4,       DQM_NONE,  DataZ,          0),
-      INSTR(CMD_REFRESH,         BANK0, AddrZ,             DQM_NONE,  DataZ,          0),
-      INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_16,      DQM_NONE,  DataZ,          0),
+      INSTR(CMD_PRECHARGE,       BANK0, Addr_precharge_all,DQM_NONE,  DataZ,          0), // 0
+      INSTR_WAIT2
+      INSTR(CMD_LOAD_MODE_REG,   BANK0, Addr_mode_reg,     DQM_NONE,  DataZ,          0), // 3
+      INSTR_WAIT4
+      INSTR(CMD_REFRESH,         BANK0, AddrZ,             DQM_NONE,  DataZ,          0), // 8
+      INSTR_WAIT16
 
       /* ---- Write into row A (6 entries, indices 7-12) ------------------- */
-      INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0),
-      INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_16,      DQM_NONE,  DataZ,          0),
-      INSTR(CMD_ACTIVATE,        BANK0, AddrA_row,         DQM_NONE,  DataZ,          0),
-      INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_2,       DQM_NONE,  DataZ,          0),
-      INSTR(CMD_WRITE,           BANK0, AddrA_col,         DQM_WRITE, DATA_PATTERN_A, 1),
-      INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_8,       DQM_NONE,  DataZ,          0),
+      INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0), // 25
+      INSTR_WAIT16
+      INSTR(CMD_ACTIVATE,        BANK0, AddrA_row,         DQM_NONE,  DataZ,          0), // 42
+      INSTR_WAIT2
+      INSTR(CMD_WRITE,           BANK0, AddrA_col,         DQM_WRITE, DATA_PATTERN_A, 1), // 45
+      INSTR_WAIT8
 
       /* ---- Write into row B (6 entries, indices 13-18) ------------------ */
       INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0),
-      INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_16,      DQM_NONE,  DataZ,          0),
+      INSTR_WAIT16
       INSTR(CMD_ACTIVATE,        BANK0, AddrB_row,         DQM_NONE,  DataZ,          0),
-      INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_2,       DQM_NONE,  DataZ,          0),
+      INSTR_WAIT2
       INSTR(CMD_WRITE,           BANK0, AddrB_col,         DQM_WRITE, DATA_PATTERN_B, 1),
-      INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_8,       DQM_NONE,  DataZ,          0),
+      INSTR_WAIT8
 
       // ---- Row-copy attempt (7 entries, indices 19-25) ------------------
       // -> activate A
       INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0),
-      INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_16,      DQM_NONE,  DataZ,          0),
+      INSTR_WAIT16
       INSTR(CMD_ACTIVATE,        BANK0, AddrA_row,         DQM_NONE,  DataZ,          0),
-      INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_8,       DQM_NONE,  DataZ,          0),
+      INSTR_WAIT8
       // -> illegally activate B (no inter-bank wait)
       INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0),
-      //INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_2,       DQM_NONE,  DataZ,          0), // comment for row copy
+      // INSTR_WAIT16
       INSTR(CMD_ACTIVATE,        BANK0, AddrB_row,         DQM_NONE,  DataZ,          0),
-      INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_8,       DQM_NONE,  DataZ,          0),
+      INSTR_WAIT8
 
       /* ---- Read from row B (8 entries, indices 26-33) ------------------- */
       INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0),
-      INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_16,      DQM_NONE,  DataZ,          0),
+      INSTR_WAIT16
       INSTR(CMD_ACTIVATE,        BANK0, AddrB_row,         DQM_NONE,  DataZ,          0),
-      INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_2,       DQM_NONE,  DataZ,          0),
+      INSTR_WAIT2
       INSTR(CMD_READ,            BANK0, AddrB_col,         DQM_NONE,  DataZ,          0),
-      INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_R,       DQM_NONE,  DataZ,          0),
-      INSTR(CMD_dummy_GET,       BANK0, Addr_no_wait,      DQM_NONE,  DataZ,          0),
-      INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_16,      DQM_NONE,  DataZ,          0),
+      INSTR_WAIT_R
+      INSTR(CMD_dummy_GET,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0),
+      INSTR_WAIT16
   };
+
+  #define N_INSTR (sizeof(sdram_instructions) / sizeof(sdram_instructions[0]))
 
   // C main
   void main() {
     leds(0);
     sdr_instr_run(0);
     wait(); // powerup
-    // reset sdram controler content
-    sdr_instr_reset(0); sdr_instr_reset(1);
-    // add all isntructions
-    for (int i=0;i<N_INSTR;++i) {
-      sdr_instr_l((uint32_t)sdram_instructions[i]);
-      sdr_instr_h(sdram_instructions[i] >> 32);
-      sdr_instr_add(0); sdr_instr_add(1); // pulse to add instruction
-    }
-    // run the controller
-    sdr_instr_run(1);
-    // set the result
+    unsigned int val = 0xF0;
     while (1) {
+      sdram_instructions[45] = INSTR(CMD_WRITE,  BANK0, AddrA_col, DQM_WRITE, val, 1);
+      // reset sdram controler content
+      sdr_instr_reset(0); sdr_instr_reset(1);
+      // add all isntructions
+      for (int i=0;i<N_INSTR;++i) {
+        sdr_instr_l((uint32_t)sdram_instructions[i]);
+        sdr_instr_h(sdram_instructions[i] >> 32);
+        sdr_instr_add(0); sdr_instr_add(1); // pulse to add instruction
+      }
+      // run the controller
+      sdr_instr_run(1);
+      // set the result
+      wait();
+      sdr_instr_run(0);
       leds(sdr_read());
+      val = val + 1;
     }
-    // sdr_instr_run(0);
   }
 
   // =============== end of firmware ==================================
@@ -393,9 +366,10 @@ $$end
   uint1   reg_dq_en     (0);
 
   // CMD BANK ADDR DQM DATA DQEN
-  bram uint$bwidth$ instructions[64] = {pad(0)};
-  uint6 n_instr = 0;
-  uint6 pc      = 0;
+  $$bwidth = 38
+  bram uint$bwidth$ instructions[256] = {pad(0)};
+  uint8 n_instr = 0;
+  uint8 pc      = 0;
   uint1 run_trigger = 0;
 
   always_before {
@@ -438,59 +412,55 @@ $$end
       pc          = run_trigger ? 0 : n_instr; // TODO rework trigger/run
       run_trigger = 0;
       while (pc != n_instr && cpu.sdr_instr_run) {
-        __display("IN LOOP ---------------");
         uint$bwidth$ instr = instructions.rdata;
-        if (cnt[4,1]) {__display("executing instruction %b (pc == %d)",instr,pc);}
+        //if (cnt[4,1]) {__display("executing instruction %b (pc == %d)",instr,pc);}
         uint4 cmd          = instr[$bwidth-4$     , 4];
-        __display("cmd: %b",cmd);
-        if (cmd[3,1] & cmd[0,1]) { /// wait / get
-          if (cnt[4,1]) { __display("wait: %b",instr[$bwidth-4-2-13$  ,13]); }
-          cnt     = ~cnt[4,1] ? (cnt - 1) : instr[$bwidth-4-2-13$  ,5];
-          (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command({1b0,3b111});
-          __write(".");
-          if (cnt[4,1]) { __display("done"); }
-          reg_dq_i = ~cmd[2,1] ? sdram_dq_i2 : reg_dq_i;
-          if (~cmd[2,1]) { __display("get: %x",sdram_dq_i2); }
-        } else {
-          (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
-          reg_sdram_ba  = instr[$bwidth-4-2   $, 2];
-          reg_sdram_a   = instr[$bwidth-4-2-13$,13];
-          reg_sdram_dqm = instr[         $1+16$, 2];
-          reg_dq_o      = instr[              1,16];
-          reg_dq_en     = instr[              0, 1];
-  $$if SIMULATION then
-          //__display("sdram_ba:%b sdram_a:%b",reg_sdram_ba,reg_sdram_a);
-          switch (cmd)
-          {
-            case 4b$CMD_NOP$: {
-              __display("null");
-            }
-            case 4b$CMD_PRECHARGE$: {
-              __display("precharge");
-            }
-            case 4b$CMD_ACTIVATE$: {
-              __display("activate");
-            }
-            case 4b$CMD_WRITE$: {
-              __display("write");
-            }
-            case 4b$CMD_READ$: {
-              __display("read");
-            }
-            case 4b$CMD_LOAD_MODE_REG$: {
-              __display("load mode reg");
-            }
-            case 4b$CMD_REFRESH$: {
-              __display("refresh");
-            }
-            default: {
-              __display("[error] command %b unknown (pc=%d)",cmd,pc);
-              __finish();
-            }
+        // __display("cmd: %b",cmd);
+        reg_dq_i      = (&cmd)      ? sdram_dq_i2 : reg_dq_i;
+        (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
+        reg_sdram_ba  = instr[$bwidth-4-2   $, 2];
+        reg_sdram_a   = instr[$bwidth-4-2-13$,13];
+        reg_sdram_dqm = (&cmd[0,3]) ? reg_sdram_dqm : instr[         $1+16$, 2];
+        reg_dq_o      = (&cmd[0,3]) ? reg_dq_o      : instr[              1,16];
+        reg_dq_en     = (&cmd[0,3]) ? reg_dq_en     : instr[              0, 1];
+        pc            = cnt[4,1] ? pc + 1 : pc;
+$$if SIMULATION then
+        //__display("sdram_ba:%b sdram_a:%b",reg_sdram_ba,reg_sdram_a);
+        switch (cmd)
+        {
+          case 4b$CMD_NOP$: {
+            __write(".");
           }
-  $$end
+          case 4b$CMD_PRECHARGE$: {
+            __display("precharge");
+          }
+          case 4b$CMD_ACTIVATE$: {
+            __display("activate");
+          }
+          case 4b$CMD_WRITE$: {
+            __display("write");
+          }
+          case 4b$CMD_READ$: {
+            __display("read");
+          }
+          case 4b$CMD_LOAD_MODE_REG$: {
+            __display("load mode reg");
+          }
+          case 4b$CMD_REFRESH$: {
+            __display("refresh");
+          }
+          case 4b$CMD_dummy_GET$: {
+            __display("get: %x",reg_dq_i);
+          }
+          default: {
+            __display("[error] command %b unknown (pc=%d)",cmd,pc);
+            __finish();
+          }
         }
-        pc                 = cnt[4,1] ? pc + 1 : pc;
+        if (pc == n_instr) {
+          __finish();
+        }
+$$end
       }
 
     }
