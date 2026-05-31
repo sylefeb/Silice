@@ -93,8 +93,10 @@ riscv small_cpu(
 
 $$if not SIMULATION then
   void wait() { for (int w = 0 ; w < 10000 ; ++w) { asm volatile ("nop;"); } }
+  #define INSTR_WAIT_R INSTR_WAIT4 INSTR_WAIT
 $$else
   void wait() { for (int w = 0 ; w < 100 ; ++w) { asm volatile ("nop;"); } }
+  #define INSTR_WAIT_R INSTR_WAIT4
 $$end
 
   uint64_t sdram_instructions[] = {
@@ -146,10 +148,14 @@ $$end
       INSTR_WAIT16
   };
 
-  void send_instructions(uint64_t *instr,int n_instr)
+  void reset_instructions()
   {
     // reset sdram controler content
     sdr_instr_reset(0); sdr_instr_reset(1);
+  }
+
+  void send_instructions(uint64_t *instr,int n_instr)
+  {
     // add all isntructions
     for (int i=0;i<n_instr;++i) {
       sdr_instr_l((uint32_t)instr[i]);
@@ -159,7 +165,7 @@ $$end
   }
 
   uint64_t init_instructions[] = {
-    /* ---- Initialisation sequence (7 entries, indices 0-6) ------------- */
+    // Initialisation sequence
     INSTR(CMD_PRECHARGE,       BANK0, Addr_precharge_all,DQM_NONE,  DataZ,          0), // 0
     INSTR_WAIT2
     INSTR(CMD_LOAD_MODE_REG,   BANK0, Addr_mode_reg,     DQM_NONE,  DataZ,          0), // 3
@@ -168,7 +174,77 @@ $$end
     INSTR_WAIT16
   };
 
-  #define N_INSTR (sizeof(sdram_instructions) / sizeof(sdram_instructions[0]))
+  uint64_t write_instructions[] = {
+    // Write byte sequence
+    INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0), // 0
+    INSTR_WAIT16
+    INSTR(CMD_ACTIVATE,        BANK0, /*row*/ 0,         DQM_NONE,  DataZ,          0), // 17
+    INSTR_WAIT2
+    INSTR(CMD_WRITE,           BANK0, /*col*/ 0,         DQM_WRITE, DATA_PATTERN_A, 1), // 20
+    INSTR_WAIT8
+  };
+
+  uint64_t read_instructions[] = {
+    // Read byte sequence
+    INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0), // 0
+    INSTR_WAIT16
+    INSTR(CMD_ACTIVATE,        BANK0, /*row*/ 0,         DQM_NONE,  DataZ,          0), // 17
+    INSTR_WAIT2
+    INSTR(CMD_READ,            BANK0, /*col*/ 0,         DQM_NONE,  DataZ,          0), // 20
+    INSTR_WAIT_R
+    INSTR(CMD_dummy_GET,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0),
+    INSTR_WAIT16
+  };
+
+  uint64_t rowcopy_instructions[] = {
+    // -> activate first row
+    INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0), // 0
+    INSTR_WAIT16
+    INSTR(CMD_ACTIVATE,        BANK0, /*src*/ 0,         DQM_NONE,  DataZ,          0), // 17
+    INSTR_WAIT8
+    // -> illegally activate second row (no inter-bank wait)
+    INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0), // 26
+    // INSTR_WAIT16 // this is the skipped wait
+    INSTR(CMD_ACTIVATE,        BANK0, /*dst*/ 0,         DQM_NONE,  DataZ,          0), // 27
+    INSTR_WAIT8
+  };
+
+  void write_byte(unsigned int row, unsigned int col, unsigned char val)
+  {
+    unsigned int n_instr   = (sizeof(write_instructions) / sizeof(write_instructions[0]));
+    write_instructions[17] = INSTR(CMD_ACTIVATE, BANK0, row, DQM_NONE,  DataZ, 0);
+    write_instructions[20] = INSTR(CMD_WRITE,    BANK0, col, DQM_WRITE, val, 1);
+    send_instructions(write_instructions,n_instr);
+  }
+
+  void read_byte(unsigned int row, unsigned int col)
+  {
+    unsigned int n_instr  = (sizeof(read_instructions) / sizeof(read_instructions[0]));
+    read_instructions[17] = INSTR(CMD_ACTIVATE, BANK0, row, DQM_NONE,  DataZ, 0);
+    read_instructions[20] = INSTR(CMD_READ,     BANK0, col, DQM_WRITE, DataZ, 0);
+    send_instructions(read_instructions,n_instr);
+  }
+
+  void rowcopy(unsigned int row_src, unsigned int row_dst)
+  {
+    unsigned int n_instr     = (sizeof(rowcopy_instructions) / sizeof(rowcopy_instructions[0]));
+    rowcopy_instructions[17] = INSTR(CMD_ACTIVATE, BANK0, row_src, DQM_NONE, DataZ, 0);
+    rowcopy_instructions[27] = INSTR(CMD_ACTIVATE, BANK0, row_dst, DQM_NONE, DataZ, 0);
+    send_instructions(rowcopy_instructions,n_instr);
+  }
+
+  void sdram_init()
+  {
+    reset_instructions();
+    unsigned int n_instr  = (sizeof(init_instructions) / sizeof(init_instructions[0]));
+    send_instructions(init_instructions,n_instr);
+    // run
+    sdr_instr_run(1);
+    wait();
+    sdr_instr_run(0);
+  }
+
+  // #define N_INSTR (sizeof(sdram_instructions) / sizeof(sdram_instructions[0]))
 
   // C main
   void main() {
@@ -176,16 +252,21 @@ $$end
     sdr_instr_run(0);
     wait(); // powerup
     unsigned int val = 0xF0;
+
+    sdram_init();
+
     while (1) {
-      // patch
-      sdram_instructions[45] = INSTR(CMD_WRITE,  BANK0, AddrA_col, DQM_WRITE, val, 1);
-      // send instructions
-      send_instructions(sdram_instructions,N_INSTR);
-      // run the controller
+      // a small test
+      reset_instructions();
+      write_byte(0/*row*/, 0/*col*/, val);
+      write_byte(1/*row*/, 0/*col*/, 0x55);
+      rowcopy   (0/*src*/, 1/*dst*/);
+      read_byte (1/*row*/, 0/*col*/);
+      // run
       sdr_instr_run(1);
-      // set the result
       wait();
       sdr_instr_run(0);
+      // set the result
       leds(sdr_read());
       val = val + 1;
     }
@@ -475,7 +556,7 @@ $$if SIMULATION then
           }
         }
         if (pc == n_instr) {
-          __finish();
+          // __finish();
         }
 $$end
       }
