@@ -122,13 +122,17 @@ riscv small_cpu(
   // ==================================================================
 #include "sdram.h"
 
-  void wait() { for (int w = 0 ; w < 100000 ; ++w) { asm volatile ("nop;"); } }
+$$if not SIMULATION then
+  void wait() { for (int w = 0 ; w < 10000 ; ++w) { asm volatile ("nop;"); } }
+$$else
+  void wait() { for (int w = 0 ; w < 100 ; ++w) { asm volatile ("nop;"); } }
+$$end
 
-  #define N_INSTR  34u
+  #define N_INSTR  (33u+0u) // +1u
   static const uint64_t sdram_instructions[N_INSTR] = {
 
       /* ---- Initialisation sequence (7 entries, indices 0-6) ------------- */
-      INSTR(CMD_dummy_WAIT_init, BANK0, Addr_wait_init,    DQM_NONE,  DataZ,          0),
+      // INSTR(CMD_dummy_WAIT_init, BANK0, Addr_wait_init,    DQM_NONE,  DataZ,          0),
       INSTR(CMD_PRECHARGE,       BANK0, Addr_precharge_all,DQM_NONE,  DataZ,          0),
       INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_2,       DQM_NONE,  DataZ,          0),
       INSTR(CMD_LOAD_MODE_REG,   BANK0, Addr_mode_reg,     DQM_NONE,  DataZ,          0),
@@ -152,15 +156,15 @@ riscv small_cpu(
       INSTR(CMD_WRITE,           BANK0, AddrB_col,         DQM_WRITE, DATA_PATTERN_B, 1),
       INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_8,       DQM_NONE,  DataZ,          0),
 
-      /* ---- Row-copy attempt (7 entries, indices 19-25) ------------------ */
-      /* -> activate A */
+      // ---- Row-copy attempt (7 entries, indices 19-25) ------------------
+      // -> activate A
       INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0),
       INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_16,      DQM_NONE,  DataZ,          0),
       INSTR(CMD_ACTIVATE,        BANK0, AddrA_row,         DQM_NONE,  DataZ,          0),
       INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_8,       DQM_NONE,  DataZ,          0),
-      /* -> illegally activate B (no inter-bank wait) */
+      // -> illegally activate B (no inter-bank wait)
       INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0),
-      /* NOTE: the commented-out wait from the original is intentionally omitted here */
+      //INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_2,       DQM_NONE,  DataZ,          0), // comment for row copy
       INSTR(CMD_ACTIVATE,        BANK0, AddrB_row,         DQM_NONE,  DataZ,          0),
       INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_8,       DQM_NONE,  DataZ,          0),
 
@@ -171,13 +175,15 @@ riscv small_cpu(
       INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_2,       DQM_NONE,  DataZ,          0),
       INSTR(CMD_READ,            BANK0, AddrB_col,         DQM_NONE,  DataZ,          0),
       INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_R,       DQM_NONE,  DataZ,          0),
-      INSTR(CMD_dummy_GET,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0),
+      INSTR(CMD_dummy_GET,       BANK0, Addr_no_wait,      DQM_NONE,  DataZ,          0),
       INSTR(CMD_dummy_WAIT,      BANK0, Addr_wait_16,      DQM_NONE,  DataZ,          0),
   };
 
   // C main
   void main() {
+    leds(0);
     sdr_instr_run(0);
+    wait(); // powerup
     // reset sdram controler content
     sdr_instr_reset(0); sdr_instr_reset(1);
     // add all isntructions
@@ -188,10 +194,11 @@ riscv small_cpu(
     }
     // run the controller
     sdr_instr_run(1);
-    wait();
-    sdr_instr_run(0);
     // set the result
-    leds(sdr_read());
+    while (1) {
+      leds(sdr_read());
+    }
+    // sdr_instr_run(0);
   }
 
   // =============== end of firmware ==================================
@@ -242,6 +249,7 @@ clean_reset rstcond<@sdram_clock,!reset> (
 );
 $$else
 uint1 sdram_clock(0);
+uint3 clock_div(0);
 uint1 compute_clock(0);
 $$end
 
@@ -337,11 +345,7 @@ $$if ICEPI_ZERO then
 $$end
 $$end
 
-$$if not ICARUS then
   small_cpu cpu<@compute_clock>;
-$$else
-  small_cpu cpu<@clock>;
-$$end
 
 $$if not VERILATOR then
 $$if ULX3S_IO then
@@ -389,8 +393,10 @@ $$end
   uint1   reg_dq_en     (0);
 
   // CMD BANK ADDR DQM DATA DQEN
-  bram uint$bwidth$ instructions[64] = {pad($bwidth$b$CMD_dummy_WAIT_init .. Bank0 .. Addr_wait_init      .. '00' .. DataZ .. '0'$)};
+  bram uint$bwidth$ instructions[64] = {pad(0)};
   uint6 n_instr = 0;
+  uint6 pc      = 0;
+  uint1 run_trigger = 0;
 
   always_before {
     instructions.wenable = 0;
@@ -417,9 +423,10 @@ $$if DE2 then
 $$end
 $$if ICARUS then
     sdram_clock   = clock;
-    compute_clock = clock;
+    compute_clock = clock_div == 4 ? ~compute_clock : compute_clock;
+    clock_div     = clock_div == 4 ? 0 : clock_div + 1;
 $$end
-    leds = cpu.leds[0,1];
+    leds         = cpu.leds[0,8];
     cpu.sdr_read = reg_dq_i[0,8];
   }
 
@@ -427,23 +434,23 @@ $$end
 
     while (1) {
 
-      uint6 pc  = 0;
-      int17 cnt = -1;
+      int5 cnt    = -1;
+      pc          = run_trigger ? 0 : n_instr; // TODO rework trigger/run
+      run_trigger = 0;
       while (pc != n_instr && cpu.sdr_instr_run) {
+        __display("IN LOOP ---------------");
         uint$bwidth$ instr = instructions.rdata;
+        if (cnt[4,1]) {__display("executing instruction %b (pc == %d)",instr,pc);}
         uint4 cmd          = instr[$bwidth-4$     , 4];
-        // __display("cmd: %b",cmd);
-        if (cmd[3,1] & cmd[0,1]) {
-          if (cmd[2,1]) { // wait command
-            cnt     = ~cnt[16,1] ? (cnt - 1) : {1b0,{3{instr[$bwidth-4-2-1$,1]}},instr[$bwidth-4-2-13$  ,13]};
-            // __display("wait: %d",cnt);
-            (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command({1b0/*cmd[1,1]*/,3b111});
-            __write(".");
-            if (cnt[16,1]) { __display("done"); }
-          } else { // get command (after read)
-            reg_dq_i = sdram_dq_i2;
-            __display("get: %x",sdram_dq_i2);
-          }
+        __display("cmd: %b",cmd);
+        if (cmd[3,1] & cmd[0,1]) { /// wait / get
+          if (cnt[4,1]) { __display("wait: %b",instr[$bwidth-4-2-13$  ,13]); }
+          cnt     = ~cnt[4,1] ? (cnt - 1) : instr[$bwidth-4-2-13$  ,5];
+          (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command({1b0,3b111});
+          __write(".");
+          if (cnt[4,1]) { __display("done"); }
+          reg_dq_i = ~cmd[2,1] ? sdram_dq_i2 : reg_dq_i;
+          if (~cmd[2,1]) { __display("get: %x",sdram_dq_i2); }
         } else {
           (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
           reg_sdram_ba  = instr[$bwidth-4-2   $, 2];
@@ -451,8 +458,8 @@ $$end
           reg_sdram_dqm = instr[         $1+16$, 2];
           reg_dq_o      = instr[              1,16];
           reg_dq_en     = instr[              0, 1];
-          __display("sdram_ba:%b sdram_a:%b",reg_sdram_ba,reg_sdram_a);
   $$if SIMULATION then
+          //__display("sdram_ba:%b sdram_a:%b",reg_sdram_ba,reg_sdram_a);
           switch (cmd)
           {
             case 4b$CMD_NOP$: {
@@ -483,8 +490,7 @@ $$end
           }
   $$end
         }
-        pc                = cnt[16,1] ? pc + 1 : pc;
-        instructions.addr = pc;
+        pc                 = cnt[4,1] ? pc + 1 : pc;
       }
 
     }
@@ -494,16 +500,25 @@ $$end
     // take orders from the CPU
     uint1 c_instr_reset(0);
     uint1 c_instr_add(0);
+    uint1 c_instr_run(0);
+    $$if SIMULATION then
+    if (cpu.sdr_instr_add & ~c_instr_add) {
+      __display("adding instruction %b at %d : ",{cpu.sdr_instr_h,cpu.sdr_instr_l},instructions.addr);
+    }
+    $$end
     // detect pulse fronts and act
-    instructions.addr    = n_instr;
+    instructions.addr    = cpu.sdr_instr_run ? pc : n_instr;
     instructions.wdata   = {cpu.sdr_instr_h,cpu.sdr_instr_l};
     instructions.wenable = (cpu.sdr_instr_add & ~c_instr_add);
     n_instr = (cpu.sdr_instr_add   & ~c_instr_add  ) ? n_instr + 1
             : (cpu.sdr_instr_reset & ~c_instr_reset) ? 0
             : n_instr;
+    if (cpu.sdr_instr_run & ~c_instr_run) { run_trigger = 1; }
     // retain value to detect pulse front
     c_instr_reset = cpu.sdr_instr_reset;
     c_instr_add   = cpu.sdr_instr_add;
+    c_instr_run   = cpu.sdr_instr_run;
+     //__display("instructions.addr: %d",instructions.addr);
   }
 
 }

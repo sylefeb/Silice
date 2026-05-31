@@ -365,7 +365,7 @@ $$end
 $$if ICARUS then
     sdram_clock = clock;
 $$end
-    leds = reg_dq_i;
+    leds        = reg_dq_i;
   }
 
   algorithm {

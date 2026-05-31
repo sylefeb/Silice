@@ -6,7 +6,6 @@ typedef unsigned long long uint64_t;
 
 #define BWIDTH  38u
 
-#define CMD_dummy_WAIT_init   0xFu   /* 1111 */
 #define CMD_dummy_WAIT        0xDu   /* 1101 */
 #define CMD_dummy_GET         0x9u   /* 1001 */
 #define CMD_UNSELECTED        0x8u   /* 1000 */
@@ -30,7 +29,7 @@ typedef unsigned long long uint64_t;
 #define AddrB_row          0x0001u
 #define AddrB_col          0x0000u
 
-#define Addr_wait_init     0x1FFFu   /* 1111111111111 */
+#define Addr_no_wait       0x001Fu   /* 0000000011111 */
 #define Addr_wait_2        0x0000u
 #define Addr_wait_3        0x0001u
 #define Addr_wait_4        0x0002u
@@ -41,7 +40,7 @@ typedef unsigned long long uint64_t;
 #define Addr_wait_16       0x000Eu
 
 #define Addr_precharge_all 0x0400u   /* 0010000000000 – A10 set */
-#define Addr_mode_reg      0x0033u   /* 0001000110011 */
+#define Addr_mode_reg      0x0233u   /* 0001000110011 */
 
 #define DataZ              0x0000u
 #define DATA_PATTERN_A     0x5555u   /* 0101010101010101 */
@@ -50,11 +49,7 @@ typedef unsigned long long uint64_t;
 #define DQM_NONE  0x0u   /* 00 – no masking  */
 #define DQM_WRITE 0x2u   /* 10 – write mask  */
 
-#ifdef ICARUS
-#  define Addr_wait_R  Addr_wait_4
-#else
-#  define Addr_wait_R  Addr_wait_5
-#endif
+#define Addr_wait_R  Addr_wait_5
 
 #define INSTR(cmd, bank, addr, dqm, data, last) \
     ( ((uint64_t)((cmd)  & 0xFu)     << 34) | \
@@ -62,7 +57,7 @@ typedef unsigned long long uint64_t;
       ((uint64_t)((addr) & 0x1FFFu)  << 19) | \
       ((uint64_t)((dqm)  & 0x3u)     << 17) | \
       ((uint64_t)((data) & 0xFFFFu)  <<  1) | \
-      ((uint64_t)((last) & 0x1u)         ) )
+      ((uint64_t)((last) & 0x1u)          ) )
 
 
 #define INSTR_CMD(w)     (((w) >> 34) & 0xFu)
