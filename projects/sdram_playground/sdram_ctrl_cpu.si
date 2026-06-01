@@ -98,6 +98,9 @@ $$else
   void wait() { for (int w = 0 ; w < 100 ; ++w) { asm volatile ("nop;"); } }
   #define INSTR_WAIT_R INSTR_WAIT4
 $$end
+  #define NOP   asm volatile ("nop;");
+  #define NOP3  NOP NOP NOP
+  #define NOP4  NOP NOP NOP NOP
 
   uint64_t sdram_instructions[] = {
 
@@ -264,7 +267,7 @@ $$end
       read_byte (1/*row*/, 0/*col*/);
       // run
       sdr_instr_run(1);
-      wait();
+      NOP
       sdr_instr_run(0);
       // set the result
       leds(sdr_read());
