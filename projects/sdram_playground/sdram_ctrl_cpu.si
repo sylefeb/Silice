@@ -102,55 +102,6 @@ $$end
   #define NOP3  NOP NOP NOP
   #define NOP4  NOP NOP NOP NOP
 
-  uint64_t sdram_instructions[] = {
-
-      /* ---- Initialisation sequence (7 entries, indices 0-6) ------------- */
-      INSTR(CMD_PRECHARGE,       BANK0, Addr_precharge_all,DQM_NONE,  DataZ,          0), // 0
-      INSTR_WAIT2
-      INSTR(CMD_LOAD_MODE_REG,   BANK0, Addr_mode_reg,     DQM_NONE,  DataZ,          0), // 3
-      INSTR_WAIT4
-      INSTR(CMD_REFRESH,         BANK0, AddrZ,             DQM_NONE,  DataZ,          0), // 8
-      INSTR_WAIT16
-
-      /* ---- Write into row A (6 entries, indices 7-12) ------------------- */
-      INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0), // 25
-      INSTR_WAIT16
-      INSTR(CMD_ACTIVATE,        BANK0, AddrA_row,         DQM_NONE,  DataZ,          0), // 42
-      INSTR_WAIT2
-      INSTR(CMD_WRITE,           BANK0, AddrA_col,         DQM_WRITE, DATA_PATTERN_A, 1), // 45
-      INSTR_WAIT8
-
-      /* ---- Write into row B (6 entries, indices 13-18) ------------------ */
-      INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0),
-      INSTR_WAIT16
-      INSTR(CMD_ACTIVATE,        BANK0, AddrB_row,         DQM_NONE,  DataZ,          0),
-      INSTR_WAIT2
-      INSTR(CMD_WRITE,           BANK0, AddrB_col,         DQM_WRITE, DATA_PATTERN_B, 1),
-      INSTR_WAIT8
-
-      // ---- Row-copy attempt (7 entries, indices 19-25) ------------------
-      // -> activate A
-      INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0),
-      INSTR_WAIT16
-      INSTR(CMD_ACTIVATE,        BANK0, AddrA_row,         DQM_NONE,  DataZ,          0),
-      INSTR_WAIT8
-      // -> illegally activate B (no inter-bank wait)
-      INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0),
-      // INSTR_WAIT16
-      INSTR(CMD_ACTIVATE,        BANK0, AddrB_row,         DQM_NONE,  DataZ,          0),
-      INSTR_WAIT8
-
-      /* ---- Read from row B (8 entries, indices 26-33) ------------------- */
-      INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0),
-      INSTR_WAIT16
-      INSTR(CMD_ACTIVATE,        BANK0, AddrB_row,         DQM_NONE,  DataZ,          0),
-      INSTR_WAIT2
-      INSTR(CMD_READ,            BANK0, AddrB_col,         DQM_NONE,  DataZ,          0),
-      INSTR_WAIT_R
-      INSTR(CMD_dummy_GET,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0),
-      INSTR_WAIT16
-  };
-
   void reset_instructions()
   {
     // reset sdram controler content
@@ -207,7 +158,7 @@ $$end
     INSTR_WAIT8
     // -> illegally activate second row (no inter-bank wait)
     INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0), // 26
-    // INSTR_WAIT16 // this is the skipped wait
+    // no wait, illegal 'trick'
     INSTR(CMD_ACTIVATE,        BANK0, /*dst*/ 0,         DQM_NONE,  DataZ,          0), // 27
     INSTR_WAIT8
   };
@@ -223,8 +174,8 @@ $$end
   void read_byte(unsigned int row, unsigned int col)
   {
     unsigned int n_instr  = (sizeof(read_instructions) / sizeof(read_instructions[0]));
-    read_instructions[17] = INSTR(CMD_ACTIVATE, BANK0, row, DQM_NONE,  DataZ, 0);
-    read_instructions[20] = INSTR(CMD_READ,     BANK0, col, DQM_WRITE, DataZ, 0);
+    read_instructions[17] = INSTR(CMD_ACTIVATE, BANK0, row, DQM_NONE, DataZ, 0);
+    read_instructions[20] = INSTR(CMD_READ,     BANK0, col, DQM_NONE, DataZ, 0);
     send_instructions(read_instructions,n_instr);
   }
 
@@ -247,8 +198,6 @@ $$end
     sdr_instr_run(0);
   }
 
-  // #define N_INSTR (sizeof(sdram_instructions) / sizeof(sdram_instructions[0]))
-
   // C main
   void main() {
     leds(0);
@@ -258,21 +207,27 @@ $$end
 
     sdram_init();
 
-    while (1) {
+    /*while (1)*/ {
       // a small test
       reset_instructions();
       write_byte(0/*row*/, 0/*col*/, val);
+      write_byte(0/*row*/, 1/*col*/, val|1);
+      write_byte(0/*row*/, 2/*col*/, val|2);
       write_byte(1/*row*/, 0/*col*/, 0x55);
+      write_byte(1/*row*/, 1/*col*/, 0x55);
+      write_byte(1/*row*/, 2/*col*/, 0x55);
       rowcopy   (0/*src*/, 1/*dst*/);
-      read_byte (1/*row*/, 0/*col*/);
+      read_byte (1/*row*/, 2/*col*/);
       // run
       sdr_instr_run(1);
-      NOP
+      NOP4; NOP4;
       sdr_instr_run(0);
       // set the result
       leds(sdr_read());
-      val = val + 1;
+      // val = val + 1;
     }
+
+    while (1) { /*halt*/ }
   }
 
   // =============== end of firmware ==================================
