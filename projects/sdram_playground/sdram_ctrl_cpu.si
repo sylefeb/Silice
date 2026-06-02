@@ -85,7 +85,8 @@ riscv small_cpu(
   output uint1  sdr_instr_reset, // pulse high to reset all
   output uint1  sdr_instr_run,   // maintain high to run
   input  uint8  sdr_read,        // value read from sdram
-) <mem=2048> { // memory in bytes
+  output uint1  uart_tx,
+) <mem=8192> { // memory in bytes
 
   // =============== firmware in C language ===========================
   // ==================================================================
@@ -99,6 +100,7 @@ $$else
   #define INSTR_WAIT_R INSTR_WAIT4
 $$end
   #define NOP   asm volatile ("nop;");
+  #define NOP2  NOP NOP
   #define NOP3  NOP NOP NOP
   #define NOP4  NOP NOP NOP NOP
 
@@ -198,36 +200,145 @@ $$end
     sdr_instr_run(0);
   }
 
+  static inline void delay_cycles()
+  {
+    asm volatile (
+        // 1 instruction × 3 cycles = 3 cycles
+        "li   t0, 173       \n"
+        // 173 iterations × 4 instructions × 3 cycles = 2076 cycles
+        // Total: 3 + 2076 = 2079 cycles
+        "1:                 \n"
+        "nop                \n"  // 1
+        "nop                \n"  // 2
+        "addi t0, t0, -1    \n"  // 3 decrement
+        "bnez t0, 1b        \n"  // 4 branch
+        :
+        :
+        : "t0"
+    );
+  }
+
+  void uart_send_byte(int byte)
+  {
+    uart_tx(0);
+    delay_cycles();
+    uart_tx((byte >> 0) & 1); delay_cycles();
+    uart_tx((byte >> 1) & 1); delay_cycles();
+    uart_tx((byte >> 2) & 1); delay_cycles();
+    uart_tx((byte >> 3) & 1); delay_cycles();
+    uart_tx((byte >> 4) & 1); delay_cycles();
+    uart_tx((byte >> 5) & 1); delay_cycles();
+    uart_tx((byte >> 6) & 1); delay_cycles();
+    uart_tx((byte >> 7) & 1); delay_cycles();
+    uart_tx(1);
+    delay_cycles();
+  }
+
+  void uart_send_string(const char *s)
+  {
+    while (*s) {
+      uart_send_byte((int)*s++);
+    }
+  }
+
+  void print_string(const char* s)
+  {
+    for (const char* p = s; *p; ++p) {
+        uart_send_byte(*p);
+    }
+  }
+
+  void print_hex_digits(unsigned int val, int nbdigits)
+  {
+    for (int i = (4*nbdigits)-4; i >= 0; i -= 4) {
+        uart_send_byte("0123456789ABCDEF"[(val >> i) & 15]);
+    }
+  }
+
+  void print_hex(unsigned int val)
+  {
+    print_hex_digits(val, 8);
+  }
+
+  #include <stdarg.h>
+
+  int printf(const char *fmt,...)
+  {
+    va_list ap;
+    for (va_start(ap, fmt);*fmt;fmt++) {
+      if (*fmt=='%') {
+        fmt++;
+        if (*fmt=='s')      print_string(va_arg(ap,char *));
+        else if (*fmt=='x') print_hex(va_arg(ap,int));
+        // else if (*fmt=='d') print_dec(va_arg(ap,int));
+        else if (*fmt=='c') uart_send_byte(va_arg(ap,int));
+        else                uart_send_byte(*fmt);
+      } else {
+        uart_send_byte(*fmt);
+      }
+    }
+    va_end(ap);
+  }
+
+  int get_memory_byte(int row,int col)
+  {
+    reset_instructions();
+    read_byte (row, col);
+    sdr_instr_run(1);
+    NOP4; NOP4;
+    sdr_instr_run(0);
+    return sdr_read();
+  }
+
+  void store_memory_byte(int row,int col,unsigned int val)
+  {
+    reset_instructions();
+    write_byte (row, col, val);
+    sdr_instr_run(1);
+    NOP4; NOP4;
+    sdr_instr_run(0);
+  }
+
+  void do_rowcopy(int src,int dst)
+  {
+    reset_instructions();
+    rowcopy(src, dst);
+    sdr_instr_run(1);
+    NOP4; NOP4;
+    sdr_instr_run(0);
+  }
+
   // C main
-  void main() {
+  void main()
+  {
     leds(0);
     sdr_instr_run(0);
+
     wait(); // powerup
-    unsigned int val = 0xF0;
+    unsigned int val = 0x0;
 
     sdram_init();
 
-    /*while (1)*/ {
-      // a small test
-      reset_instructions();
-      write_byte(0/*row*/, 0/*col*/, val);
-      write_byte(0/*row*/, 1/*col*/, val|1);
-      write_byte(0/*row*/, 2/*col*/, val|2);
-      write_byte(1/*row*/, 0/*col*/, 0x55);
-      write_byte(1/*row*/, 1/*col*/, 0x55);
-      write_byte(1/*row*/, 2/*col*/, 0x55);
-      rowcopy   (0/*src*/, 1/*dst*/);
-      read_byte (1/*row*/, 2/*col*/);
-      // run
-      sdr_instr_run(1);
-      NOP4; NOP4;
-      sdr_instr_run(0);
-      // set the result
-      leds(sdr_read());
-      // val = val + 1;
+    while (1) {
+      printf("-------\n");
+      store_memory_byte(0,0,val);  store_memory_byte(0,1,val+1); store_memory_byte(0,2,val+2);
+      store_memory_byte(1,0,0x51); store_memory_byte(1,1,0x52);  store_memory_byte(1,2,0x53);
+      store_memory_byte(2,0,0xF1); store_memory_byte(2,1,0xF2);  store_memory_byte(2,2,0xF3);
+      printf("row A: %x %x %x\n", get_memory_byte(0,0), get_memory_byte(0,1), get_memory_byte(0,2));
+      printf("row B: %x %x %x\n", get_memory_byte(1,0), get_memory_byte(1,1), get_memory_byte(1,2));
+      printf("row C: %x %x %x\n", get_memory_byte(2,0), get_memory_byte(2,1), get_memory_byte(2,2));
+      printf("rowcopy A->B\n");
+      do_rowcopy(0,1);
+      printf("row A: %x %x %x\n", get_memory_byte(0,0), get_memory_byte(0,1), get_memory_byte(0,2));
+      printf("row B: %x %x %x\n", get_memory_byte(1,0), get_memory_byte(1,1), get_memory_byte(1,2));
+      printf("row C: %x %x %x\n", get_memory_byte(2,0), get_memory_byte(2,1), get_memory_byte(2,2));
+      printf("rowcopy B->C\n");
+      do_rowcopy(1,2);
+      printf("row A: %x %x %x\n", get_memory_byte(0,0), get_memory_byte(0,1), get_memory_byte(0,2));
+      printf("row B: %x %x %x\n", get_memory_byte(1,0), get_memory_byte(1,1), get_memory_byte(1,2));
+      printf("row C: %x %x %x\n", get_memory_byte(2,0), get_memory_byte(2,1), get_memory_byte(2,2));
+      ++val;
     }
-
-    while (1) { /*halt*/ }
   }
 
   // =============== end of firmware ==================================
@@ -238,6 +349,9 @@ $$end
 
 unit main(
   output uint$NUM_LEDS$ leds,
+$$if ULX3S then
+  output uint1 oled_clk, // used for UART TX
+$$end
 $$if not ICARUS then
   // SDRAM
   output! uint1  sdram_cle,
@@ -458,6 +572,9 @@ $$if ICARUS then
 $$end
     leds         = cpu.leds[0,8];
     cpu.sdr_read = reg_dq_i[0,8];
+$$if ULX3S then
+    oled_clk     = cpu.uart_tx;
+$$end
   }
 
   algorithm {
