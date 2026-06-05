@@ -153,15 +153,29 @@ $$end
   };
 
   uint64_t rowcopy_instructions[] = {
-    // -> activate first row
+    // -> precharge bank
     INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0), // 0
     INSTR_WAIT16
+    // -> activate first row (no wait)
     INSTR(CMD_ACTIVATE,        BANK0, /*src*/ 0,         DQM_NONE,  DataZ,          0), // 17
     INSTR_WAIT8
-    // -> illegally activate second row (no inter-bank wait)
+    // -> precharge bank
     INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0), // 26
-    // no wait, illegal 'trick'
+    // -> illegally activate second row (no wait)
     INSTR(CMD_ACTIVATE,        BANK0, /*dst*/ 0,         DQM_NONE,  DataZ,          0), // 27
+    INSTR_WAIT8
+  };
+
+  uint64_t rowlogic_instructions[] = {
+    // -> precharge bank
+    INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0), // 0
+    INSTR_WAIT16
+    // -> illegally activate first row (no wait)
+    INSTR(CMD_ACTIVATE,        BANK0, /*src*/ 0,         DQM_NONE,  DataZ,          0), // 17
+    // -> precharge bank
+    INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0), // 18
+    // -> illegally activate second row (no wait)
+    INSTR(CMD_ACTIVATE,        BANK0, /*dst*/ 0,         DQM_NONE,  DataZ,          0), // 19
     INSTR_WAIT8
   };
 
@@ -187,6 +201,14 @@ $$end
     rowcopy_instructions[17] = INSTR(CMD_ACTIVATE, BANK0, row_src, DQM_NONE, DataZ, 0);
     rowcopy_instructions[27] = INSTR(CMD_ACTIVATE, BANK0, row_dst, DQM_NONE, DataZ, 0);
     send_instructions(rowcopy_instructions,n_instr);
+  }
+
+  void rowlogic(unsigned int row_src, unsigned int row_dst)
+  {
+    unsigned int n_instr     = (sizeof(rowlogic_instructions) / sizeof(rowlogic_instructions[0]));
+    rowlogic_instructions[17] = INSTR(CMD_ACTIVATE, BANK0, row_src, DQM_NONE, DataZ, 0);
+    rowlogic_instructions[19] = INSTR(CMD_ACTIVATE, BANK0, row_dst, DQM_NONE, DataZ, 0);
+    send_instructions(rowlogic_instructions,n_instr);
   }
 
   void sdram_init()
@@ -280,7 +302,7 @@ $$end
     va_end(ap);
   }
 
-  int get_memory_byte(int row,int col)
+  int do_read_byte(int row,int col)
   {
     reset_instructions();
     read_byte (row, col);
@@ -290,7 +312,7 @@ $$end
     return sdr_read();
   }
 
-  void store_memory_byte(int row,int col,unsigned int val)
+  void do_write_byte(int row,int col,unsigned int val)
   {
     reset_instructions();
     write_byte (row, col, val);
@@ -308,6 +330,15 @@ $$end
     sdr_instr_run(0);
   }
 
+  void do_rowlogic(int src,int dst)
+  {
+    reset_instructions();
+    rowlogic(src, dst);
+    sdr_instr_run(1);
+    NOP4; NOP4;
+    sdr_instr_run(0);
+  }
+
   // C main
   void main()
   {
@@ -315,29 +346,93 @@ $$end
     sdr_instr_run(0);
 
     wait(); // powerup
-    unsigned int val = 0x0;
+
+    int val = 0;
+    int rA  = 0;
+    int rB  = 1;
 
     sdram_init();
 
     while (1) {
-      printf("-------\n");
-      store_memory_byte(0,0,val);  store_memory_byte(0,1,val+1); store_memory_byte(0,2,val+2);
-      store_memory_byte(1,0,0x51); store_memory_byte(1,1,0x52);  store_memory_byte(1,2,0x53);
-      store_memory_byte(2,0,0xF1); store_memory_byte(2,1,0xF2);  store_memory_byte(2,2,0xF3);
-      printf("row A: %x %x %x\n", get_memory_byte(0,0), get_memory_byte(0,1), get_memory_byte(0,2));
-      printf("row B: %x %x %x\n", get_memory_byte(1,0), get_memory_byte(1,1), get_memory_byte(1,2));
-      printf("row C: %x %x %x\n", get_memory_byte(2,0), get_memory_byte(2,1), get_memory_byte(2,2));
+#if 0
+      do_write_byte(0,0,val);  do_write_byte(0,1,val+1); do_write_byte(0,2,val+2);
+      do_write_byte(1,0,0x51); do_write_byte(1,1,0x52);  do_write_byte(1,2,0x53);
+      do_write_byte(2,0,0xFF); do_write_byte(2,1,0xFF);  do_write_byte(2,2,0xFF);
+      printf("row A: %x %x %x\n", do_read_byte(0,0), do_read_byte(0,1), do_read_byte(0,2));
+      printf("row B: %x %x %x\n", do_read_byte(1,0), do_read_byte(1,1), do_read_byte(1,2));
+      printf("row C: %x %x %x\n", do_read_byte(2,0), do_read_byte(2,1), do_read_byte(2,2));
       printf("rowcopy A->B\n");
       do_rowcopy(0,1);
-      printf("row A: %x %x %x\n", get_memory_byte(0,0), get_memory_byte(0,1), get_memory_byte(0,2));
-      printf("row B: %x %x %x\n", get_memory_byte(1,0), get_memory_byte(1,1), get_memory_byte(1,2));
-      printf("row C: %x %x %x\n", get_memory_byte(2,0), get_memory_byte(2,1), get_memory_byte(2,2));
+      printf("row A: %x %x %x\n", do_read_byte(0,0), do_read_byte(0,1), do_read_byte(0,2));
+      printf("row B: %x %x %x\n", do_read_byte(1,0), do_read_byte(1,1), do_read_byte(1,2));
+      printf("row C: %x %x %x\n", do_read_byte(2,0), do_read_byte(2,1), do_read_byte(2,2));
       printf("rowcopy B->C\n");
       do_rowcopy(1,2);
-      printf("row A: %x %x %x\n", get_memory_byte(0,0), get_memory_byte(0,1), get_memory_byte(0,2));
-      printf("row B: %x %x %x\n", get_memory_byte(1,0), get_memory_byte(1,1), get_memory_byte(1,2));
-      printf("row C: %x %x %x\n", get_memory_byte(2,0), get_memory_byte(2,1), get_memory_byte(2,2));
-      ++val;
+      printf("row A: %x %x %x\n", do_read_byte(0,0), do_read_byte(0,1), do_read_byte(0,2));
+      printf("row B: %x %x %x\n", do_read_byte(1,0), do_read_byte(1,1), do_read_byte(1,2));
+      printf("row C: %x %x %x\n", do_read_byte(2,0), do_read_byte(2,1), do_read_byte(2,2));
+      printf("-------\n");
+#endif
+#if 0
+      do_write_byte(0,0,0x50); do_write_byte(0,1,0xFF); do_write_byte(0,2,0x0F);
+      do_write_byte(1,0,0x0F); do_write_byte(1,1,0x50); do_write_byte(1,2,0xFF);
+      do_write_byte(2,0,0xFF); do_write_byte(2,1,0x0F); do_write_byte(2,2,0x50);
+      do_write_byte(3,0,0x50); do_write_byte(3,1,0xFF); do_write_byte(3,2,0x0F);
+      printf("row A: %x %x %x\n", do_read_byte(0,0), do_read_byte(0,1), do_read_byte(0,2));
+      printf("row B: %x %x %x\n", do_read_byte(1,0), do_read_byte(1,1), do_read_byte(1,2));
+      printf("row C: %x %x %x\n", do_read_byte(2,0), do_read_byte(2,1), do_read_byte(2,2));
+      printf("row D: %x %x %x\n", do_read_byte(3,0), do_read_byte(3,1), do_read_byte(3,2));
+      printf("rowlogic\n");
+      do_rowlogic(1,2); // works?
+      printf("row A: %x %x %x\n", do_read_byte(0,0), do_read_byte(0,1), do_read_byte(0,2));
+      printf("row B: %x %x %x\n", do_read_byte(1,0), do_read_byte(1,1), do_read_byte(1,2));
+      printf("row C: %x %x %x\n", do_read_byte(2,0), do_read_byte(2,1), do_read_byte(2,2));
+      printf("row D: %x %x %x\n", do_read_byte(3,0), do_read_byte(3,1), do_read_byte(3,2));
+      printf("-------\n");
+#endif
+#if 1
+      if (rA != rB) {
+        printf("rowA:%x rowB:%x | ",rA,rB);
+        int rAc0,rAc1,rAc2;
+        int rBc0,rBc1,rBc2;
+        int v = rB&255;
+        // write rows
+        do_write_byte(rA,0,v);    do_write_byte(rA,1,v+1);   do_write_byte(rA,2,v+2);
+        do_write_byte(rB,0,0xFF); do_write_byte(rB,1,0xFF);  do_write_byte(rB,2,0xFF);
+        // verify
+        rAc0 = do_read_byte(rA,0); rAc1 = do_read_byte(rA,1); rAc2 = do_read_byte(rA,2);
+        if (rAc0 == v && rAc1 == v+1 && rAc2 == v+2) {
+          printf("first row : valid | ");
+        } else {
+          printf("first row : ERROR | ");
+        }
+        rBc0 = do_read_byte(rB,0); rBc1 = do_read_byte(rB,1); rBc2 = do_read_byte(rB,2);
+        if (rBc0 == 0xFF && rBc1 == 0xFF && rBc2 == 0xFF) {
+          printf("second row : valid | ");
+        } else {
+          printf("second row : ERROR | ");
+        }
+        // row copy
+        // printf("rowcopy A->B\n");
+        do_rowcopy(rA,rB);
+        // verify
+        rBc0 = do_read_byte(rB,0); rBc1 = do_read_byte(rB,1); rBc2 = do_read_byte(rB,2);
+        if (rBc0 == v && rBc1 == v+1 && rBc2 == v+2) {
+          printf("row copy : valid");
+        } else {
+          printf("row copy : ERROR");
+        }
+        printf("\n");
+      }
+      rB += 32;
+      if (rB >= 2048) {
+        rB = 0;
+        rA += 32;
+        if (rA >= 2048) {
+          rA = 0;
+        }
+      }
+#endif
     }
   }
 
