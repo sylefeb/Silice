@@ -1,0 +1,442 @@
+// SL 2020
+//
+// A simple test for SDRAM controllers (ULX3S / de10nano / de2 / simulation)
+//
+// -------------------------
+// MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+// @sylefeb 2020
+
+$include('../common/sdram_interfaces.si')
+
+$$if ICARUS then
+// SDRAM simulator
+append('../common/mt48lc16m16a2.v')
+import('../common/simul_sdram.v')
+$$end
+
+$$if ULX3S then
+// Clock
+// mport('../common/plls/ulx3s_50_25_100_100ph180.v')
+// mport('../common/plls/ulx3s_160_25_160_160ph90.v')
+import('pll.v')
+$$end
+
+$$if ICEPI_ZERO then
+// Clock
+import('../common/plls/icepi_zero_50_25_100_100ph180.v')
+$$end
+
+$$if DE10NANO then
+import('../common/plls/de10nano_50_25_100_100ph180.v')
+$$end
+$$if DE2 then
+import('../common/plls/de2_25_100_100ph180.v')
+$$end
+
+$$if SIMULATION then
+$$  TEST_SIZE = 1<<16
+$$else
+$$  TEST_SIZE = 1<<24
+$$end
+
+$include('../common/clean_reset.si')
+
+import('inout16_set.v')
+$$if ULX3S or ICEPI_ZERO then
+import('inout16_ff_ulx3s.v')
+import('out1_ff_ulx3s.v')
+import('out2_ff_ulx3s.v')
+import('out13_ff_ulx3s.v')
+$$ULX3S_IO = true
+$$end
+
+// -------------------------
+
+circuitry command(
+  output sdram_cs,output sdram_ras,output sdram_cas,output sdram_we,input cmd)
+{
+  sdram_cs  = cmd[3,1];
+  sdram_ras = cmd[2,1];
+  sdram_cas = cmd[1,1];
+  sdram_we  = cmd[0,1];
+}
+
+// SDRAM commands
+$$CMD_dummy_WAIT_init = '1111'
+$$CMD_dummy_WAIT      = '1101'
+$$CMD_dummy_GET       = '1001'
+$$CMD_UNSELECTED      = '1000'
+$$CMD_NOP             = '0111'
+$$CMD_ACTIVATE        = '0011'
+$$CMD_READ            = '0101'
+$$CMD_WRITE           = '0100'
+$$CMD_TERMINATE       = '0110'
+$$CMD_PRECHARGE       = '0010'
+$$CMD_REFRESH         = '0001'
+$$CMD_LOAD_MODE_REG   = '0000'
+$$AddrZ     = '0000000000000'
+$$AddrA_row = '0000000000000'
+$$AddrA_col = '0000000000000'
+$$AddrB_row = '0000000000001'
+$$AddrB_col = '0000000000000'
+$$Addr_wait_init     = '1111111111111'
+$$Addr_wait_2        = '0000000000000' -- value are delay - 1 since using cnt sign bit to stop
+$$Addr_wait_3        = '0000000000001' -- value are delay - 1 since using cnt sign bit to stop
+$$Addr_wait_4        = '0000000000010'
+$$Addr_wait_5        = '0000000000011'
+$$Addr_wait_6        = '0000000000100'
+$$Addr_wait_7        = '0000000000101'
+$$Addr_wait_8        = '0000000000110'
+$$Addr_wait_16       = '0000000001110'
+$$Addr_precharge_all = '0010000000000'
+$$Addr_mode_reg      = '0001000110011'
+$$Bank0              = '00'
+$$Bank1              = '01'
+$$Bank2              = '10'
+$$Bank3              = '11'
+$$DataZ              = '0000000000000000'
+// NOTE: sdram_ba: bank on bits 25-24 ( 2 bits)
+//       sdram_a : row  on bits 22-10 (13 bits)
+$$if ICARUS then
+$$  Addr_wait_R = Addr_wait_4
+$$else
+$$  Addr_wait_R = Addr_wait_5
+$$end
+$$bwidth = 4+2+13+2+16+1
+
+// -------------------------
+
+unit main(
+  output uint$NUM_LEDS$ leds,
+$$if not ICARUS then
+  // SDRAM
+  output! uint1  sdram_cle,
+  output! uint2  sdram_dqm,
+  output! uint1  sdram_cs,
+  output! uint1  sdram_we,
+  output! uint1  sdram_cas,
+  output! uint1  sdram_ras,
+  output! uint2  sdram_ba,
+  output! uint13 sdram_a,
+$$if VERILATOR then
+  output! uint1  sdram_clock,
+  input   uint16 sdram_dq_i,
+  output! uint16 sdram_dq_o,
+  output! uint1  sdram_dq_en,
+  // VGA (to be compiled with sdram_vga framework)
+  output! uint1  video_clock,
+  output! uint4  video_r,
+  output! uint4  video_g,
+  output! uint4  video_b,
+  output! uint1  video_hs,
+  output! uint1  video_vs
+$$else
+  output! uint1  sdram_clk,  // sdram chip clock != internal sdram_clock
+  inout   uint16 sdram_dq,
+$$end
+$$end
+)
+$$if ULX3S or DE10NANO or DE2 or ICEPI_ZERO then
+<@sdram_clock,!rst>
+$$end
+{
+
+$$if not ICARUS then
+uint1 rst(1);
+clean_reset rstcond<@sdram_clock,!reset> (
+  out   :> rst
+);
+$$else
+uint1 sdram_clock(0);
+$$end
+
+uint16 iter = 0;
+
+// --- SDRAM
+
+$$if not VERILATOR then
+uint16 sdram_dq_i2(0); /// TODO: Silice, investigate why sdram_dq_i does not work (ulx3s)
+uint16 reg_dq_i(0);
+$$else
+$$error('verilator TODO')
+$$end
+
+$$if ICARUS then
+uint1  sdram_cle   (0);
+uint2  sdram_dqm   (0);
+uint1  sdram_cs    (0);
+uint1  sdram_we    (0);
+uint1  sdram_cas   (0);
+uint1  sdram_ras   (0);
+uint2  sdram_ba    (0);
+uint13 sdram_a     (0);
+uint16 sdram_dq    (0);
+simul_sdram simul(
+  sdram_clk <:  clock,
+  sdram_cle <:  sdram_cle,
+  sdram_dqm <:  sdram_dqm,
+  sdram_cs  <:  sdram_cs,
+  sdram_we  <:  sdram_we,
+  sdram_cas <:  sdram_cas,
+  sdram_ras <:  sdram_ras,
+  sdram_ba  <:  sdram_ba,
+  sdram_a   <:  sdram_a,
+  sdram_dq  <:> sdram_dq
+);
+$$end
+
+$$if ULX3S or DE10NANO or DE2 or ICEPI_ZERO then
+  // --- clock
+  uint1 video_clock   = 0;
+  uint1 sdram_clock   = 0;
+  uint1 pll_lock      = 0;
+  uint1 compute_clock = 0;
+  uint1 compute_reset = 0;
+$$if ULX3S then
+  $$print('ULX3S at 50 MHz compute clock, 100 MHz SDRAM')
+  // pll_50_25_100_100ph180 clk_gen(
+  pll clk_gen(
+    clkin    <: clock,
+    clkout0  :> compute_clock,
+    clkout1  :> video_clock,
+    clkout2  :> sdram_clock, // controller
+    clkout3  :> sdram_clk,   // chip
+    locked   :> pll_lock,
+//    reset    :> rst
+  );
+$$end
+$$if DE10NANO then
+  $$print('de10nano at 50 MHz compute clock, 100 MHz SDRAM')
+  uint1 not_pll_lock = 0;
+  pll_50_25_100_100ph180 clk_gen(
+    refclk   <: clock,
+    rst      <: not_pll_lock,
+    outclk_0 :> compute_clock,
+    outclk_1 :> video_clock,
+    outclk_2 :> sdram_clock, // controller
+    outclk_3 :> sdram_clk,   // chip
+    locked   :> pll_lock
+  );
+$$end
+$$if DE2 then
+  $$print('de2, 100 MHz SDRAM')
+  uint1 not_pll_lock = 0;
+  pll clk_gen(
+    inclk0   <: clock,
+    c0       :> video_clock,
+    c1       :> sdram_clock, // controller
+    c2       :> sdram_clk,   // chip
+    locked   :> pll_lock
+  );
+$$end
+$$if ICEPI_ZERO then
+  $$print('icepi zero at 50 MHz compute clock, 100 MHz SDRAM')
+  pll_50_25_100_100ph180 clk_gen(
+    clkin    <: clock,
+    clkout0  :> compute_clock,
+    clkout1  :> video_clock,
+    clkout2  :> sdram_clock, // controller
+    clkout3  :> sdram_clk,   // chip
+    locked   :> pll_lock
+  );
+$$end
+$$end
+
+$$if not VERILATOR then
+$$if ULX3S_IO then
+  inout16_ff_ulx3s ioset(
+    clock           <:  sdram_clock,
+    io_pin          <:> sdram_dq,
+    io_write       <::  reg_dq_o,
+    io_read         :>  sdram_dq_i2,
+    io_write_enable <:: reg_dq_en
+  );
+  out1_ff_ulx3s  off_sdram_cs (clock <: sdram_clock, pin :> sdram_cs , d <:: reg_sdram_cs );
+  out1_ff_ulx3s  off_sdram_cas(clock <: sdram_clock, pin :> sdram_cas, d <:: reg_sdram_cas);
+  out1_ff_ulx3s  off_sdram_ras(clock <: sdram_clock, pin :> sdram_ras, d <:: reg_sdram_ras);
+  out1_ff_ulx3s  off_sdram_we (clock <: sdram_clock, pin :> sdram_we , d <:: reg_sdram_we );
+  out2_ff_ulx3s  off_sdram_dqm(clock <: sdram_clock, pin :> sdram_dqm, d <:: reg_sdram_dqm);
+  out2_ff_ulx3s  off_sdram_ba (clock <: sdram_clock, pin :> sdram_ba , d <:: reg_sdram_ba );
+  out13_ff_ulx3s off_sdram_a  (clock <: sdram_clock, pin :> sdram_a  , d <:: reg_sdram_a  );
+$$elseif DE10NANO then
+  inout16_set ioset(
+    clock           <:  sdram_clock,
+    io_pin          <:> sdram_dq,
+    io_write        <:  reg_dq_o,
+    io_read         :>  sdram_dq_i2,
+    io_write_enable <:  reg_dq_en
+  );
+$$else
+  inout16_set ioset(
+    clock           <:  sdram_clock,
+    io_pin          <:> sdram_dq,
+    io_write        <:  reg_dq_o,
+    io_read         :>  sdram_dq_i2,
+    io_write_enable <:  reg_dq_en
+  );
+$$end
+$$end
+
+  uint1   reg_sdram_cs  (0);
+  uint1   reg_sdram_cas (1);
+  uint1   reg_sdram_ras (1);
+  uint1   reg_sdram_we  (1);
+  uint2   reg_sdram_dqm (0);
+  uint2   reg_sdram_ba  (0);
+  uint13  reg_sdram_a   (0);
+  uint16  reg_dq_o  = 0;
+  uint3   tmp_dq_en     (0);
+  uint1   reg_dq_en = 0;
+
+  // CMD BANK ADDR DQM DATA DQEN
+  brom uint$bwidth$ instructions[] = {
+    $bwidth$b$CMD_dummy_WAIT_init .. Bank0 .. Addr_wait_init      .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_PRECHARGE       .. Bank0 .. Addr_precharge_all  .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_dummy_WAIT      .. Bank0 .. Addr_wait_2         .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_LOAD_MODE_REG   .. Bank0 .. Addr_mode_reg       .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_dummy_WAIT      .. Bank0 .. Addr_wait_4         .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_REFRESH         .. Bank0 .. AddrZ               .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_dummy_WAIT      .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
+    // ^ 7
+    // write in rowA
+    $bwidth$b$CMD_PRECHARGE     .. Bank0 .. AddrZ               .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_ACTIVATE      .. Bank0 .. AddrA_row           .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_2         .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_WRITE         .. Bank0 .. AddrA_col           .. '10' .. '0101010101010101' .. '1'$,
+    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_8         .. '00' .. DataZ .. '0'$,
+    // ^ 6
+    // write in rowB
+    $bwidth$b$CMD_PRECHARGE     .. Bank0 .. AddrZ               .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_ACTIVATE      .. Bank0 .. AddrB_row           .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_2         .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_WRITE         .. Bank0 .. AddrB_col           .. '10' .. '1010101010101010' .. '1'$,
+    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_8         .. '00' .. DataZ .. '0'$,
+    // ^ 6
+    // row-copy?
+    // -> activate A
+    $bwidth$b$CMD_PRECHARGE     .. Bank0 .. AddrZ               .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_ACTIVATE      .. Bank0 .. AddrA_row           .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_8         .. '00' .. DataZ .. '0'$,
+    // -> illegally activate B
+    $bwidth$b$CMD_PRECHARGE     .. Bank0 .. AddrZ               .. '00' .. DataZ .. '0'$,
+    // $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16         .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_ACTIVATE      .. Bank0 .. AddrB_row           .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_8         .. '00' .. DataZ .. '0'$,
+    // ^ 7
+    // read
+    $bwidth$b$CMD_PRECHARGE     .. Bank0 .. AddrZ               .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_ACTIVATE      .. Bank0 .. AddrB_row           .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_2         .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_READ          .. Bank0 .. AddrB_col           .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_R         .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_dummy_GET     .. Bank0 .. AddrZ               .. '00' .. DataZ .. '0'$,
+    $bwidth$b$CMD_dummy_WAIT    .. Bank0 .. Addr_wait_16        .. '00' .. DataZ .. '0'$,
+    // ^ 8
+  };
+  $$n_instr = 7+6+6+8+7 -- +1
+
+  always_before {
+    sdram_cle   = 1;
+$$if not ULX3S_IO then
+    sdram_cs    = reg_sdram_cs;
+    sdram_cas   = reg_sdram_cas;
+    sdram_ras   = reg_sdram_ras;
+    sdram_we    = reg_sdram_we;
+    sdram_dqm   = reg_sdram_dqm;
+    sdram_ba    = reg_sdram_ba;
+    sdram_a     = reg_sdram_a;
+$$if VERILATOR then
+    sdram_dq_o  = reg_dq_o;
+    sdram_dq_en = reg_dq_en;
+$$end
+$$end
+$$if VERILATOR then
+    // sdram clock for verilator simulation
+    sdram_clock = clock;
+$$end
+$$if DE2 then
+    compute_clock = sdram_clock;
+$$end
+$$if ICARUS then
+    sdram_clock = clock;
+$$end
+    leds        = reg_dq_i;
+  }
+
+  algorithm {
+
+    uint8 pc  = 0;
+    int17 cnt = -1;
+    while (pc != $n_instr$) {
+      uint$bwidth$ instr = instructions.rdata;
+      uint4 cmd          = instr[$bwidth-4$     , 4];
+      // __display("cmd: %b",cmd);
+      if (cmd[3,1] & cmd[0,1]) {
+        if (cmd[2,1]) { // wait command
+          cnt     = ~cnt[16,1] ? (cnt - 1) : {1b0,{3{instr[$bwidth-4-2-1$,1]}},instr[$bwidth-4-2-13$  ,13]};
+          //__display("wait: %d",cnt);
+          (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command({1b0/*cmd[1,1]*/,3b111});
+          // __write(".");
+          if (cnt[16,1]) { __display("done"); }
+        } else { // get command (after read)
+          reg_dq_i = sdram_dq_i2;
+          __display("get: %x",sdram_dq_i2);
+        }
+        //reg_dq_o      = tmp_dq_en[0,1] ? reg_dq_o : 0;
+        //tmp_dq_en     = tmp_dq_en >> 1;
+      } else {
+        (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
+        reg_sdram_ba  = instr[$bwidth-4-2   $, 2];
+        reg_sdram_a   = instr[$bwidth-4-2-13$,13];
+        reg_sdram_dqm = instr[         $1+16$, 2];
+        reg_dq_o      = instr[              1,16];
+        tmp_dq_en     = {3{instr[              0, 1]}};
+        __display("sdram_ba:%b sdram_a:%b",reg_sdram_ba,reg_sdram_a);
+$$if SIMULATION then
+        switch (cmd)
+        {
+          case 4b$CMD_NOP$: {
+            __display("null");
+          }
+          case 4b$CMD_PRECHARGE$: {
+            __display("precharge");
+          }
+          case 4b$CMD_ACTIVATE$: {
+            __display("activate");
+          }
+          case 4b$CMD_WRITE$: {
+            __display("write");
+          }
+          case 4b$CMD_READ$: {
+            __display("read");
+          }
+          case 4b$CMD_LOAD_MODE_REG$: {
+            __display("load mode reg");
+          }
+          case 4b$CMD_REFRESH$: {
+            __display("refresh");
+          }
+          default: {
+            __display("[error] command %b unknown (pc=%d)",cmd,pc);
+            __finish();
+          }
+        }
+$$end
+      }
+      pc                = cnt[16,1] ? pc + 1 : pc;
+      instructions.addr = pc;
+    }
+
+    // while (1) { __finish(); }
+
+  }
+
+  always_after {
+    reg_dq_en = tmp_dq_en[0,1];
+  }
+}

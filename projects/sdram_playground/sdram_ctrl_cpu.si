@@ -1,0 +1,769 @@
+// SL 2020
+//
+// A simple test for SDRAM controllers (ULX3S / de10nano / de2 / simulation)
+//
+// -------------------------
+// MIT license, see LICENSE_MIT in Silice repo root
+// https://github.com/sylefeb/Silice
+// @sylefeb 2020
+
+$include('../common/sdram_interfaces.si')
+
+$$if ICARUS then
+// SDRAM simulator
+append('../common/mt48lc16m16a2.v')
+import('../common/simul_sdram.v')
+$$end
+
+$$if ULX3S then
+// Clock
+// mport('../common/plls/ulx3s_50_25_100_100ph180.v')
+// mport('../common/plls/ulx3s_160_25_160_160ph90.v')
+import('pll.v')
+$$end
+
+$$if ICEPI_ZERO then
+// Clock
+import('../common/plls/icepi_zero_50_25_100_100ph180.v')
+$$end
+
+$$if DE10NANO then
+import('../common/plls/de10nano_50_25_100_100ph180.v')
+$$end
+$$if DE2 then
+import('../common/plls/de2_25_100_100ph180.v')
+$$end
+
+$$if SIMULATION then
+$$  TEST_SIZE = 1<<16
+$$else
+$$  TEST_SIZE = 1<<24
+$$end
+
+$include('../common/clean_reset.si')
+
+import('inout16_set.v')
+$$if ULX3S or ICEPI_ZERO then
+import('inout16_ff_ulx3s.v')
+import('out1_ff_ulx3s.v')
+import('out2_ff_ulx3s.v')
+import('out13_ff_ulx3s.v')
+$$ULX3S_IO = true
+$$end
+
+// -------------------------
+
+circuitry command(
+  output sdram_cs,output sdram_ras,output sdram_cas,output sdram_we,input cmd)
+{
+  sdram_cs  = cmd[3,1];
+  sdram_ras = cmd[2,1];
+  sdram_cas = cmd[1,1];
+  sdram_we  = cmd[0,1];
+}
+
+// SDRAM commands
+$$CMD_dummy_GET       = '1111'
+$$CMD_UNSELECTED      = '1000'
+$$CMD_NOP             = '0111'
+$$CMD_ACTIVATE        = '0011'
+$$CMD_READ            = '0101'
+$$CMD_WRITE           = '0100'
+$$CMD_TERMINATE       = '0110'
+$$CMD_PRECHARGE       = '0010'
+$$CMD_REFRESH         = '0001'
+$$CMD_LOAD_MODE_REG   = '0000'
+
+// -------------------------
+
+// instantiate a RISC-V RV32I processor ; yup, that is that easy!
+riscv small_cpu(
+  output uint8  leds,
+  output uint1  sdr_instr_add,   // pulse high to add an instruction
+  output uint32 sdr_instr_l,     // instruction to add, low word
+  output uint6  sdr_instr_h,     // instruction to add, high word
+  output uint1  sdr_instr_reset, // pulse high to reset all
+  output uint1  sdr_instr_run,   // maintain high to run
+  input  uint8  sdr_read,        // value read from sdram
+  output uint1  uart_tx,
+) <mem=8192> { // memory in bytes
+
+  // =============== firmware in C language ===========================
+  // ==================================================================
+#include "sdram.h"
+
+$$if not SIMULATION then
+  void wait() { for (int w = 0 ; w < 10000 ; ++w) { asm volatile ("nop;"); } }
+  #define INSTR_WAIT_R INSTR_WAIT4 INSTR_WAIT
+$$else
+  void wait() { for (int w = 0 ; w < 100 ; ++w) { asm volatile ("nop;"); } }
+  #define INSTR_WAIT_R INSTR_WAIT4
+$$end
+  #define NOP   asm volatile ("nop;");
+  #define NOP2  NOP NOP
+  #define NOP3  NOP NOP NOP
+  #define NOP4  NOP NOP NOP NOP
+
+  void reset_instructions()
+  {
+    // reset sdram controler content
+    sdr_instr_reset(0); sdr_instr_reset(1);
+  }
+
+  void send_instructions(uint64_t *instr,int n_instr)
+  {
+    // add all isntructions
+    for (int i=0;i<n_instr;++i) {
+      sdr_instr_l((uint32_t)instr[i]);
+      sdr_instr_h(instr[i] >> 32);
+      sdr_instr_add(0); sdr_instr_add(1); // pulse to add instruction
+    }
+  }
+
+  uint64_t init_instructions[] = {
+    // Initialisation sequence
+    INSTR(CMD_PRECHARGE,       BANK0, Addr_precharge_all,DQM_NONE,  DataZ,          0), // 0
+    INSTR_WAIT2
+    INSTR(CMD_LOAD_MODE_REG,   BANK0, Addr_mode_reg,     DQM_NONE,  DataZ,          0), // 3
+    INSTR_WAIT4
+    INSTR(CMD_REFRESH,         BANK0, AddrZ,             DQM_NONE,  DataZ,          0), // 8
+    INSTR_WAIT16
+  };
+
+  uint64_t write_instructions[] = {
+    // Write byte sequence
+    INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0), // 0
+    INSTR_WAIT16
+    INSTR(CMD_ACTIVATE,        BANK0, /*row*/ 0,         DQM_NONE,  DataZ,          0), // 17
+    INSTR_WAIT2
+    INSTR(CMD_WRITE,           BANK0, /*col*/ 0,         DQM_WRITE, DATA_PATTERN_A, 1), // 20
+    INSTR_WAIT8
+  };
+
+  uint64_t read_instructions[] = {
+    // Read byte sequence
+    INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0), // 0
+    INSTR_WAIT16
+    INSTR(CMD_ACTIVATE,        BANK0, /*row*/ 0,         DQM_NONE,  DataZ,          0), // 17
+    INSTR_WAIT2
+    INSTR(CMD_READ,            BANK0, /*col*/ 0,         DQM_NONE,  DataZ,          0), // 20
+    INSTR_WAIT_R
+    INSTR(CMD_dummy_GET,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0),
+    INSTR_WAIT16
+  };
+
+  uint64_t rowcopy_instructions[] = {
+    // -> precharge bank
+    INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0), // 0
+    INSTR_WAIT16
+    // -> activate first row (no wait)
+    INSTR(CMD_ACTIVATE,        BANK0, /*src*/ 0,         DQM_NONE,  DataZ,          0), // 17
+    INSTR_WAIT8
+    // -> precharge bank
+    INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0), // 26
+    // -> illegally activate second row (no wait)
+    INSTR(CMD_ACTIVATE,        BANK0, /*dst*/ 0,         DQM_NONE,  DataZ,          0), // 27
+    INSTR_WAIT8
+  };
+
+  uint64_t rowlogic_instructions[] = {
+    // -> precharge bank
+    INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0), // 0
+    INSTR_WAIT16
+    // -> illegally activate first row (no wait)
+    INSTR(CMD_ACTIVATE,        BANK0, /*src*/ 0,         DQM_NONE,  DataZ,          0), // 17
+    // -> precharge bank
+    INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0), // 18
+    // -> illegally activate second row (no wait)
+    INSTR(CMD_ACTIVATE,        BANK0, /*dst*/ 0,         DQM_NONE,  DataZ,          0), // 19
+    // -> precharge bank
+    //INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0),
+    // -> illegally activate third row (no wait)
+    //INSTR(CMD_ACTIVATE,        BANK0, /*dst2*/ 0,         DQM_NONE,  DataZ,         0), // 21
+    INSTR_WAIT8
+  };
+
+  void write_byte(unsigned int row, unsigned int col, unsigned char val)
+  {
+    unsigned int n_instr   = (sizeof(write_instructions) / sizeof(write_instructions[0]));
+    write_instructions[17] = INSTR(CMD_ACTIVATE, BANK0, row, DQM_NONE,  DataZ, 0);
+    write_instructions[20] = INSTR(CMD_WRITE,    BANK0, col, DQM_WRITE, val, 1);
+    send_instructions(write_instructions,n_instr);
+  }
+
+  void read_byte(unsigned int row, unsigned int col)
+  {
+    unsigned int n_instr  = (sizeof(read_instructions) / sizeof(read_instructions[0]));
+    read_instructions[17] = INSTR(CMD_ACTIVATE, BANK0, row, DQM_NONE, DataZ, 0);
+    read_instructions[20] = INSTR(CMD_READ,     BANK0, col, DQM_NONE, DataZ, 0);
+    send_instructions(read_instructions,n_instr);
+  }
+
+  void rowcopy(unsigned int row_src, unsigned int row_dst)
+  {
+    unsigned int n_instr     = (sizeof(rowcopy_instructions) / sizeof(rowcopy_instructions[0]));
+    rowcopy_instructions[17] = INSTR(CMD_ACTIVATE, BANK0, row_src, DQM_NONE, DataZ, 0);
+    rowcopy_instructions[27] = INSTR(CMD_ACTIVATE, BANK0, row_dst, DQM_NONE, DataZ, 0);
+    send_instructions(rowcopy_instructions,n_instr);
+  }
+
+  void rowlogic(unsigned int row_src, unsigned int row_dst/*, unsigned int row_dst2*/)
+  {
+    unsigned int n_instr      = (sizeof(rowlogic_instructions) / sizeof(rowlogic_instructions[0]));
+    rowlogic_instructions[17] = INSTR(CMD_ACTIVATE, BANK0, row_src,  DQM_NONE, DataZ, 0);
+    rowlogic_instructions[19] = INSTR(CMD_ACTIVATE, BANK0, row_dst,  DQM_NONE, DataZ, 0);
+    //rowlogic_instructions[21] = INSTR(CMD_ACTIVATE, BANK0, row_dst2, DQM_NONE, DataZ, 0);
+    send_instructions(rowlogic_instructions,n_instr);
+  }
+
+  void sdram_init()
+  {
+    reset_instructions();
+    unsigned int n_instr  = (sizeof(init_instructions) / sizeof(init_instructions[0]));
+    send_instructions(init_instructions,n_instr);
+    // run
+    sdr_instr_run(1);
+    wait();
+    sdr_instr_run(0);
+  }
+
+  static inline void delay_cycles()
+  {
+    asm volatile (
+        // 1 instruction × 3 cycles = 3 cycles
+        "li   t0, 173       \n"
+        // 173 iterations × 4 instructions × 3 cycles = 2076 cycles
+        // Total: 3 + 2076 = 2079 cycles
+        "1:                 \n"
+        "nop                \n"  // 1
+        "nop                \n"  // 2
+        "addi t0, t0, -1    \n"  // 3 decrement
+        "bnez t0, 1b        \n"  // 4 branch
+        :
+        :
+        : "t0"
+    );
+  }
+
+  void uart_send_byte(int byte)
+  {
+    uart_tx(0);
+    delay_cycles();
+    uart_tx((byte >> 0) & 1); delay_cycles();
+    uart_tx((byte >> 1) & 1); delay_cycles();
+    uart_tx((byte >> 2) & 1); delay_cycles();
+    uart_tx((byte >> 3) & 1); delay_cycles();
+    uart_tx((byte >> 4) & 1); delay_cycles();
+    uart_tx((byte >> 5) & 1); delay_cycles();
+    uart_tx((byte >> 6) & 1); delay_cycles();
+    uart_tx((byte >> 7) & 1); delay_cycles();
+    uart_tx(1);
+    delay_cycles();
+  }
+
+  void uart_send_string(const char *s)
+  {
+    while (*s) {
+      uart_send_byte((int)*s++);
+    }
+  }
+
+  void print_string(const char* s)
+  {
+    for (const char* p = s; *p; ++p) {
+        uart_send_byte(*p);
+    }
+  }
+
+  void print_hex_digits(unsigned int val, int nbdigits)
+  {
+    for (int i = (4*nbdigits)-4; i >= 0; i -= 4) {
+        uart_send_byte("0123456789ABCDEF"[(val >> i) & 15]);
+    }
+  }
+
+  void print_hex(unsigned int val)
+  {
+    print_hex_digits(val, 8);
+  }
+
+  #include <stdarg.h>
+
+  int printf(const char *fmt,...)
+  {
+    va_list ap;
+    for (va_start(ap, fmt);*fmt;fmt++) {
+      if (*fmt=='%') {
+        fmt++;
+        if (*fmt=='s')      print_string(va_arg(ap,char *));
+        else if (*fmt=='x') print_hex(va_arg(ap,int));
+        else if (*fmt=='c') uart_send_byte(va_arg(ap,int));
+        else                uart_send_byte(*fmt);
+      } else {
+        uart_send_byte(*fmt);
+      }
+    }
+    va_end(ap);
+  }
+
+  int do_read_byte(int row,int col)
+  {
+    reset_instructions();
+    read_byte (row, col);
+    sdr_instr_run(1);
+    NOP4; NOP4;
+    sdr_instr_run(0);
+    return sdr_read();
+  }
+
+  void do_write_byte(int row,int col,unsigned int val)
+  {
+    reset_instructions();
+    write_byte (row, col, val);
+    sdr_instr_run(1);
+    NOP4; NOP4;
+    sdr_instr_run(0);
+  }
+
+  void do_rowcopy(int src,int dst)
+  {
+    reset_instructions();
+    rowcopy(src, dst);
+    sdr_instr_run(1);
+    NOP4; NOP4;
+    sdr_instr_run(0);
+  }
+
+  void do_rowlogic(int src,int dst/*,int dst2*/)
+  {
+    reset_instructions();
+    rowlogic(src, dst/*, dst2*/);
+    sdr_instr_run(1);
+    NOP4; NOP4;
+    sdr_instr_run(0);
+  }
+
+  // C main
+  void main()
+  {
+    leds(0);
+    sdr_instr_run(0);
+
+    wait(); // powerup
+
+    int val = 0;
+    int rA  = 0;
+    int rB  = 1;
+
+    sdram_init();
+
+    while (1) {
+#if 0
+      do_write_byte(0,0,val);  do_write_byte(0,1,val+1); do_write_byte(0,2,val+2);
+      do_write_byte(1,0,0x51); do_write_byte(1,1,0x52);  do_write_byte(1,2,0x53);
+      do_write_byte(2,0,0xFF); do_write_byte(2,1,0xFF);  do_write_byte(2,2,0xFF);
+      printf("row A: %x %x %x\n", do_read_byte(0,0), do_read_byte(0,1), do_read_byte(0,2));
+      printf("row B: %x %x %x\n", do_read_byte(1,0), do_read_byte(1,1), do_read_byte(1,2));
+      printf("row C: %x %x %x\n", do_read_byte(2,0), do_read_byte(2,1), do_read_byte(2,2));
+      printf("rowcopy A->B\n");
+      do_rowcopy(0,1);
+      printf("row A: %x %x %x\n", do_read_byte(0,0), do_read_byte(0,1), do_read_byte(0,2));
+      printf("row B: %x %x %x\n", do_read_byte(1,0), do_read_byte(1,1), do_read_byte(1,2));
+      printf("row C: %x %x %x\n", do_read_byte(2,0), do_read_byte(2,1), do_read_byte(2,2));
+      printf("rowcopy B->C\n");
+      do_rowcopy(1,2);
+      printf("row A: %x %x %x\n", do_read_byte(0,0), do_read_byte(0,1), do_read_byte(0,2));
+      printf("row B: %x %x %x\n", do_read_byte(1,0), do_read_byte(1,1), do_read_byte(1,2));
+      printf("row C: %x %x %x\n", do_read_byte(2,0), do_read_byte(2,1), do_read_byte(2,2));
+      printf("-------\n");
+#endif
+#if 0
+      do_write_byte(0,0,0x11); do_write_byte(0,1,0x11); do_write_byte(0,2,0x11);
+      do_write_byte(1,0,0x22); do_write_byte(1,1,0x22); do_write_byte(1,2,0x22);
+      do_write_byte(2,0,0x33); do_write_byte(2,1,0x33); do_write_byte(2,2,0x33);
+      do_write_byte(3,0,0x44); do_write_byte(3,1,0x44); do_write_byte(3,2,0x44);
+      printf("row A: %x %x %x\n", do_read_byte(0,0), do_read_byte(0,1), do_read_byte(0,2));
+      printf("row B: %x %x %x\n", do_read_byte(1,0), do_read_byte(1,1), do_read_byte(1,2));
+      printf("row C: %x %x %x\n", do_read_byte(2,0), do_read_byte(2,1), do_read_byte(2,2));
+      printf("row D: %x %x %x\n", do_read_byte(3,0), do_read_byte(3,1), do_read_byte(3,2));
+      printf("rowlogic 1,2\n");
+      do_write_byte(3,0,0x44); do_write_byte(3,1,0x44); do_write_byte(3,2,0x44);
+      do_write_byte(1,0,0x22); do_write_byte(1,1,0x22); do_write_byte(1,2,0x22);
+      do_write_byte(2,0,0x33); do_write_byte(2,1,0x33); do_write_byte(2,2,0x33);
+      do_write_byte(0,0,0x11); do_write_byte(0,1,0x11); do_write_byte(0,2,0x11);
+      do_rowlogic(1,2); // works?
+      printf("row A: %x %x %x\n", do_read_byte(0,0), do_read_byte(0,1), do_read_byte(0,2));
+      printf("row B: %x %x %x\n", do_read_byte(1,0), do_read_byte(1,1), do_read_byte(1,2));
+      printf("row C: %x %x %x\n", do_read_byte(2,0), do_read_byte(2,1), do_read_byte(2,2));
+      printf("row D: %x %x %x\n", do_read_byte(3,0), do_read_byte(3,1), do_read_byte(3,2));
+      printf("-------\n");
+#endif
+#if 1
+      if (rA != rB) {
+        printf("rowA:%x rowB:%x | ",rA,rB);
+        int rAc0,rAc1,rAc2;
+        int rBc0,rBc1,rBc2;
+        int v = rB&255;
+        // write rows
+        do_write_byte(rA,0,v);    do_write_byte(rA,1,v+1);   do_write_byte(rA,2,v+2);
+        do_write_byte(rB,0,0xFF); do_write_byte(rB,1,0xFF);  do_write_byte(rB,2,0xFF);
+        // verify
+        rAc0 = do_read_byte(rA,0); rAc1 = do_read_byte(rA,1); rAc2 = do_read_byte(rA,2);
+        if (rAc0 == v && rAc1 == v+1 && rAc2 == v+2) {
+          printf("first row : valid | ");
+        } else {
+          printf("first row : ERROR | ");
+        }
+        rBc0 = do_read_byte(rB,0); rBc1 = do_read_byte(rB,1); rBc2 = do_read_byte(rB,2);
+        if (rBc0 == 0xFF && rBc1 == 0xFF && rBc2 == 0xFF) {
+          printf("second row : valid | ");
+        } else {
+          printf("second row : ERROR | ");
+        }
+        // row copy
+        do_rowcopy(rA,rB);
+        // verify
+        rBc0 = do_read_byte(rB,0); rBc1 = do_read_byte(rB,1); rBc2 = do_read_byte(rB,2);
+        if (rBc0 == v && rBc1 == v+1 && rBc2 == v+2) {
+          printf("row copy : valid");
+        } else {
+          printf("row copy : ERROR");
+        }
+        printf("\n");
+      }
+      rB += 32;
+      if (rB >= 2048) {
+        rB = 0;
+        rA += 32;
+        if (rA >= 2048) {
+          rA = 0;
+        }
+      }
+#endif
+    }
+  }
+
+  // =============== end of firmware ==================================
+  // ==================================================================
+}
+
+// -------------------------
+
+unit main(
+  output uint$NUM_LEDS$ leds,
+$$if ULX3S then
+  output uint1 oled_clk, // used for UART TX
+$$end
+$$if not ICARUS then
+  // SDRAM
+  output! uint1  sdram_cle,
+  output! uint2  sdram_dqm,
+  output! uint1  sdram_cs,
+  output! uint1  sdram_we,
+  output! uint1  sdram_cas,
+  output! uint1  sdram_ras,
+  output! uint2  sdram_ba,
+  output! uint13 sdram_a,
+$$if VERILATOR then
+  output! uint1  sdram_clock,
+  input   uint16 sdram_dq_i,
+  output! uint16 sdram_dq_o,
+  output! uint1  sdram_dq_en,
+  // VGA (to be compiled with sdram_vga framework)
+  output! uint1  video_clock,
+  output! uint4  video_r,
+  output! uint4  video_g,
+  output! uint4  video_b,
+  output! uint1  video_hs,
+  output! uint1  video_vs
+$$else
+  output! uint1  sdram_clk,  // sdram chip clock != internal sdram_clock
+  inout   uint16 sdram_dq,
+$$end
+$$end
+)
+$$if ULX3S or DE10NANO or DE2 or ICEPI_ZERO then
+<@sdram_clock,!rst>
+$$end
+{
+
+$$if not ICARUS then
+uint1 rst(1);
+clean_reset rstcond<@sdram_clock,!reset> (
+  out   :> rst
+);
+$$else
+uint1 sdram_clock(0);
+uint3 clock_div(0);
+uint1 compute_clock(0);
+$$end
+
+uint16 iter = 0;
+
+// --- SDRAM
+
+$$if not VERILATOR then
+uint16 sdram_dq_i2(0); /// TODO: Silice, investigate why sdram_dq_i does not work (ulx3s)
+uint16 reg_dq_i(0);
+$$else
+$$error('verilator TODO')
+$$end
+
+$$if ICARUS then
+uint1  sdram_cle   (0);
+uint2  sdram_dqm   (0);
+uint1  sdram_cs    (0);
+uint1  sdram_we    (0);
+uint1  sdram_cas   (0);
+uint1  sdram_ras   (0);
+uint2  sdram_ba    (0);
+uint13 sdram_a     (0);
+uint16 sdram_dq    (0);
+simul_sdram simul(
+  sdram_clk <:  clock,
+  sdram_cle <:  sdram_cle,
+  sdram_dqm <:  sdram_dqm,
+  sdram_cs  <:  sdram_cs,
+  sdram_we  <:  sdram_we,
+  sdram_cas <:  sdram_cas,
+  sdram_ras <:  sdram_ras,
+  sdram_ba  <:  sdram_ba,
+  sdram_a   <:  sdram_a,
+  sdram_dq  <:> sdram_dq
+);
+$$end
+
+$$if ULX3S or DE10NANO or DE2 or ICEPI_ZERO then
+  // --- clock
+  uint1 video_clock   = 0;
+  uint1 sdram_clock   = 0;
+  uint1 pll_lock      = 0;
+  uint1 compute_clock = 0;
+  uint1 compute_reset = 0;
+$$if ULX3S then
+  $$print('ULX3S at 50 MHz compute clock, 100 MHz SDRAM')
+  // pll_50_25_100_100ph180 clk_gen(
+  pll clk_gen(
+    clkin    <: clock,
+    clkout0  :> compute_clock,
+    clkout1  :> video_clock,
+    clkout2  :> sdram_clock, // controller
+    clkout3  :> sdram_clk,   // chip
+    locked   :> pll_lock,
+//    reset    :> rst
+  );
+$$end
+$$if DE10NANO then
+  $$print('de10nano at 50 MHz compute clock, 100 MHz SDRAM')
+  uint1 not_pll_lock = 0;
+  pll_50_25_100_100ph180 clk_gen(
+    refclk   <: clock,
+    rst      <: not_pll_lock,
+    outclk_0 :> compute_clock,
+    outclk_1 :> video_clock,
+    outclk_2 :> sdram_clock, // controller
+    outclk_3 :> sdram_clk,   // chip
+    locked   :> pll_lock
+  );
+$$end
+$$if DE2 then
+  $$print('de2, 100 MHz SDRAM')
+  uint1 not_pll_lock = 0;
+  pll clk_gen(
+    inclk0   <: clock,
+    c0       :> video_clock,
+    c1       :> sdram_clock, // controller
+    c2       :> sdram_clk,   // chip
+    locked   :> pll_lock
+  );
+$$end
+$$if ICEPI_ZERO then
+  $$print('icepi zero at 50 MHz compute clock, 100 MHz SDRAM')
+  pll_50_25_100_100ph180 clk_gen(
+    clkin    <: clock,
+    clkout0  :> compute_clock,
+    clkout1  :> video_clock,
+    clkout2  :> sdram_clock, // controller
+    clkout3  :> sdram_clk,   // chip
+    locked   :> pll_lock
+  );
+$$end
+$$end
+
+  small_cpu cpu<@compute_clock>;
+
+$$if not VERILATOR then
+$$if ULX3S_IO then
+  inout16_ff_ulx3s ioset(
+    clock           <:  sdram_clock,
+    io_pin          <:> sdram_dq,
+    io_write       <::  reg_dq_o,
+    io_read         :>  sdram_dq_i2,
+    io_write_enable <:: reg_dq_en
+  );
+  out1_ff_ulx3s  off_sdram_cs (clock <: sdram_clock, pin :> sdram_cs , d <:: reg_sdram_cs );
+  out1_ff_ulx3s  off_sdram_cas(clock <: sdram_clock, pin :> sdram_cas, d <:: reg_sdram_cas);
+  out1_ff_ulx3s  off_sdram_ras(clock <: sdram_clock, pin :> sdram_ras, d <:: reg_sdram_ras);
+  out1_ff_ulx3s  off_sdram_we (clock <: sdram_clock, pin :> sdram_we , d <:: reg_sdram_we );
+  out2_ff_ulx3s  off_sdram_dqm(clock <: sdram_clock, pin :> sdram_dqm, d <:: reg_sdram_dqm);
+  out2_ff_ulx3s  off_sdram_ba (clock <: sdram_clock, pin :> sdram_ba , d <:: reg_sdram_ba );
+  out13_ff_ulx3s off_sdram_a  (clock <: sdram_clock, pin :> sdram_a  , d <:: reg_sdram_a  );
+$$elseif DE10NANO then
+  inout16_set ioset(
+    clock           <:  sdram_clock,
+    io_pin          <:> sdram_dq,
+    io_write        <:  reg_dq_o,
+    io_read         :>  sdram_dq_i2,
+    io_write_enable <:  reg_dq_en
+  );
+$$else
+  inout16_set ioset(
+    clock           <:  sdram_clock,
+    io_pin          <:> sdram_dq,
+    io_write        <:  reg_dq_o,
+    io_read         :>  sdram_dq_i2,
+    io_write_enable <:  reg_dq_en
+  );
+$$end
+$$end
+
+  uint1   reg_sdram_cs  (0);
+  uint1   reg_sdram_cas (1);
+  uint1   reg_sdram_ras (1);
+  uint1   reg_sdram_we  (1);
+  uint2   reg_sdram_dqm (0);
+  uint2   reg_sdram_ba  (0);
+  uint13  reg_sdram_a   (0);
+  uint16  reg_dq_o      (0);
+  uint1   reg_dq_en     (0);
+
+  // CMD BANK ADDR DQM DATA DQEN
+  $$bwidth = 38
+  bram uint$bwidth$ instructions[256] = {pad(0)};
+  uint8 n_instr = 0;
+  uint8 pc      = 0;
+  uint1 run_trigger = 0;
+
+  always_before {
+    instructions.wenable = 0;
+    sdram_cle   = 1;
+$$if not ULX3S_IO then
+    sdram_cs    = reg_sdram_cs;
+    sdram_cas   = reg_sdram_cas;
+    sdram_ras   = reg_sdram_ras;
+    sdram_we    = reg_sdram_we;
+    sdram_dqm   = reg_sdram_dqm;
+    sdram_ba    = reg_sdram_ba;
+    sdram_a     = reg_sdram_a;
+$$if VERILATOR then
+    sdram_dq_o  = reg_dq_o;
+    sdram_dq_en = reg_dq_en;
+$$end
+$$end
+$$if VERILATOR then
+    // sdram clock for verilator simulation
+    sdram_clock = clock;
+$$end
+$$if DE2 then
+    compute_clock = sdram_clock;
+$$end
+$$if ICARUS then
+    sdram_clock   = clock;
+    compute_clock = clock_div == 4 ? ~compute_clock : compute_clock;
+    clock_div     = clock_div == 4 ? 0 : clock_div + 1;
+$$end
+    leds         = cpu.leds[0,8];
+    cpu.sdr_read = reg_dq_i[0,8];
+$$if ULX3S then
+    oled_clk     = cpu.uart_tx;
+$$end
+  }
+
+  algorithm {
+
+    while (1) {
+
+      int5 cnt    = -1;
+      pc          = run_trigger ? 0 : n_instr; // TODO rework trigger/run
+      run_trigger = 0;
+      while (pc != n_instr && cpu.sdr_instr_run) {
+        uint$bwidth$ instr = instructions.rdata;
+        //if (cnt[4,1]) {__display("executing instruction %b (pc == %d)",instr,pc);}
+        uint4 cmd          = instr[$bwidth-4$     , 4];
+        // __display("cmd: %b",cmd);
+        reg_dq_i      = (&cmd)      ? sdram_dq_i2 : reg_dq_i;
+        (reg_sdram_cs,reg_sdram_ras,reg_sdram_cas,reg_sdram_we) = command(cmd);
+        reg_sdram_ba  = instr[$bwidth-4-2   $, 2];
+        reg_sdram_a   = instr[$bwidth-4-2-13$,13];
+        reg_sdram_dqm = (&cmd[0,3]) ? reg_sdram_dqm : instr[         $1+16$, 2];
+        reg_dq_o      = (&cmd[0,3]) ? reg_dq_o      : instr[              1,16];
+        reg_dq_en     = (&cmd[0,3]) ? reg_dq_en     : instr[              0, 1];
+        pc            = cnt[4,1] ? pc + 1 : pc;
+$$if SIMULATION then
+        //__display("sdram_ba:%b sdram_a:%b",reg_sdram_ba,reg_sdram_a);
+        switch (cmd)
+        {
+          case 4b$CMD_NOP$: {
+            __write(".");
+          }
+          case 4b$CMD_PRECHARGE$: {
+            __display("precharge");
+          }
+          case 4b$CMD_ACTIVATE$: {
+            __display("activate");
+          }
+          case 4b$CMD_WRITE$: {
+            __display("write");
+          }
+          case 4b$CMD_READ$: {
+            __display("read");
+          }
+          case 4b$CMD_LOAD_MODE_REG$: {
+            __display("load mode reg");
+          }
+          case 4b$CMD_REFRESH$: {
+            __display("refresh");
+          }
+          case 4b$CMD_dummy_GET$: {
+            __display("get: %x",reg_dq_i);
+          }
+          default: {
+            __display("[error] command %b unknown (pc=%d)",cmd,pc);
+            __finish();
+          }
+        }
+        if (pc == n_instr) {
+          // __finish();
+        }
+$$end
+      }
+
+    }
+  }
+
+  always_after {
+    // take orders from the CPU
+    uint1 c_instr_reset(0);
+    uint1 c_instr_add(0);
+    uint1 c_instr_run(0);
+    $$if SIMULATION then
+    if (cpu.sdr_instr_add & ~c_instr_add) {
+      __display("adding instruction %b at %d : ",{cpu.sdr_instr_h,cpu.sdr_instr_l},instructions.addr);
+    }
+    $$end
+    // detect pulse fronts and act
+    instructions.addr    = cpu.sdr_instr_run ? pc : n_instr;
+    instructions.wdata   = {cpu.sdr_instr_h,cpu.sdr_instr_l};
+    instructions.wenable = (cpu.sdr_instr_add & ~c_instr_add);
+    n_instr = (cpu.sdr_instr_add   & ~c_instr_add  ) ? n_instr + 1
+            : (cpu.sdr_instr_reset & ~c_instr_reset) ? 0
+            : n_instr;
+    if (cpu.sdr_instr_run & ~c_instr_run) { run_trigger = 1; }
+    // retain value to detect pulse front
+    c_instr_reset = cpu.sdr_instr_reset;
+    c_instr_add   = cpu.sdr_instr_add;
+    c_instr_run   = cpu.sdr_instr_run;
+     //__display("instructions.addr: %d",instructions.addr);
+  }
+
+}

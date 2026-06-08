@@ -4,4 +4,4 @@ yowasp-yosys
 yowasp-nextpnr-ice40
 yowasp-nextpnr-ecp5
 yowasp-nextpnr-himbaechel-gowin
-yowasp-nextpnr-himbaechel-gatemate
+# yowasp-nextpnr-himbaechel-gatemate # TODO: enable when available
