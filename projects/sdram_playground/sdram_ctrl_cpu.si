@@ -169,15 +169,15 @@ $$end
   uint64_t rowlogic_instructions[] = {
     // -> precharge bank
     INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0), // 0
-    //INSTR_WAIT
+    INSTR_WAIT16
     // -> illegally activate first row (no wait)
-    INSTR(CMD_ACTIVATE,        BANK0, /*src*/ 0,         DQM_NONE,  DataZ,          0), // 1 //17
+    INSTR(CMD_ACTIVATE,        BANK0, /*src*/ 0,         DQM_NONE,  DataZ,          0), // 17
     // -> precharge bank
-    INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0), // 2 //18
+    INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0), // 18
     // -> illegally activate second row (no wait)
-    INSTR(CMD_ACTIVATE,        BANK0, /*dst*/ 0,         DQM_NONE,  DataZ,          0), // 3 //19
+    INSTR(CMD_ACTIVATE,        BANK0, /*dst*/ 0,         DQM_NONE,  DataZ,          0), // 19
     // -> precharge bank
-    //INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0), // 20
+    //INSTR(CMD_PRECHARGE,       BANK0, AddrZ,             DQM_NONE,  DataZ,          0),
     // -> illegally activate third row (no wait)
     //INSTR(CMD_ACTIVATE,        BANK0, /*dst2*/ 0,         DQM_NONE,  DataZ,         0), // 21
     INSTR_WAIT8
@@ -209,10 +209,10 @@ $$end
 
   void rowlogic(unsigned int row_src, unsigned int row_dst/*, unsigned int row_dst2*/)
   {
-    unsigned int n_instr     = (sizeof(rowlogic_instructions) / sizeof(rowlogic_instructions[0]));
-    rowlogic_instructions[1/*17*/] = INSTR(CMD_ACTIVATE, BANK0, row_src,  DQM_NONE, DataZ, 0);
-    rowlogic_instructions[3/*19*/] = INSTR(CMD_ACTIVATE, BANK0, row_dst,  DQM_NONE, DataZ, 0);
-    //rowlogic_instructions[5/*21*/] = INSTR(CMD_ACTIVATE, BANK0, row_dst2, DQM_NONE, DataZ, 0);
+    unsigned int n_instr      = (sizeof(rowlogic_instructions) / sizeof(rowlogic_instructions[0]));
+    rowlogic_instructions[17] = INSTR(CMD_ACTIVATE, BANK0, row_src,  DQM_NONE, DataZ, 0);
+    rowlogic_instructions[19] = INSTR(CMD_ACTIVATE, BANK0, row_dst,  DQM_NONE, DataZ, 0);
+    //rowlogic_instructions[21] = INSTR(CMD_ACTIVATE, BANK0, row_dst2, DQM_NONE, DataZ, 0);
     send_instructions(rowlogic_instructions,n_instr);
   }
 
@@ -297,7 +297,6 @@ $$end
         fmt++;
         if (*fmt=='s')      print_string(va_arg(ap,char *));
         else if (*fmt=='x') print_hex(va_arg(ap,int));
-        // else if (*fmt=='d') print_dec(va_arg(ap,int));
         else if (*fmt=='c') uart_send_byte(va_arg(ap,int));
         else                uart_send_byte(*fmt);
       } else {
@@ -378,16 +377,20 @@ $$end
       printf("row C: %x %x %x\n", do_read_byte(2,0), do_read_byte(2,1), do_read_byte(2,2));
       printf("-------\n");
 #endif
-#if 1
-      do_write_byte(0,0,0x12); do_write_byte(0,1,0x23); do_write_byte(0,2,0x45);
-      do_write_byte(1,0,0xf0); do_write_byte(1,1,0x89); do_write_byte(1,2,0x00);
-      do_write_byte(2,0,0x0f); do_write_byte(2,1,0xef); do_write_byte(2,2,0x01);
-      do_write_byte(3,0,0xaa); do_write_byte(3,1,0x45); do_write_byte(3,2,0xff);
+#if 0
+      do_write_byte(0,0,0x11); do_write_byte(0,1,0x11); do_write_byte(0,2,0x11);
+      do_write_byte(1,0,0x22); do_write_byte(1,1,0x22); do_write_byte(1,2,0x22);
+      do_write_byte(2,0,0x33); do_write_byte(2,1,0x33); do_write_byte(2,2,0x33);
+      do_write_byte(3,0,0x44); do_write_byte(3,1,0x44); do_write_byte(3,2,0x44);
       printf("row A: %x %x %x\n", do_read_byte(0,0), do_read_byte(0,1), do_read_byte(0,2));
       printf("row B: %x %x %x\n", do_read_byte(1,0), do_read_byte(1,1), do_read_byte(1,2));
       printf("row C: %x %x %x\n", do_read_byte(2,0), do_read_byte(2,1), do_read_byte(2,2));
       printf("row D: %x %x %x\n", do_read_byte(3,0), do_read_byte(3,1), do_read_byte(3,2));
       printf("rowlogic 1,2\n");
+      do_write_byte(3,0,0x44); do_write_byte(3,1,0x44); do_write_byte(3,2,0x44);
+      do_write_byte(1,0,0x22); do_write_byte(1,1,0x22); do_write_byte(1,2,0x22);
+      do_write_byte(2,0,0x33); do_write_byte(2,1,0x33); do_write_byte(2,2,0x33);
+      do_write_byte(0,0,0x11); do_write_byte(0,1,0x11); do_write_byte(0,2,0x11);
       do_rowlogic(1,2); // works?
       printf("row A: %x %x %x\n", do_read_byte(0,0), do_read_byte(0,1), do_read_byte(0,2));
       printf("row B: %x %x %x\n", do_read_byte(1,0), do_read_byte(1,1), do_read_byte(1,2));
@@ -395,7 +398,7 @@ $$end
       printf("row D: %x %x %x\n", do_read_byte(3,0), do_read_byte(3,1), do_read_byte(3,2));
       printf("-------\n");
 #endif
-#if 0
+#if 1
       if (rA != rB) {
         printf("rowA:%x rowB:%x | ",rA,rB);
         int rAc0,rAc1,rAc2;
@@ -418,7 +421,6 @@ $$end
           printf("second row : ERROR | ");
         }
         // row copy
-        // printf("rowcopy A->B\n");
         do_rowcopy(rA,rB);
         // verify
         rBc0 = do_read_byte(rB,0); rBc1 = do_read_byte(rB,1); rBc2 = do_read_byte(rB,2);
