@@ -5,10 +5,6 @@
 // HDMI driver
 $include('../common/hdmi.si')
 
-$$if MOJO then
-import('mojo_clk_50_25_125_125n.v')
-$$end
-
 // ----------------------------------------------------
 
 $$if not ULX3S and not MOJO then

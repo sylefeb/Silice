@@ -567,6 +567,35 @@ function ecppll(cmdline)
   end
 
   -- -------------------------------------------------------------------------
+  -- Check requested vs achieved frequencies (for all requested clocks)
+  -- -------------------------------------------------------------------------
+  local function check_freq(requested, actual, name)
+    if requested == nil or actual == nil then return end  -- skip if not set/achieved
+    local allowed_diff = 1 -- 1MHz tolerance
+    local actual_diff = math.abs(actual - requested)
+    if actual_diff > allowed_diff then
+      return fmt("PLL cannot generate %s: requested %g MHz, achieved %g MHz",
+                 name, requested, actual, actual_diff, allowed_diff)
+    end
+  end
+  -- Check primary output
+  local err_str = check_freq(vm["clkout0"], params.fout, "output 0")
+  if err_str then
+    return nil, err_str
+  end
+  -- Check secondary outputs only if user requested them
+  for i = 1, 3 do
+    local req_key = i == 1 and "clkout1" or i == 2 and "clkout2" or "clkout3"
+    local sec = params.secondary[i]
+    if vm[req_key] ~= nil and sec.enabled then
+      err_str = check_freq(vm[req_key], sec.freq, "output " .. i)
+      if err_str then
+        return nil, err_str
+      end
+    end
+  end
+
+  -- -------------------------------------------------------------------------
   -- 5. Fill remaining params fields
   -- -------------------------------------------------------------------------
   params.xo2     = vm["xo2"]                    and true or false

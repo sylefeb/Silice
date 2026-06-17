@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+
+# LLM assisted code
+# Reviewed by @sylefeb
+
 """
 Listen on a serial port and print received characters.
 Usage: python listen_uart.py [port] [baud]

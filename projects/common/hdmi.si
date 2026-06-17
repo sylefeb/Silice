@@ -15,7 +15,6 @@
 // https://github.com/sylefeb/Silice
 // MIT license, see LICENSE_MIT in Silice repo root
 
-import('hdmi_clock.v')
 import('ddr.v')
 import('hdmi_ddr_crgb.v')
 $include('clean_reset.si')
@@ -132,7 +131,7 @@ algorithm hdmi(
   input   uint8  red,
   input   uint8  green,
   input   uint8  blue,
-) <@pixel_clk,!rst> {
+) <@clocks[1,1],!rst> {
 
   uint10 cntx  = 0;
   uint9  cnty  = 0;
@@ -144,19 +143,15 @@ algorithm hdmi(
   uint2 null_ctrl  <: 0;
 
   uint1  rst  = uninitialized;
-  clean_reset cr<@pixel_clk,!reset>(
+  clean_reset cr<@clocks[1,1],!reset>(
     out :> rst
   );
 
   // pll for tmds
-  uint1  pixel_clk     = uninitialized;
-  uint1  half_hdmi_clk = uninitialized;
-  hdmi_clock pll(
-    rst           <: reset,
-    clk           <: clock,
-    pixel_clk     :> pixel_clk,     //  25 MHz
-    half_hdmi_clk :> half_hdmi_clk, // 125 MHz (half 250MHz HDMI, double data rate output)
-  );
+  uint2 clocks = uninitialized;
+  pll _<freq_out=125,freq_out1=25>(clock_in <: clock,clock_out :> clocks);
+  // clocks[0,1] is 125 MHz (half 250MHz HDMI, double data rate output)
+  // clocks[1,1] is 25 MHz
 
   uint10 tmds_red       = uninitialized;
   uint10 tmds_green     = uninitialized;
@@ -191,7 +186,7 @@ algorithm hdmi(
 
   // shifter
   uint8 crgb_pos = 0;
-  hdmi_ddr_shifter shift<@half_hdmi_clk>(
+  hdmi_ddr_shifter shift<@clocks[0,1]>(
     data_r    <: tmds_red,
     data_g    <: tmds_green,
     data_b    <: tmds_blue,
@@ -199,7 +194,7 @@ algorithm hdmi(
   );
 
   hdmi_ddr_crgb hdmi_out(
-    clock      <: half_hdmi_clk,
+    clock      <: clocks[0,1],
     crgb_twice <: crgb_pos,
     out_pin    :> gpdi_dp
   );

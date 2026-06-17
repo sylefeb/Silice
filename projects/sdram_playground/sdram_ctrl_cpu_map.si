@@ -328,6 +328,22 @@ $$end
     sdr_instr_run(0);
   }
 
+  // Number of columns sampled per row, and their stride.
+  // COPYTEST_NCOLS*COPYTEST_CSTEP must stay within the part's column count
+  // (kept <= 256 here to be safe across SDRAM variants; widen if the chip
+  // has more columns).
+  #define COPYTEST_NCOLS  16
+  #define COPYTEST_CSTEP  16
+
+  static inline int copytest_pattern(int row_src, int row_dst, int col)
+  {
+    // Address- and row-dependent byte pattern. Multiplying by odd constants
+    // and XOR-mixing spreads changes across all 8 bit positions, so each
+    // sampled cell takes a distinct, hard-to-predict value and every data
+    // line toggles across the sweep (exercising stuck-at-0 and stuck-at-1).
+    return ( (col * 37) ^ (row_dst * 89) ^ (row_src << 1) ^ 0x5A ) & 0xFF;
+  }
+
   // C main
   void main()
   {
@@ -342,83 +358,52 @@ $$end
 
     sdram_init();
 
+    printf("SWEEP\n"); // marks the start of a full-bank sweep (for the host tool)
+
     while (1) {
-#if 0
-      do_write_byte(0,0,val);  do_write_byte(0,1,val+1); do_write_byte(0,2,val+2);
-      do_write_byte(1,0,0x51); do_write_byte(1,1,0x52);  do_write_byte(1,2,0x53);
-      do_write_byte(2,0,0xFF); do_write_byte(2,1,0xFF);  do_write_byte(2,2,0xFF);
-      printf("row A: %x %x %x\n", do_read_byte(0,0), do_read_byte(0,1), do_read_byte(0,2));
-      printf("row B: %x %x %x\n", do_read_byte(1,0), do_read_byte(1,1), do_read_byte(1,2));
-      printf("row C: %x %x %x\n", do_read_byte(2,0), do_read_byte(2,1), do_read_byte(2,2));
-      printf("rowcopy A->B\n");
-      do_rowcopy(0,1);
-      printf("row A: %x %x %x\n", do_read_byte(0,0), do_read_byte(0,1), do_read_byte(0,2));
-      printf("row B: %x %x %x\n", do_read_byte(1,0), do_read_byte(1,1), do_read_byte(1,2));
-      printf("row C: %x %x %x\n", do_read_byte(2,0), do_read_byte(2,1), do_read_byte(2,2));
-      printf("rowcopy B->C\n");
-      do_rowcopy(1,2);
-      printf("row A: %x %x %x\n", do_read_byte(0,0), do_read_byte(0,1), do_read_byte(0,2));
-      printf("row B: %x %x %x\n", do_read_byte(1,0), do_read_byte(1,1), do_read_byte(1,2));
-      printf("row C: %x %x %x\n", do_read_byte(2,0), do_read_byte(2,1), do_read_byte(2,2));
-      printf("-------\n");
-#endif
-#if 0
-      do_write_byte(0,0,0x11); do_write_byte(0,1,0x11); do_write_byte(0,2,0x11);
-      do_write_byte(1,0,0x22); do_write_byte(1,1,0x22); do_write_byte(1,2,0x22);
-      do_write_byte(2,0,0x33); do_write_byte(2,1,0x33); do_write_byte(2,2,0x33);
-      do_write_byte(3,0,0x44); do_write_byte(3,1,0x44); do_write_byte(3,2,0x44);
-      printf("row A: %x %x %x\n", do_read_byte(0,0), do_read_byte(0,1), do_read_byte(0,2));
-      printf("row B: %x %x %x\n", do_read_byte(1,0), do_read_byte(1,1), do_read_byte(1,2));
-      printf("row C: %x %x %x\n", do_read_byte(2,0), do_read_byte(2,1), do_read_byte(2,2));
-      printf("row D: %x %x %x\n", do_read_byte(3,0), do_read_byte(3,1), do_read_byte(3,2));
-      printf("rowlogic 1,2\n");
-      do_write_byte(3,0,0x44); do_write_byte(3,1,0x44); do_write_byte(3,2,0x44);
-      do_write_byte(1,0,0x22); do_write_byte(1,1,0x22); do_write_byte(1,2,0x22);
-      do_write_byte(2,0,0x33); do_write_byte(2,1,0x33); do_write_byte(2,2,0x33);
-      do_write_byte(0,0,0x11); do_write_byte(0,1,0x11); do_write_byte(0,2,0x11);
-      do_rowlogic(1,2); // works?
-      printf("row A: %x %x %x\n", do_read_byte(0,0), do_read_byte(0,1), do_read_byte(0,2));
-      printf("row B: %x %x %x\n", do_read_byte(1,0), do_read_byte(1,1), do_read_byte(1,2));
-      printf("row C: %x %x %x\n", do_read_byte(2,0), do_read_byte(2,1), do_read_byte(2,2));
-      printf("row D: %x %x %x\n", do_read_byte(3,0), do_read_byte(3,1), do_read_byte(3,2));
-      printf("-------\n");
-#endif
-#if 1
+      // LLM assisted code (memory test improvements only)
+      // Reviewed / edited by @sylefeb
+
       int led = 0;
       if (rA != rB) {
-        printf("rowA:%x rowB:%x | ",rA,rB);
-        int rAc0,rAc1,rAc2;
-        int rBc0,rBc1,rBc2;
-        int v = rB&255;
-        // write rows
-        do_write_byte(rA,0,v);    do_write_byte(rA,1,v+1);   do_write_byte(rA,2,v+2);
-        do_write_byte(rB,0,0xFF); do_write_byte(rB,1,0xFF);  do_write_byte(rB,2,0xFF);
-        // verify
-        rAc0 = do_read_byte(rA,0); rAc1 = do_read_byte(rA,1); rAc2 = do_read_byte(rA,2);
-        if (rAc0 == v && rAc1 == v+1 && rAc2 == v+2) {
-          led = led | 1;
-          printf("first row : valid | ");
-        } else {
-          printf("first row : ERROR | ");
+        int ok = 1; // becomes 0 if any check below fails
+
+        // Many columns spread across the row using an address/row dependent
+        // pattern. Every cell holds a distinct, hard-to-predict value, so
+        // verification catches stuck bits, column-addressing faults and
+        // partial copies. The destination is pre-filled with the bitwise
+        // complement of the expected data, so a copy that moves nothing (or
+        // only part of the row) can never masquerade as success.
+        for (int i = 0; i < COPYTEST_NCOLS; ++i) {
+          int col = i * COPYTEST_CSTEP;
+          int p   = copytest_pattern(rA, rB, col);
+          do_write_byte(rA, col, p);
+          do_write_byte(rB, col, (~p) & 0xFF);
         }
-        rBc0 = do_read_byte(rB,0); rBc1 = do_read_byte(rB,1); rBc2 = do_read_byte(rB,2);
-        if (rBc0 == 0xFF && rBc1 == 0xFF && rBc2 == 0xFF) {
-          led = led | 4;
-          printf("second row : valid | ");
-        } else {
-          printf("second row : ERROR | ");
+        // verify the source row was written correctly
+        for (int i = 0; i < COPYTEST_NCOLS; ++i) {
+          int col = i * COPYTEST_CSTEP;
+          if (do_read_byte(rA, col) != copytest_pattern(rA, rB, col)) { ok = 0; }
         }
-        // row copy
-        do_rowcopy(rA,rB);
-        // verify
-        rBc0 = do_read_byte(rB,0); rBc1 = do_read_byte(rB,1); rBc2 = do_read_byte(rB,2);
-        if (rBc0 == v && rBc1 == v+1 && rBc2 == v+2) {
-          led = led | 16;
-          printf("row copy : valid");
-        } else {
-          printf("row copy : ERROR");
+        // verify the destination pre-fill (complement) was written correctly
+        for (int i = 0; i < COPYTEST_NCOLS; ++i) {
+          int col = i * COPYTEST_CSTEP;
+          if (do_read_byte(rB, col) != ((~copytest_pattern(rA, rB, col)) & 0xFF)) { ok = 0; }
         }
-        printf("\n");
+        if (ok) { led = led | 5; }
+        // row copy rA -> rB
+        do_rowcopy(rA, rB);
+        // verify the copy landed across every sampled column of rB
+        for (int i = 0; i < COPYTEST_NCOLS; ++i) {
+          int col = i * COPYTEST_CSTEP;
+          if (do_read_byte(rB, col) != copytest_pattern(rA, rB, col)) { ok = 0; }
+        }
+        if (ok) { led = led | 16; }
+        // ----------------------------------------------------------------
+
+        // machine-readable line for the host
+        // RC <rowA(src)> <rowB(dst)> <1=success|0=failure>
+        printf("RC %x %x %c\n", rA, rB, ok ? '1' : '0');
       }
       leds(led);
       rB += 32;
@@ -427,9 +412,9 @@ $$end
         rA += 32;
         if (rA >= 2048) {
           rA = 0;
+          printf("SWEEP\n"); // start of a fresh full-bank sweep
         }
       }
-#endif
     }
   }
 
@@ -518,7 +503,7 @@ simul_sdram simul(
 $$end
 
   uint4 clocks(0);
-  pll _<freq_out=20,freq_out1=200,freq_out2=200,freq_out3=200,phase_out3=180>(clock_in <: clock,clock_out :> clocks);
+  pll _<freq_out=20,freq_out1=150,freq_out2=150,freq_out3=150,phase_out3=90>(clock_in <: clock,clock_out :> clocks);
 
   small_cpu cpu<@clocks[0,1]>;
 

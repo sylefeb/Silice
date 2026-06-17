@@ -102,14 +102,8 @@ module top(
   inout gpdi_sda,
   inout gpdi_scl,
 `endif
-  input  clk
+  input  clk50
   );
-
-// Change
-reg clk25;
-always @(posedge clk) begin
-	clk25 = ~clk25;
-end
 
 wire [7:0]  __main_out_leds;
 
@@ -148,7 +142,7 @@ always @* begin
   RST_d = RST_q >> 1;
 end
 
-always @(posedge clk25) begin
+always @(posedge clk50) begin
   if (ready) begin
     RST_q <= RST_d;
   end else begin
@@ -226,7 +220,7 @@ M_main __main(
   .out_ram_csn(qqspi_csn),
   .out_ram_bank({qqspi_bank1,qqspi_bank0}),
 `endif
-  .clock         (clk25)
+  .clock         (clk50)
 );
 
 assign leds          = __main_out_leds;
