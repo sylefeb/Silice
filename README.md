@@ -17,8 +17,6 @@
 
 **Important:** Silice is under active development [read more](#project-status-in-development).
 
-**Important:** To enjoy the latest features please use the *draft* branch. [Read more about development branches](#development-branches).
-
 **Important:** Something no longer compiles? The [change log](ChangeLog.md)
 documents (rare) breaking changes and how to recover from them.
 
