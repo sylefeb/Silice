@@ -1,9 +1,9 @@
 
 .DEFAULT: inferno.si
-		silice-make.py -s inferno.si -b $@ -p basic,sdram,hdmi,sdcard,audio -o BUILD_$(subst :,_,$@) -t shell
+		silice-make.sh -s inferno.si -b $@ -p basic,sdram,hdmi,sdcard,audio -o BUILD_$(subst :,_,$@) -t shell
 
 verilator: inferno.si
-		silice-make.py -s inferno.si -b $@ -p basic,vga,sdram -o BUILD_$(subst :,_,$@)
+		silice-make.sh -s inferno.si -b $@ -p basic,vga,sdram -o BUILD_$(subst :,_,$@)
 
 clean:
 	rm -rf BUILD_*

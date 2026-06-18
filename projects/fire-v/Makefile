@@ -6,7 +6,7 @@ ulx3s: wildfire.si
 		silice-make.sh -s wildfire.si -b $@ -p basic,sdram,hdmi,sdcard -o BUILD_$(subst :,_,$@) $(ARGS)
 
 icepi_zero: wildfire.si
-		silice-make.py -s wildfire.si -b $@ -p basic,sdram,hdmi,sdcard -o BUILD_$(subst :,_,$@) -t shell $(ARGS)
+		silice-make.sh -s wildfire.si -b $@ -p basic,sdram,hdmi,sdcard -o BUILD_$(subst :,_,$@) -t shell $(ARGS)
 
 verilator: wildfire.si
 		silice-make.sh -s wildfire.si -b $@ -p basic,vga,sdram -o BUILD_$(subst :,_,$@) $(ARGS)

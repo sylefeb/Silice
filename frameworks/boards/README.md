@@ -102,7 +102,7 @@ module top(
   input  clk100
   );
 ```
-So that the uart pins will only be there if the Makefile specifies `-p basic,uart` on the command line of `silice-make.py`.
+So that the uart pins will only be there if the Makefile specifies `-p basic,uart` on the command line of `silice-make.sh`.
 
 The Verilog framework also takes care of providing a reset signal.
 

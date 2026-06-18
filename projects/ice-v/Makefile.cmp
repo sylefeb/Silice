@@ -1,6 +1,6 @@
 
 verilator: SOCs/ice-v-soc.si
-		silice-make.py -s SOCs/ice-v-soc-cmp.si -b $@ -p basic -o BUILD_$(subst :,_,$@) $(ARGS)
+		silice-make.sh -s SOCs/ice-v-soc-cmp.si -b $@ -p basic -o BUILD_$(subst :,_,$@) $(ARGS)
 
 clean:
 	rm -rf BUILD_*

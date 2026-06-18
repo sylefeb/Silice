@@ -1,15 +1,15 @@
 
 .DEFAULT: dev.si
-		silice-make.py -s dev.si -b $@ -p basic,sdcard -o BUILD_$(subst :,_,$@)
+		silice-make.sh -s dev.si -b $@ -p basic,sdcard -o BUILD_$(subst :,_,$@)
 
 ulx3s: dev.si
-		silice-make.py -s dev.si -b $@ -p basic,sdcard -o BUILD_$(subst :,_,$@) -t shell
+		silice-make.sh -s dev.si -b $@ -p basic,sdcard -o BUILD_$(subst :,_,$@) -t shell
 
 icebreaker: dev.si
-		silice-make.py -s dev.si -b $@ -p basic -o BUILD_$(subst :,_,$@)
+		silice-make.sh -s dev.si -b $@ -p basic -o BUILD_$(subst :,_,$@)
 
 verilator: dev.si
-		silice-make.py -s dev.si -b $@ -p basic -o BUILD_$(subst :,_,$@) -t shell
+		silice-make.sh -s dev.si -b $@ -p basic -o BUILD_$(subst :,_,$@) -t shell
 
 clean:
 	rm -rf BUILD_*
