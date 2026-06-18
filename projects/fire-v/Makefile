@@ -5,7 +5,7 @@
 ulx3s: wildfire.si
 		silice-make.py -s wildfire.si -b $@ -p basic,sdram,hdmi,sdcard -o BUILD_$(subst :,_,$@) $(ARGS)
 
-icepi_zerp: wildfire.si
+icepi_zero: wildfire.si
 		silice-make.py -s wildfire.si -b $@ -p basic,sdram,hdmi,sdcard -o BUILD_$(subst :,_,$@) -t shell $(ARGS)
 
 verilator: wildfire.si
