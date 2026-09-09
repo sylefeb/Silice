@@ -713,6 +713,12 @@ void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, 
         m_ExpressionCatchers.insert(std::make_pair(std::make_pair(init_expr, _current), var.name));
         // insert a custom assignment instruction for this catcher
         _current->instructions.push_back(t_instr_nfo(init_expr, _current, _context->__id));
+        // address issue #290
+        // part select in defines is problematic with yosys, icarus
+        siliceParser::AccessContext *access = nullptr;
+        if (isAccess(init_expr, access)) {
+          m_Vars.at(m_VarNames.at(var.name)).forbid_define = true;
+        }
       }
     }
   }
@@ -1550,6 +1556,7 @@ std::string Algorithm::vioAsDefine(const t_instantiation_context& ictx, std::str
 static bool couldBeADefine(const Algorithm::t_var_nfo& v)
 {
   return   (v.table_size == 0)
+        && !v.forbid_define
   //    && (v.type_nfo.base_type == UInt) // uncomment to prevent signed vio to become defines
     ;
 }
@@ -9674,7 +9681,6 @@ void Algorithm::writeAsModule(std::ostream& out, const t_instantiation_context &
                   // NOTE: access is still ReadWrite for defines that are not trully const
                   m_Vars.at(m_VarNames.at(v.first)).usage = e_Const; // yes: demote to const
                   m_Vars.at(m_VarNames.at(v.first)).do_not_initialize = true; // skip any init
-                  m_Vars.at(m_VarNames.at(v.first)).assigned_as_wire = true; // skip any init
                 }
               }
             }

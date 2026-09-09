@@ -45,7 +45,7 @@ namespace Silice
 
   public:
 
-    /// \brief enum for variable access    
+    /// \brief enum for variable access
     enum e_Access {
       e_NotAccessed = 0,
       e_ReadOnly    = 1,
@@ -77,7 +77,7 @@ namespace Silice
       std::vector<std::string> init_values;
       int          table_size        = 0; // 0: not a table, otherwise size
       bool         do_not_initialize = false;
-      bool         assigned_as_wire  = false; // for e_Const, forces to have no init whatsoever (even if config "reg_init_zero" is set)
+      bool         forbid_define     = false; // required as a workaround to specific Yosys limitations handling defines and part select
       bool         init_at_startup   = false;
       e_Access     access            = e_NotAccessed;
       e_VarUsage   usage             = e_Undetermined;
