@@ -1,0 +1,14 @@
+bitfield bf {
+  uint8 h,
+  uint8 l
+}
+
+unit main(output uint8 leds)
+{
+  uint32 cnt = 0;
+  always {
+    cnt  = cnt + 1;
+    uint16 tmp = cnt;
+    leds = bf(tmp).l;
+  }
+}
