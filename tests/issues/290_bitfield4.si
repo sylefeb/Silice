@@ -8,7 +8,7 @@ unit main(output uint8 leds)
   uint32 cnt = 0;
   always {
     cnt  = cnt + 1;
-    uint16 tmp = cnt;
+    uint16 tmp = 12d123;
     leds = bf(tmp).h;
   }
 }

@@ -1,0 +1,12 @@
+// output: 01
+unit main(output uint8 leds)
+{
+  int32 cnt = -1;
+  algorithm {
+    cnt       = cnt - 1;
+    uint4 tmp = cnt;
+    int8  tst = tmp;
+    uint2  ex = tst[3,2];
+    __display("value is %b",ex);
+  }
+}

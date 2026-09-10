@@ -713,12 +713,6 @@ void Algorithm::gatherDeclarationVar(siliceParser::DeclarationVarContext* decl, 
         m_ExpressionCatchers.insert(std::make_pair(std::make_pair(init_expr, _current), var.name));
         // insert a custom assignment instruction for this catcher
         _current->instructions.push_back(t_instr_nfo(init_expr, _current, _context->__id));
-        // address issue #290
-        // part select in defines is problematic with yosys, icarus
-        siliceParser::AccessContext *access = nullptr;
-        if (isAccess(init_expr, access)) {
-          m_Vars.at(m_VarNames.at(var.name)).forbid_define = true;
-        }
       }
     }
   }
@@ -1540,8 +1534,8 @@ std::string Algorithm::vioAsDefine(const t_instantiation_context& ictx, const t_
     def = varBitWidth(v, ictx) + "\'(" + value + ")";
   }
   // encapsulate
-  def = /*(v.type_nfo.base_type == Int ? "$signed" : "") + */ string("(") + def + ")";
-  //    ^^^^^^ should be there, but in cases triggers asserts in yosys (https://github.com/YosysHQ/yosys/blob/df65634e07d283202bebfae2e2110724a4d8003f/frontends/ast/genrtlil.cc#L2067)
+  // def = (v.type_nfo.base_type == Int ? "$signed" : "") + string("(") + def + ")";
+  //        ^^^^^^ commented, may trigger asserts in yosys (https://github.com/YosysHQ/yosys/blob/df65634e07d283202bebfae2e2110724a4d8003f/frontends/ast/genrtlil.cc#L2067)
   return def;
 }
 
@@ -1556,7 +1550,6 @@ std::string Algorithm::vioAsDefine(const t_instantiation_context& ictx, std::str
 static bool couldBeADefine(const Algorithm::t_var_nfo& v)
 {
   return   (v.table_size == 0)
-        && !v.forbid_define
   //    && (v.type_nfo.base_type == UInt) // uncomment to prevent signed vio to become defines
     ;
 }
@@ -1649,7 +1642,8 @@ std::string Algorithm::rewriteIdentifier(
           // const
           std::string pre  = std::string(isADefine(m_Vars.at(V->second)) ? "`" : "");
           std::string post = std::string("");
-          if (   read_access && isADefine(m_Vars.at(V->second))
+          if (   read_access
+              && isADefine(m_Vars.at(V->second))
               && !on_binding) {
             // trying to circumvent issue with defines and signed, see L1523
             if (m_Vars.at(V->second).type_nfo.base_type == Int) {
@@ -5299,7 +5293,7 @@ bool Algorithm::isPartialAccess(siliceParser::AccessContext* access, const t_com
   } else if (access->partSelect() != nullptr) {
     return true;
   } else if (access->bitfieldAccess() != nullptr) {
-    return isPartialAccess(access->bitfieldAccess(), bctx);
+    return true;
   }
   reportError(sourceloc(access), "internal error [%s, %d]", __FILE__, __LINE__);
   return "";
@@ -7563,7 +7557,11 @@ void Algorithm::writeAccess(std::string prefix, std::ostream& out, e_AccessType 
   } else if (access->bitfieldAccess() != nullptr) {
     writeBitfieldAccess(prefix, out, access_type, access->bitfieldAccess(), std::make_pair("", ""), __id, bctx, ictx, ff, dependencies, _usage);
   }
-  // disable stable in cycle on partial access (not supported by verilog on defines)
+  // Part access are not supported on defines by icarus,yosys (verilator is fine) 
+  // unless the defines are pure identifiers. However for correctness we need size
+  // casts and signedness casts on defines. Thus we disallow defines to occur in
+  // presence of a partial access. This is done by setting stable_in_cycle to false,
+  // which is a necessary condition for a vio to turn into a define.
   if (isPartialAccess(access, bctx)) {
     string var = determineAccessedVar(access, bctx);
     var = translateVIOName(var, bctx);
@@ -9642,7 +9640,6 @@ void Algorithm::writeAsModule(std::ostream& out, const t_instantiation_context &
       t_vio_usage   usage;
       std::ofstream null;
       writeAsModule(null, ictx, usage, first_pass);
-
       /// update usage based on first pass
       // promote (non table) consts that cannot be defines
       for (auto& v : m_Vars) {

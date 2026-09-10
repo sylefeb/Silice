@@ -77,7 +77,6 @@ namespace Silice
       std::vector<std::string> init_values;
       int          table_size        = 0; // 0: not a table, otherwise size
       bool         do_not_initialize = false;
-      bool         forbid_define     = false; // required as a workaround to specific Yosys limitations handling defines and part select
       bool         init_at_startup   = false;
       e_Access     access            = e_NotAccessed;
       e_VarUsage   usage             = e_Undetermined;
