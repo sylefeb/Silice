@@ -1,13 +1,13 @@
-// SL 2020
+// SL 2026
 //
-// A simple test for SDRAM controllers (ULX3S / de10nano / de2 / simulation)
+// A playground for SDRAM controllers
 //
 // NOTE rowcopy works, but not rowlogic for now
 //
 // -------------------------
 // MIT license, see LICENSE_MIT in Silice repo root
 // https://github.com/sylefeb/Silice
-// @sylefeb 2020
+// @sylefeb 2026
 
 $include('../common/sdram_interfaces.si')
 

@@ -1,13 +1,13 @@
-// SL 2020
+// SL 2026
 //
-// A simple test for SDRAM controllers (ULX3S / de10nano / de2 / simulation)
+// A playground for SDRAM controllers
 //
 // NOTE rowcopy works, but not rowlogic for now
 //
 // -------------------------
 // MIT license, see LICENSE_MIT in Silice repo root
 // https://github.com/sylefeb/Silice
-// @sylefeb 2020
+// @sylefeb 2026
 
 $include('../common/sdram_interfaces.si')
 
@@ -503,7 +503,7 @@ simul_sdram simul(
 $$end
 
   uint4 clocks(0);
-  pll _<freq_out=20,freq_out1=150,freq_out2=150,freq_out3=150,phase_out3=90>(clock_in <: clock,clock_out :> clocks);
+  pll _<freq_out=20,freq_out1=140,freq_out2=140,freq_out3=140,phase_out3=90>(clock_in <: clock,clock_out :> clocks);
 
   small_cpu cpu<@clocks[0,1]>;
 
