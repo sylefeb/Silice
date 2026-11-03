@@ -1,0 +1,19 @@
+{
+  "name": "silixel",
+  "variants": [
+    {
+      "name"      : "silixel",
+      "framework" : "silixel.v",
+      "pins"      : [
+        {"set"    : "basic"}
+      ],
+      "builders": [
+        {
+          "builder" : "shell",
+          "command" : "silixel.sh",
+          "description": "Custom shell scripts using yosys and nextpnr"
+        }
+      ]
+    }
+  ]
+}

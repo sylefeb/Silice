@@ -59,6 +59,13 @@ $$pin.p2_7       = 1
 $$pin.p2_8       = 1
 $$pin.p2_9       = 1
 $$pin.p2_10      = 1
+$$pin.hr_dq      = 8
+$$pin.hr_rwds    = 1
+$$pin.hr_rst_n   = 1
+$$pin.hr_cs_n    = 1
+$$pin.hr_ck_p    = 1
+$$pin.hr_ck_n    = 1
+
 
 module top(
   %TOP_SIGNATURE%

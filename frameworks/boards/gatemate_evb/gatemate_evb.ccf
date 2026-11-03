@@ -61,9 +61,8 @@ Pin_inout  "hr_dq[4]"  Loc = "IO_WB_A7";
 Pin_inout  "hr_dq[5]"  Loc = "IO_WB_B7";
 Pin_inout  "hr_dq[6]"  Loc = "IO_WB_A8";
 Pin_inout  "hr_dq[7]"  Loc = "IO_WB_B8";
-
 Pin_inout  "hr_rwds"   Loc = "IO_WB_B4";
-Pin_out "hr_rst_n"  Loc = "IO_WB_A2";
-Pin_out "hr_cs_n"   Loc = "IO_WB_B0";
-Pin_out "hr_ck_p"   Loc = "IO_WB_A3";
-Pin_out "hr_ck_n"   Loc = "IO_WB_B3";
+Pin_out    "hr_rst_n"  Loc = "IO_WB_A2";
+Pin_out    "hr_cs_n"   Loc = "IO_WB_B0";
+Pin_out    "hr_ck_p"   Loc = "IO_WB_A3";
+Pin_out    "hr_ck_n"   Loc = "IO_WB_B3";
