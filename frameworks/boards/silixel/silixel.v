@@ -27,32 +27,40 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 `define YOSYS 1
 `default_nettype none
-$$SIMULATION = 1
-$$NUM_LEDS   = 8
+$$SIMULATION  = 1
+$$NUM_LEDS    = 8
+$$color_depth = 6
+$$color_max   = 63
+
+$$if VGA then
+$$pin.video_r   = 6
+$$pin.video_g   = 6
+$$pin.video_b   = 6
+$$pin.video_hs  = 1
+$$pin.video_vs  = 1
+$$end
 
 module top(
   // LED outputs
-  output [3:0] leds,
-  input        clk
+  %TOP_SIGNATURE%
+  input clk
 );
 
-    wire [7:0] __main_leds;
+  reg reset = 1;
 
-    reg reset = 1;
-
-    always @(posedge clk) begin
-      if (reset) begin
-        reset <= 0;
-      end
+  always @(posedge clk) begin
+    if (reset) begin
+      reset <= 0;
     end
+  end
 
-    M_main __main(
+  %WIRE_DECL%
+
+  M_main __main(
     .clock        (clk),
     .reset        (reset),
-    .out_leds     (__main_leds),
+    %MAIN_GLUE%
     .in_run       (~reset)
-    );
-
-    assign leds = __main_leds;
+  );
 
 endmodule

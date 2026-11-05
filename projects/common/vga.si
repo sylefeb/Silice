@@ -128,7 +128,7 @@ $$V_END    = V_FRT_PORCH + V_SYNCH + V_BCK_PORCH + V_RES
       xcount = xcount + 1;
 	  }
 
-$$if SIMULATION then
+$$if VERILATOR then
 $$if VGA_1024_768 then
     __verilog("$c32(\"set_vga_resolution(1024,768);\");");
 $$elseif VGA_800_600 then

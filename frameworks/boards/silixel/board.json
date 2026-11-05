@@ -5,7 +5,8 @@
       "name"      : "silixel",
       "framework" : "silixel.v",
       "pins"      : [
-        {"set"    : "basic"}
+        {"set"    : "basic"},
+        {"set"    : "vga", "define" : "VGA=1"}
       ],
       "builders": [
         {
