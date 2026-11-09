@@ -32,6 +32,8 @@ $$NUM_LEDS    = 8
 $$color_depth = 6
 $$color_max   = 63
 
+$$pin.leds      = 8
+
 $$if VGA then
 $$pin.video_r   = 6
 $$pin.video_g   = 6
@@ -43,12 +45,12 @@ $$end
 module top(
   // LED outputs
   %TOP_SIGNATURE%
-  input clk
+  input clock
 );
 
   reg reset = 1;
 
-  always @(posedge clk) begin
+  always @(posedge clock) begin
     if (reset) begin
       reset <= 0;
     end
@@ -57,7 +59,7 @@ module top(
   %WIRE_DECL%
 
   M_main __main(
-    .clock        (clk),
+    .clock        (clock),
     .reset        (reset),
     %MAIN_GLUE%
     .in_run       (~reset)

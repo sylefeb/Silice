@@ -7557,7 +7557,7 @@ void Algorithm::writeAccess(std::string prefix, std::ostream& out, e_AccessType 
   } else if (access->bitfieldAccess() != nullptr) {
     writeBitfieldAccess(prefix, out, access_type, access->bitfieldAccess(), std::make_pair("", ""), __id, bctx, ictx, ff, dependencies, _usage);
   }
-  // Part access are not supported on defines by icarus,yosys (verilator is fine) 
+  // Part access are not supported on defines by icarus,yosys (verilator is fine)
   // unless the defines are pure identifiers. However for correctness we need size
   // casts and signedness casts on defines. Thus we disallow defines to occur in
   // presence of a partial access. This is done by setting stable_in_cycle to false,
@@ -10725,6 +10725,8 @@ void Algorithm::outputVIOReport(const t_instantiation_context &ictx) const
       tk_text = tk->getText();
       tk_line = fl.second;
     }
+    t_vio_dependencies _1; t_vio_usage _2;
+    std::string rname = rewriteIdentifier("",v.name,"",nullptr,ictx,t_source_loc(),FF_Q,e_Read,_1,_2);
     freport
       << tk_text << " "
       << v.name << " "
@@ -10734,11 +10736,13 @@ void Algorithm::outputVIOReport(const t_instantiation_context &ictx) const
     switch (v.usage) {
     case e_Undetermined: freport << "undetermined #"; break;
     case e_NotUsed:      freport << "notused #"; break;
-    case e_Const:        freport << "const " << FF_CST << '_' << v.name; break;
-    case e_Temporary:    freport << "temp " << FF_TMP << '_' << v.name; break;
+    case e_Const:        freport << "const " << rname; break;
+    case e_Temporary:    freport << "temp " << rname; break;
     case e_FlipFlop:     freport << "ff " << FF_D << '_' << v.name << ',' << FF_Q << '_' << v.name; break;
-    case e_Bound:        freport << "bound " << WIRE << '_' << v.name; break;
-    case e_Wire:         freport << "wire " << WIRE << '_' << v.name; break;
+    // case e_Bound:        freport << "bound " << WIRE << (v.name[0] == '_' ? "" : "_") << v.name; break;
+    //                                                  ^ TODO CHECK this is a hot fix
+    case e_Bound:        freport << "bound " << rname; break;
+    case e_Wire:         freport << "wire " << rname; break;
     }
     freport << nxl;
   }
@@ -10762,8 +10766,8 @@ void Algorithm::outputVIOReport(const t_instantiation_context &ictx) const
     case e_Const:        freport << "const " << FF_CST << '_' << v.name; break;
     case e_Temporary:    freport << "temp " << FF_TMP << '_' << v.name; break;
     case e_FlipFlop:     freport << "ff " << FF_D << '_' << v.name << ',' << FF_Q << '_' << v.name; break;
-    case e_Bound:        freport << "bound " << WIRE << '_' << v.name; break;
-    case e_Wire:         freport << "wire " << WIRE << '_' << v.name; break;
+    case e_Bound:        freport << "bound " << "out_" << v.name; break;
+    case e_Wire:         freport << "wire " << "out_" << v.name; break;
     }
     freport << nxl;
   }
