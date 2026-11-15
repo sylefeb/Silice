@@ -30,6 +30,9 @@
 
 read_verilog -sv build.v
 
+# preserves Q side of flip-flops
+setattr -set keep 1 w:_q_*
+
 techmap -map +/adff2dff.v
 
 hierarchy -check -auto-top
@@ -41,7 +44,7 @@ opt_expr
 opt_clean
 check
 opt -nodffe -nosdff
-fsm
+fsm -norecode
 opt -nodffe -nosdff
 wreduce
 peepopt

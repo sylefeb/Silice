@@ -6516,14 +6516,18 @@ void Algorithm::createInstancedBlueprintInputOutputVars(t_instanced_nfo& _bp)
   for (const auto& i : _bp.blueprint->inputs()) {
     if (_bp.boundinputs.count(i.name) == 0) {
       t_var_nfo vnfo = i;
-      vnfo.name = _bp.instance_prefix + "_" + i.name;
+      vnfo.name        = _bp.instance_prefix + "_" + i.name;
+      vnfo.parent_name = _bp.instance_name;
+      vnfo.user_name   = i.name;
       addVar(vnfo, m_Blocks.front(), t_source_loc());
     }
   }
   // create vars for outputs, these are used with the 'dot' access syntax and allow access pattern analysis
   for (const auto& o : _bp.blueprint->outputs()) {
     t_var_nfo vnfo = o;
-    vnfo.name = _bp.instance_prefix + "_" + o.name;
+    vnfo.name        = _bp.instance_prefix + "_" + o.name;
+    vnfo.parent_name = _bp.instance_name;
+    vnfo.user_name   = o.name;
     addVar(vnfo, m_Blocks.front(), t_source_loc());
     m_Vars.at(m_VarNames.at(vnfo.name)).access = e_BoundToOutput;
     m_Vars.at(m_VarNames.at(vnfo.name)).usage = e_Bound;
@@ -10715,7 +10719,7 @@ void Algorithm::outputVIOReport(const t_instantiation_context &ictx) const
 {
   std::ofstream freport(vioReportName(), std::ios_base::app);
 
-  freport << (ictx.instance_name.empty()?"__main":ictx.instance_name) << " " << (m_Vars.size() + m_Outputs.size() + m_Inputs.size()) << " " << nxl;
+  freport << (ictx.instance_name.empty()?"main":ictx.instance_name) << " " << (m_Vars.size() + m_Outputs.size() + m_Inputs.size()) << " " << nxl;
   for (auto &v : m_Vars) {
     auto tk = getToken(v.srcloc.root, v.srcloc.interval);
     std::string tk_text = v.name;
@@ -10725,8 +10729,14 @@ void Algorithm::outputVIOReport(const t_instantiation_context &ictx) const
       tk_text = tk->getText();
       tk_line = fl.second;
     }
+    // override name for intantiated units
+    if (!v.parent_name.empty()) {
+      tk_text = v.parent_name + "." + v.user_name;
+    }
+    // rewrite identifier for internal name
     t_vio_dependencies _1; t_vio_usage _2;
     std::string rname = rewriteIdentifier("",v.name,"",nullptr,ictx,t_source_loc(),FF_Q,e_Read,_1,_2);
+    // write to report
     freport
       << tk_text << " "
       << v.name << " "
@@ -10765,7 +10775,7 @@ void Algorithm::outputVIOReport(const t_instantiation_context &ictx) const
     case e_NotUsed:      freport << "notused #"; break;
     case e_Const:        freport << "const " << FF_CST << '_' << v.name; break;
     case e_Temporary:    freport << "temp " << FF_TMP << '_' << v.name; break;
-    case e_FlipFlop:     freport << "ff " << FF_D << '_' << v.name << ',' << FF_Q << '_' << v.name; break;
+    case e_FlipFlop:     freport << "ff " << FF_D << '_' << v.name << ',' << FF_Q << '_' << v.name << ' ' << (v.combinational ? "comb" : "reg"); break;
     case e_Bound:        freport << "bound " << "out_" << v.name; break;
     case e_Wire:         freport << "wire " << "out_" << v.name; break;
     }

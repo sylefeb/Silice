@@ -35,7 +35,9 @@ silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}
 
 yosys -s $BOARD_DIR/synth_bram.yosys
 
-silixel --blif build.blif --silice
+silixel --blif build.blif --silice --cycles 2000000
+
+silixel-silice-viewer
 
 echo "===================================="
 echo "Visualize the simulation trace with:"

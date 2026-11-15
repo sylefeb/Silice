@@ -15,5 +15,10 @@ applicable) by a comment saying:
 ```
 (comment syntax to be adjusted based on language)
 
+
+**All commits and all pull requests have to be made by a human contributor
+taking responsibility for it**. LLMs should not be named by brand or model name,
+only referred to as 'the LLM'.
+
 > (1) An example is the conversion into Lua pre-processor scripts of the
 > PLL generators icepll, ecppll, etc.

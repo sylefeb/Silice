@@ -19,3 +19,4 @@ iceunpack
 gmpack
 gmunpack
 silixel
+silixel-silice-viewer

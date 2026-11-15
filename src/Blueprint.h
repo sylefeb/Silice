@@ -71,8 +71,8 @@ namespace Silice
     /// \brief base info about variables, inputs, outputs
     class t_var_nfo { // NOTE: if changed, remember to check var_nfo_copy
     public:
-      std::string  base_name; // user given name (may be empty if internal var)
-      std::string  name;      // internal name
+      std::string  base_name; // inital given name (may be empty if internal var)
+      std::string  name;      // decorated internal name
       t_type_nfo   type_nfo;
       std::vector<std::string> init_values;
       int          table_size        = 0; // 0: not a table, otherwise size
@@ -81,6 +81,8 @@ namespace Silice
       e_Access     access            = e_NotAccessed;
       e_VarUsage   usage             = e_Undetermined;
       std::string  attribs;
+      std::string  parent_name; // non empty => belongs to an instantiated unit (for reports)
+      std::string  user_name;   // as named by the user (for reports)
       Utils::t_source_loc srcloc;
     };
 
