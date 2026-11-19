@@ -27,7 +27,6 @@ ODDR2 #(
   );
 
 `else
-
 `ifdef ECP5
 
 ODDRX1F mddr
@@ -40,6 +39,16 @@ ODDRX1F mddr
       );
 
 `else
+`ifdef SILIXEL
+
+silixel_oddr oddr(
+        .D0(twice[0]),
+        .D1(twice[1]),
+        .Q(out_pin),
+        .C(clock)
+        );
+
+`else
 
 reg ddr_out;
 assign out_pin = ddr_out;
@@ -48,6 +57,7 @@ always @(posedge clock or negedge clock) begin
   ddr_out <= clock ? twice[0] : twice[1];
 end
 
+`endif
 `endif
 `endif
 

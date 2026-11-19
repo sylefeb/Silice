@@ -31,13 +31,13 @@ cd $BUILD_DIR
 
 rm build.v
 
-silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE -o build.v $1 "${@:2}"
+silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE --split-inouts -o build.v $1 "${@:2}"
 
 yosys -s $BOARD_DIR/synth_bram.yosys
 
-silixel --blif build.blif --silice --cycles 2000000
+# silixel --blif build.blif --silice --cycles 4000000
 
-silixel-silice-viewer
+silixel-silice --blif build.blif
 
 echo "===================================="
 echo "Visualize the simulation trace with:"

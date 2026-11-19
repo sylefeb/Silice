@@ -78,7 +78,7 @@ SimulSDRAM::SimulSDRAM(vluint8_t log2_rows, vluint8_t log2_cols, vluint8_t flags
     {
         // Banks are contiguous
         mask_rows = (vluint32_t)(num_rows        - 1) << (log2_cols + bus_log2                  );
-        mask_bank = (vluint32_t)(SDRAM_NUM_BANKS - 1) << (log2_cols + bus_log2 + SDRAM_BIT_BANKS);
+        mask_bank = (vluint32_t)(SDRAM_NUM_BANKS - 1) << (log2_cols + bus_log2 + log2_rows      );
     }
     mem_size    = s << (bus_log2 + SDRAM_BIT_BANKS);
     // Init message
@@ -871,7 +871,7 @@ void SimulSDRAM::eval
                     {
                         if (!row_pre[i])
                         {
-                            printf("ERROR @ %lu ps : All banks must be Precharge before Auto Refresh\n", ts);
+                            if (dbg_on) { printf("ERROR @ %lu ps : All banks must be Precharge before Auto Refresh\n", ts); }
                             break;
                         }
                     }
@@ -887,7 +887,7 @@ void SimulSDRAM::eval
 
                         if (ap_bank[0] || ap_bank[1] || ap_bank[2] || ap_bank[3])
                         {
-                            printf("ERROR @ %lu ps : at least one bank is auto-precharged !\n", ts);
+                            if (dbg_on) { printf("ERROR @ %lu ps : at least one bank is auto-precharged !\n", ts); }
                             break;
                         }
 
@@ -905,7 +905,7 @@ void SimulSDRAM::eval
 
                         if (ap_bank[ba])
                         {
-                            printf("ERROR @ %lu ps : cannot apply a precharge to auto-precharged bank %d !\n", ts, ba);
+                            if (dbg_on) { printf("ERROR @ %lu ps : cannot apply a precharge to auto-precharged bank %d !\n", ts, ba); }
                             break;
                         }
 
@@ -939,7 +939,7 @@ void SimulSDRAM::eval
 
                     if (row_act[ba])
                     {
-                        printf("ERROR @ %lu ps : bank %d already active !\n", ts, ba);
+                        if (dbg_on) { printf("ERROR @ %lu ps : bank %d already active !\n", ts, ba); }
                         break;
                     }
 
@@ -960,7 +960,7 @@ void SimulSDRAM::eval
 
                     if (!row_act[ba])
                     {
-                        printf("ERROR @ %lu ps : bank %d is not activated for WRITE !\n", ts, ba);
+                        if (dbg_on) { printf("ERROR @ %lu ps : bank %d is not activated for WRITE !\n", ts, ba); }
                         break;
                     }
 
@@ -985,7 +985,7 @@ void SimulSDRAM::eval
 
                     if (!row_act[ba])
                     {
-                        printf("ERROR @ %lu ps : bank %d is not activated for READ !\n", ts, ba);
+                        if (dbg_on) { printf("ERROR @ %lu ps : bank %d is not activated for READ !\n", ts, ba); }
                         break;
                     }
 
@@ -1010,7 +1010,7 @@ void SimulSDRAM::eval
 
                     if (ap_bank[ba])
                     {
-                        printf("ERROR @ %lu ps : cannot apply a burst stop to auto-precharged bank %d !\n", ts, ba);
+                        if (dbg_on) { printf("ERROR @ %lu ps : cannot apply a burst stop to auto-precharged bank %d !\n", ts, ba); }
                         break;
                     }
 

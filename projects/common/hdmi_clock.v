@@ -16,13 +16,11 @@ mojo_clk_50_25_125_125n mclk(
 );
 
 `else
-
 `ifdef DE10NANO
 
 // not yet implemented
 
 `else
-
 `ifdef ECP5
 
 wire clkfb;
@@ -74,7 +72,6 @@ EHXPLLL #(
 assign pixel_clk = clk;
 
 `else
-
 `ifdef ICARUS
 
 reg genclk;
@@ -88,9 +85,9 @@ assign half_hdmi_clk = genclk;
 assign pixel_clk     = clk;
 
 `endif
-    
+
 `endif
 `endif
 `endif
-    
+
 endmodule

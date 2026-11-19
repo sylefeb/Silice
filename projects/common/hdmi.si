@@ -134,7 +134,7 @@ algorithm hdmi(
 ) <@clocks[1,1],!rst> {
 
   uint10 cntx  = 0;
-  uint9  cnty  = 0;
+  uint10 cnty  = 0;
 
   uint1 hsync      <: (cntx > 655) && (cntx < 752);
   uint1 vsync      <: (cnty > 489) && (cnty < 492);

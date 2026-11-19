@@ -18,5 +18,5 @@ icepll
 iceunpack
 gmpack
 gmunpack
-silixel
-silixel-silice-viewer
+silixel-trace
+silixel-silice

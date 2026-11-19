@@ -25,9 +25,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 (header_2_M)
 
 */
-`define YOSYS 1
+`define YOSYS   1
+`define SILIXEL 1
 `default_nettype none
 $$SIMULATION  = 1
+$$SILIXEL     = 1
 $$NUM_LEDS    = 8
 $$color_depth = 6
 $$color_max   = 63
@@ -41,6 +43,23 @@ $$pin.video_b   = 6
 $$pin.video_hs  = 1
 $$pin.video_vs  = 1
 $$end
+
+$$if HDMI then
+$$pin.gpdi_dp   = 4
+$$end
+
+// silixel_oddr: double data rate output
+//   D0, D1 are captured on C posedge
+//   Q outputs D0 on C high, D1 on C low
+(* blackbox *)
+module silixel_oddr(
+  input  C,
+  input  D0,
+  input  D1,
+  output Q
+);
+endmodule
+
 
 module top(
   // LED outputs

@@ -45,7 +45,7 @@ $$if SIMULATION then
 $$end
 
   leds = 0;
-$$if SIMULATION then
+$$if SIMULATION and not SILIXEL then
   while (count < 256) {
     count = count + 1;
 $$else

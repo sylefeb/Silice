@@ -6,7 +6,8 @@
       "framework" : "silixel.v",
       "pins"      : [
         {"set"    : "basic"},
-        {"set"    : "vga", "define" : "VGA=1"}
+        {"set"    : "vga", "define" : "VGA=1"},
+        {"set"    : "hdmi","define" : "HDMI=1"}
       ],
       "builders": [
         {
