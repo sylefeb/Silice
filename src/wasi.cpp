@@ -29,20 +29,15 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <typeinfo>
 
 // This file contains extra definitions that are required for proper compilation
-// with the WASI WebAssembly framework, due to lack of support for exceptions
-// and threads (the later should not be needed, ANTLR is creating the missing
-// __cxa_thread_atexit export)
+// with the WASI WebAssembly framework
 
 #if defined(__wasi__)
 
 // well ...
 extern "C" {
-void *  __cxa_allocate_exception(size_t /*thrown_size*/) { abort(); }
-void    __cxa_throw(void */*thrown_object*/, std::type_info */*tinfo*/, void (*/*dest*/)(void *)) { abort(); }
 int     system( const char* ) {}
 clock_t clock() { return 0; }
 FILE   *tmpfile() { return NULL; }
-int     __cxa_thread_atexit(void*, void*, void*) {}
 }
 
 #endif
