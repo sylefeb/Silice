@@ -679,8 +679,20 @@ void SiliceCompiler::writeBody(const t_parsed_unit& parsed, std::ostream& _out, 
       }
     }
     for (auto io : parsed.unit->inOuts()) {
-      if (addTopModulePort(io.name, io.srcloc, InOut, used_pins)) {
-        used_ports.insert(std::make_pair(io.name, InOut));
+      if (g_SplitInouts) {
+        if (addTopModulePort(io.name + "_oe", io.srcloc, Output, used_pins)) {
+          used_ports.insert(std::make_pair(io.name + "_oe", InOut));
+        }
+        if (addTopModulePort(io.name + "_o", io.srcloc, Output, used_pins)) {
+          used_ports.insert(std::make_pair(io.name + "_o", InOut));
+        }
+        if (addTopModulePort(io.name + "_i", io.srcloc, Input, used_pins)) {
+          used_ports.insert(std::make_pair(io.name + "_i", InOut));
+        }
+      } else {
+        if (addTopModulePort(io.name, io.srcloc, InOut, used_pins)) {
+          used_ports.insert(std::make_pair(io.name, InOut));
+        }
       }
     }
     // check all ports are found, produce unused wires declarations

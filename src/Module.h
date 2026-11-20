@@ -1,22 +1,22 @@
 /*
 
     Silice FPGA language and compiler
-    Copyright 2019, (C) Sylvain Lefebvre and contributors 
+    Copyright 2019, (C) Sylvain Lefebvre and contributors
 
     List contributors with: git shortlog -n -s -- <filename>
 
     GPLv3 license, see LICENSE_GPLv3 in Silice repo root
 
-This program is free software: you can redistribute it and/or modify it 
-under the terms of the GNU General Public License as published by the 
-Free Software Foundation, either version 3 of the License, or (at your option) 
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation, either version 3 of the License, or (at your option)
 any later version.
 
-This program is distributed in the hope that it will be useful, but WITHOUT 
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License along with 
+You should have received a copy of the GNU General Public License along with
 this program.  If not, see <https://www.gnu.org/licenses/>.
 
 (header_2_G)
@@ -40,6 +40,8 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <unordered_map>
 
 #include <LibSL/LibSL.h>
+
+extern bool g_SplitInouts;
 
 namespace Silice
 {
@@ -133,6 +135,33 @@ namespace Silice
             m_InOutNames.insert(make_pair(nfo.name, (int)m_InOuts.size() - 1));
           } else {
             sl_assert(false);
+          }
+        }
+      }
+      /// Handling of split inouts
+      // In the Verilog module the inout will be split, and we want to merge them
+      // back into a single inout pin such that Silice internally sees indeed the
+      // inout pin (implicitly split).
+      if (g_SplitInouts) {
+        /// TODO: look for _oe pins and then its matching _i and _o pins
+        ///       if all checks out remove them and produce a single inout pin
+        for (const auto& o : m_Outputs) {
+          if (o.name.size() < 3) {
+            continue;
+          }
+          if (o.name.substr(o.name.size() - 3) == "_oe") {
+            std::string base = o.name.substr(0,o.name.size() - 3);
+            // candidate
+            if (   m_OutputNames.find(base + "_o") != m_OutputNames.end()
+                && m_InputNames.find(base + "_i") != m_InputNames.end()) {
+                // we regroup these pins in a single inout
+                t_inout_nfo nfo;
+                nfo.name              = base;
+                nfo.do_not_initialize = true;
+                nfo.type_nfo          = m_Outputs.at(m_OutputNames.at(base + "_o")).type_nfo;
+                m_InOuts.emplace_back(nfo);
+                m_InOutNames.insert(make_pair(nfo.name, (int)m_InOuts.size() - 1));
+            }
           }
         }
       }

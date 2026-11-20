@@ -95,8 +95,8 @@ $$if VERILATOR then
   output! uint1  video_hs,
   output! uint1  video_vs
 $$else
-  output uint1  sdram_clk,  // sdram chip clock != internal sdram_clock
-  inout  uint16 sdram_dq,
+  output! uint1  sdram_clk,  // sdram chip clock != internal sdram_clock
+  inout   uint16 sdram_dq,
 $$end
 $$end
 )
@@ -105,7 +105,7 @@ $$if ULX3S or DE10NANO or DE2 or ICEPI_ZERO then
 $$end
 {
 
-$$if not ICARUS then
+$$if not ICARUS and not SILIXEL then
 uint1 rst = uninitialized;
 clean_reset rstcond<@sdram_clock,!reset> (
   out   :> rst
@@ -189,11 +189,16 @@ $$end
   uint27               count = uninitialized;
   uint2                pass  = 0;
 
+  // PLLs
+  // TODO: update with new pll mechanism
 $$if VERILATOR then
   // sdram clock for verilator simulation
   sdram_clock := clock;
 $$end
-
+$$if SILIXEL then
+  // sdram clock for verilator simulation
+  sdram_clk  := clock;
+$$end
 $$if ULX3S or DE10NANO or DE2 or ICEPI_ZERO then
   // --- clock
   uint1 video_clock   = 0;

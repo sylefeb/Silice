@@ -31,6 +31,8 @@ cd $BUILD_DIR
 
 rm build.v
 
+set -e
+
 silice --frameworks_dir $FRAMEWORKS_DIR -f $FRAMEWORK_FILE --split-inouts -o build.v $1 "${@:2}"
 
 yosys -s $BOARD_DIR/synth_bram.yosys

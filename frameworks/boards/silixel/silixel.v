@@ -48,6 +48,22 @@ $$if HDMI then
 $$pin.gpdi_dp   = 4
 $$end
 
+$$if SDRAM then
+$$pin.sdram_clock= 1
+$$pin.sdram_cle  = 1
+$$pin.sdram_dqm  = 2
+$$pin.sdram_cs   = 1
+$$pin.sdram_we   = 1
+$$pin.sdram_cas  = 1
+$$pin.sdram_ras  = 1
+$$pin.sdram_ba   = 2
+$$pin.sdram_a    = 13
+$$pin.sdram_clk  = 1
+$$pin.sdram_dq_oe = 1
+$$pin.sdram_dq_i  = 16
+$$pin.sdram_dq_o  = 16
+$$end
+
 // silixel_oddr: double data rate output
 //   D0, D1 are captured on C posedge
 //   Q outputs D0 on C high, D1 on C low
