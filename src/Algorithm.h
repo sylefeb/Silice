@@ -228,7 +228,7 @@ private:
     /// \brief module/algorithms inouts bound to VIO (inout => vio name)
     std::unordered_map<std::string, t_binding_point > m_BlueprintInOutsBoundToVIO;
     /// \brief VIO bound to module/algorithms inouts (vio name => inout), all bindings sorted by range
-    std::unordered_map<std::string, std::map<v2i,std::pair<std::string,e_BindingDir> > > m_VIOToBlueprintInOutsBound;
+    std::unordered_map<std::string, std::map<v2i,std::pair<std::string,e_BindingDir> > > m_VIOBoundToBlueprintInOuts;
 
     // forward definition of combinational blocks
     class t_combinational_block;

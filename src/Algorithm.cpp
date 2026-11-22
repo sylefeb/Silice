@@ -1459,46 +1459,56 @@ static void splitBitBindings(std::string str, vector<pair<string, v2i> >& _bit_b
 
 std::string Algorithm::rewriteBinding(std::string var, const t_combinational_block_context *bctx, const t_instantiation_context& ictx) const
 {
-  auto w = m_VIOBoundToBlueprintOutputs.at(var);
-  sl_assert(!w.empty());
-  if (w[0] == ';') {
-    vector<pair<string, v2i> > bit_bindings;
-    splitBitBindings(w, bit_bindings);
-    // get var width
-    string bw = resolveWidthOf(var, ictx, t_source_loc());
-    int ibw;
-    try {
-      ibw = stoi(bw);
-    } catch (...) {
-      reportError(t_source_loc(), "cannot determine width of bound variable '%s' (width string is '%s')", var.c_str(), bw.c_str());
-    }
-    // now we iterate bit by bit
-    string concat;
-    ForIndex(bit, ibw) {
-      // find which range covers it, there should one at most
-      pair<string, v2i> which;
-      int which_bit = -1;
-      for (auto r : bit_bindings) {
-        if (bit >= r.second[0] && bit <= r.second[0] + r.second[1] - 1) {
-          if (which.first.empty()) {
-            which = r;
-            which_bit = bit - r.second[0];
-          } else {
-            reportError(t_source_loc(), "bit %d of variable '%s' is bound to multiple outputs", bit, var.c_str());
+  auto W = m_VIOBoundToBlueprintOutputs.find(var);
+  if (W != m_VIOBoundToBlueprintOutputs.end()) {
+    auto w = W->second;
+    sl_assert(!w.empty());
+    if (w[0] == ';') {
+      vector<pair<string, v2i> > bit_bindings;
+      splitBitBindings(w, bit_bindings);
+      // get var width
+      string bw = resolveWidthOf(var, ictx, t_source_loc());
+      int ibw;
+      try {
+        ibw = stoi(bw);
+      } catch (...) {
+        reportError(t_source_loc(), "cannot determine width of bound variable '%s' (width string is '%s')", var.c_str(), bw.c_str());
+      }
+      // now we iterate bit by bit
+      string concat;
+      ForIndex(bit, ibw) {
+        // find which range covers it, there should one at most
+        pair<string, v2i> which;
+        int which_bit = -1;
+        for (auto r : bit_bindings) {
+          if (bit >= r.second[0] && bit <= r.second[0] + r.second[1] - 1) {
+            if (which.first.empty()) {
+              which = r;
+              which_bit = bit - r.second[0];
+            } else {
+              reportError(t_source_loc(), "bit %d of variable '%s' is bound to multiple outputs", bit, var.c_str());
+            }
           }
         }
+        string sep = concat.empty() ? "}" : ",";
+        if (which.first.empty()) {
+          concat = "1'b0" + sep + concat;
+        } else {
+          concat = which.first + "[" + to_string(which_bit) + "+:1]" + sep + concat;
+        }
       }
-      string sep = concat.empty() ? "}" : ",";
-      if (which.first.empty()) {
-        concat = "1'b0" + sep + concat;
-      } else {
-        concat = which.first + "[" + to_string(which_bit) + "+:1]" + sep + concat;
-      }
+      concat = "{" + concat;
+      return concat;
+    } else {
+      return w;
     }
-    concat = "{" + concat;
-    return concat;
   } else {
-    return w;
+    auto Wio = m_VIOBoundToBlueprintInOuts.find(var);
+    sl_assert(Wio != m_VIOBoundToBlueprintInOuts.end()); // only two cases, bound to output or vio
+    if (Wio->second.size() != 1) {
+      reportError(t_source_loc(), "cannot use partial binding on inout '%s'", var.c_str());
+    }
+    return Wio->second.begin()->second.first;
   }
 }
 
@@ -1630,6 +1640,10 @@ std::string Algorithm::rewriteIdentifier(
         // bound to an output?
         auto Bo = m_VIOBoundToBlueprintOutputs.find(var);
         if (Bo != m_VIOBoundToBlueprintOutputs.end()) {
+          return encapsulateIdentifier(var, rewriteBinding(var, bctx, ictx), suffix);
+        }
+        auto Bio = m_VIOBoundToBlueprintInOuts.find(var);
+        if (Bio != m_VIOBoundToBlueprintInOuts.end()) {
           return encapsulateIdentifier(var, rewriteBinding(var, bctx, ictx), suffix);
         }
         reportError(srcloc, "internal error [%s, %d]", __FILE__, __LINE__);
@@ -6097,7 +6111,7 @@ void Algorithm::determineAccess(
   }
   // determine access to inout variables
   for (const auto& io : m_InOuts) {
-    if (m_VIOToBlueprintInOutsBound.count(io.name) == 0) {
+    if (m_VIOBoundToBlueprintInOuts.count(io.name) == 0) {
       // inout io is possibly used in this algorithm as it is not bound to any blueprint
       bool is_input = true; // expects first in c_InOutmembers to be the input
       for (auto m : c_InOutmembers) {
@@ -6326,11 +6340,11 @@ void Algorithm::determineBlueprintBoundVIO(const t_instantiation_context& ictx)
           m_VIOBoundToBlueprintOutputs[bindingRightIdentifier(b)] = wire;
         }
         // binding to an inout?
-        auto b_test = b; b_test.dir = e_BiDir; // this ensures the returned indentifier has no suffix _i/_o
+        auto b_test = b; b_test.dir = e_BiDir; // this ensures the returned identifier has no suffix _i/_o
         if (isInOut(bindingRightIdentifier(b_test))) {
           // yes
           std::string bindpoint = ib.second.instance_prefix + "_" + b.left;
-          m_VIOToBlueprintInOutsBound[bindingRightIdentifier(b_test)].insert(make_pair(range, make_pair(bindpoint, b.dir)));
+          m_VIOBoundToBlueprintInOuts[bindingRightIdentifier(b_test)].insert(make_pair(range, make_pair(bindpoint, b.dir)));
         }
       } else if (b.dir == e_BiDir) {
         if (!part_access) {
@@ -6361,20 +6375,20 @@ void Algorithm::determineBlueprintBoundVIO(const t_instantiation_context& ictx)
         // record wire name for this inout
         std::string bindpoint = ib.second.instance_prefix + "_" + b.left;
         m_BlueprintInOutsBoundToVIO[bindpoint] = b.right;
-        m_VIOToBlueprintInOutsBound[bindingRightIdentifier(b)].insert(make_pair(range,make_pair(bindpoint,b.dir)));
+        m_VIOBoundToBlueprintInOuts[bindingRightIdentifier(b)].insert(make_pair(range,make_pair(bindpoint,b.dir)));
       } else if (b.dir == e_Left) {
         // binding to an inout?
         auto b_test = b; b_test.dir = e_BiDir; // this ensures the returned indentifier has no suffix _i/_o
         if (isInOut(bindingRightIdentifier(b_test))) {
           // yes
           std::string bindpoint = ib.second.instance_prefix + "_" + b.left;
-          m_VIOToBlueprintInOutsBound[bindingRightIdentifier(b_test)].insert(make_pair(range, make_pair(bindpoint, b.dir)));
+          m_VIOBoundToBlueprintInOuts[bindingRightIdentifier(b_test)].insert(make_pair(range, make_pair(bindpoint, b.dir)));
         }
       }
     }
   }
   // verify inout ranges
-  for (const auto& bio : m_VIOToBlueprintInOutsBound) {
+  for (const auto& bio : m_VIOBoundToBlueprintInOuts) {
     if (bio.second.size() < 2) { continue; }
     int prev_bit = -1;
     for (const auto& bpr : bio.second) {
@@ -7424,7 +7438,7 @@ std::tuple<t_type_nfo, int> Algorithm::writeIOAccess(
     if (G != m_VIOGroups.end()) {
       verifyMemberGroup(member, G->second);
       // verifiy not a bound inout
-      if (m_VIOToBlueprintInOutsBound.count(base)) {
+      if (m_VIOBoundToBlueprintInOuts.count(base)) {
         reportError(sourceloc(ioaccess),"cannot access bound inout '%s'", base.c_str());
       }
       // produce the variable name
@@ -10428,7 +10442,7 @@ void Algorithm::writeAsModule(
   // inouts used in algorithm
   for (const auto &io : m_InOuts) {
     // Either of two cases: inout is bound or it is used internally
-    if (m_VIOToBlueprintInOutsBound.count(io.name) == 0) {
+    if (m_VIOBoundToBlueprintInOuts.count(io.name) == 0) {
       // inout is not bound, this is a case of (potential) internal use
       string wdth = varBitWidth(io, ictx).c_str();
       if (!is_number(wdth)) {
@@ -10497,7 +10511,7 @@ void Algorithm::writeAsModule(
     } else {
       // inout is bound, we need to deal with cases where the binding in on inputs / outputs (not bidir)
       // NOTE: ranges have been checked for overlap already
-      for (const auto& rbp : m_VIOToBlueprintInOutsBound.at(io.name)) {
+      for (const auto& rbp : m_VIOBoundToBlueprintInOuts.at(io.name)) {
         if (rbp.second.second == e_Left) {
           // bound to an input
           for (int bit = rbp.first[0]; bit < rbp.first[0] + rbp.first[1]; ++bit) {
