@@ -80,7 +80,7 @@ algorithm uart_sender(
       if (io.data_in_ready) {
         // start transmitting
         io.busy  = 1;
-        transmit = {1b1,1b0,io.data_in,1b0};
+        transmit = {1b1,1b1,io.data_in,1b0};
       }
     }
   }
