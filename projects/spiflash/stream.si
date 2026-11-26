@@ -171,7 +171,7 @@ $$elseif SIMULATION then
   passthrough _(inv <: reset,outv :> rst);
 $$end
 
-$$if SIMULATION then
+$$if SIMULATION and not SILIXEL then
   uint1 sf_csn(1);
   uint1 sf_clk(0);
   uint1 sf_io0(0);
@@ -225,7 +225,7 @@ $$end
     uo.data_in_ready = 0;
     sf_rom.in_ready  = 0;
     data.wenable     = 0;
-$$if SIMULATION then
+$$if SIMULATION and not SILIXEL then
     cycle = cycle + 1;
 $$end
   }

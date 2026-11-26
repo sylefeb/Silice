@@ -557,7 +557,7 @@ bool SiliceCompiler::addTopModulePort(
   if (!m_BodyContext->lpp->isIOPortDefined(port)) {
     CHANGELOG.addPointOfInterest("CL0006", srcloc);
     if (g_Disable_CL0006 || CONFIG.keyValues()["allow_deprecated_framework"] == "yes") {
-      warn(Deprecation, srcloc, "pin '%s' is not declared in framework\n             This may result in incorrect Verilog code.\n", port.c_str());
+      warn(Standard, srcloc, "pin '%s' is not declared in framework\n             This may result in incorrect Verilog code.\n", port.c_str());
     } else {
       reportError(srcloc, "pin '%s' is not declared in framework\n         This may result in incorrect Verilog code.\n         Use --no-pin-check on command line to force.", port.c_str());
     }

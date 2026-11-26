@@ -31,4 +31,13 @@ module ddr_clock(
   );
 `endif
 
+`ifdef SILIXEL
+silixel_oddr oddr(
+        .D0(1'b0),
+        .D1(enable),
+        .Q(ddr_clock),
+        .C(clock)
+        );
+`endif
+
 endmodule

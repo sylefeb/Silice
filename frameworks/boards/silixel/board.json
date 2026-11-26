@@ -8,7 +8,10 @@
         {"set"    : "basic"},
         {"set"    : "vga", "define" : "VGA=1"},
         {"set"    : "hdmi","define" : "HDMI=1"},
-        {"set"    : "sdram", "define" : "SDRAM=1"}
+        {"set"    : "sdram", "define" : "SDRAM=1"},
+        {"set"    : "spiflash", "define" : "SPIFLASH=1"},
+        {"set"    : "qspiflash", "define" : "QSPIFLASH=1"},
+        {"set"    : "uart", "define" : "UART=1"}
       ],
       "builders": [
         {

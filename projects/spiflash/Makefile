@@ -19,3 +19,6 @@ icarus: stream.si
 verilator: stream.si
 		touch data.raw
 		silice-make.sh -s stream.si -b verilator -p basic -o BUILD_$(subst :,_,$@) $(ARGS)
+
+silixel: stream.si
+		silice-make.sh -s stream.si -b silixel -p basic,qspiflash,uart -o BUILD_$(subst :,_,$@) $(ARGS)

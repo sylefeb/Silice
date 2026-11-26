@@ -64,6 +64,22 @@ $$pin.sdram_dq_i  = 16
 $$pin.sdram_dq_o  = 16
 $$end
 
+$$if SPIFLASH or QSPIFLASH then
+$$pin.sf_clk    = 1 pin.sf_csn    = 1
+$$pin.sf_mosi   = 1 pin.sf_miso   = 1
+$$pin.sf_io0    = 1 pin.sf_io0_oe = 1 pin.sf_io0_o = 1 pin.sf_io0_i = 1
+$$pin.sf_io1    = 1 pin.sf_io1_oe = 1 pin.sf_io1_o = 1 pin.sf_io1_i = 1
+$$if QSPIFLASH then
+$$pin.sf_io2    = 1 pin.sf_io2_oe = 1 pin.sf_io2_o = 1 pin.sf_io2_i = 1
+$$pin.sf_io3    = 1 pin.sf_io3_oe = 1 pin.sf_io3_o = 1 pin.sf_io3_i = 1
+$$end
+$$end
+
+$$if UART then
+$$pin.uart_tx   = 1
+$$pin.uart_rx   = 1
+$$end
+
 // silixel_oddr: double data rate output
 //   D0, D1 are captured on C posedge
 //   Q outputs D0 on C high, D1 on C low

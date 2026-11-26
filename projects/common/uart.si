@@ -28,6 +28,8 @@ $$  elseif ECPIX5 then
 $$    uart_in_clock_freq_mhz = 100
 $$  elseif ICEPI_ZERO then
 $$    uart_in_clock_freq_mhz = 25
+$$  elseif SILIXEL then
+$$    uart_in_clock_freq_mhz = 1
 $$  else
 $$    error("[uart] clock frequency 'uart_in_clock_freq_mhz' not specified")
 $$  end
