@@ -12,6 +12,8 @@
         {"set"    : "spiflash", "define" : "SPIFLASH=1"},
         {"set"    : "qspiflash", "define" : "QSPIFLASH=1"},
         {"set"    : "oled", "define" : "OLED=1"},
+        {"set"    : "sdcard", "define" : "SDCARD=1"},
+        {"set"    : "buttons","define" : "BUTTONS=1"},
         {"set"    : "uart", "define" : "UART=1"}
       ],
       "builders": [

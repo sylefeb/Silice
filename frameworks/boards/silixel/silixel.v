@@ -88,6 +88,17 @@ $$pin.uart_tx   = 1
 $$pin.uart_rx   = 1
 $$end
 
+$$if SDCARD then
+$$pin.sd_clk     = 1
+$$pin.sd_csn     = 1
+$$pin.sd_mosi    = 1
+$$pin.sd_miso    = 1
+$$end
+
+$$if BUTTONS then
+$$pin.btns       = 4
+$$end
+
 // silixel_oddr: double data rate output
 //   D0, D1 are captured on C posedge
 //   Q outputs D0 on C high, D1 on C low

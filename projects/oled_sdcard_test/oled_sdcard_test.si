@@ -15,7 +15,7 @@ $$ st7789_no_cs = false
 
 $include('../common/oled.si')
 
-$$if not ULX3S and not ICARUS then
+$$if not ULX3S and not ICARUS and not SILIXEL then
 $$error('only tested on ULX3S, small changes likely required to main input/outputs for other boards')
 $$end
 
