@@ -75,6 +75,14 @@ $$pin.sf_io3    = 1 pin.sf_io3_oe = 1 pin.sf_io3_o = 1 pin.sf_io3_i = 1
 $$end
 $$end
 
+$$if OLED then
+  $$pin.oled_clk  = 1
+  $$pin.oled_mosi = 1
+  $$pin.oled_dc   = 1
+  $$pin.oled_resn = 1
+  $$pin.oled_csn  = 1
+$$end
+
 $$if UART then
 $$pin.uart_tx   = 1
 $$pin.uart_rx   = 1
